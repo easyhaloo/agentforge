@@ -52,12 +52,14 @@ Acceptance: frontend behavior is preserved; web, API and contract CI checks pass
 ## Phase 2 — Backend platform and persistence
 
 Priority: P1  
-Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24)  
+Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24) · [PR #26](https://github.com/easyhaloo/agentforge/pull/26)  
 Status: **In progress** — persistence and tenant-scope foundations are merged; production identity is not implemented.
 
 Implemented:
 - PostgreSQL schema for organizations, users, external identities, memberships, sessions, and organization-owned Changesets.
 - Versioned, transactional SQL migration ledger with an advisory lock.
+- Validated runtime configuration, including port range and PostgreSQL URL validation.
+- Cryptographic request IDs propagated through response headers and request context.
 - Organization-scoped Changeset repository methods and SQL predicates.
 - Organization-scoped API routes requiring a trusted `PrincipalResolver`.
 - Role checks at the HTTP boundary; unknown roles and viewer writes are denied.
