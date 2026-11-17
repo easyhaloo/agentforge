@@ -25,10 +25,19 @@ import (
 
 func lockSuffix() string { return strconv.FormatInt(time.Now().UnixNano(), 10) }
 
+// lockFixture is a Store under test plus a view of its advisory locks on the server.
+type lockFixture struct {
+	ctx   context.Context
+	store *Store
+	// application is the application_name of every connection of the store's pool, so server-side
+	// counts ignore advisory locks held by unrelated sessions (a concurrent migration, for example).
+	application string
+}
+
 // lockOpenStore opens a Store with an explicit pool size. Every held changeset lock is a
 // session-level advisory lock that pins one pooled connection, so the tests must not depend on
 // the default pool size (the CPU count).
-func lockOpenStore(t *testing.T, maxConns int) (context.Context, *Store) {
+func lockOpenStore(t *testing.T, maxConns int) *lockFixture {
 	t.Helper()
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -38,8 +47,10 @@ func lockOpenStore(t *testing.T, maxConns int) (context.Context, *Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	application := "af_lock_" + lockSuffix()
 	query := parsed.Query()
 	query.Set("pool_max_conns", strconv.Itoa(maxConns))
+	query.Set("application_name", application)
 	parsed.RawQuery = query.Encode()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -59,7 +70,47 @@ func lockOpenStore(t *testing.T, maxConns int) (context.Context, *Store) {
 			t.Errorf("store.Close is blocked: %d connections are still acquired (a lock connection leaked)", store.pool.Stat().AcquiredConns())
 		}
 	})
-	return ctx, store
+	if got := store.pool.Config().MaxConns; got != int32(maxConns) {
+		t.Fatalf("pool_max_conns was not applied: MaxConns=%d, want %d", got, maxConns)
+	}
+	return &lockFixture{ctx: ctx, store: store, application: application}
+}
+
+// counts asks the server, over a separate connection, how many advisory locks held by this
+// store's connections are granted and how many are still waiting to be granted.
+func (f *lockFixture) counts(t *testing.T) (granted, waiting int) {
+	t.Helper()
+	connection, err := pgx.Connect(f.ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close(f.ctx)
+	err = connection.QueryRow(f.ctx, `
+		SELECT count(*) FILTER (WHERE l.granted), count(*) FILTER (WHERE NOT l.granted)
+		FROM pg_locks AS l JOIN pg_stat_activity AS a ON a.pid = l.pid
+		WHERE l.locktype = 'advisory' AND a.application_name = $1
+	`, f.application).Scan(&granted, &waiting)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return granted, waiting
+}
+
+// wantCounts fails unless the server reports exactly the given granted and waiting advisory locks.
+func (f *lockFixture) wantCounts(t *testing.T, when string, wantGranted, wantWaiting int) {
+	t.Helper()
+	if granted, waiting := f.counts(t); granted != wantGranted || waiting != wantWaiting {
+		t.Fatalf("%s: advisory locks granted=%d waiting=%d, want %d and %d", when, granted, waiting, wantGranted, wantWaiting)
+	}
+}
+
+// wantIdle fails unless every connection went back to the pool and the server holds no lock.
+func (f *lockFixture) wantIdle(t *testing.T, when string) {
+	t.Helper()
+	lockEventually(t, 2*time.Second, when+": a pooled connection is still acquired", func() bool {
+		return f.store.pool.Stat().AcquiredConns() == 0
+	})
+	f.wantCounts(t, when, 0, 0)
 }
 
 // lockOnce makes an unlock function safe to call from both the test body and a defer.
@@ -79,26 +130,6 @@ func lockEventually(t *testing.T, timeout time.Duration, failure string, conditi
 	}
 }
 
-// lockAdvisoryCounts asks the server, over a separate connection, how many advisory locks of the
-// current database are granted and how many sessions are waiting for one.
-func lockAdvisoryCounts(t *testing.T, ctx context.Context) (granted, waiting int) {
-	t.Helper()
-	connection, err := pgx.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Close(ctx)
-	err = connection.QueryRow(ctx, `
-		SELECT count(*) FILTER (WHERE granted), count(*) FILTER (WHERE NOT granted)
-		FROM pg_locks
-		WHERE locktype = 'advisory' AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
-	`).Scan(&granted, &waiting)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return granted, waiting
-}
-
 type lockOutcome struct {
 	unlock func()
 	err    error
@@ -113,49 +144,50 @@ func lockInBackground(ctx context.Context, store *Store, organizationID, changes
 	return outcome
 }
 
+func lockWithTimeout(ctx context.Context, store *Store, organizationID, changesetID string, timeout time.Duration) (func(), error) {
+	acquireCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return store.LockChangeset(acquireCtx, organizationID, changesetID)
+}
+
 func TestChangesetLockLocksAndUnlocksOrdinaryIdentifiers(t *testing.T) {
-	ctx, store := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, 4)
 	suffix := lockSuffix()
-	unlock, err := store.LockChangeset(ctx, "lock-org-"+suffix, "lock-changeset-"+suffix)
+	unlock, err := fx.store.LockChangeset(fx.ctx, "lock-org-"+suffix, "lock-changeset-"+suffix)
 	if err != nil {
 		t.Fatalf("LockChangeset with ordinary identifiers: %v", err)
 	}
 	release := lockOnce(unlock)
 	defer release()
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 1 || waiting != 0 {
-		t.Fatalf("while locked: advisory locks granted=%d waiting=%d, want 1 and 0", granted, waiting)
-	}
-	if acquired := store.pool.Stat().AcquiredConns(); acquired != 1 {
+	fx.wantCounts(t, "while locked", 1, 0)
+	if acquired := fx.store.pool.Stat().AcquiredConns(); acquired != 1 {
 		t.Fatalf("while locked: AcquiredConns=%d, want 1 (the lock pins one pooled connection)", acquired)
 	}
 
 	release()
-	lockEventually(t, 2*time.Second, "a pooled connection is still acquired after unlock", func() bool {
-		return store.pool.Stat().AcquiredConns() == 0
-	})
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 0 || waiting != 0 {
-		t.Fatalf("after unlock the database still has advisory locks granted=%d waiting=%d, want none", granted, waiting)
-	}
+	// An unlock with a key that differs from the lock key would return the connection to the pool
+	// with the lock still held, so the server is asked, not only the pool.
+	fx.wantIdle(t, "after unlock")
 }
 
 func TestChangesetLockExcludesTheSameChangesetUntilReleased(t *testing.T) {
-	ctx, store := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, 4)
 	suffix := lockSuffix()
 	organizationID, changesetID := "lock-org-"+suffix, "lock-changeset-"+suffix
-	first, err := store.LockChangeset(ctx, organizationID, changesetID)
+	first, err := fx.store.LockChangeset(fx.ctx, organizationID, changesetID)
 	if err != nil {
 		t.Fatalf("first lock: %v", err)
 	}
 	releaseFirst := lockOnce(first)
 	defer releaseFirst()
 
-	waiterCtx, cancelWaiter := context.WithTimeout(ctx, 8*time.Second)
+	waiterCtx, cancelWaiter := context.WithTimeout(fx.ctx, 8*time.Second)
 	defer cancelWaiter()
-	second := lockInBackground(waiterCtx, store, organizationID, changesetID)
+	second := lockInBackground(waiterCtx, fx.store, organizationID, changesetID)
 
 	// Prove the second caller is queued on the server, then that it stays blocked.
 	lockEventually(t, 3*time.Second, "the second caller never showed up as a waiting advisory lock", func() bool {
-		_, waiting := lockAdvisoryCounts(t, ctx)
+		_, waiting := fx.counts(t)
 		return waiting == 1
 	})
 	select {
@@ -177,16 +209,11 @@ func TestChangesetLockExcludesTheSameChangesetUntilReleased(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("the second LockChangeset did not acquire within 3s of the first release")
 	}
-	lockEventually(t, 2*time.Second, "a pooled connection is still acquired after both unlocks", func() bool {
-		return store.pool.Stat().AcquiredConns() == 0
-	})
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 0 || waiting != 0 {
-		t.Fatalf("after both unlocks the database still has advisory locks granted=%d waiting=%d", granted, waiting)
-	}
+	fx.wantIdle(t, "after both unlocks")
 }
 
 func TestChangesetLockKeepsDistinctChangesetsIndependent(t *testing.T) {
-	ctx, store := lockOpenStore(t, 16)
+	fx := lockOpenStore(t, 16)
 	prefix := "lock-" + lockSuffix() + "-"
 	// Every pair is a different (organization, changeset) and must be lockable at the same
 	// time. Several are the classic collisions of a naive key: delimiter shifting, no
@@ -201,38 +228,31 @@ func TestChangesetLockKeepsDistinctChangesetsIndependent(t *testing.T) {
 		{`("a", "bc") without a delimiter`, prefix + "a", "bc"},
 		{"NUL inside the changeset", prefix + "n", "x\x00y"},
 		{"NUL inside the organization", prefix + "n\x00x", "y"},
+		// The merge handler holds the changeset lock and the repository lock together.
+		{"repository key next to the changeset key", prefix + "org", "repository:team/service"},
 	}
 	var releases []func()
-	defer func() {
+	releaseAll := func() {
 		for index := len(releases) - 1; index >= 0; index-- {
 			releases[index]()
 		}
-	}()
+	}
+	defer releaseAll()
 	for _, pair := range pairs {
-		acquireCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		unlock, err := store.LockChangeset(acquireCtx, pair.organizationID, pair.changesetID)
-		cancel()
+		unlock, err := lockWithTimeout(fx.ctx, fx.store, pair.organizationID, pair.changesetID, 2*time.Second)
 		if err != nil {
 			t.Fatalf("%s (%q, %q) could not be locked while the %d earlier pairs were held: %v", pair.name, pair.organizationID, pair.changesetID, len(releases), err)
 		}
 		releases = append(releases, lockOnce(unlock))
 	}
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != len(pairs) || waiting != 0 {
-		t.Fatalf("with %d independent pairs held, the database reports granted=%d waiting=%d", len(pairs), granted, waiting)
-	}
-	for index := len(releases) - 1; index >= 0; index-- {
-		releases[index]()
-	}
-	lockEventually(t, 2*time.Second, "pooled connections are still acquired after releasing every pair", func() bool {
-		return store.pool.Stat().AcquiredConns() == 0
-	})
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 0 || waiting != 0 {
-		t.Fatalf("after releasing every pair the database still has advisory locks granted=%d waiting=%d", granted, waiting)
-	}
+	fx.wantCounts(t, "with every pair held", len(pairs), 0)
+
+	releaseAll()
+	fx.wantIdle(t, "after releasing every pair")
 }
 
 func TestChangesetLockHandlesUnicodeLongAndHostileIdentifiers(t *testing.T) {
-	ctx, store := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, 4)
 	prefix := "lock-" + lockSuffix() + "-"
 	cases := []struct{ name, organizationID, changesetID string }{
 		{"Unicode", prefix + "组织-é", "变更集-ß-🙂"},
@@ -245,36 +265,27 @@ func TestChangesetLockHandlesUnicodeLongAndHostileIdentifiers(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			unlock, err := store.LockChangeset(ctx, tc.organizationID, tc.changesetID)
+			unlock, err := fx.store.LockChangeset(fx.ctx, tc.organizationID, tc.changesetID)
 			if err != nil {
 				t.Fatalf("LockChangeset(%d-byte organization, %d-byte changeset): %v", len(tc.organizationID), len(tc.changesetID), err)
 			}
 			release := lockOnce(unlock)
 			defer release()
-			if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 1 || waiting != 0 {
-				t.Fatalf("while locked: granted=%d waiting=%d, want 1 and 0", granted, waiting)
-			}
+			fx.wantCounts(t, "while locked", 1, 0)
 			release()
-			lockEventually(t, 2*time.Second, "a pooled connection is still acquired after unlock", func() bool {
-				return store.pool.Stat().AcquiredConns() == 0
-			})
-			if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 0 || waiting != 0 {
-				t.Fatalf("after unlock: granted=%d waiting=%d, want none", granted, waiting)
-			}
+			fx.wantIdle(t, "after unlock")
 		})
 	}
 
 	t.Run("long identifiers that differ only in their last byte are independent", func(t *testing.T) {
 		common := strings.Repeat("d", 700)
-		left, err := store.LockChangeset(ctx, prefix+"org", common+"a")
+		left, err := fx.store.LockChangeset(fx.ctx, prefix+"org", common+"a")
 		if err != nil {
 			t.Fatal(err)
 		}
 		releaseLeft := lockOnce(left)
 		defer releaseLeft()
-		acquireCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		right, err := store.LockChangeset(acquireCtx, prefix+"org", common+"b")
+		right, err := lockWithTimeout(fx.ctx, fx.store, prefix+"org", common+"b", 2*time.Second)
 		if err != nil {
 			t.Fatalf("a long changeset id was treated as equal to one that differs only in its last byte: %v", err)
 		}
@@ -283,21 +294,30 @@ func TestChangesetLockHandlesUnicodeLongAndHostileIdentifiers(t *testing.T) {
 }
 
 func TestChangesetLockCancelledWaiterFailsCleanlyAndNeverAcquires(t *testing.T) {
-	ctx, store := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, 4)
 	suffix := lockSuffix()
 	organizationID, changesetID := "lock-org-"+suffix, "lock-changeset-"+suffix
-	holder, err := store.LockChangeset(ctx, organizationID, changesetID)
+
+	// A context that is already cancelled never reaches the database and leaks nothing.
+	dead, stop := context.WithCancel(fx.ctx)
+	stop()
+	if unlock, err := fx.store.LockChangeset(dead, organizationID, changesetID); err == nil || unlock != nil {
+		t.Fatalf("LockChangeset with a cancelled context returned unlock!=nil=%v err=%v, want an error and no unlock function", unlock != nil, err)
+	}
+	fx.wantIdle(t, "after a lock attempt with an already cancelled context")
+
+	holder, err := fx.store.LockChangeset(fx.ctx, organizationID, changesetID)
 	if err != nil {
 		t.Fatalf("holder lock: %v", err)
 	}
 	releaseHolder := lockOnce(holder)
 	defer releaseHolder()
 
-	waiterCtx, cancelWaiter := context.WithCancel(ctx)
+	waiterCtx, cancelWaiter := context.WithCancel(fx.ctx)
 	defer cancelWaiter()
-	waiter := lockInBackground(waiterCtx, store, organizationID, changesetID)
+	waiter := lockInBackground(waiterCtx, fx.store, organizationID, changesetID)
 	lockEventually(t, 3*time.Second, "the waiter never queued on the advisory lock", func() bool {
-		_, waiting := lockAdvisoryCounts(t, ctx)
+		_, waiting := fx.counts(t)
 		return waiting == 1
 	})
 
@@ -319,37 +339,24 @@ func TestChangesetLockCancelledWaiterFailsCleanlyAndNeverAcquires(t *testing.T) 
 	// queued (it would take the lock the moment the holder releases it), and its connection
 	// must be given up: only the holder's connection stays acquired.
 	lockEventually(t, 5*time.Second, "the cancelled waiter is still queued on the server", func() bool {
-		granted, waiting := lockAdvisoryCounts(t, ctx)
+		granted, waiting := fx.counts(t)
 		return granted == 1 && waiting == 0
 	})
 	lockEventually(t, 5*time.Second, "the cancelled waiter's connection was not released", func() bool {
-		return store.pool.Stat().AcquiredConns() == 1
+		return fx.store.pool.Stat().AcquiredConns() == 1
 	})
 
 	releaseHolder()
-	next, err := lockWithTimeout(ctx, store, organizationID, changesetID, 2*time.Second)
+	next, err := lockWithTimeout(fx.ctx, fx.store, organizationID, changesetID, 2*time.Second)
 	if err != nil {
 		t.Fatalf("locking after the cancelled waiter and the holder are gone: %v", err)
 	}
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 1 || waiting != 0 {
-		t.Fatalf("with one new holder the database reports granted=%d waiting=%d, want 1 and 0 (a cancelled waiter must not hold the lock)", granted, waiting)
-	}
+	fx.wantCounts(t, "with one new holder (a cancelled waiter must not hold the lock)", 1, 0)
 	next()
-	lockEventually(t, 2*time.Second, "pooled connections are still acquired after the last unlock", func() bool {
-		return store.pool.Stat().AcquiredConns() == 0
-	})
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 0 || waiting != 0 {
-		t.Fatalf("after the last unlock the database still has advisory locks granted=%d waiting=%d", granted, waiting)
-	}
-	if err := store.Ping(ctx); err != nil {
+	fx.wantIdle(t, "after the last unlock")
+	if err := fx.store.Ping(fx.ctx); err != nil {
 		t.Fatalf("the pool must stay usable after a cancelled waiter: %v", err)
 	}
-}
-
-func lockWithTimeout(ctx context.Context, store *Store, organizationID, changesetID string, timeout time.Duration) (func(), error) {
-	acquireCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	return store.LockChangeset(acquireCtx, organizationID, changesetID)
 }
 
 const lockHTTPOrigin = "https://app.example.test"
@@ -376,7 +383,8 @@ type lockChangesetBody struct {
 }
 
 func TestChangesetLockWorksThroughTheRealHTTPStack(t *testing.T) {
-	ctx, store := lockOpenStore(t, 8)
+	fx := lockOpenStore(t, 8)
+	ctx, store := fx.ctx, fx.store
 	suffix := lockSuffix()
 	organizationID, userID, repository := "lock-http-org-"+suffix, "lock-http-user-"+suffix, "team/lock-"+suffix
 	t.Cleanup(func() {
@@ -437,12 +445,7 @@ func TestChangesetLockWorksThroughTheRealHTTPStack(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &changeset); err != nil || len(changeset.Changeset.Revisions) != 1 || changeset.Changeset.Revisions[0].CommitSHA != strings.Repeat("a", 40) {
 		t.Fatalf("revision response = %s (err=%v), want exactly one revision resolved by the Git provider", response.Body.String(), err)
 	}
-	lockEventually(t, 2*time.Second, "the request left a pooled connection acquired", func() bool {
-		return store.pool.Stat().AcquiredConns() == 0
-	})
-	if granted, waiting := lockAdvisoryCounts(t, ctx); granted != 0 || waiting != 0 {
-		t.Fatalf("after the request the database still has advisory locks granted=%d waiting=%d", granted, waiting)
-	}
+	fx.wantIdle(t, "after the request")
 
 	// The request contends on the same key as a direct caller: while the changeset is locked
 	// the request waits, and it completes once the lock is released.
@@ -454,6 +457,10 @@ func TestChangesetLockWorksThroughTheRealHTTPStack(t *testing.T) {
 	defer releaseHeld()
 	finished := make(chan *httptest.ResponseRecorder, 1)
 	go func() { finished <- call(http.MethodPost, revisionsPath, `{"ref":"main"}`) }()
+	lockEventually(t, 3*time.Second, "the request never queued on the changeset lock", func() bool {
+		_, waiting := fx.counts(t)
+		return waiting == 1
+	})
 	select {
 	case response := <-finished:
 		t.Fatalf("the request completed (status=%d) while the changeset lock was held elsewhere", response.Code)
@@ -468,4 +475,5 @@ func TestChangesetLockWorksThroughTheRealHTTPStack(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("the request did not complete after the changeset lock was released")
 	}
+	fx.wantIdle(t, "after the contended request")
 }
