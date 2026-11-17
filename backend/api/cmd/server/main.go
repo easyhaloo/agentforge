@@ -63,6 +63,7 @@ func main() {
 		if providerErr != nil { logger.Error("Git provider initialization failed; revision and merge operations remain unavailable", "error", providerErr) } else {
 			gitProvider = provider
 			evaluator = delivery.GitDiffEvaluator{Git: provider}
+			if configuration.EvaluationDockerImage != "" { evaluator = delivery.DockerEvaluator{Git: provider, Image: configuration.EvaluationDockerImage, Command: configuration.EvaluationCommand, Timeout: 10*time.Minute} }
 		}
 	}
 	if configuration.EvidenceRoot != "" {
