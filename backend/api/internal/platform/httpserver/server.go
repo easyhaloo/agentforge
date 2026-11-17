@@ -32,7 +32,7 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		writeHealth(w, http.StatusOK, "ready")
 	})
 	mux.Handle("/", newDeliveryHandler(deps))
-	return mux
+	return requestIDMiddleware(mux)
 }
 
 func writeHealth(w http.ResponseWriter, status int, value string) {

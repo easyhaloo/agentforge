@@ -21,7 +21,7 @@ export DATABASE_URL='postgres://agentforge:agentforge@localhost:5432/agentforge?
 go run ./cmd/server
 ```
 
-The server applies pending embedded SQL migrations at startup.
+The server validates `PORT` and `DATABASE_URL` at startup, applies pending embedded SQL migrations, and attaches a validated `X-Request-ID` to every response. Safe incoming request IDs are preserved; invalid or oversized values are replaced.
 
 ## Health checks
 

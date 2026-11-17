@@ -10,24 +10,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/config"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	port := os.Getenv("PORT")
-	if port == "" { port = "8080" }
+	configuration, err := config.LoadFromEnv()
+	if err != nil {
+		logger.Error("invalid API configuration", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		logger.Error("DATABASE_URL is required")
-		os.Exit(1)
-	}
-	store, err := postgres.Open(ctx, databaseURL)
+	store, err := postgres.Open(ctx, configuration.DatabaseURL)
 	if err != nil {
 		logger.Error("database initialization failed", "error", err)
 		os.Exit(1)
@@ -35,13 +34,13 @@ func main() {
 	defer store.Close()
 
 	server := &http.Server{
-		Addr: ":" + port,
-		Handler: httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store}),
+		Addr:              ":" + configuration.Port,
+		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {
-		logger.Info("starting API server", "port", port)
+		logger.Info("starting API server", "port", configuration.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("API server failed", "error", err)
 			stop()
