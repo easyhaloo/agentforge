@@ -163,7 +163,7 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 	if _, err := repository.Create(context.Background(), "org-a", changeset); err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{role: "member"}})
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{role: "member"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
 	base := "/api/v1/organizations/org-a/changesets/cs-existing"
 	requests := []struct{ path, body string }{
 		{base + "/revisions", `{"ref":"commit-1"}`},
