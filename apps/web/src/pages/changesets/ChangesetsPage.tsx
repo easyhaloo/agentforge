@@ -50,7 +50,7 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
     try{
       const [page,repoPage]=await Promise.all([changesetAPI.list(organization.id),repositoryAPI.list(organization.id)]);
       setItems(page.items);setRepositories(repoPage.items);
-      if(!repository&&repoPage.items.length)setRepository(repoPage.items[0].slug);
+      setRepository(current=>current||repoPage.items[0]?.slug||"");
     }catch(cause){setError(cause instanceof Error?cause.message:"Unable to load delivery data");}
     finally{setLoading(false);}
   },[organization.id]);
