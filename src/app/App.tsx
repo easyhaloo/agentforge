@@ -59,7 +59,7 @@ function App() {
           ) : ["Changesets", "Eval", "Review", "Trails", "Stacks", "Self-healing"].includes(active) ? (
             <DeliveryFlow page={active} onNotify={notify} />
           ) : (
-            <ResourceWorkspace page={active} onNotify={notify} />
+            <ResourceWorkspace key={active} page={active} onNotify={notify} />
           )}
           <footer>
             <span>AgentForge Prototype <b>v0.1.0</b></span>

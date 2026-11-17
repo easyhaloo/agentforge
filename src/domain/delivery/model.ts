@@ -8,12 +8,20 @@ export function isEvidenceCurrent(revisionId: string, evidence?: RevisionEvidenc
   return evidence?.revisionId === revisionId;
 }
 
+export function isReviewCurrent(revisionId: string, review?: RevisionReview): boolean {
+  return review?.revisionId === revisionId;
+}
+
 export function canApproveRevision(revisionId: string, evidence?: RevisionEvidence): boolean {
   return isEvidenceCurrent(revisionId, evidence) && evidence?.status === "Passed";
 }
 
-export function canMergeRevision(revisionId: string, evidence?: RevisionEvidence, review?: RevisionReview): boolean {
+export function canMergeRevision(
+  revisionId: string,
+  evidence?: RevisionEvidence,
+  review?: RevisionReview,
+): boolean {
   return canApproveRevision(revisionId, evidence)
-    && review?.revisionId === revisionId
-    && review.decision === "Approved";
+    && isReviewCurrent(revisionId, review)
+    && review?.decision === "Approved";
 }
