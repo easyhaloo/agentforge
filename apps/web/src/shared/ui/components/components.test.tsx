@@ -7,6 +7,7 @@ import {
   DatePicker,
   Input,
   Modal,
+  Popover,
   RadioGroup,
   Select,
   Switch,
@@ -56,6 +57,13 @@ describe("shared UI primitives", () => {
     expect(renderToStaticMarkup(<Empty title="No records" />)).toContain("No records");
     expect(renderToStaticMarkup(<Loading label="Loading records" />)).toContain('role="status"');
     expect(renderToStaticMarkup(<Skeleton lines={2} />)).toContain("af-skeleton");
+  });
+
+  it("exposes accessible popover trigger relationships", () => {
+    const html = renderToStaticMarkup(<Popover trigger="More" ariaLabel="More actions">Menu content</Popover>);
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("More");
   });
 
   it("renders data tables with stable row keys and column headers", () => {
