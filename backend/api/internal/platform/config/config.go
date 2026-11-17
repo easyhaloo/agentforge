@@ -112,7 +112,7 @@ func loadOIDC(issuerURL, clientID, clientSecret, redirectURL, sessionTTL string)
 
 	redirect, err := url.Parse(strings.TrimSpace(redirectURL))
 	if err != nil || (redirect.Scheme != "https" && redirect.Scheme != "http") ||
-		redirect.Host == "" || redirect.User != nil || redirect.Fragment != "" {
+		redirect.Host == "" || redirect.User != nil || redirect.RawQuery != "" || redirect.Fragment != "" {
 		return nil, 0, errors.New("OIDC_REDIRECT_URL must be an absolute HTTP(S) callback URL")
 	}
 	if redirect.Scheme == "http" {
