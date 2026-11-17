@@ -1,0 +1,51 @@
+.af-ui-root{--af-ui-font:inherit;font-family:var(--af-ui-font)}
+.af-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 13px;border:1px solid #303a50;border-radius:7px;background:#141c2b;color:#c1c9d8;font:600 11px inherit;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
+.af-button:hover:not(:disabled){border-color:#6559b5;background:#1b2638}
+.af-button:disabled{opacity:.48;cursor:not-allowed}
+.af-button--primary{border-color:#8171ed;background:#7868e6;color:#fff}
+.af-button--primary:hover:not(:disabled){background:#8979f4}
+.af-button--danger{border-color:#70404a;background:#3d252f;color:#f0a4ae}
+.af-button--ghost{border-color:transparent;background:transparent;color:#a99cff}
+.af-button--small{min-height:28px;padding:0 9px;font-size:10px}
+.af-button--large{min-height:40px;padding:0 16px;font-size:12px}
+.af-spinner{width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:af-spin .7s linear infinite}
+@keyframes af-spin{to{transform:rotate(360deg)}}
+.af-field{display:grid;gap:6px;min-width:0;color:#aab4c6;font-size:10px}
+.af-field__label{font-weight:600;color:#aeb8c9}
+.af-input,.af-select{width:100%;height:34px;padding:0 10px;border:1px solid #303c53;border-radius:6px;background:#0c1421;color:#e7eaf2;font:11px inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+.af-input:focus,.af-select:focus{border-color:#8171ed;box-shadow:0 0 0 2px #8171ed25}
+.af-input:disabled,.af-select:disabled{opacity:.5;cursor:not-allowed}
+.af-input--small,.af-select--small{height:28px}
+.af-input--large,.af-select--large{height:40px}
+.af-input--error{border-color:#d97886}
+.af-field__hint{color:#74819a;font-size:9px}
+.af-field__error{color:#e28d98;font-size:9px}
+.af-search{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border:1px solid #2b3549;border-radius:7px;background:#0d1421;color:#8290a8}
+.af-search:focus-within{border-color:#8171ed;box-shadow:0 0 0 2px #8171ed25}
+.af-search__icon{font-size:18px;line-height:1}
+.af-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#e7eaf2;font:11px inherit}
+.af-search input::placeholder{color:#67748b}
+.af-search button,.af-modal__close{border:0;background:transparent;color:#8290a8;font-size:17px;cursor:pointer}
+.af-modal-backdrop{position:fixed;inset:0;z-index:var(--af-z-overlay,10);display:grid;place-items:center;padding:20px;background:#050810c9;backdrop-filter:blur(4px)}
+.af-modal{max-width:100%;max-height:min(90vh,760px);overflow:auto;border:1px solid #34405a;border-radius:12px;background:#111a29;box-shadow:0 25px 80px #0009}
+.af-modal__header{display:flex;align-items:center;justify-content:space-between;padding:17px 20px;border-bottom:1px solid #273248}
+.af-modal__header h2{margin:0;color:#e8eaf2;font-size:16px}
+.af-modal__close{font-size:22px}
+.af-modal__body{padding:20px;color:#c5ccda}
+.af-modal__footer{display:flex;justify-content:flex-end;gap:8px;padding:13px 20px;border-top:1px solid #273248}
+.af-form{display:grid;gap:14px}
+.af-form-item{display:grid;gap:6px}
+.af-table-wrap{width:100%;overflow:auto;border:1px solid #242e42;border-radius:8px;background:#101725}
+.af-table{width:100%;border-collapse:collapse;text-align:left}
+.af-table th{padding:12px 14px;background:#0e1522;color:#71809a;font-size:9px;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+.af-table td{padding:12px 14px;border-top:1px solid #202a3d;color:#c5ccda;font-size:10px}
+.af-table tbody tr:hover{background:#171f31}
+.af-table__state{text-align:center!important;padding:28px!important;color:#7d8aa1!important}
+.af-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 13px;border-top:1px solid #202a3d;color:#78859b;font-size:9px}
+.af-pagination__actions{display:flex;align-items:center;gap:4px}
+.af-pagination__actions button{min-width:27px;height:26px;padding:0 7px;border:1px solid transparent;border-radius:5px;background:transparent;color:#9aa6ba;font-size:9px;cursor:pointer}
+.af-pagination__actions button:hover:not(:disabled),.af-pagination__actions button.is-active{border-color:#403969;background:#292445;color:#c6bcff}
+.af-pagination__actions button:disabled{opacity:.35;cursor:not-allowed}
+.af-date-range{display:flex;align-items:center;gap:8px;min-width:0;color:#77849b}
+.af-date-range .af-field{flex:1}
+@media(max-width:560px){.af-modal-backdrop{padding:10px}.af-modal{width:100%!important}.af-pagination{align-items:flex-start;flex-direction:column}}
