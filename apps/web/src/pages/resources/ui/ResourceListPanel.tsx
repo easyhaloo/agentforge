@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import { Sparkles } from "lucide-react";
-import { Button, Input, Select } from "../../../shared/ui";
+import { Button, DataTable, Input, Select } from "../../../shared/ui";
 import type { PageConfig } from "../data/resourceConfigs";
 import type { ResourceRow } from "../data/resourceRecords";
 
@@ -17,6 +17,15 @@ export function ResourceListPanel(props: Props) {
   const { page, config, items, filtered, selected, query, tab, showCreate, newName,
     onQueryChange, onTabChange, onSelect, onShowCreate, onHideCreate, onNewNameChange, onCreate, onAction } = props;
   const statuses = ["All", ...Array.from(new Set(items.map((item) => item.status)))];
+  const columns = config.columns.map((column) => ({
+    key: column.field,
+    title: column.label,
+    render: (value: unknown) => column.format === "mono"
+      ? <span className="mono">{String(value ?? "")}</span>
+      : column.format === "status"
+        ? <span className="resource-status">{String(value ?? "")}</span>
+        : column.field === "name" ? <b>{String(value ?? "")}</b> : String(value ?? "—"),
+  }));
 
   return <section className="card resource-list">
     <div className="resource-head">
@@ -38,21 +47,15 @@ export function ResourceListPanel(props: Props) {
       />
     </div>
     <div className="resource-table-wrap">
-      <table>
-        <thead><tr>{config.columns.map((column) => <th scope="col" key={column.label}>{column.label}</th>)}</tr></thead>
-        <tbody>{filtered.map((item) => <tr key={item.id} className={selected === item.id ? "selected-row" : ""} onClick={() => onSelect(item.id)}>
-          {config.columns.map((column) => {
-            const value = item[column.field];
-            return <td key={column.label}>
-              {column.format === "mono" ? <span className="mono">{value}</span>
-                : column.format === "status" ? <span className="resource-status">{value}</span>
-                  : column.field === "name" ? <b>{value}</b>
-                    : value}
-            </td>;
-          })}
-        </tr>)}</tbody>
-      </table>
-      {filtered.length === 0 && <div className="empty">No matching resources.</div>}
+      <DataTable
+        columns={columns}
+        data={filtered}
+        rowKey="id"
+        onRowClick={(item) => onSelect(item.id)}
+        rowClassName={(item) => selected === item.id ? "selected-row" : ""}
+        showColumnVisibility={false}
+        emptyText="No matching resources."
+      />
     </div>
     <div className="resource-foot"><span>Showing {filtered.length} of {items.length} demo resources</span><span>Prototype data <i className="live-dot" /></span></div>
   </section>;
