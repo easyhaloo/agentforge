@@ -30,6 +30,9 @@ paths:
               schema: { $ref: "#/components/schemas/Health" }
         "503":
           description: Storage is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
   /api/v1/changesets:
     get:
       operationId: listChangesets
@@ -248,7 +251,7 @@ components:
       type: object
       required: [status]
       properties:
-        status: { type: string, enum: [ok, ready] }
+        status: { type: string, enum: [ok, ready, not_ready] }
     CreateChangeset:
       type: object
       required: [repository, title]
