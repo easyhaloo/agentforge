@@ -42,7 +42,6 @@ type OIDCRepository interface {
 
 type OIDCAuthenticator struct {
 	repository OIDCRepository
-	issuer     string
 	appOrigin  string
 	sessionTTL time.Duration
 	oauth      oauth2.Config
@@ -61,7 +60,6 @@ func NewOIDCAuthenticator(ctx context.Context, configuration OIDCConfig, reposit
 	}
 	return &OIDCAuthenticator{
 		repository: repository,
-		issuer: configuration.IssuerURL,
 		appOrigin: configuration.AppOrigin,
 		sessionTTL: configuration.SessionTTL,
 		oauth: oauth2.Config{
