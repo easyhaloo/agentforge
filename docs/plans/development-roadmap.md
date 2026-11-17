@@ -42,7 +42,7 @@ Completed in PR #6:
 - Added path-aware CI jobs for frontend, backend and OpenAPI contract validation.
 
 Remaining:
-- Verify post-migration frontend tests/build, Go tests/build and OpenAPI validation in Actions.
+- Frontend tests/build, Go tests/build and OpenAPI validation all passed in [Actions run #44014719878](https://github.com/easyhaloo/agentforge/actions/runs/44014719878) for head `77de1b970051c9c1f501a3c5655eb67ef8e2f434`.
 - Verify Cloudflare Workers Builds from repository root deploys `apps/web/dist` successfully.
 - Generate and commit a reproducible npm lockfile; none existed at the inspected baseline.
 - Add local development environment examples and complete API configuration validation.
