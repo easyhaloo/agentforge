@@ -696,8 +696,7 @@ components:
         id: { type: string }
         slug:
           type: string
-          pattern: "^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$"
-          description: Unique, human-readable organization handle, usable in place of the organization id in any `/organizations/{organizationID}` path. The value `current` is reserved and never assigned.
+          description: Organization handle, usable in place of the organization id in any `/organizations/{organizationID}` path. Stored slugs are unique and match `^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$`; `current` is reserved and never assigned. An organization created without a slug (for example by direct SQL) reports its id, which may not match that pattern.
         name: { type: string }
         role: { type: string, enum: [owner, admin, member, viewer] }
     AccountContext:
