@@ -8,18 +8,24 @@ import {
   canRunEvaluation,
   isEvidenceCurrent,
   isReviewCurrent,
+  isRevisionNumberAvailable,
   revisionKey,
 } from "./index";
 
 describe("revision-scoped delivery invariants", () => {
   const changeset = changesetId("CS-2481");
   const current = revisionKey(changeset, 4);
+  const previous = revisionKey(changeset, 3);
   const passed = {
     id: evidenceId("EVL-1"), revisionId: current, status: "Passed" as const, checks: 38, createdAt: "now",
   };
   const approved = { id: reviewId("REV-1"), revisionId: current, decision: "Approved" as const, reviewer: "Mina" };
-  const draft = { status: "Draft" as const };
-  const merged = { status: "Merged" as const };
+  const draft = { status: "Draft" as const, currentRevisionId: current };
+  const merged = { status: "Merged" as const, currentRevisionId: current };
+  const revisions = [
+    { id: previous, changesetId: changeset, number: 3, baseCommitSha: null, headCommitSha: null, createdAt: "now" },
+    { id: current, changesetId: changeset, number: 4, baseCommitSha: null, headCommitSha: null, createdAt: "now" },
+  ];
 
   it("keeps entity identities distinct at the type boundary", () => {
     const changeId = changesetId("CS-2481");
@@ -34,21 +40,30 @@ describe("revision-scoped delivery invariants", () => {
   });
 
   it("marks evidence and review decisions from older revisions stale", () => {
-    expect(isEvidenceCurrent(current, { ...passed, revisionId: revisionId("CS-2481@r3") })).toBe(false);
-    expect(isReviewCurrent(current, { ...approved, revisionId: revisionId("CS-2481@r3") })).toBe(false);
+    expect(isEvidenceCurrent(current, { ...passed, revisionId: previous })).toBe(false);
+    expect(isReviewCurrent(current, { ...approved, revisionId: previous })).toBe(false);
   });
 
   it("requires passing evidence for the current revision before approval", () => {
     expect(canApproveRevision(current, passed)).toBe(true);
     expect(canApproveRevision(current, { ...passed, status: "Failed" })).toBe(false);
-    expect(canApproveRevision(current, { ...passed, revisionId: revisionId("CS-2481@r3") })).toBe(false);
+    expect(canApproveRevision(current, { ...passed, revisionId: previous })).toBe(false);
   });
 
-  it("requires current passing evidence and approval before merge", () => {
+  it("requires the active revision, passing evidence and approval before merge", () => {
     expect(canMergeRevision(draft, current, passed, approved)).toBe(true);
-    expect(canMergeRevision(draft, current, passed, { ...approved, revisionId: revisionId("CS-2481@r3") })).toBe(false);
+    expect(canMergeRevision(draft, previous, passed, approved)).toBe(false);
+    expect(canMergeRevision(draft, current, passed, { ...approved, revisionId: previous })).toBe(false);
     expect(canMergeRevision(draft, current, passed, { ...approved, decision: "Pending" })).toBe(false);
     expect(canMergeRevision(draft, current, { ...passed, status: "Failed" }, approved)).toBe(false);
+  });
+
+  it("enforces revision number uniqueness within a changeset", () => {
+    expect(isRevisionNumberAvailable(changeset, revisions, 5)).toBe(true);
+    expect(isRevisionNumberAvailable(changeset, revisions, 4)).toBe(false);
+    expect(isRevisionNumberAvailable(changeset, revisions, 0)).toBe(false);
+    expect(isRevisionNumberAvailable(changesetId("CS-OTHER"), revisions, 4)).toBe(true);
+    expect(() => revisionKey(changeset, 0)).toThrow();
   });
 
   it("blocks edits, revisions, evaluation and merge after merge", () => {

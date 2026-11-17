@@ -18,6 +18,7 @@ export function DeliveryFlow({ page, onNotify }: Props) {
     <div className="flow-main-grid">
       <DeliveryWorkspace
         change={workflow.change}
+        currentRevisionNumber={workflow.currentRevisionNumber}
         title={workflow.title}
         evaluations={workflow.evaluations}
         evaluationViews={workflow.evaluationViews}

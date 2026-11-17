@@ -6,6 +6,7 @@ export {
   canRunEvaluation,
   isEvidenceCurrent,
   isReviewCurrent,
+  isRevisionNumberAvailable,
   revisionKey,
 } from "./model";
 export type { GitCommit } from "./model";

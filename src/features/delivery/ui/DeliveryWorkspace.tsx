@@ -6,7 +6,7 @@ import { ReviewDecision } from "./ReviewDecision";
 import { TrailSummary } from "./TrailSummary";
 
 type Props = {
-  change: Change; title: string; evaluations: Evaluation[]; evaluationViews: EvaluationView[]; reviews: ReviewView[];
+  change: Change; currentRevisionNumber: number; title: string; evaluations: Evaluation[]; evaluationViews: EvaluationView[]; reviews: ReviewView[];
   currentRevisionId: RevisionId; evidenceCurrent: boolean; approved: boolean;
   trailDone: boolean; stackBase: string;
   onTitleChange: (title: string) => void; onTitleCommit: () => void;
@@ -17,14 +17,14 @@ type Props = {
 
 export function DeliveryWorkspace(props: Props) {
   const {
-    change, title, evaluations, evaluationViews, reviews, currentRevisionId, evidenceCurrent, approved,
+    change, currentRevisionNumber, title, evaluations, evaluationViews, reviews, currentRevisionId, evidenceCurrent, approved,
     trailDone, stackBase, onTitleChange, onTitleCommit, onCreateRevision,
     onRunEvaluation, onSelfHeal, onRestack, onDecide, onMerge,
   } = props;
 
   return <section className="card flow-primary">
     <div className="flow-section-head">
-      <div><span className="eyebrow">ACTIVE CHANGESET</span><h3>{change.id} <span className="revision-chip">r{change.revision}</span></h3>
+      <div><span className="eyebrow">ACTIVE CHANGESET</span><h3>{change.id} <span className="revision-chip">r{currentRevisionNumber}</span></h3>
         <p>Changeset ID is stable across revisions; Git commit SHAs are separate objects.</p>
       </div>
       <span className={"resource-status " + (change.status === "Merged" ? "flow-good" : "")}>{change.status}</span>

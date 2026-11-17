@@ -1,4 +1,4 @@
-import type { ChangesetId } from "../identity";
+import type { ChangesetId, RevisionId } from "../identity";
 
 export type ChangesetStatus =
   | "Draft"
@@ -13,4 +13,5 @@ export type Changeset = {
   repositoryId: string;
   title: string;
   status: ChangesetStatus;
+  currentRevisionId: RevisionId;
 };

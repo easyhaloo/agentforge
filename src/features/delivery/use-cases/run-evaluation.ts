@@ -10,8 +10,8 @@ export function createEvaluation(
 ): Evaluation | null {
   if (!canRunEvaluation(change)
     || revision.changesetId !== change.id
-    || revision.number !== change.revision
-    || revision.id !== revisionKey(change.id, change.revision)) {
+    || revision.id !== change.currentRevisionId
+    || revision.id !== revisionKey(change.id, revision.number)) {
     return null;
   }
 
