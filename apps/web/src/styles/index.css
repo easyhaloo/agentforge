@@ -171,3 +171,39 @@
 .changeset-steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:17px 0;padding:12px 0;border-top:1px solid #273147;border-bottom:1px solid #273147}.changeset-steps>div{display:flex;align-items:center;gap:6px;color:#78859b;font-size:9px}.changeset-steps>div span{width:20px;height:20px;display:grid;place-items:center;border:1px solid #354159;border-radius:50%;font-size:9px}.changeset-steps>div.is-complete{color:#bcb2ff}.changeset-steps>div.is-complete span{border-color:#796bd0;background:#282444}
 .changeset-workflow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.changeset-workflow>div,.changeset-workflow>form{display:grid;align-content:start;gap:8px;padding:13px;border:1px solid #273147;border-radius:8px;background:#101725}.changeset-workflow label{display:flex;align-items:center;gap:7px;color:#c1c9d8;font-size:10px}.changeset-workflow p{margin:0;color:#8995aa;font-size:10px;line-height:1.5;overflow-wrap:anywhere}.changeset-workflow input{height:32px;width:100%;min-width:0;padding:0 9px;border:1px solid #303c53;border-radius:6px;background:#0c1421;color:#e7eaf2;font-size:10px}.changeset-workflow .button{justify-self:start}.changeset-merge-result{display:flex;align-items:center;gap:8px;margin-top:13px;padding:11px;border:1px solid #315c4a;border-radius:7px;background:#142a24;color:#a6d9bd;font-size:10px;overflow-wrap:anywhere}.changeset-merge-result code{color:#c5f1d6}.changeset-audit{margin-top:15px;padding-top:13px;border-top:1px solid #273147}.changeset-audit h4{font-size:10px;margin:0 0 8px;color:#aab4c6}.changeset-audit>div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;color:#b6c0d0;font-size:9px}.changeset-audit small{color:#78859b}
 @media(max-width:760px){.changeset-steps{grid-template-columns:repeat(3,minmax(0,1fr))}.changeset-workflow{grid-template-columns:1fr}.changeset-detail__head{flex-direction:column}.changeset-audit>div{flex-direction:column;gap:3px}}
+
+/* Prevent shared Button desktop sizing from forcing horizontal overflow on mobile. */
+@media (max-width: 720px) {
+  .main,
+  .content,
+  .resource-workspace,
+  .resource-layout,
+  .resource-list,
+  .resource-detail {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .main {
+    width: calc(100% - 58px);
+  }
+
+  .topbar,
+  .top-actions {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .top-actions .af-button.searchbox {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  .top-actions .af-button.searchbox kbd {
+    display: none;
+  }
+}
