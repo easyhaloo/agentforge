@@ -21,6 +21,12 @@ describe("shared UI adoption", () => {
     const violations: string[] = [];
     for (const file of collectPageComponents(sourceRoot)) {
       const source = readFileSync(file, "utf8");
+      if (/window\.(confirm|alert|prompt)\s*\(/.test(source)) {
+        violations.push(`${relative(sourceRoot, file)} uses a native browser dialog instead of shared UI`);
+      }
+      if (/role=["']dialog["']|modal-backdrop/.test(source)) {
+        violations.push(`${relative(sourceRoot, file)} implements a dialog outside shared UI`);
+      }
       for (const match of source.matchAll(/<(button|input|select|textarea)\b/g)) {
         const line = source.slice(0, match.index).split("\n").length;
         violations.push(`${relative(sourceRoot, file)}:${line} uses native <${match[1]}> instead of shared UI`);
