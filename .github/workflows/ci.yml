@@ -52,7 +52,7 @@ jobs:
         run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.56.1
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run shared UI browser tests
+      - name: Run application and shared UI browser tests
         run: npm run test:e2e
 
   api:
