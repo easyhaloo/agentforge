@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 )
 
 func (s *Store) LockChangeset(ctx context.Context,organizationID,changesetID string)(func(),error) {
@@ -15,10 +14,7 @@ func (s *Store) LockChangeset(ctx context.Context,organizationID,changesetID str
 	if _,err=connection.Exec(ctx,"SELECT pg_advisory_lock(hashtextextended($1,0))",key);err!=nil{connection.Release();return nil,err}
 	release:=func(){
 		unlockContext,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
-		_,unlockErr:=connection.Exec(unlockContext,"SELECT pg_advisory_unlock(hashtextextended($1,0))",key)
-		if unlockErr!=nil&&!errors.Is(unlockErr,pgx.ErrNoRows) {
-			// Releasing the connection also releases session-scoped advisory locks.
-		}
+		_,_ = connection.Exec(unlockContext,"SELECT pg_advisory_unlock(hashtextextended($1,0))",key)
 		connection.Release()
 	}
 	return release,nil
