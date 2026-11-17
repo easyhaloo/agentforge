@@ -185,6 +185,7 @@ export interface ModalProps {
   onCancel: () => void;
   onOk?: () => void | Promise<void>;
   okText?: string;
+  okVariant?: ButtonVariant;
   cancelText?: string;
   confirmLoading?: boolean;
   closeOnBackdrop?: boolean;
@@ -197,6 +198,7 @@ export function Modal({
   onCancel,
   onOk,
   okText = "Confirm",
+  okVariant = "primary",
   cancelText = "Cancel",
   confirmLoading = false,
   closeOnBackdrop = true,
@@ -286,7 +288,7 @@ export function Modal({
         </div>
         <footer className="af-modal__footer">
           <Button onClick={onCancel} disabled={busy}>{cancelText}</Button>
-          {onOk && <Button variant="primary" onClick={handleOk} loading={busy}>{okText}</Button>}
+          {onOk && <Button variant={okVariant} onClick={handleOk} loading={busy}>{okText}</Button>}
         </footer>
       </section>
     </div>
@@ -585,7 +587,7 @@ export function ConfirmDialog({
   onCancel: () => void; onConfirm: () => void | Promise<void>;
 }) {
   return (
-    <Modal open={open} title={title} onCancel={onCancel} onOk={onConfirm} okText={confirmText}>
+    <Modal open={open} title={title} onCancel={onCancel} onOk={onConfirm} okText={confirmText} okVariant={danger ? "danger" : "primary"}>
       <p className="af-confirm-description">{description}</p>
       {danger && <p className="af-confirm-warning">This action cannot be undone.</p>}
     </Modal>
