@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -17,17 +18,8 @@ var (
 	ErrInvalidMembershipChange = errors.New("invalid membership change")
 )
 
-type Member struct {
-	UserID string `json:"user_id"`
-	DisplayName string `json:"display_name"`
-	Email string `json:"email,omitempty"`
-	Role string `json:"role"`
-	Status string `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
 
-func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, offset int) ([]Member, error) {
+func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, offset int) ([]identity.OrganizationMember, error) {
 	if strings.TrimSpace(organizationID) == "" || limit < 1 || limit > 100 || offset < 0 {
 		return nil, ErrInvalidMembershipChange
 	}
@@ -45,7 +37,7 @@ func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, o
 	defer rows.Close()
 	members := make([]Member, 0)
 	for rows.Next() {
-		var member Member
+		var member identity.OrganizationMember
 		if err := rows.Scan(&member.UserID, &member.DisplayName, &member.Email, &member.Role, &member.Status, &member.CreatedAt, &member.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization member: %w", err)
 		}
@@ -55,11 +47,11 @@ func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, o
 	return members, nil
 }
 
-func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, targetID string, role, status *string) (Member, error) {
+func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, targetID string, role, status *string) (identity.OrganizationMember, error) {
 	if strings.TrimSpace(organizationID) == "" || strings.TrimSpace(actorID) == "" || strings.TrimSpace(targetID) == "" ||
 		(role == nil && status == nil) || (role != nil && !validMembershipRole(*role)) ||
 		(status != nil && *status != "active" && *status != "suspended") {
-		return Member{}, ErrInvalidMembershipChange
+		return identity.OrganizationMember{}, ErrInvalidMembershipChange
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil { return Member{}, fmt.Errorf("begin membership update: %w", err) }
@@ -69,7 +61,7 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, t
 	}
 	actorRole, err := membershipActorRole(ctx, tx, organizationID, actorID)
 	if err != nil { return Member{}, err }
-	var before Member
+	var before identity.OrganizationMember
 	err = tx.QueryRow(ctx, `
 		SELECT u.id, u.display_name, COALESCE(u.email, ''), m.role, m.status, m.created_at, m.updated_at
 		FROM organization_memberships m JOIN users u ON u.id = m.user_id
