@@ -90,13 +90,28 @@ Acceptance: unauthenticated requests are rejected; every organization route is b
 
 ## Phase 3 — Core delivery domain
 
-Implement repository metadata, Changeset, Revision, Evaluation, Revision-bound Evidence, Revision-bound Review, Merge and append-oriented Trail.
+Status: **Implemented in the single Changeset lifecycle delivery branch; pending CI and review before merge.**
 
-Acceptance: complete delivery workflow through APIs; stale evidence/review cannot authorize a newer Revision; merge revalidates all preconditions.
+Implemented in this delivery:
+- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins and validates the default branch against the trusted Git provider.
+- Git Provider interface and local Git adapter. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch.
+- Revision changes stale prior evidence and reviews; API mutation operations are serialized with PostgreSQL advisory locks and optimistic version checks.
+- Server-side evaluation interface. Default evaluator performs Git patch integrity checks; optional digest-pinned Docker evaluator runs an operator-configured test command in a network-isolated, read-only, non-root, resource-limited container.
+- Evaluation reports are persisted as content-addressed artifacts with SHA-256 provenance and revision/evaluation linkage.
+- Review assignment verifies the reviewer is an active member of the same organization and excludes the author. Only the assigned reviewer can decide.
+- Merge gate revalidates a current passing evaluation, active evidence and approved current-revision review before Git mutation. The actual Git commit SHA is persisted. Retry behavior recognizes an already-integrated revision.
+- Changeset audit events record each lifecycle transition; complete authenticated API workflow tests cover registration through merge and negative gate/authorization cases.
+
+Known adapter boundary:
+- The first provider is operator-provisioned local Git storage, not a remote GitHub/GitLab API integration.
+- Without the optional Docker evaluator configuration, the default evaluator checks Git diff integrity only; it does not claim to run the repository's complete test suite.
+- The lifecycle API is synchronous; durable background job scheduling, cancellation and streamed execution events remain Phase 5 work.
+
+Acceptance: one end-to-end lifecycle passes against a real local Git repository and PostgreSQL; tenant isolation, stale evidence/review rejection, reviewer authorization, merge preconditions and persisted commit identity are covered by CI.
 
 ## Phase 4 — Frontend API migration
 
-Status: **In progress** — authenticated account context and organization administration are connected to real APIs; delivery-domain migration remains.
+Status: **In progress** — account/organization APIs and the full Changeset lifecycle UI are connected to backend APIs; remaining product surfaces still contain fixtures.
 
 Implemented:
 - Typed identity and organization API client with credentialed same-origin requests, CSRF mutation headers and structured HTTP errors.
@@ -104,11 +119,11 @@ Implemented:
 - Organization member list, role/status update, suspension/reactivation and removal UI.
 - Invitation creation, one-time URL display/copy, listing and revocation UI.
 - Membership audit history UI and role-aware management affordances.
-- Changesets page now reads and creates organization-scoped records through PostgreSQL-backed APIs; the list displays persisted IDs, repository, status summary, revision count and storage version.
+- Changesets page now registers organization repositories, creates persisted changesets, resolves Git revisions, runs trusted evaluation, displays evidence provenance, assigns/decides reviews, and requests server-gated merges. All lifecycle state is read from backend APIs.
 - Explicit signed-out, unauthorized and API-unavailable states; session revocation on sign-out.
 
 Remaining:
-- Replace the remaining delivery workflow fixtures/LocalStorage with Revision, Evaluation, Evidence, Review and merge APIs. The current backend exposes persistent Changeset create/list/get, but Git-provider revision creation and trusted evaluation/evidence/review/merge adapters are not yet implemented (those routes fail closed with 501).
+- Migrate the remaining Trails, Stacks, Eval and Review workspaces to the same persistent lifecycle APIs and remove the remaining delivery fixtures/LocalStorage. Add browser E2E tests with PostgreSQL, a provisioned local Git repository, and the pinned sandbox evaluator image.
 - Add SSE progress subscriptions after durable execution events exist.
 - Add end-to-end browser tests against a configured OIDC provider and PostgreSQL environment.
 
