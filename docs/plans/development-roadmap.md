@@ -72,6 +72,7 @@ Implemented:
 - OIDC login, callback, and CSRF-protected logout routes.
 - OIDC callback verifies active membership or consumes a pending single-use invitation whose email matches the provider-verified email before issuing a session; arbitrary first logins cannot create authenticated application sessions.
 - Organization invitations are tenant-scoped, expire after seven days, persist only token hashes, support listing/revocation, and are consumed atomically during verified OIDC callback.
+- `GET /api/v1/me` returns the authenticated profile and only active organization memberships, providing the server-authoritative organization selector context for the frontend.
 - Organization Owners/Admins can read paginated membership audit history; invitation acceptance is recorded with actor/target attribution.
 - Operator-only, transactionally serialized first-owner bootstrap CLI; first login never silently grants organization membership.
 - Local PostgreSQL Compose setup, OIDC configuration, and bootstrap documentation.
