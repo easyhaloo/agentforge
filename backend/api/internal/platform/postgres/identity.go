@@ -9,20 +9,34 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
 
+// maxOrganizationHandleBytes bounds the path segment that reaches SQL; ids are
+// at most 128 bytes and slugs at most 39.
+const maxOrganizationHandleBytes = 256
+
+// validOrganizationHandle reports whether handle can be an organization id or
+// slug at all. PostgreSQL raises SQLSTATE 22021 for NUL bytes and invalid UTF-8,
+// which the HTTP layer would report as 503 instead of the 401 that every other
+// unresolvable handle gets.
+func validOrganizationHandle(handle string) bool {
+	return strings.TrimSpace(handle) != "" && len(handle) <= maxOrganizationHandleBytes &&
+		utf8.ValidString(handle) && !strings.Contains(handle, "\x00")
+}
+
 // ResolvePrincipal resolves the organization handle from a request path, which
 // is either an organization id or slug, among the caller's own active
-// memberships only. A handle that is unknown, or that belongs to an
-// organization the caller cannot access, yields the same ErrUnauthenticated.
+// memberships only. A handle that is malformed, unknown, or that belongs to an
+// organization the caller cannot access yields the same ErrUnauthenticated.
 // Principal.OrganizationID is always the canonical id, never the slug. If one
 // organization matches by id and another by slug, the id match wins.
 func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle string) (identity.Principal, error) {
 	cookie, err := request.Cookie(identity.SessionCookieName)
-	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || strings.TrimSpace(organizationHandle) == "" {
+	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || !validOrganizationHandle(organizationHandle) {
 		return identity.Principal{}, identity.ErrUnauthenticated
 	}
 
