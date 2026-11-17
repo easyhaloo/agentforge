@@ -106,7 +106,7 @@ func (p *LocalGitProvider) run(ctx context.Context, repository string, args ...s
 func (p *LocalGitProvider) ResolveRevision(ctx context.Context, organizationID, repository, ref string) (GitRevision, error) {
 	path, err := p.repositoryPath(organizationID, repository); if err != nil { return GitRevision{}, err }
 	ref = strings.TrimSpace(ref)
-	if ref == "" || strings.HasPrefix(ref, "-") || strings.ContainsAny(ref, "\x00\n\r") || strings.Contains(ref, "\\\\") { return GitRevision{}, ErrRepositoryInvalid }
+	if ref == "" || strings.HasPrefix(ref, "-") || strings.ContainsAny(ref, "\x00\n\r") { return GitRevision{}, ErrRepositoryInvalid }
 	commit, err := p.run(ctx, path, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}")
 	if err != nil { return GitRevision{}, ErrRepositoryInvalid }
 	parent, _ := p.run(ctx, path, "rev-parse", commit+"^")
