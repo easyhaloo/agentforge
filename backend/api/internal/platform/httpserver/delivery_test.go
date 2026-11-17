@@ -63,24 +63,18 @@ func (m *memoryRepository) Get(_ context.Context, organizationID string, id deli
 	return item, nil
 }
 
-func (m *memoryRepository) List(_ context.Context, organizationID string, limit, offset int) ([]delivery.StoredChangeset, error) {
+func (m *memoryRepository) List(_ context.Context, organizationID string, filter delivery.ListFilter, limit, offset int) ([]delivery.StoredChangeset, int, error) {
 	if limit < 1 || limit > 100 || offset < 0 {
-		return nil, delivery.ErrInvalidInput
+		return nil, 0, delivery.ErrInvalidInput
 	}
-	items := make([]delivery.StoredChangeset, 0, len(m.items))
+	all := make([]delivery.StoredChangeset, 0, len(m.items))
 	for key, item := range m.items {
 		if len(key) >= len(organizationID)+1 && key[:len(organizationID)+1] == organizationID+"\x00" {
-			items = append(items, item)
+			all = append(all, item)
 		}
 	}
-	if offset >= len(items) {
-		return []delivery.StoredChangeset{}, nil
-	}
-	end := offset + limit
-	if end > len(items) {
-		end = len(items)
-	}
-	return items[offset:end], nil
+	items, total := delivery.FilterAndPage(all, filter, limit, offset)
+	return items, total, nil
 }
 
 type fixedIdentity struct {

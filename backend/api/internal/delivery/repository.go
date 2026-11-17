@@ -22,5 +22,8 @@ type Repository interface {
 	Create(context.Context, string, *Changeset) (StoredChangeset, error)
 	Update(context.Context, string, *Changeset, int64) (StoredChangeset, error)
 	Get(context.Context, string, ID) (StoredChangeset, error)
-	List(context.Context, string, int, int) ([]StoredChangeset, error)
+	// List returns one page of the organization's changesets matching filter, newest first, and the
+	// number of matches before paging. Implementations reject limit outside 1-100 or a negative
+	// offset with ErrInvalidInput and share FilterAndPage so they cannot diverge.
+	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]StoredChangeset, int, error)
 }

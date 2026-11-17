@@ -186,40 +186,54 @@ func (s *Store) Get(ctx context.Context, organizationID string, id delivery.ID) 
 	return stored, nil
 }
 
-func (s *Store) List(ctx context.Context, organizationID string, limit, offset int) ([]delivery.StoredChangeset, error) {
+// List returns one page of the organization's changesets matching filter and the number of matches
+// before paging. Only the repository filter is pushed into SQL (see
+// delivery_changesets_repository_updated_idx) and every query keeps organization_id = $1.
+// delivery.FilterAndPage owns the remaining matching, the ordering (updated_at DESC, id ASC) and
+// the paging, so this store cannot diverge from other Repository implementations.
+//
+// ponytail: loads every changeset of the organization (only those of the repository when one is
+// given) and filters in Go, so a request costs O(changesets per organization). Upgrade path:
+// denormalize the lifecycle status and the current reviewers into indexed columns and push status,
+// reviewer, q, ordering and paging down to SQL.
+func (s *Store) List(ctx context.Context, organizationID string, filter delivery.ListFilter, limit, offset int) ([]delivery.StoredChangeset, int, error) {
 	if strings.TrimSpace(organizationID) == "" || limit < 1 || limit > 100 || offset < 0 {
-		return nil, delivery.ErrInvalidInput
+		return nil, 0, delivery.ErrInvalidInput
 	}
-	rows, err := s.pool.Query(ctx, `
+	query := `
 		SELECT state, version, created_at, updated_at
 		FROM delivery_changesets
-		WHERE organization_id = $1
-		ORDER BY updated_at DESC, id ASC
-		LIMIT $2 OFFSET $3
-	`, organizationID, limit, offset)
+		WHERE organization_id = $1`
+	args := []any{organizationID}
+	if filter.Repository != "" {
+		query += " AND repository = $2"
+		args = append(args, filter.Repository)
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list changesets: %w", err)
+		return nil, 0, fmt.Errorf("list changesets: %w", err)
 	}
 	defer rows.Close()
 
-	items := make([]delivery.StoredChangeset, 0)
+	candidates := make([]delivery.StoredChangeset, 0)
 	for rows.Next() {
 		var stored delivery.StoredChangeset
 		var state []byte
 		if err := rows.Scan(&state, &stored.Version, &stored.CreatedAt, &stored.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan changeset: %w", err)
+			return nil, 0, fmt.Errorf("scan changeset: %w", err)
 		}
 		var changeset delivery.Changeset
 		if err := json.Unmarshal(state, &changeset); err != nil {
-			return nil, fmt.Errorf("decode listed changeset: %w", err)
+			return nil, 0, fmt.Errorf("decode listed changeset: %w", err)
 		}
 		stored.Changeset = &changeset
-		items = append(items, stored)
+		candidates = append(candidates, stored)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate changesets: %w", err)
+		return nil, 0, fmt.Errorf("iterate changesets: %w", err)
 	}
-	return items, nil
+	items, total := delivery.FilterAndPage(candidates, filter, limit, offset)
+	return items, total, nil
 }
 
 var _ delivery.Repository = (*Store)(nil)

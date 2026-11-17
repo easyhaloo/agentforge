@@ -148,7 +148,7 @@ func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-	items, err := d.Repository.List(r.Context(), principal.OrganizationID, limit, offset)
+	items, _, err := d.Repository.List(r.Context(), principal.OrganizationID, delivery.ListFilter{}, limit, offset)
 	if errors.Is(err, delivery.ErrInvalidInput) {
 		writeProblem(w, http.StatusBadRequest, "Invalid pagination", err.Error())
 		return
