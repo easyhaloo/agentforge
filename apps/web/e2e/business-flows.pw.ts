@@ -77,7 +77,7 @@ test("Overview search, status filtering, selection and navigation work together"
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Filter changesets by status" }).selectOption("Ready for review");
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "View all" }).click();
+  await page.locator(".table-panel").getByRole("button", { name: "View all" }).click();
   await expect(page.getByRole("heading", { name: "Changesets" })).toBeVisible();
 });
 
@@ -91,12 +91,12 @@ test("Delivery creates a revision, evaluates it, approves and completes the merg
   await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Merge & complete Trail" }).click();
   await expect(page.getByText("Delivered", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Trail TRL-042 completed/)).toBeVisible();
+  await expect(page.getByRole("main").getByText(/Trail TRL-042 completed/)).toBeVisible();
 });
 
 test("Resources supports search, status filtering, inspection and creation", async ({ page }) => {
   await page.getByRole("button", { name: "Projects", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Search Projects" }).fill("Commerce");
   await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
   await page.getByRole("combobox", { name: "Filter by status" }).selectOption("At risk");
@@ -109,7 +109,7 @@ test("Resources supports search, status filtering, inspection and creation", asy
 });
 
 test("Changesets loads organization records, searches and persists a new changeset", async ({ page }) => {
-  await page.getByRole("button", { name: "Changesets", exact: true }).click();
+  await page.locator(".sidebar").getByRole("button", { name: /Changesets/ }).click();
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByRole("textbox", { name: "Search changesets" }).fill("Browser test");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
