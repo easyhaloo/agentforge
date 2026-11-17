@@ -90,6 +90,23 @@ test("/orgs/current is replaced by the canonical organization URL, keeping query
   expect(pathOf(page)).toBe("/orgs/demo/changesets?filter=open#top");
 });
 
+test("a mixed-case /ORGS URL is served like /orgs and the current alias is still replaced", async ({ page }) => {
+  await installApiMocks(page);
+  await page.goto("/ORGS/current/changesets");
+  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  expect(pathOf(page)).toBe("/orgs/demo/changesets");
+  await expect(changesetsLink(page)).toHaveAttribute("aria-current", "page");
+});
+
+test("switching organization works on a mixed-case /Orgs URL", async ({ page }) => {
+  await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
+  await page.goto("/Orgs/demo/settings");
+  await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-labs");
+  await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
+  await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
+});
+
 test("the current alias is replaced, not pushed, so Back never bounces through it", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");

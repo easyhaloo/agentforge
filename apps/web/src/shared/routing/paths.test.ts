@@ -63,4 +63,14 @@ describe("withOrganizationHandle", () => {
     expect(withOrganizationHandle("/projects", "b")).toBe("/projects");
     expect(withOrganizationHandle("/", "b")).toBe("/");
   });
+
+  it("finds /orgs the way the router does (case-insensitively) and emits the canonical lowercase prefix", () => {
+    expect(withOrganizationHandle("/ORGS/current/changesets", "demo")).toBe("/orgs/demo/changesets");
+    expect(withOrganizationHandle("/Orgs/a/settings", "b")).toBe("/orgs/b/settings");
+  });
+
+  it("does not treat look-alike prefixes as an organization path", () => {
+    expect(withOrganizationHandle("/organizations/a", "b")).toBe("/organizations/a");
+    expect(withOrganizationHandle("/orgs", "b")).toBe("/orgs");
+  });
 });
