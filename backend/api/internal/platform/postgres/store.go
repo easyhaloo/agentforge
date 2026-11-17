@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"sort"
+	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/jackc/pgx/v5"
@@ -23,7 +26,7 @@ type Store struct {
 }
 
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
-	if databaseURL == "" {
+	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("database URL is required")
 	}
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -51,18 +54,57 @@ func (s *Store) Ping(ctx context.Context) error {
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
-	migration, err := migrations.ReadFile("migrations/001_delivery_changesets.sql")
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("read delivery migration: %w", err)
+		return fmt.Errorf("begin schema migration: %w", err)
 	}
-	if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
-		return fmt.Errorf("apply delivery migration: %w", err)
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version TEXT PRIMARY KEY,
+		applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	)`); err != nil {
+		return fmt.Errorf("create migration ledger: %w", err)
+	}
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(731904221)); err != nil {
+		return fmt.Errorf("lock schema migrations: %w", err)
+	}
+
+	entries, err := fs.ReadDir(migrations, "migrations")
+	if err != nil {
+		return fmt.Errorf("list schema migrations: %w", err)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		var applied bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)", entry.Name()).Scan(&applied); err != nil {
+			return fmt.Errorf("check migration %q: %w", entry.Name(), err)
+		}
+		if applied {
+			continue
+		}
+		migration, err := migrations.ReadFile("migrations/" + entry.Name())
+		if err != nil {
+			return fmt.Errorf("read migration %q: %w", entry.Name(), err)
+		}
+		if _, err := tx.Exec(ctx, string(migration)); err != nil {
+			return fmt.Errorf("apply migration %q: %w", entry.Name(), err)
+		}
+		if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", entry.Name()); err != nil {
+			return fmt.Errorf("record migration %q: %w", entry.Name(), err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit schema migrations: %w", err)
 	}
 	return nil
 }
 
-func (s *Store) Create(ctx context.Context, changeset *delivery.Changeset) (delivery.StoredChangeset, error) {
-	if changeset == nil || changeset.ID == "" {
+func (s *Store) Create(ctx context.Context, organizationID string, changeset *delivery.Changeset) (delivery.StoredChangeset, error) {
+	if strings.TrimSpace(organizationID) == "" || changeset == nil || changeset.ID == "" {
 		return delivery.StoredChangeset{}, delivery.ErrInvalidInput
 	}
 	state, err := json.Marshal(changeset)
@@ -72,10 +114,10 @@ func (s *Store) Create(ctx context.Context, changeset *delivery.Changeset) (deli
 	var stored delivery.StoredChangeset
 	stored.Changeset = changeset
 	err = s.pool.QueryRow(ctx, `
-		INSERT INTO delivery_changesets (id, repository, title, state)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO delivery_changesets (organization_id, id, repository, title, state)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING version, created_at, updated_at
-	`, string(changeset.ID), changeset.Repository, changeset.Title, state).
+	`, organizationID, string(changeset.ID), changeset.Repository, changeset.Title, state).
 		Scan(&stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
 	if err != nil {
 		var pgError *pgconn.PgError
@@ -87,8 +129,8 @@ func (s *Store) Create(ctx context.Context, changeset *delivery.Changeset) (deli
 	return stored, nil
 }
 
-func (s *Store) Update(ctx context.Context, changeset *delivery.Changeset, expectedVersion int64) (delivery.StoredChangeset, error) {
-	if changeset == nil || changeset.ID == "" || expectedVersion < 1 {
+func (s *Store) Update(ctx context.Context, organizationID string, changeset *delivery.Changeset, expectedVersion int64) (delivery.StoredChangeset, error) {
+	if strings.TrimSpace(organizationID) == "" || changeset == nil || changeset.ID == "" || expectedVersion < 1 {
 		return delivery.StoredChangeset{}, delivery.ErrInvalidInput
 	}
 	state, err := json.Marshal(changeset)
@@ -99,12 +141,19 @@ func (s *Store) Update(ctx context.Context, changeset *delivery.Changeset, expec
 	stored.Changeset = changeset
 	err = s.pool.QueryRow(ctx, `
 		UPDATE delivery_changesets
-		SET repository = $2, title = $3, state = $4, version = version + 1, updated_at = now()
-		WHERE id = $1 AND version = $5
+		SET repository = $3, title = $4, state = $5, version = version + 1, updated_at = now()
+		WHERE organization_id = $1 AND id = $2 AND version = $6
 		RETURNING version, created_at, updated_at
-	`, string(changeset.ID), changeset.Repository, changeset.Title, state, expectedVersion).
+	`, organizationID, string(changeset.ID), changeset.Repository, changeset.Title, state, expectedVersion).
 		Scan(&stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
+		var exists bool
+		if checkErr := s.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM delivery_changesets WHERE organization_id = $1 AND id = $2)", organizationID, string(changeset.ID)).Scan(&exists); checkErr != nil {
+			return delivery.StoredChangeset{}, fmt.Errorf("check changeset after update conflict: %w", checkErr)
+		}
+		if !exists {
+			return delivery.StoredChangeset{}, delivery.ErrNotFound
+		}
 		return delivery.StoredChangeset{}, ErrVersionConflict
 	}
 	if err != nil {
@@ -113,13 +162,16 @@ func (s *Store) Update(ctx context.Context, changeset *delivery.Changeset, expec
 	return stored, nil
 }
 
-func (s *Store) Get(ctx context.Context, id delivery.ID) (delivery.StoredChangeset, error) {
+func (s *Store) Get(ctx context.Context, organizationID string, id delivery.ID) (delivery.StoredChangeset, error) {
+	if strings.TrimSpace(organizationID) == "" || id == "" {
+		return delivery.StoredChangeset{}, delivery.ErrInvalidInput
+	}
 	var stored delivery.StoredChangeset
 	var state []byte
 	err := s.pool.QueryRow(ctx, `
 		SELECT state, version, created_at, updated_at
-		FROM delivery_changesets WHERE id = $1
-	`, string(id)).Scan(&state, &stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
+		FROM delivery_changesets WHERE organization_id = $1 AND id = $2
+	`, organizationID, string(id)).Scan(&state, &stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return delivery.StoredChangeset{}, delivery.ErrNotFound
 	}
@@ -134,16 +186,17 @@ func (s *Store) Get(ctx context.Context, id delivery.ID) (delivery.StoredChanges
 	return stored, nil
 }
 
-func (s *Store) List(ctx context.Context, limit, offset int) ([]delivery.StoredChangeset, error) {
-	if limit < 1 || limit > 100 || offset < 0 {
+func (s *Store) List(ctx context.Context, organizationID string, limit, offset int) ([]delivery.StoredChangeset, error) {
+	if strings.TrimSpace(organizationID) == "" || limit < 1 || limit > 100 || offset < 0 {
 		return nil, delivery.ErrInvalidInput
 	}
 	rows, err := s.pool.Query(ctx, `
 		SELECT state, version, created_at, updated_at
 		FROM delivery_changesets
+		WHERE organization_id = $1
 		ORDER BY updated_at DESC, id ASC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		LIMIT $2 OFFSET $3
+	`, organizationID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list changesets: %w", err)
 	}
