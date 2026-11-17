@@ -1,8 +1,12 @@
-# AgentForge — Agent Development Guide
+# Mandatory AI entry rule
+
+**Every AI agent, coding assistant, or automated contributor MUST read this entire `agent.md` before inspecting, planning, editing, testing, or otherwise acting on this repository.** This is the first repository-specific step for every task, including delegated sub-agents and resumed sessions. Do not begin work until the guide has been read and its constraints are understood. If an instruction conflicts with a user request, stop and clarify rather than silently violating the repository constraints. Re-read this guide when a task starts in a new session or when the guide changes.
 
 This document defines the working rules for AI agents and contributors modifying this repository. Follow it before making code changes.
 
 ## 1. Product context
+
+The product identity, domain terminology, and prototype boundaries below are binding constraints for all implementation work.
 
 AgentForge is an **Agent-native Source Control & Verified Change Platform**. It is not an Agent Runtime and should not be reduced to an AI-themed GitHub clone.
 
@@ -44,6 +48,34 @@ Common commands:
 The CI workflow runs dependency installation, tests, and production build. Run tests and build before considering a change complete. Do not claim a check passed unless its result was observed.
 
 ## 3. Frontend architecture
+
+### Target module organization
+
+Migrate incrementally toward a simplified Feature-Sliced structure only when code is being changed; do not perform a wholesale directory migration or create empty layers.
+
+- `app/`: application bootstrap, providers, routing, layouts, global shell and composition.
+- `pages/`: route-level page composition and page-specific view state. A page should compose sections rather than implement every section inline.
+- `features/`: user actions and workflows with a clear user intent, such as create changeset, run evaluation, request review, approve review and merge changeset. Do not use this layer as a generic bucket for every screen.
+- `entities/`: reusable business-entity model, API contracts and entity-owned UI where multiple pages/features need them. Introduce only when a real shared entity boundary exists.
+- `shared/`: business-agnostic UI primitives, hooks, utilities, configuration and infrastructure.
+- `domain/`: retain framework-independent business invariants and pure rules; do not move domain logic into React components.
+
+The current `features/overview` page is being migrated to `pages/overview` as a page-ownership correction. Existing `features/delivery` and `features/resources` remain in place until their boundaries can be migrated safely. This is an incremental target, not a claim that all layers already exist.
+
+### Componentization rules
+
+- Componentization and module organization are separate concerns: use modules to define ownership/dependency boundaries and React components to define cohesive UI responsibilities.
+- Split a large page into named components when sections have independent presentation, interaction, state, or a clear semantic role. Keep the page as a composition root.
+- Prefer colocating components with the page or feature that owns them. Promote a component to `shared/ui` only when it is genuinely business-agnostic and reused across independent modules.
+- Keep component props explicit and narrow. Lift state only to the nearest common owner that needs to coordinate consumers.
+- Extract repeated data/configuration from JSX into typed module-owned data files.
+- Avoid both extremes: monolithic page components and trivial one-line components created solely to reduce line count.
+- Do not create global `components/`, `utils/`, `helpers/` or `common/` dumping grounds.
+- Use PascalCase for React component files and exports; kebab-case for ordinary TypeScript modules and directories; use `useXxx.ts` for hooks; use `*.test.ts(x)` for tests.
+- Internal module files should be imported through their owning module's public entry point when crossing module boundaries. Same-module relative imports are acceptable.
+- Enforce dependency direction: `app -> pages/features/entities/shared`, `pages -> features/entities/shared/domain`, `features -> entities/shared/domain`, `entities -> shared/domain`; `shared` and `domain` must not depend on app/page/feature UI. Avoid feature-to-feature imports and circular dependencies.
+
+
 
 Organize code by **feature ownership and dependency direction**, not by creating large global folders that mix unrelated business concerns.
 
