@@ -36,6 +36,8 @@ type MembershipRepository interface {
 	ListMembershipAudit(context.Context, string, int, int) ([]identity.MembershipAuditEvent, error)
 }
 
+type ReviewerAuthorizer interface { IsActiveMember(context.Context, string, string) (bool, error) }
+
 type DeliveryDependencies struct {
 	Repository  delivery.Repository
 	Identity    identity.PrincipalResolver
@@ -44,6 +46,10 @@ type DeliveryDependencies struct {
 	OIDC          identity.OIDCHandler
 	Membership    MembershipRepository
 	Account       AccountRepository
+	Git delivery.GitProvider
+	Evaluator delivery.Evaluator
+	Evidence delivery.EvidenceStore
+	Reviewers ReviewerAuthorizer
 }
 
 type storedChangesetResponse struct {
@@ -88,6 +94,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evidence", deps.attachEvidence)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
 	return mux
 }
 
@@ -180,38 +187,93 @@ func (d DeliveryDependencies) getChangeset(w http.ResponseWriter, r *http.Reques
 }
 
 func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request) {
-	if _, ok := d.principal(w, r, true); !ok {
-		return
-	}
-	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "addRevision requires a configured, trusted Git provider adapter")
+	principal, ok := d.principal(w, r, true); if !ok { return }
+	if d.Git == nil { writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted local Git provider before creating revisions"); return }
+	var input struct { Ref string `json:"ref"` }; if !decodeJSON(w,r,&input) { return }
+	stored, ok := d.load(w,r,principal.OrganizationID); if !ok { return }
+	revision, err := d.Git.ResolveRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,input.Ref)
+	if err != nil { writeProblem(w,http.StatusUnprocessableEntity,"Git revision unavailable","The requested ref could not be resolved in the organization's configured repository"); return }
+	id,err:=newID(); if err!=nil { writeProblem(w,500,"Unable to create revision","An identifier could not be generated"); return }
+	if err=stored.Changeset.AddGitRevision(delivery.ID(id),revision.Ref,revision.CommitSHA,revision.ParentSHA,principal.UserID,time.Now().UTC());err!=nil { writeDeliveryError(w,err); return }
+	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version); if err!=nil { writeRepositoryError(w,err); return }
+	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {
-	if _, ok := d.principal(w, r, true); !ok {
-		return
+	principal,ok:=d.principal(w,r,true);if !ok{return}
+	if d.Evaluator==nil { writeProblem(w,503,"Evaluation worker unavailable","A trusted evaluation adapter is not configured");return }
+	if d.Evidence==nil { writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return }
+	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
+	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" { writeProblem(w,409,"Revision required","Resolve a Git commit before evaluating this changeset");return }
+	base:=revision.ParentSHA;if base=="" { base=revision.CommitSHA+"^" }
+	result,evalErr:=d.Evaluator.Evaluate(r.Context(),principal.OrganizationID,stored.Changeset.Repository,base,revision.CommitSHA)
+	status:=delivery.EvaluationPassed;if evalErr!=nil||!result.Passed {status=delivery.EvaluationFailed}
+	evaluationID,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record evaluation","An identifier could not be generated");return}
+	if err=stored.Changeset.RecordEvaluation(delivery.ID(evaluationID),revision.ID,status,result.Summary,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+	if len(result.Report)>0 {
+		artifact,putErr:=d.Evidence.Put(r.Context(),principal.OrganizationID,string(stored.Changeset.ID),result.Report)
+		if putErr!=nil { writeProblem(w,503,"Evidence storage failed","The evaluation report could not be persisted");return }
+		if status==delivery.EvaluationPassed {
+			evidenceID,idErr:=newID();if idErr!=nil{writeProblem(w,500,"Unable to record evidence","An identifier could not be generated");return}
+			if err=stored.Changeset.AttachEvidenceArtifact(delivery.ID(evidenceID),revision.ID,delivery.ID(evaluationID),"evaluation-report",artifact.URI,artifact.SHA256,artifact.Size,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+		}
 	}
-	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "recordEvaluation requires a trusted evaluation worker; clients cannot assert evaluation outcomes")
+	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
+	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) attachEvidence(w http.ResponseWriter, r *http.Request) {
-	if _, ok := d.principal(w, r, true); !ok {
-		return
-	}
-	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "attachEvidence requires a trusted artifact provenance adapter")
+	principal,ok:=d.principal(w,r,true);if !ok{return}
+	if d.Evidence==nil {writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return}
+	var input struct { EvaluationID string `json:"evaluation_id"` };if !decodeJSON(w,r,&input){return}
+	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
+	revision,exists:=stored.Changeset.CurrentRevision();if !exists{writeProblem(w,409,"Revision required","A current revision is required");return}
+	var report []byte
+	for _,evaluation:=range stored.Changeset.Evaluations {if string(evaluation.ID)==input.EvaluationID&&evaluation.RevisionID==revision.ID&&evaluation.Status==delivery.EvaluationPassed {report,_=json.Marshal(evaluation)}}
+	if len(report)==0 {writeProblem(w,409,"Passed evaluation required","Evidence can only be derived from a persisted passing evaluation for the current revision");return}
+	artifact,err:=d.Evidence.Put(r.Context(),principal.OrganizationID,string(stored.Changeset.ID),report);if err!=nil{writeProblem(w,503,"Evidence storage failed","The evidence artifact could not be persisted");return}
+	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to attach evidence","An identifier could not be generated");return}
+	if err=stored.Changeset.AttachEvidenceArtifact(delivery.ID(id),revision.ID,delivery.ID(input.EvaluationID),"evaluation-report",artifact.URI,artifact.SHA256,artifact.Size,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
+	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) submitReview(w http.ResponseWriter, r *http.Request) {
-	if _, ok := d.principal(w, r, true); !ok {
-		return
-	}
-	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "submitReview requires a configured review assignment workflow")
+	principal,ok:=d.principal(w,r,true);if !ok{return}
+	if d.Reviewers==nil {writeProblem(w,503,"Review assignment unavailable","Organization membership verification is not configured");return}
+	var input struct { ReviewerID string `json:"reviewer_id"`; Comment string `json:"comment"` };if !decodeJSON(w,r,&input){return}
+	active,err:=d.Reviewers.IsActiveMember(r.Context(),principal.OrganizationID,input.ReviewerID)
+	if err!=nil {writeProblem(w,503,"Review assignment unavailable","The reviewer membership could not be verified");return}
+	if !active {writeProblem(w,422,"Invalid reviewer","The assigned reviewer must be an active member of this organization");return}
+	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
+	revision,exists:=stored.Changeset.CurrentRevision();if !exists {writeProblem(w,409,"Revision required","A current revision is required");return}
+	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to assign review","An identifier could not be generated");return}
+	if err=stored.Changeset.AssignReview(delivery.ID(id),revision.ID,input.ReviewerID,principal.UserID,input.Comment,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
+	writeJSON(w,http.StatusCreated,toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) decideReview(w http.ResponseWriter, r *http.Request) {
-	if _, ok := d.principal(w, r, true); !ok {
-		return
-	}
-	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "decideReview requires a configured review authorization workflow")
+	principal,ok:=d.principal(w,r,true);if !ok{return}
+	var input struct { Approved bool `json:"approved"`; Comment string `json:"comment"` };if !decodeJSON(w,r,&input){return}
+	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
+	if err:=stored.Changeset.DecideReview(delivery.ID(r.PathValue("reviewID")),input.Approved,principal.UserID,input.Comment,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
+	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Request) {
+	principal,ok:=d.principal(w,r,true);if !ok{return}
+	if d.Git==nil {writeProblem(w,503,"Git provider unavailable","A trusted Git provider is not configured");return}
+	var input struct { TargetRef string `json:"target_ref"` };if !decodeJSON(w,r,&input){return}
+	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
+	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" {writeProblem(w,409,"Revision required","A resolved Git revision is required");return}
+	merged,err:=d.Git.MergeRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,revision.CommitSHA,input.TargetRef)
+	if err!=nil {writeProblem(w,409,"Git merge rejected","The target branch could not be merged cleanly; no merge record was written");return}
+	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record merge","An identifier could not be generated");return}
+	if err=stored.Changeset.CompleteMerge(delivery.ID(id),principal.UserID,merged.TargetRef,merged.CommitSHA,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
+	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) load(w http.ResponseWriter, r *http.Request, organizationID string) (delivery.StoredChangeset, bool) {
@@ -501,4 +563,20 @@ func (d DeliveryDependencies) currentAccount(w http.ResponseWriter,r *http.Reque
 		return
 	}
 	writeJSON(w,http.StatusOK,account)
+}
+
+func writeDeliveryError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err,delivery.ErrRevisionNotCurrent),errors.Is(err,delivery.ErrEvaluationRequired),errors.Is(err,delivery.ErrEvidenceRequired),errors.Is(err,delivery.ErrReviewRequired),errors.Is(err,delivery.ErrAlreadyMerged):
+		writeProblem(w,http.StatusConflict,"Delivery precondition failed",err.Error())
+	case errors.Is(err,delivery.ErrInvalidInput):
+		writeProblem(w,http.StatusBadRequest,"Invalid delivery operation",err.Error())
+	default:
+		writeProblem(w,http.StatusUnprocessableEntity,"Delivery operation rejected",err.Error())
+	}
+}
+func writeRepositoryError(w http.ResponseWriter, err error) {
+	if errors.Is(err,delivery.ErrVersionConflict) {writeProblem(w,http.StatusConflict,"Changeset changed concurrently","Reload the changeset and retry the operation");return}
+	if errors.Is(err,delivery.ErrNotFound) {writeProblem(w,http.StatusNotFound,"Changeset not found","The changeset does not exist in this organization");return}
+	writeProblem(w,http.StatusInternalServerError,"Unable to persist delivery state","The changeset state could not be saved")
 }
