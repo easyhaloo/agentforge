@@ -164,3 +164,23 @@
 
 /* Shared DataTable wrappers inherit the surrounding page table surface. */
 .org-table-wrap .af-table-wrap,.table-wrap .af-table-wrap{border:0;border-radius:0;background:transparent}
+
+
+/* Keep the topbar search control compact on narrow screens after shared Button overrides. */
+@media (max-width: 720px) {
+  .top-actions .af-button.searchbox {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .topbar {
+    min-width: 0;
+    gap: 8px;
+  }
+  .breadcrumbs {
+    min-width: 0;
+    white-space: nowrap;
+  }
+}
