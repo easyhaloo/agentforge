@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { usePersistentState } from "../../shared/hooks/usePersistentState";
 import { buildResourceCsv } from "./data/resourceExport";
 import { configs, type Item } from "./data/resourceConfigs";
+import { createResourceDraft, resolvePageAction } from "./data/resourceDemoService";
 import { ResourceListPanel } from "./ui/ResourceListPanel";
 import { ResourceInspector } from "./ui/ResourceInspector";
 
@@ -41,26 +42,17 @@ export function ResourceWorkspacePage({ page, onNotify }: Props) {
   };
 
   const runPageAction = () => {
-    switch (config.actionMode) {
-      case "review-queue":
-        setQuery("");
-        setTab("Pending");
-        record("Showing pending review decisions from local demo data.");
-        return;
-      case "demo":
-        record(`${config.action}: local demo simulation only; no remote operation was performed.`);
-        return;
-      case "export": {
-        const csv = buildResourceCsv(filtered, config.columns);
-        const filename = `agentforge-${page.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
-        downloadCsv(csv, filename);
-        record(`Exported ${filtered.length} local demo records to ${filename}.`);
-        return;
-      }
-      case "create":
-      case "none":
-        return;
+    const action = resolvePageAction(config, page, filtered.length);
+    if (!action) return;
+
+    if (action.type === "review-queue") {
+      setQuery(action.query);
+      setTab(action.status);
+    } else if (action.type === "export") {
+      downloadCsv(buildResourceCsv(filtered, config.columns), action.filename);
     }
+
+    record(action.message);
   };
 
   const createItem = (event: FormEvent<HTMLFormElement>) => {
@@ -68,10 +60,7 @@ export function ResourceWorkspacePage({ page, onNotify }: Props) {
     const name = newName.trim();
     if (!name) return;
     const id = page.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) + "-" + String(Date.now()).slice(-5);
-    const item: Item = {
-      id, name, detail: "Created in " + page + " · local demo record",
-      status: "Draft", updated: "Just now", owner: "You",
-    };
+    const item = createResourceDraft(page, name, id);
     setItems((previous) => [item, ...previous]);
     setSelected(id);
     setNewName("");
