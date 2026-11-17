@@ -81,6 +81,8 @@ jobs:
       - run: go mod tidy
       - run: go test ./...
       - run: go build ./cmd/server
+      - name: Validate production container
+        run: docker build --tag agentforge-api:ci .
 
   contracts:
     needs: changes
