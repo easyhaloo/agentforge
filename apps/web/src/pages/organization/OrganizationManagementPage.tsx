@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban, Check, X } from "lucide-react";
 import { APIError, organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
-import { Button, Select } from "../../shared/ui";
+import { Button, Input, Select } from "../../shared/ui";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 type Tab = "members" | "invitations" | "audit";
