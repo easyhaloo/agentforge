@@ -29,6 +29,7 @@ var (
 	ErrEvidenceRequired   = errors.New("active evidence is required")
 	ErrReviewRequired     = errors.New("an approved review is required")
 	ErrAlreadyMerged      = errors.New("changeset is already merged")
+	ErrReviewForbidden = errors.New("only the assigned reviewer can decide this review")
 )
 
 type Revision struct {
@@ -211,7 +212,7 @@ func (c *Changeset) DecideReview(id ID, approved bool, reviewer, comment string,
 			return ErrRevisionNotCurrent
 		}
 		if review.Reviewer != reviewer {
-			return ErrInvalidInput
+			return ErrReviewForbidden
 		}
 		if approved {
 			review.Status = ReviewApproved
