@@ -76,3 +76,25 @@
 .af-async-select__menu>button{display:block;width:100%;padding:8px;border:0;border-radius:4px;background:transparent;color:#c5ccda;text-align:left;cursor:pointer}
 .af-async-select__menu>button:hover{background:#202a3d}
 .af-async-select__state{padding:12px 8px;color:#8794aa;font-size:10px}
+
+.af-showcase{display:grid;gap:18px}
+.af-showcase-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:22px;border:1px solid #29344a;border-radius:10px;background:linear-gradient(120deg,#171d32,#111927)}
+.af-showcase-kicker{color:#a99cff;font-size:9px;font-weight:700;letter-spacing:1.2px}
+.af-showcase-intro h2{margin:7px 0;color:#e8eaf2;font-size:20px}
+.af-showcase-intro p,.af-showcase-section__heading p{margin:0;color:#8592a8;font-size:11px}
+.af-showcase-version{padding:6px 9px;border:1px solid #393456;border-radius:5px;color:#b7aaff;font-size:8px;letter-spacing:.7px;white-space:nowrap}
+.af-showcase-section{display:grid;gap:13px;padding:18px;border:1px solid #263148;border-radius:9px;background:#101725}
+.af-showcase-section__heading{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.af-showcase-section__heading h3{margin:0 0 5px;color:#e4e8f1;font-size:13px}
+.af-showcase-meta{color:#8290a8;font-size:9px;text-align:right}
+.af-showcase-row{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.af-showcase-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(220px,.8fr);gap:18px}
+.af-showcase-card{display:grid;align-content:start;gap:9px;padding:14px;border:1px solid #273248;border-radius:8px;background:#0c1421}
+.af-showcase-card h4{margin:0;color:#dce2ee;font-size:12px}
+.af-showcase-card p{margin:0 0 4px;color:#8290a8;font-size:10px;line-height:1.5}
+.af-showcase-result{padding-top:9px;border-top:1px solid #273248;color:#8290a8;font-size:9px}
+.af-showcase-result b{color:#c5bcff}
+.af-showcase-status{display:inline-flex;padding:4px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.af-showcase-status.is-good{background:#17352f;color:#75d4a8}
+.af-showcase-status.is-pending{background:#382d20;color:#e7b36e}
+@media(max-width:760px){.af-showcase-grid{grid-template-columns:1fr}.af-showcase-intro{align-items:flex-start;flex-direction:column}}
