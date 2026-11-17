@@ -64,7 +64,8 @@ describe("createApiClient", () => {
     );
     const client = createApiClient("", fetcher);
 
-    await expect(client.request("/api/v1/projects")).rejects.toBeInstanceOf(ApiError);
-    await expect(client.request("/api/v1/projects")).rejects.toThrow("upstream unavailable");
+    const request = client.request("/api/v1/projects");
+    await expect(request).rejects.toBeInstanceOf(ApiError);
+    await expect(request).rejects.toThrow("upstream unavailable");
   });
 });
