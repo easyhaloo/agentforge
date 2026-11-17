@@ -234,3 +234,74 @@ func TestPostgresResolvePrincipalPrefersOrganizationIDOverSlug(t *testing.T) {
 		t.Fatalf("member of the slug holder only resolved %#v, %v; want organization %q with role member", principal, err, slugOwner)
 	}
 }
+
+// slugMalformedHandles are path handles that can never be an organization id or
+// slug. PostgreSQL rejects NUL bytes and invalid UTF-8 with SQLSTATE 22021.
+func slugMalformedHandles() map[string]string {
+	return map[string]string{
+		"NUL only":                 "\x00",
+		"NUL inside":               "a\x00b",
+		"invalid UTF-8 byte":       "\xff",
+		"invalid UTF-8 pair":       "\xff\xfe",
+		"truncated UTF-8 sequence": "ab\xc3",
+		"empty":                    "",
+		"spaces only":              "   ",
+		"tab and newline only":     "\t\n",
+		"257 bytes":                strings.Repeat("a", 257),
+	}
+}
+
+func TestPostgresResolvePrincipalRejectsMalformedHandles(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	userID, organizationID, slug := "slug-malformed-user-"+suffix, "slug-malformed-org-"+suffix, "malformed-"+suffix
+	slugInsertUser(t, ctx, store, userID)
+	slugInsertOrganization(t, ctx, store, organizationID, slug, "active")
+	slugInsertMember(t, ctx, store, organizationID, userID, "owner", "active")
+	request, _ := slugNewSession(t, ctx, store, userID)
+
+	// With a valid session, a malformed handle is an ordinary unresolvable handle:
+	// the same sentinel as an unknown organization, never a database error that
+	// the HTTP layer would report as 503.
+	for name, handle := range slugMalformedHandles() {
+		t.Run(name, func(t *testing.T) {
+			if _, err := store.ResolvePrincipal(request, handle); err != identity.ErrUnauthenticated {
+				t.Fatalf("ResolvePrincipal(%q) error = %v, want the ErrUnauthenticated sentinel", handle, err)
+			}
+		})
+	}
+	if principal, err := store.ResolvePrincipal(request, slug); err != nil || principal.OrganizationID != organizationID {
+		t.Fatalf("a well-formed handle must still resolve: %#v, %v", principal, err)
+	}
+}
+
+func TestPostgresResolvePrincipalValidatesHandleBeforeQuerying(t *testing.T) {
+	_, store := slugOpenStore(t)
+	store.Close() // every query now fails, so only a handle rejected up front can return the sentinel
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.AddCookie(&http.Cookie{Name: identity.SessionCookieName, Value: "session-token-with-enough-length-to-be-valid"})
+
+	for name, handle := range slugMalformedHandles() {
+		t.Run(name, func(t *testing.T) {
+			if _, err := store.ResolvePrincipal(request, handle); err != identity.ErrUnauthenticated {
+				t.Fatalf("ResolvePrincipal(%q) error = %v, want the ErrUnauthenticated sentinel before any SQL", handle, err)
+			}
+		})
+	}
+	// Controls: acceptable handles must reach the database (and fail there), so
+	// the checks above cannot pass by rejecting everything. 256 bytes is the limit.
+	controls := map[string]string{
+		"slug":                        "acme",
+		"id with capitals and dots":   "Legacy_Org.1",
+		"non-ASCII id":                "café",
+		"exactly 256 bytes":           strings.Repeat("a", 256),
+		"internal spaces are allowed": "a b",
+	}
+	for name, handle := range controls {
+		t.Run("control/"+name, func(t *testing.T) {
+			if _, err := store.ResolvePrincipal(request, handle); err == nil || err == identity.ErrUnauthenticated {
+				t.Fatalf("ResolvePrincipal(%q) error = %v, want a database error: the handle must reach SQL", handle, err)
+			}
+		})
+	}
+}
