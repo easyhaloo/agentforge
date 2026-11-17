@@ -44,6 +44,25 @@ func (s *Store) ResolvePrincipal(request *http.Request, organizationID string) (
 	return principal, nil
 }
 
+func (s *Store) HasActiveMembership(ctx context.Context, userID string) (bool, error) {
+	if strings.TrimSpace(userID) == "" {
+		return false, errors.New("user ID is required")
+	}
+	var active bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM organization_memberships AS m
+			JOIN organizations AS o ON o.id = m.organization_id
+			WHERE m.user_id = $1 AND m.status = 'active' AND o.status = 'active'
+		)
+	`, userID).Scan(&active)
+	if err != nil {
+		return false, fmt.Errorf("check active organization membership: %w", err)
+	}
+	return active, nil
+}
+
 func (s *Store) CreateSession(ctx context.Context, userID, sessionToken, csrfToken string, expiresAt time.Time) (string, error) {
 	if strings.TrimSpace(userID) == "" || len(sessionToken) < 32 || len(sessionToken) > 128 ||
 		len(csrfToken) < 32 || len(csrfToken) > 128 || !expiresAt.After(time.Now()) {
