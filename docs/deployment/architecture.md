@@ -7,61 +7,29 @@ The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Page
 - Worker name: `agentforge`
 - Production route: `https://agentforge.gangshusheng.workers.dev`
 - Frontend build command: `npm run build`
-- Worker deployment validation: `npm run deploy:dry-run` (CI only; does not publish)
-- Build output: `dist/`
+- Build output: `apps/web/dist/`
 - Wrangler deployment command: `npx wrangler deploy`
-
-The repository now contains `wrangler.jsonc`, which declares the Worker entry point, Worker name, compatibility date, Vite build output and SPA fallback:
-
-```jsonc
-{
-  "name": "agentforge",
-  "main": "./src/worker.ts",
-  "compatibility_date": "2026-11-17",
-  "assets": {
-    "directory": "./dist/",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
-  }
-}
-```
-
-Keep the compatibility date aligned with the repository runtime policy. The Worker entry point delegates requests to the versioned `ASSETS` binding. Cloudflare serves built files from `dist/` and uses the SPA fallback for client-side navigation; the Worker does not pretend to provide backend API behavior.
 
 ## Cloudflare Workers Builds
 
-For the existing Worker project, configure:
-
 | Setting | Value |
 | --- | --- |
-| Root directory | `/` while the frontend remains at repository root |
+| Root directory | `/` |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
 | Production branch | `main` |
 
-After the frontend is moved to `apps/web`, update the build configuration to install/build from that application and ensure Wrangler resolves the correct configuration and asset directory. Do not change the Cloudflare root/build settings until that migration is ready.
+Cloudflare Workers Builds is the sole production deployment owner. Do not add a second GitHub Actions Wrangler deployment or use `wrangler pages deploy`.
 
-Do not use `wrangler pages deploy` for this Worker.
+## Backend deployment
 
-## Backend deployment (target)
-
-The Go API is a separate service and is not part of the current frontend Worker deployment.
-
-- Build a Go binary or container from `backend/api`.
-- Deploy to a Go/container-capable runtime.
-- Configure production PostgreSQL and object storage through server-side secrets.
-- Expose HTTPS API endpoint, health and readiness checks.
-- Configure frontend's public API base URL as non-secret build/runtime configuration.
-- Restrict CORS to intended frontend origins.
-- Keep database credentials, Git provider tokens and signing keys server-side.
+The Go API is independent of the frontend Worker. Build from `backend/api`, deploy to a Go/container-capable runtime, configure PostgreSQL and object storage through server-side secrets, expose HTTPS health/readiness endpoints, and restrict CORS to intended frontend origins.
 
 ## CI/CD ownership
 
-Use one production deployment mechanism per application:
+- **Frontend:** Cloudflare Workers Builds deploys from the repository's `main` branch.
+- **GitHub Actions:** dependency installation, tests, production build and contract validation only.
+- **Backend:** build/test in GitHub Actions and deploy through a separate Go hosting integration.
+- **Contracts:** validate OpenAPI and keep the checked frontend client aligned.
 
-- **Frontend:** Cloudflare Workers Builds is the sole production deployment owner. Connect the repository directly in Cloudflare and configure `main` as the production branch. Cloudflare runs `npm run build` and `npx wrangler deploy` from its own build environment.
-- **GitHub Actions:** run dependency installation, tests, production build and a Wrangler dry-run as CI checks only. The dry-run validates Worker packaging without publishing a deployment. Do not add a Wrangler deploy job, Cloudflare API token secret, or Pages deployment workflow to this repository.
-- **Backend:** use GitHub Actions for build/test and a separate deployment integration for the selected Go hosting provider.
-- **Contracts:** validate OpenAPI and ensure generated/checked frontend client is current.
-
-Do not run a second GitHub Actions deployment for the frontend. This repository currently keeps only `.github/workflows/ci.yml`; Cloudflare deployment runs independently through Cloudflare Workers Builds.
+Never commit credentials or expose backend secrets through frontend build variables.

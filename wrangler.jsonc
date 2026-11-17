@@ -1,9 +1,9 @@
 {
   "name": "agentforge",
-  "main": "./src/worker.ts",
+  "main": "./apps/web/src/worker.ts",
   "compatibility_date": "2026-11-17",
   "assets": {
-    "directory": "./dist/",
+    "directory": "./apps/web/dist/",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
