@@ -70,7 +70,7 @@
 - [x] 最新 PR #59 的 `npm test`、`npm run build` 和 GitHub `ci-gate` 均通过。
 - [x] PR #59 已合并到 main。
 - [x] Modal/Drawer 焦点逃逸后的 Tab/Shift+Tab 回收逻辑及 Drawer 可访问标题关系已补充单元测试（PR #64）。
-- [ ] 真实浏览器中验证 Modal/Drawer/Popover 的焦点、键盘、遮罩和移动端行为。
+- [ ] 完成真实浏览器中的完整交互与移动端回归；Playwright 基础套件已通过 CI（6 项 Chromium 浏览器测试全部通过），覆盖 Modal/Drawer/Popover/Tabs/CommandPalette；完整业务流程和移动端回归仍待扩展。
 - [ ] 完成 Overview、Delivery、Resources、Changesets、Organization 的业务回归。
 - [x] 已清理无引用的 Modal、CommandPalette、Toast 历史样式；保留登录链接和业务布局样式（PR #63）。
 - [ ] 对其余业务 CSS 完成更全面的引用核验和浏览器视觉回归。
@@ -80,7 +80,7 @@
 
 - `DataTable`、`Input`、`Select` 等共享组件内部使用原生 HTML 是预期实现，不属于页面迁移缺口。
 - `styles/index.css` 的 `.button` 仍用于登录导航链接等非按钮语义元素；`.nav-item`、`.profile`、`.searchbox` 等类名用于业务布局和共享 Button 的页面级视觉，不应仅因类名存在就盲目删除。
-- 新增共享 UI 测试使用 React 服务端静态渲染与纯逻辑单元测试，验证结构、无障碍属性和焦点索引计算；它不等同于真实浏览器交互测试。当前项目未引入 Playwright 或 DOM 测试依赖，浏览器级回归仍列为最终验收项。
+- 共享 UI 除 React 服务端静态渲染和纯逻辑单元测试外，已新增 Playwright Chromium 浏览器测试基线，覆盖 Modal、Drawer、Popover、Tabs 和 CommandPalette。测试 harness 不依赖真实后端或凭证；业务流程和移动端完整回归仍待扩展。
 - Popover 当前支持 Tab 自然焦点顺序，不承诺完整的菜单式方向键导航。
 - Cloudflare Workers Builds 是仓库外部集成检查，不等同于 `.github/workflows/ci.yml` 的 `ci-gate`；不得为通过外部生产部署检查而重新引入 Cloudflare 生产部署验证流水线。
 
@@ -99,4 +99,5 @@
 | 2026-11-17 | PR #59 全量控件迁移、组件能力和静态门禁 | 已合并；48 tests、build、ci-gate 通过 |
 | 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | 已合并（PR #63） |
 | 2026-11-17 | Modal/Drawer 焦点管理与 Drawer 标题无障碍关系 | 已合并（PR #64；CI run #243 的 npm ci、npm test、npm run build、ci-gate 全部通过） |
-| 待执行 | Playwright 浏览器级交互回归、业务回归和最终验收 | 进行中 |
+| 2026-11-17 | Playwright Chromium 浏览器测试基线 | PR #67：6 项浏览器测试、49 项单元测试、生产构建和 ci-gate 全部通过（Actions run #261） |
+| 待执行 | Overview、Delivery、Resources、Changesets、Organization 业务回归及最终验收 | 进行中 |

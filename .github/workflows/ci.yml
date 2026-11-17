@@ -37,7 +37,8 @@ jobs:
   web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04; pin the runner for browser reproducibility.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,6 +48,12 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run build
+      - name: Install Playwright browser test runner
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.56.1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run application and shared UI browser tests
+        run: npm run test:e2e
 
   api:
     needs: changes

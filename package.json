@@ -3,14 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "workspaces": ["apps/web"],
+  "workspaces": [
+    "apps/web"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace @agentforge/web",
     "build": "npm run build --workspace @agentforge/web",
     "test": "npm run test --workspace @agentforge/web",
-    "deploy:dry-run": "wrangler deploy --dry-run"
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "test:e2e": "playwright test"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "wrangler": "4.163.0"
   }
