@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"fmt"
 	"io"
 	"net/http"
@@ -221,8 +222,12 @@ func (d DeliveryDependencies) principal(w http.ResponseWriter, r *http.Request, 
 		return Principal{}, false
 	}
 	principal, err := d.Identity.ResolvePrincipal(r, organizationID)
-	if err != nil {
+	if errors.Is(err, identity.ErrUnauthenticated) {
 		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid authenticated identity and active organization membership are required")
+		return Principal{}, false
+	}
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Identity service unavailable", "The authenticated identity could not be verified")
 		return Principal{}, false
 	}
 	if strings.TrimSpace(principal.UserID) == "" || principal.OrganizationID != organizationID {
