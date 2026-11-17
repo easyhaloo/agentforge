@@ -11,8 +11,8 @@ export function createReviewDecision(
   decision: "Approved" | "Changes requested",
 ): Review | null {
   if (revision.changesetId !== change.id
-    || revision.number !== change.revision
-    || revision.id !== revisionKey(change.id, change.revision)
+    || revision.id !== change.currentRevisionId
+    || revision.id !== revisionKey(change.id, revision.number)
     || !canApproveRevision(revision.id, evidence)) {
     return null;
   }
