@@ -136,18 +136,23 @@ func (d DeliveryDependencies) getChangeset(w http.ResponseWriter, r *http.Reques
 }
 
 func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "addRevision requires a configured, trusted execution or review adapter")
 }
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "recordEvaluation requires a configured, trusted execution or review adapter")
 }
 func (d DeliveryDependencies) attachEvidence(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "attachEvidence requires a configured, trusted execution or review adapter")
 }
 func (d DeliveryDependencies) submitReview(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "submitReview requires a configured, trusted execution or review adapter")
 }
 func (d DeliveryDependencies) decideReview(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "decideReview requires a configured, trusted execution or review adapter")
 }
 func (d DeliveryDependencies) mutate(w http.ResponseWriter, r *http.Request, actor string, operation func(*delivery.Changeset, time.Time) error) {
