@@ -36,3 +36,14 @@
 .af-notification-viewport{position:fixed;z-index:30;display:flex;flex-direction:column;gap:9px;width:min(360px,calc(100vw - 28px));pointer-events:none}.af-notification-viewport--top-right{top:18px;right:18px}.af-notification-viewport--top-left{top:18px;left:18px}.af-notification-viewport--bottom-right{bottom:18px;right:18px}.af-notification-viewport--bottom-left{bottom:18px;left:18px}
 .af-notification{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;padding:12px;background:#141e2e;border:1px solid #34415a;border-radius:9px;box-shadow:0 12px 35px #0008;color:#cbd3e1;font-size:10px;line-height:1.5;animation:af-notification-in .18s ease-out}
 .af-notification--success{border-color:#315b4c}.af-notification--warning{border-color:#685235}.af-notification--error{border-color:#673c47}.af-notification__icon{width:18px;height:18px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:#29415b;color:#9bc9f3;font-weight:700}.af-notification--success .af-notification__icon{background:#285342;color:#a1e4bd}.af-notification--warning .af-notification__icon{background:#604a2c;color:#f1c27f}.af-notification--error .af-notification__icon{background:#603642;color:#f0a4ae}.af-notification__content{flex:1;min-width:0}.af-notification__content strong{display:block;color:#e5e9f1;margin-bottom:3px;font-size:11px}@keyframes af-notification-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+
+
+/* Overview page shared UI integration */
+.table-tools>.af-field{width:170px;min-width:150px}
+.inline-search>.af-field{width:100%;flex:1}
+.inline-search .af-input{height:31px;border:0;background:transparent;padding-left:0}
+.inline-search .af-input:focus{box-shadow:none}
+.table-tools>.af-button{align-self:center}
+.table-wrap>.af-empty{margin:12px;min-height:130px}
+.activity-panel .panel-head>.af-button,.table-title>.af-button{flex-shrink:0}
+@media(max-width:720px){.table-tools>.af-field{width:100%;min-width:100%}.table-tools>.af-button{flex:1;justify-content:center}}
