@@ -87,6 +87,16 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 
 All controls preserve native form behavior and accept standard input attributes such as `name`, `required`, `disabled` and `autoComplete`. Validation remains owned by the containing form; these components display supplied error text but do not impose a validation library.
 
+
+## Feedback and async states
+
+- `Alert` renders persistent inline information with `info`, `success`, `warning` or `error` status. Use `closable` for dismissible messages.
+- `Empty` provides a consistent no-data state with optional description, icon and action.
+- `Skeleton` renders animated placeholders. Set `lines`, `width`, `height` and `circle` to match the expected content shape.
+- `Loading` provides an accessible spinner and label; use `overlay` inside a positioned container to block an area while it loads.
+- `NotificationProvider` owns transient notifications. Wrap the relevant application subtree once, then call `useNotification().notify({ status, title, message, duration })` from descendants. A duration of `0` keeps a notification visible until dismissed. The provider exposes `dismiss(id)` and supports placement and a maximum visible count.
+
+Prefer inline `Alert` for persistent context, `Notification` for completed user-triggered operations, `Empty` for genuinely empty collections, and `Skeleton` when the final content layout is known.
 ### DataTable filters, column visibility and bulk actions
 
 `DataTable` can optionally show a column chooser, filter row and selection toolbar:
