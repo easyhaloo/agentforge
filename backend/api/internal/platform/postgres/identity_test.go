@@ -106,13 +106,16 @@ func TestPostgresResolvePrincipalAcceptsOrganizationSlugOrID(t *testing.T) {
 	slugInsertMember(t, ctx, store, orgLegacy, userID, "member", "active")
 	request, _ := slugNewSession(t, ctx, store, userID)
 
-	cases := []struct{ name, handle, wantOrganization, wantRole string }{
-		{"id of the first organization", orgA, orgA, "admin"},
-		{"slug of the first organization", slugA, orgA, "admin"},
-		{"slug match is case-insensitive", strings.ToUpper(slugA), orgA, "admin"},
-		{"slug of the second organization", slugB, orgB, "viewer"},
-		{"id of the second organization", orgB, orgB, "viewer"},
-		{"organization without a slug resolves by id", orgLegacy, orgLegacy, "member"},
+	// The principal carries the canonical id and the organization's handle (its
+	// slug, or its id when it has none), whichever handle was used to resolve it.
+	cases := []struct{ name, handle, wantOrganization, wantSlug, wantRole string }{
+		{"id of the first organization", orgA, orgA, slugA, "admin"},
+		{"slug of the first organization", slugA, orgA, slugA, "admin"},
+		{"slug match is case-insensitive", strings.ToUpper(slugA), orgA, slugA, "admin"},
+		{"slug of the second organization", slugB, orgB, slugB, "viewer"},
+		{"upper-case slug of the second organization", strings.ToUpper(slugB), orgB, slugB, "viewer"},
+		{"id of the second organization", orgB, orgB, slugB, "viewer"},
+		{"organization without a slug resolves by id", orgLegacy, orgLegacy, orgLegacy, "member"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -120,16 +123,19 @@ func TestPostgresResolvePrincipalAcceptsOrganizationSlugOrID(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ResolvePrincipal(%q) error = %v", tc.handle, err)
 			}
-			if principal.UserID != userID || principal.OrganizationID != tc.wantOrganization || principal.Role != tc.wantRole {
-				t.Fatalf("ResolvePrincipal(%q) = %#v, want user %q organization %q role %q (the canonical id, never the slug)",
-					tc.handle, principal, userID, tc.wantOrganization, tc.wantRole)
+			if principal.UserID != userID || principal.OrganizationID != tc.wantOrganization || principal.OrganizationSlug != tc.wantSlug || principal.Role != tc.wantRole {
+				t.Fatalf("ResolvePrincipal(%q) = %#v, want user %q organization %q slug %q role %q (the canonical id, never the slug)",
+					tc.handle, principal, userID, tc.wantOrganization, tc.wantSlug, tc.wantRole)
 			}
 		})
 	}
 
-	// Only slugs are case-insensitive: an organization id is an exact-match key.
-	if principal, err := store.ResolvePrincipal(request, strings.ToUpper(orgA)); !errors.Is(err, identity.ErrUnauthenticated) {
-		t.Fatalf("upper-cased organization id resolved %#v, error = %v; want ErrUnauthenticated", principal, err)
+	// Only slugs are case-insensitive: an organization id is an exact-match key,
+	// also when the id doubles as the handle of an organization without a slug.
+	for _, id := range []string{orgA, orgLegacy} {
+		if principal, err := store.ResolvePrincipal(request, strings.ToUpper(id)); !errors.Is(err, identity.ErrUnauthenticated) {
+			t.Fatalf("upper-cased organization id %q resolved %#v, error = %v; want ErrUnauthenticated", id, principal, err)
+		}
 	}
 	// Slug folding is ASCII-only, so it does not depend on Unicode case rules or
 	// the database locale: U+212A (KELVIN SIGN) lowercases to "k" under Unicode rules.
