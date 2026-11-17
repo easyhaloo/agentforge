@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"fmt"
 	"io"
 	"net/http"
