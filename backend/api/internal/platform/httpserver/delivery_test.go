@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -267,4 +268,47 @@ func TestOrganizationMemberManagementUsesAuthenticatedActorAndScopedOrganization
 	if removeResponse.Code != http.StatusNoContent || repository.removedUser != "member-1" {
 		t.Fatalf("remove status=%d target=%q",removeResponse.Code,repository.removedUser)
 	}
+}
+
+
+func TestOrganizationInvitationsAndAuditEndpoints(t *testing.T) {
+	repository:=&fakeMembershipRepository{}
+	handler:=NewHandlerWithDependencies(DeliveryDependencies{
+		Repository:newMemoryRepository(),Identity:fixedIdentity{role:"owner"},CSRF:allowCSRF{},
+		AllowedOrigin:"https://app.example.test",Membership:repository,
+	})
+	create:=httptest.NewRequest(http.MethodPost,"/api/v1/organizations/org-a/invitations",bytes.NewBufferString(`{"email":"new@example.test","role":"member"}`))
+	addValidCSRFCookies(create)
+	created:=httptest.NewRecorder()
+	handler.ServeHTTP(created,create)
+	if created.Code!=http.StatusCreated { t.Fatalf("create invitation status=%d body=%s",created.Code,created.Body.String()) }
+	var payload struct {
+		Invitation identity.OrganizationInvitation `json:"invitation"`
+		InvitationURL string `json:"invitation_url"`
+		Token string `json:"token"`
+	}
+	if err:=json.Unmarshal(created.Body.Bytes(),&payload); err!=nil { t.Fatal(err) }
+	if payload.Token=="" || repository.createdTokenHash!=identity.HashToken(payload.Token) {
+		t.Fatal("invitation token must be returned once while only its hash is passed to persistence")
+	}
+	parsed,err:=url.Parse(payload.InvitationURL)
+	if err!=nil || parsed.Host!="app.example.test" || parsed.Query().Get("token")!=payload.Token {
+		t.Fatalf("invalid invitation URL %q err=%v",payload.InvitationURL,err)
+	}
+
+	list:=httptest.NewRequest(http.MethodGet,"/api/v1/organizations/org-a/invitations",nil)
+	listResponse:=httptest.NewRecorder()
+	handler.ServeHTTP(listResponse,list)
+	if listResponse.Code!=http.StatusOK { t.Fatalf("list invitations status=%d",listResponse.Code) }
+
+	audit:=httptest.NewRequest(http.MethodGet,"/api/v1/organizations/org-a/membership-audit",nil)
+	auditResponse:=httptest.NewRecorder()
+	handler.ServeHTTP(auditResponse,audit)
+	if auditResponse.Code!=http.StatusOK { t.Fatalf("audit status=%d body=%s",auditResponse.Code,auditResponse.Body.String()) }
+
+	revoke:=httptest.NewRequest(http.MethodDelete,"/api/v1/organizations/org-a/invitations/invite-1",nil)
+	addValidCSRFCookies(revoke)
+	revokeResponse:=httptest.NewRecorder()
+	handler.ServeHTTP(revokeResponse,revoke)
+	if revokeResponse.Code!=http.StatusNoContent { t.Fatalf("revoke status=%d body=%s",revokeResponse.Code,revokeResponse.Body.String()) }
 }
