@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.1.0
-  description: Initial HTTP contract for the AgentForge API.
+  version: 0.2.0
+  description: Persistent delivery lifecycle API. Write operations require a trusted authenticated identity provider.
 servers:
   - url: /
 paths:
@@ -16,30 +16,281 @@ paths:
           description: API process is healthy
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
-        "405":
-          description: Method not allowed
+              schema: { $ref: "#/components/schemas/Health" }
   /readyz:
     get:
       operationId: getReadiness
-      summary: Report API readiness
+      summary: Report API and storage readiness
       security: []
       responses:
         "200":
-          description: API is ready to receive requests
+          description: API and configured storage are ready
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
-        "405":
-          description: Method not allowed
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Storage is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /api/v1/changesets:
+    get:
+      operationId: listChangesets
+      summary: List persisted changesets
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Changeset page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangesetPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createChangeset
+      summary: Create a changeset
+      description: Actor identity is resolved by trusted server authentication; client-supplied actor fields are rejected.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateChangeset" }
+      responses:
+        "201":
+          description: Changeset created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/changesets/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getChangeset
+      summary: Get a changeset and its lifecycle history
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Persisted changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/changesets/{id}/revisions:
+    post:
+      operationId: addRevision
+      summary: Add a revision and stale prior evidence and reviews
+      description: Returns 501 until a Git provider adapter validates the repository revision
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref]
+              properties:
+                ref: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
+  /api/v1/changesets/{id}/evaluations:
+    post:
+      operationId: recordEvaluation
+      summary: Record an evaluation result for the current revision
+      description: Returns 501 until a trusted evaluation worker is configured; clients cannot assert evaluation outcomes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision_id, status]
+              properties:
+                revision_id: { type: string }
+                status: { type: string, enum: [passed, failed] }
+                summary: { type: string }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
+  /api/v1/changesets/{id}/evidence:
+    post:
+      operationId: attachEvidence
+      summary: Attach evidence from a passed evaluation on the current revision
+      description: Returns 501 until a trusted evidence adapter validates artifact provenance
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision_id, evaluation_id, kind, uri]
+              properties:
+                revision_id: { type: string }
+                evaluation_id: { type: string }
+                kind: { type: string }
+                uri: { type: string, format: uri }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
+  /api/v1/changesets/{id}/reviews:
+    post:
+      operationId: submitReview
+      summary: Submit a review for a revision with active evidence
+      description: Returns 501 until the review assignment and authorization workflow is configured
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision_id]
+              properties:
+                revision_id: { type: string }
+                comment: { type: string }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
+  /api/v1/changesets/{id}/reviews/{reviewID}/decision:
+    post:
+      operationId: decideReview
+      summary: Approve or reject a pending review assigned to the authenticated reviewer
+      description: Returns 501 until the review authorization workflow is configured
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: reviewID
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approved]
+              properties:
+                approved: { type: boolean }
+                comment: { type: string }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "501": { $ref: "#/components/responses/Problem" }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    Problem:
+      description: RFC 9457 problem response
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
   schemas:
     Health:
       type: object
       required: [status]
       properties:
-        status:
-          type: string
-          enum: [ok, ready]
+        status: { type: string, enum: [ok, ready, not_ready] }
+    CreateChangeset:
+      type: object
+      required: [repository, title]
+      additionalProperties: false
+      properties:
+        repository: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1 }
+    StoredChangeset:
+      type: object
+      required: [changeset, version, created_at, updated_at]
+      properties:
+        changeset: { type: object }
+        version: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ChangesetPage:
+      type: object
+      required: [items, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/StoredChangeset" }
+        limit: { type: integer }
+        offset: { type: integer }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
