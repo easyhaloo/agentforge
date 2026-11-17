@@ -31,7 +31,7 @@ Status: **Completed**.
 ## Phase 1 — Monorepo foundation
 
 Priority: P0
-Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5) · [PR #6](https://github.com/easyhaloo/agentforge/pull/6)
+Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5) · [PR #19](https://github.com/easyhaloo/agentforge/pull/19)
 Status: **Integration validation** — implementation is on `phase-1-foundation-reconciled`; it is not merged to `main`.
 
 Implemented in this integration branch:
