@@ -12,6 +12,7 @@ import {
   Select,
   Tabs,
   getNextEnabledTabIndex,
+  getFocusTrapTargetIndex,
 } from "./index";
 import { Checkbox, RadioGroup, Switch, TextArea } from "./form-controls";
 import { Alert, Empty, Loading, Skeleton, NotificationProvider } from "./feedback";
@@ -101,6 +102,16 @@ describe("shared UI primitives", () => {
     expect(getNextEnabledTabIndex(items, 0, "ArrowLeft")).toBe(2);
     expect(getNextEnabledTabIndex(items, 2, "Home")).toBe(0);
     expect(getNextEnabledTabIndex(items, 0, "End")).toBe(2);
+  });
+
+
+  it("keeps modal and drawer keyboard focus inside when focus escapes", () => {
+    expect(getFocusTrapTargetIndex(3, 0, true, true)).toBe(2);
+    expect(getFocusTrapTargetIndex(3, 2, false, true)).toBe(0);
+    expect(getFocusTrapTargetIndex(3, -1, false, false)).toBe(0);
+    expect(getFocusTrapTargetIndex(3, -1, true, false)).toBe(2);
+    expect(getFocusTrapTargetIndex(3, 1, false, true)).toBeNull();
+    expect(getFocusTrapTargetIndex(0, -1, false, false)).toBeNull();
   });
 
   it("renders data tables with stable row keys and column headers", () => {
