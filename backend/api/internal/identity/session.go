@@ -31,7 +31,7 @@ type PrincipalResolver interface {
 }
 
 type CSRFValidator interface {
-	ValidateCSRF(context.Context, sessionToken, csrfToken string) error
+	ValidateCSRF(ctx context.Context, sessionToken, csrfToken string) error
 }
 
 type Credentials struct {
