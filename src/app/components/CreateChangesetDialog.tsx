@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Plus, Sparkles, X } from "lucide-react";
 
 type Props = { open: boolean; onClose: () => void; onCreate: (title: string) => void };
