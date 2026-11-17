@@ -28,7 +28,7 @@ This plan is execution-oriented. Work is delivered in small, reviewable incremen
 
 ## Phase 0 — Architecture documentation and decision baseline
 
-Status: Documentation being established.
+Status: **Completed** — architecture overview, ADRs, roadmap and deployment architecture are committed.
 
 Deliverables:
 - Architecture overview.
