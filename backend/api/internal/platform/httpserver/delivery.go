@@ -50,6 +50,7 @@ type DeliveryDependencies struct {
 	Evaluator delivery.Evaluator
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer
+	Catalog delivery.RepositoryCatalog
 }
 
 type storedChangesetResponse struct {
@@ -86,6 +87,8 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/invitations", deps.createInvitation)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories", deps.registerRepository)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}", deps.getChangeset)
@@ -96,6 +99,27 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
 	return mux
+}
+
+
+type repositoryRegistrationRequest struct { Slug string `json:"slug"`; DefaultBranch string `json:"default_branch"` }
+func (d DeliveryDependencies) listRepositories(w http.ResponseWriter,r *http.Request) {
+	principal,ok:=d.principal(w,r,false);if !ok{return}
+	if d.Catalog==nil {writeProblem(w,503,"Repository catalog unavailable","Repository metadata storage is not configured");return}
+	items,err:=d.Catalog.ListRepositories(r.Context(),principal.OrganizationID);if err!=nil{writeProblem(w,500,"Unable to list repositories","The repository catalog query failed");return}
+	writeJSON(w,200,map[string]any{"items":items})
+}
+func (d DeliveryDependencies) registerRepository(w http.ResponseWriter,r *http.Request) {
+	principal,ok:=d.principal(w,r,true);if !ok{return}
+	if principal.Role!="owner"&&principal.Role!="admin" {writeProblem(w,403,"Insufficient permissions","Only organization owners and administrators can register repositories");return}
+	if d.Catalog==nil||d.Git==nil {writeProblem(w,503,"Repository integration unavailable","A repository catalog and trusted Git provider are required");return}
+	var input repositoryRegistrationRequest;if !decodeJSON(w,r,&input){return}
+	input.Slug=strings.TrimSpace(input.Slug);input.DefaultBranch=strings.TrimSpace(input.DefaultBranch)
+	if _,err:=d.Git.ResolveRevision(r.Context(),principal.OrganizationID,input.Slug,input.DefaultBranch);err!=nil {writeProblem(w,422,"Repository not available","The repository must exist under the configured organization Git root and its default branch must resolve");return}
+	item,err:=d.Catalog.RegisterRepository(r.Context(),delivery.RepositoryMetadata{OrganizationID:principal.OrganizationID,Slug:input.Slug,DefaultBranch:input.DefaultBranch,CreatedBy:principal.UserID})
+	if errors.Is(err,delivery.ErrVersionConflict){writeProblem(w,409,"Repository already registered","This repository is already registered for the organization");return}
+	if err!=nil{writeProblem(w,500,"Unable to register repository","Repository metadata could not be persisted");return}
+	writeJSON(w,201,item)
 }
 
 func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Request) {
@@ -156,6 +180,13 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to create changeset", "An identifier could not be generated")
 		return
+	}
+	if d.Catalog != nil {
+		repositories, catalogErr := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
+		if catalogErr != nil { writeProblem(w,503,"Repository catalog unavailable","Registered repositories could not be verified"); return }
+		registered := false
+		for _, repository := range repositories { if repository.Slug == strings.TrimSpace(input.Repository) { registered = true; break } }
+		if !registered { writeProblem(w,422,"Repository is not registered","Register this repository with the organization before creating a changeset"); return }
 	}
 	changeset, err := delivery.NewChangeset(delivery.ID(id), strings.TrimSpace(input.Repository), strings.TrimSpace(input.Title), principal.UserID, time.Now().UTC())
 	if err != nil {
