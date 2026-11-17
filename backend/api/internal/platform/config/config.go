@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,8 @@ type Config struct {
 	AppOrigin   string
 	OIDC        *OIDCConfig
 	SessionTTL  time.Duration
+	GitRepositoryRoot string
+	EvidenceRoot string
 }
 
 func LoadFromEnv() (Config, error) {
@@ -42,6 +45,10 @@ func LoadFromEnv() (Config, error) {
 	}
 	configuration.OIDC = oidcConfig
 	configuration.SessionTTL = sessionTTL
+	configuration.GitRepositoryRoot = strings.TrimSpace(os.Getenv("GIT_REPOSITORY_ROOT"))
+	configuration.EvidenceRoot = strings.TrimSpace(os.Getenv("EVIDENCE_ROOT"))
+	if configuration.GitRepositoryRoot != "" { configuration.GitRepositoryRoot, err = filepath.Abs(configuration.GitRepositoryRoot); if err != nil { return Config{}, errors.New("GIT_REPOSITORY_ROOT must be a valid local path") } }
+	if configuration.EvidenceRoot != "" { configuration.EvidenceRoot, err = filepath.Abs(configuration.EvidenceRoot); if err != nil { return Config{}, errors.New("EVIDENCE_ROOT must be a valid local path") } }
 	return configuration, nil
 }
 
