@@ -95,7 +95,7 @@ describe("shared UI primitives", () => {
   });
 
   it("moves tab focus with wraparound while skipping disabled tabs", () => {
-    const items = [{ key: "members" }, { key: "disabled", disabled: true }, { key: "audit" }];
+    const items = [{ key: "members", label: "Members" }, { key: "disabled", label: "Disabled", disabled: true }, { key: "audit", label: "Audit" }];
     expect(getNextEnabledTabIndex(items, 0, "ArrowRight")).toBe(2);
     expect(getNextEnabledTabIndex(items, 2, "ArrowRight")).toBe(0);
     expect(getNextEnabledTabIndex(items, 0, "ArrowLeft")).toBe(2);
