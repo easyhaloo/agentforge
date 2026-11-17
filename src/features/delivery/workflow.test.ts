@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { initialChange, initialEvaluations, initialRevisions, initialReviews } from "./model";
-import { createEvaluation, createNextRevision, createReviewDecision } from "./workflow";
+import { createEvaluation, createNextRevision, createReviewDecision, resolveCurrentRevision } from "./workflow";
 
 describe("delivery feature workflows", () => {
   it("creates a revision entity while preserving changeset identity and history", () => {
@@ -19,6 +19,16 @@ describe("delivery feature workflows", () => {
   it("refuses to create a revision for a merged changeset", () => {
     const merged = { ...initialChange, status: "Merged" as const };
     expect(createNextRevision(merged, initialRevisions, initialReviews)).toBeNull();
+  });
+
+  it("restores the active revision identity when upgrading legacy local state", () => {
+    const legacyChange = { ...initialChange, revision: 4 };
+    const revision = resolveCurrentRevision(legacyChange, initialRevisions);
+
+    expect(revision.id).toBe("CS-2481@r4");
+    expect(revision.changesetId).toBe(legacyChange.id);
+    expect(revision.number).toBe(4);
+    expect(revision.baseCommitSha).toBeNull();
   });
 
   it("binds evaluation evidence to the active revision entity", () => {

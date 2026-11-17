@@ -8,7 +8,7 @@ import {
 } from "../../../domain/delivery";
 import { usePersistentState } from "../../../shared/hooks/usePersistentState";
 import { initialChange, initialEvaluations, initialRevisions, initialReviews, type Change, type Evaluation, type Review } from "../model";
-import { createEvaluation, createNextRevision, createReviewDecision } from "../workflow";
+import { createEvaluation, createNextRevision, createReviewDecision, resolveCurrentRevision } from "../workflow";
 
 export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   const [change, setChange] = usePersistentState<Change>("agentforge:delivery:change", initialChange);
@@ -21,8 +21,8 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   const [title, setTitle] = usePersistentState("agentforge:delivery:title", initialChange.title);
   const [events, setEvents] = usePersistentState<string[]>("agentforge:delivery:events", ["CS-2481 r3 created from main", "EVL-5509 passed 38 checks"]);
 
-  const currentRevision = revisions.find((revision) => revision.changesetId === change.id && revision.number === change.revision);
-  const currentRevisionId = currentRevision?.id ?? change.id + "@r" + change.revision;
+  const currentRevision = resolveCurrentRevision(change, revisions);
+  const currentRevisionId = currentRevision.id;
   const latestEvaluation = evaluations[0];
   const latestReview = reviews[0];
   const evidenceCurrent = isEvidenceCurrent(currentRevisionId, latestEvaluation);
@@ -54,10 +54,6 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   };
 
   const runEvaluation = () => {
-    if (!currentRevision) {
-      record("Evaluation blocked: active revision record is missing");
-      return;
-    }
     const outcome = repairCount < 1 || change.revision > 3 ? "Passed" : "Failed";
     const evaluation = createEvaluation(change, currentRevision, evaluations, outcome);
     if (!evaluation) {
@@ -70,7 +66,7 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   };
 
   const decide = (decision: "Approved" | "Changes requested") => {
-    if (!currentRevision || !canApproveRevision(currentRevision.id, latestEvaluation)) {
+    if (!canApproveRevision(currentRevisionId, latestEvaluation)) {
       record("Review blocked: current passing evidence is required");
       return;
     }
