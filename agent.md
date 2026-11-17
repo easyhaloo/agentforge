@@ -60,7 +60,7 @@ Migrate incrementally toward a simplified Feature-Sliced structure only when cod
 - `shared/`: business-agnostic UI primitives, hooks, utilities, configuration and infrastructure.
 - `domain/`: retain framework-independent business invariants and pure rules; do not move domain logic into React components.
 
-The current `features/overview` page is being migrated to `pages/overview` as a page-ownership correction. Existing `features/delivery` and `features/resources` remain in place until their boundaries can be migrated safely. This is an incremental target, not a claim that all layers already exist.
+The Overview page now lives in `pages/overview`. Existing `features/delivery` and `features/resources` remain in place until their boundaries can be migrated safely. This is an incremental target, not a claim that all layers already exist.
 
 ### Componentization rules
 
@@ -79,10 +79,13 @@ The current `features/overview` page is being migrated to `pages/overview` as a 
 
 Organize code by **feature ownership and dependency direction**, not by creating large global folders that mix unrelated business concerns.
 
-Current intended structure:
+Current implemented structure:
 
     src/
-      app/                         Application composition and navigation
+      app/                         Application shell, navigation and composition
+        components/                Shell-owned UI components
+      pages/
+        overview/                  Overview page, page sections, view model and fixtures
       features/
         delivery/                  Changeset delivery workflow
         resources/                 Resource workspaces and resource configuration
@@ -93,18 +96,9 @@ Current intended structure:
       styles/                      Global styles and design tokens
       main.tsx                     React bootstrap
 
-As the application grows, a feature may contain:
+This is an intentionally incremental structure. Do not move every existing feature in one pass. For a new or substantially changed screen, decide whether its code belongs to a route-level `pages` module or a user-intent `features` module. A page may compose feature workflows and entity views; it should not become a generic feature bucket.
 
-    features/<feature>/
-      components/                  Feature-specific presentational components
-      hooks/                       Feature-specific hooks
-      pages/                       Route-level or full-page components
-      services/                    Feature use cases and service adapters
-      data/                        Fixtures and configuration
-      types/                       Feature-local UI types
-      index.ts                     Optional public exports
-
-Do not create empty folders pre-emptively. Add a subfolder when it provides a real ownership boundary.
+A module may contain only the subfolders it actually needs. Common optional responsibilities include `ui/`, `model/`, `api/`, `data/` and a public `index.ts`. Do not create empty folders pre-emptively. Add a subfolder when it provides a real ownership boundary.
 
 ### Layer responsibilities
 
