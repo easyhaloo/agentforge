@@ -1,13 +1,56 @@
 import { useState } from "react";
 import { ArrowRight, CircleDot, Search } from "lucide-react";
 import { groups } from "../navigation";
+import { Button, Input, Modal } from "../../shared/ui";
 
 type Props = { open: boolean; onClose: () => void; onNavigate: (page: string) => void };
 
 export function CommandPalette({ open, onClose, onNavigate }: Props) {
   const [query, setQuery] = useState("");
-  if (!open) return null;
-  const pages = groups.flatMap(group=>group.items.map(([name])=>String(name))).filter(name=>name.toLowerCase().includes(query.toLowerCase()));
-  const navigate = (page: string) => { onNavigate(page); setQuery(""); onClose(); };
-  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><div className="command-modal"><div className="command-input"><Search size={17}/><input autoFocus placeholder="Jump to a page..." value={query} onChange={event=>setQuery(event.target.value)}/><kbd>ESC</kbd></div>{pages.map(page=><button key={page} onClick={()=>navigate(page)}><CircleDot size={15}/>{page}<ArrowRight size={14}/></button>)}</div></div>;
+  const pages = groups
+    .flatMap((group) => group.items.map(([name]) => String(name)))
+    .filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const navigate = (page: string) => {
+    onNavigate(page);
+    setQuery("");
+    onClose();
+  };
+
+  const close = () => {
+    setQuery("");
+    onClose();
+  };
+
+  return (
+    <Modal open={open} title="Jump to a page" onCancel={close} closeOnBackdrop width={440}>
+      <div className="command-palette">
+        <div className="command-palette__search">
+          <Search size={16} aria-hidden="true" />
+          <Input
+            aria-label="Search pages"
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Jump to a page..."
+          />
+          <kbd>ESC</kbd>
+        </div>
+        <div className="command-palette__results" role="list" aria-label="Matching pages">
+          {pages.length ? pages.map((page) => (
+            <Button
+              key={page}
+              variant="ghost"
+              className="command-palette__item"
+              onClick={() => navigate(page)}
+            >
+              <CircleDot size={15} aria-hidden="true" />
+              <span>{page}</span>
+              <ArrowRight size={14} aria-hidden="true" />
+            </Button>
+          )) : <p className="command-palette__empty" role="status">No matching pages</p>}
+        </div>
+      </div>
+    </Modal>
+  );
 }
