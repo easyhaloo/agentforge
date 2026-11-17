@@ -335,7 +335,7 @@ export function DataTable<T>({
         </tr></thead>
         <tbody>
           {loading ? <tr><td colSpan={columns.length + (onSelectionChange ? 1 : 0)} className="af-table__state">Loading…</td></tr> :
-            data.length === 0 ? <tr><td colSpan={columns.length} className="af-table__state">{emptyText}</td></tr> :
+            data.length === 0 ? <tr><td colSpan={columns.length + (onSelectionChange ? 1 : 0)} className="af-table__state">{emptyText}</td></tr> :
               sortedData.map((row, index) => <tr key={getRowKey(row)}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{columns.map((column) => {
                 const value = (row as unknown as Record<string, unknown>)[String(column.key)];
                 return <td key={String(column.key)}>{column.render ? column.render(value, row, index) : String(value ?? "—")}</td>;
