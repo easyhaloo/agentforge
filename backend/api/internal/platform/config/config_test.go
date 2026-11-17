@@ -16,7 +16,7 @@ func TestLoadFromValues(t *testing.T) {
 		{name: "default port", databaseURL: "postgres://localhost/agentforge", appOrigin: "http://localhost:5173", wantPort: "8080"},
 		{name: "configured port", port: "9090", databaseURL: "postgres://localhost/agentforge", appOrigin: "http://localhost:5173", wantPort: "9090"},
 		{name: "invalid port", port: "70000", databaseURL: "postgres://localhost/agentforge", appOrigin: "http://localhost:5173", wantErr: true},
-		{name: "invalid port text", port: "http", databaseURL: "postgres://localhost/agentforge", wantErr: true},
+		{name: "invalid port text", port: "http", databaseURL: "postgres://localhost/agentforge", appOrigin: "http://localhost:5173", wantErr: true},
 		{name: "missing database", port: "8080", wantErr: true},
 		{name: "invalid database URL", port: "8080", databaseURL: "http://localhost/db", appOrigin: "http://localhost:5173", wantErr: true},
 		{name: "missing app origin", port: "8080", databaseURL: "postgres://localhost/agentforge", wantErr: true},
