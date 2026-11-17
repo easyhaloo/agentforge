@@ -33,7 +33,7 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		writeHealth(w, http.StatusOK, "ready")
 	})
 	mux.Handle("/", newDeliveryHandler(deps))
-	return requestIDMiddleware(csrfMiddleware(mux, deps.CSRF, deps.AllowedOrigin))
+	return requestIDMiddleware(corsMiddleware(csrfMiddleware(mux, deps.CSRF, deps.AllowedOrigin), deps.AllowedOrigin))
 }
 
 func writeHealth(w http.ResponseWriter, status int, value string) {
