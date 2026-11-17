@@ -1,0 +1,96 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/api/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: agentforge-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy Go API
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check deployment configuration
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+        run: |
+          set -euo pipefail
+          for name in GCP_PROJECT_ID GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_REGION ARTIFACT_REPOSITORY FRONTEND_ORIGIN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret/variable: $name"
+              exit 1
+            fi
+          done
+
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure deployment values
+        id: config
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+          REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+        run: |
+          echo "image=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/agentforge-api:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish container
+        run: gcloud builds submit --tag "${{ steps.config.outputs.image }}" backend/api
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ steps.config.outputs.image }}
+          REGION: ${{ vars.GCP_REGION }}
+          SERVICE: agentforge-api
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 512Mi \
+            --cpu 1 \
+            --min 0 \
+            --max 3 \
+            --concurrency 40 \
+            --timeout 300 \
+            --set-env-vars "APP_ORIGIN=$FRONTEND_ORIGIN,SESSION_TTL=12h" \
+            --set-secrets "DATABASE_URL=AGENTFORGE_DATABASE_URL:latest,OIDC_ISSUER_URL=AGENTFORGE_OIDC_ISSUER_URL:latest,OIDC_CLIENT_ID=AGENTFORGE_OIDC_CLIENT_ID:latest,OIDC_CLIENT_SECRET=AGENTFORGE_OIDC_CLIENT_SECRET:latest,OIDC_REDIRECT_URL=AGENTFORGE_OIDC_REDIRECT_URL:latest"
+
+      - name: Verify deployment health
+        env:
+          REGION: ${{ vars.GCP_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          URL="$(gcloud run services describe agentforge-api --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
+          test -n "$URL"
+          curl --fail --silent --show-error --retry 10 --retry-delay 5 "$URL/healthz"
+          echo "Backend is healthy at $URL"
