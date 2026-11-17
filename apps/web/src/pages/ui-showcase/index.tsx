@@ -1,0 +1,114 @@
+import { useState } from "react";
+import {
+  AsyncSelect,
+  Button,
+  ConfirmDialog,
+  DataTable,
+  DatePicker,
+  DateRangePicker,
+  Drawer,
+  Form,
+  FormItem,
+  Input,
+  Modal,
+  Popover,
+  SearchInput,
+  Select,
+  type DataTableColumn,
+  type SelectOption,
+} from "@/shared/ui";
+
+type DemoRow = { id: number; name: string; status: string; updated: string };
+const initialRows: DemoRow[] = [
+  { id: 1001, name: "API Gateway", status: "Healthy", updated: "2026-11-17" },
+  { id: 1002, name: "Worker Runtime", status: "Deploying", updated: "2026-11-16" },
+  { id: 1003, name: "Policy Engine", status: "Healthy", updated: "2026-11-15" },
+];
+const environmentOptions: SelectOption[] = [
+  { label: "Development", value: "development" },
+  { label: "Staging", value: "staging" },
+  { label: "Production", value: "production" },
+];
+async function loadTeamOptions(keyword: string, signal: AbortSignal) {
+  await new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(resolve, 280);
+    signal.addEventListener("abort", () => { window.clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
+  });
+  const all = ["Platform Engineering", "Runtime Team", "Security Operations", "Developer Experience"];
+  return all.filter((name) => name.toLowerCase().includes(keyword.toLowerCase())).map((name) => ({ label: name, value: name.toLowerCase().replaceAll(" ", "-") }));
+}
+
+export function UIShowcasePage() {
+  const [inputValue, setInputValue] = useState("agentforge-core");
+  const [environment, setEnvironment] = useState("staging");
+  const [date, setDate] = useState("2026-11-17");
+  const [dateRange, setDateRange] = useState({ start: "2026-11-01", end: "2026-11-17" });
+  const [search, setSearch] = useState("");
+  const [searchResult, setSearchResult] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [team, setTeam] = useState("");
+  const [selectedRows, setSelectedRows] = useState<Array<string | number>>([]);
+  const [rows] = useState(initialRows);
+  const [sortMessage, setSortMessage] = useState("No sort applied");
+
+  const columns: DataTableColumn<DemoRow>[] = [
+    { key: "id", title: "ID", width: 90, sortable: true },
+    { key: "name", title: "SERVICE", sortable: true },
+    { key: "status", title: "STATUS", render: (value) => <span className={value === "Healthy" ? "af-showcase-status is-good" : "af-showcase-status is-pending"}>{String(value)}</span> },
+    { key: "updated", title: "UPDATED", sortable: true },
+  ];
+
+  return (
+    <div className="af-showcase">
+      <section className="af-showcase-intro">
+        <div><span className="af-showcase-kicker">DESIGN SYSTEM / FOUNDATIONS</span><h2>Shared UI components</h2><p>Reusable controls, interaction patterns and data primitives used across AgentForge.</p></div>
+        <span className="af-showcase-version">UI FOUNDATION · v0.2</span>
+      </section>
+
+      <section className="af-showcase-section">
+        <div className="af-showcase-section__heading"><div><h3>Actions</h3><p>Consistent button hierarchy and feedback states.</p></div></div>
+        <div className="af-showcase-row"><Button variant="primary">Primary action</Button><Button>Secondary</Button><Button variant="ghost">Ghost</Button><Button variant="danger">Danger</Button><Button loading>Saving</Button><Button disabled>Disabled</Button></div>
+      </section>
+
+      <section className="af-showcase-section">
+        <div className="af-showcase-section__heading"><div><h3>Form controls</h3><p>Labels, validation, native date values and remote options.</p></div></div>
+        <div className="af-showcase-grid">
+          <Form onSubmit={(event) => event.preventDefault()}>
+            <FormItem><Input label="Workspace name" value={inputValue} onChange={(event) => setInputValue(event.target.value)} hint="Unique name within your organization" /></FormItem>
+            <FormItem><Input label="Invalid example" value="bad value" readOnly error="Only letters, numbers and hyphens are allowed" /></FormItem>
+            <FormItem><Select label="Environment" value={environment} onChange={(event) => setEnvironment(event.target.value)} options={environmentOptions} /></FormItem>
+            <FormItem><DatePicker label="Release date" value={date} onChange={(event) => setDate(event.target.value)} /></FormItem>
+            <FormItem><DateRangePicker start={dateRange.start} end={dateRange.end} onChange={setDateRange} /></FormItem>
+            <FormItem><AsyncSelect value={team} onChange={setTeam} loadOptions={loadTeamOptions} placeholder="Find a team..." /></FormItem>
+          </Form>
+          <div className="af-showcase-card"><h4>Search</h4><p>Debounced search with immediate Enter submission.</p><SearchInput value={search} onChange={setSearch} onSearch={setSearchResult} placeholder="Search projects..." /><div className="af-showcase-result">Last submitted query: <b>{searchResult || "—"}</b></div></div>
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <div className="af-showcase-section__heading"><div><h3>Overlays and contextual UI</h3><p>Dialog, side panel, confirmation and anchored content.</p></div></div>
+        <div className="af-showcase-row">
+          <Button variant="primary" onClick={() => setModalOpen(true)}>Open modal</Button>
+          <Button onClick={() => setDrawerOpen(true)}>Open drawer</Button>
+          <Button variant="danger" onClick={() => setConfirmOpen(true)}>Confirm destructive action</Button>
+          <Popover trigger="Show contextual info"><div><b>Popover content</b><p>Use for short contextual details and lightweight actions.</p></div></Popover>
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <div className="af-showcase-section__heading"><div><h3>Data table</h3><p>Sortable columns, row selection and server-driven pagination callbacks.</p></div><span className="af-showcase-meta">{selectedRows.length} selected · {sortMessage}</span></div>
+        <DataTable columns={columns} data={rows} rowKey="id" selectedRowKeys={selectedRows} onSelectionChange={setSelectedRows} onSort={(key, direction) => setSortMessage(direction ? key + " " + direction : "No sort applied")} pagination={{ page: 1, pageSize: 10, total: rows.length }} />
+      </section>
+
+      <Modal open={modalOpen} title="Create workspace" onCancel={() => setModalOpen(false)} onOk={async () => { await new Promise((resolve) => window.setTimeout(resolve, 350)); setModalOpen(false); }}>
+        <Form><Input label="Workspace name" defaultValue="new-workspace" /><Select label="Environment" defaultValue="development" options={environmentOptions} /></Form>
+      </Modal>
+      <Drawer open={drawerOpen} title="Service details" onClose={() => setDrawerOpen(false)}>
+        <h3>API Gateway</h3><p>Service metadata and operational details can live in a side panel without losing list context.</p><p className="af-showcase-status is-good">Healthy</p>
+      </Drawer>
+      <ConfirmDialog open={confirmOpen} title="Delete workspace?" description="This is a demonstration. No workspace will actually be deleted." confirmText="Delete" danger onCancel={() => setConfirmOpen(false)} onConfirm={() => setConfirmOpen(false)} />
+    </div>
+  );
+}
