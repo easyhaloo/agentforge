@@ -97,7 +97,7 @@ function App() {
   };
 
   return (
-    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization, selectOrganization, signOut }}>
+    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
       <div className="shell">
         <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} onSignOut={() => void signOut()} />
         <main className="main">

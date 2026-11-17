@@ -10,8 +10,6 @@ export type AppAccount = {
   accountError: string;
   reload: () => Promise<void>;
   selectedOrganization: OrganizationSummary | undefined;
-  selectOrganization: (organizationID: string) => void;
-  signOut: () => Promise<void>;
 };
 
 // Safe default: components such as the command palette must render without a provider
@@ -22,8 +20,6 @@ const withoutProvider: AppAccount = {
   accountError: "",
   reload: async () => {},
   selectedOrganization: undefined,
-  selectOrganization: () => {},
-  signOut: async () => {},
 };
 
 export const AppAccountContext = createContext<AppAccount>(withoutProvider);
