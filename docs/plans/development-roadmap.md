@@ -46,6 +46,10 @@ Exit criteria:
 
 Priority: P0
 
+Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5)
+
+Status: **In progress**. Initial inventory and tracking issue are established; implementation is gated on the current frontend CI baseline.
+
 Scope:
 - Move the existing Vite app to `apps/web` without changing behavior.
 - Add root workspace scripts and lockfile strategy; keep frontend independently installable/buildable.
