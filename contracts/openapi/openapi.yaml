@@ -108,7 +108,7 @@ paths:
       operationId: addRevision
       summary: Add a revision and stale prior evidence and reviews
       description: Returns 501 until a Git provider adapter validates the repository revision
-      security: [{ sessionCookie: [], csrfToken: [] }]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -142,7 +142,7 @@ paths:
       operationId: recordEvaluation
       summary: Record an evaluation result for the current revision
       description: Returns 501 until a trusted evaluation worker is configured; clients cannot assert evaluation outcomes
-      security: [{ sessionCookie: [], csrfToken: [] }]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -178,7 +178,7 @@ paths:
       operationId: attachEvidence
       summary: Attach evidence from a passed evaluation on the current revision
       description: Returns 501 until a trusted evidence adapter validates artifact provenance
-      security: [{ sessionCookie: [], csrfToken: [] }]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -215,7 +215,7 @@ paths:
       operationId: submitReview
       summary: Submit a review for a revision with active evidence
       description: Returns 501 until the review assignment and authorization workflow is configured
-      security: [{ sessionCookie: [], csrfToken: [] }]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -250,7 +250,7 @@ paths:
       operationId: decideReview
       summary: Approve or reject a pending review assigned to the authenticated reviewer
       description: Returns 501 until the review authorization workflow is configured
-      security: [{ sessionCookie: [], csrfToken: [] }]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
