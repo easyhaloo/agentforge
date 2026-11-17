@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"crypto/subtle"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -44,8 +45,11 @@ func csrfMiddleware(next http.Handler, validator identity.CSRFValidator, allowed
 			writeProblem(w, http.StatusForbidden, "CSRF validation failed", "The CSRF cookie and request header must match")
 			return
 		}
-		if err := validator.ValidateCSRF(r.Context(), sessionCookie.Value, headerToken); err != nil {
+		if err := validator.ValidateCSRF(r.Context(), sessionCookie.Value, headerToken); errors.Is(err, identity.ErrUnauthenticated) {
 			writeProblem(w, http.StatusForbidden, "CSRF validation failed", "The CSRF token is not bound to an active session")
+			return
+		} else if err != nil {
+			writeProblem(w, http.StatusServiceUnavailable, "CSRF validation unavailable", "The session security state could not be verified")
 			return
 		}
 		next.ServeHTTP(w, r)
