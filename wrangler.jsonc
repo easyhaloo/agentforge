@@ -1,4 +1,5 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "agentforge",
   "main": "./apps/web/src/worker.ts",
   "compatibility_date": "2026-11-17",
