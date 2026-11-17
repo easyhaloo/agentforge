@@ -1,26 +1,49 @@
-import type { Changeset, RevisionEvidence, RevisionReview } from "../../entities";
+import type { Changeset, Revision, RevisionEvidence, RevisionReview } from "../../entities";
 
-export type Evaluation = RevisionEvidence & { revision: number; checks: number; createdAt: string };
-export type Review = RevisionReview & { revision: number; reviewer: string };
-export type Change = Pick<Changeset, "id" | "title"> & {
+export type Evaluation = RevisionEvidence & { revision: number };
+export type Review = RevisionReview & { revision: number };
+export type Change = Pick<Changeset, "id" | "repositoryId" | "title" | "status"> & {
   revision: number;
   base: string;
-  status: Changeset["status"];
   files: number;
 };
 
 export const initialChange: Change = {
-  id: "CS-2481", title: "Refactor auth token lifecycle", revision: 3,
-  base: "main", status: "Draft", files: 12,
+  id: "CS-2481",
+  repositoryId: "repo-agentforge",
+  title: "Refactor auth token lifecycle",
+  revision: 3,
+  base: "main",
+  status: "Draft",
+  files: 12,
 };
+
+export const initialRevisions: Revision[] = [{
+  id: "CS-2481@r3",
+  changesetId: "CS-2481",
+  number: 3,
+  baseCommitSha: null,
+  headCommitSha: null,
+  createdAt: "Today, 10:30",
+}];
+
 export const initialEvaluations: Evaluation[] = [{
-  id: "EVL-5509", revision: 3, revisionId: "CS-2481@r3",
-  status: "Passed", checks: 38, createdAt: "Today, 10:42",
+  id: "EVL-5509",
+  revision: 3,
+  revisionId: "CS-2481@r3",
+  status: "Passed",
+  checks: 38,
+  createdAt: "Today, 10:42",
 }];
+
 export const initialReviews: Review[] = [{
-  id: "REV-891", revision: 3, revisionId: "CS-2481@r3",
-  decision: "Pending", reviewer: "Mina",
+  id: "REV-891",
+  revision: 3,
+  revisionId: "CS-2481@r3",
+  decision: "Pending",
+  reviewer: "Mina",
 }];
+
 export const stages = [
   { id: "Changesets", label: "Changeset", desc: "Revisioned change" },
   { id: "Eval", label: "Eval", desc: "Verification evidence" },

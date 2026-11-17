@@ -1,37 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { initialChange, initialEvaluations, initialReviews } from "./model";
+import { initialChange, initialEvaluations, initialRevisions, initialReviews } from "./model";
 import { createEvaluation, createNextRevision, createReviewDecision } from "./workflow";
 
 describe("delivery feature workflows", () => {
-  it("creates a new revision without changing the changeset identity", () => {
-    const result = createNextRevision(initialChange, initialReviews);
+  it("creates a revision entity while preserving changeset identity and history", () => {
+    const result = createNextRevision(initialChange, initialRevisions, initialReviews);
 
-    expect(result.change.id).toBe(initialChange.id);
-    expect(result.change.revision).toBe(initialChange.revision + 1);
-    expect(result.change.status).toBe("Draft");
-    expect(result.reviews[0].revisionId).toBe("CS-2481@r4");
-    expect(result.reviews[0].decision).toBe("Pending");
-    expect(result.reviews).toContain(initialReviews[0]);
+    expect(result).not.toBeNull();
+    expect(result?.change.id).toBe(initialChange.id);
+    expect(result?.change.revision).toBe(initialChange.revision + 1);
+    expect(result?.revision.id).toBe("CS-2481@r4");
+    expect(result?.revision.changesetId).toBe(initialChange.id);
+    expect(result?.revisions).toHaveLength(2);
+    expect(result?.reviews[0].revisionId).toBe(result?.revision.id);
+    expect(result?.reviews).toContain(initialReviews[0]);
   });
 
-  it("binds evaluation evidence to the exact active revision", () => {
-    const nextChange = { ...initialChange, revision: 4 };
-    const evaluation = createEvaluation(nextChange, initialEvaluations, 0);
-
-    expect(evaluation.revisionId).toBe("CS-2481@r4");
-    expect(evaluation.status).toBe("Passed");
+  it("refuses to create a revision for a merged changeset", () => {
+    const merged = { ...initialChange, status: "Merged" as const };
+    expect(createNextRevision(merged, initialRevisions, initialReviews)).toBeNull();
   });
 
-  it("keeps the demo repair failure deterministic", () => {
-    const evaluation = createEvaluation(initialChange, initialEvaluations, 1);
+  it("binds evaluation evidence to the active revision entity", () => {
+    const revision = initialRevisions[0];
+    const evaluation = createEvaluation(initialChange, revision, initialEvaluations, "Passed");
 
-    expect(evaluation.status).toBe("Failed");
+    expect(evaluation?.revisionId).toBe(revision.id);
+    expect(evaluation?.status).toBe("Passed");
   });
 
-  it("binds review decisions to the revision being reviewed", () => {
-    const review = createReviewDecision(initialChange, initialReviews, "Approved");
+  it("does not evaluate a revision that does not belong to the active changeset revision", () => {
+    const wrongRevision = { ...initialRevisions[0], number: 2, id: "CS-2481@r2" };
+    expect(createEvaluation(initialChange, wrongRevision, initialEvaluations, "Passed")).toBeNull();
+  });
 
-    expect(review.revisionId).toBe("CS-2481@r3");
-    expect(review.decision).toBe("Approved");
+  it("requires current passing evidence before creating a review decision", () => {
+    const revision = initialRevisions[0];
+    const approved = createReviewDecision(initialChange, revision, initialReviews, initialEvaluations[0], "Approved");
+    const blocked = createReviewDecision(initialChange, revision, initialReviews, {
+      ...initialEvaluations[0], status: "Failed",
+    }, "Approved");
+
+    expect(approved?.revisionId).toBe(revision.id);
+    expect(blocked).toBeNull();
   });
 });

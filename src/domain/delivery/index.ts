@@ -1,6 +1,9 @@
 export {
   canApproveRevision,
+  canCreateRevision,
+  canEditChangeset,
   canMergeRevision,
+  canRunEvaluation,
   isEvidenceCurrent,
   isReviewCurrent,
   revisionKey,
