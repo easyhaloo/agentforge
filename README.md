@@ -30,14 +30,16 @@ The frontend lives in `apps/web`; root npm scripts delegate to the workspace. Th
 
 ```text
 apps/web/src/
-  app/          # Application composition, navigation and shell state
+  app/          # Application composition, route table (routes.tsx), navigation and shell state
   features/     # User-facing feature modules
   domain/       # Framework-independent business rules
   entities/     # Domain entity models
   pages/        # Route-level page composition
-  shared/       # Reusable hooks and utilities
+  shared/       # Reusable hooks, utilities and URL routing helpers
   styles/       # Global design system and styles
 ```
+
+Navigation state lives in the URL (React Router). `app/routes.tsx` is the single route table: mock pages are flat (`/projects`, `/stacks`, `/dev/ui`, ...), and pages backed by the real API are organization-scoped (`/orgs/:org/changesets`, `/orgs/:org/settings`, ...), where `:org` is the organization's slug or id and `current` means the selected organization. See ADR-008 in `docs/architecture/decisions.md`.
 
 ## Prototype boundaries
 

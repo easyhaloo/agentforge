@@ -152,6 +152,8 @@ The frontend remains feature-oriented:
 - `shared`: business-agnostic UI, API transport, utilities and configuration.
 - `domain`: framework-independent client-side rules that are safe and useful for presentation; backend remains authoritative.
 
+Navigation state lives in the URL: `app/routes.tsx` is the single route table, pages backed by the real API are organization-scoped under `/orgs/:org/...`, and mock pages stay flat (ADR-008).
+
 The frontend must not duplicate authoritative authorization, state transitions, merge eligibility, or evidence validity decisions.
 
 Use a typed API client generated from or checked against the OpenAPI contract. Keep server state in a query/cache layer and local transient UI state in React. Use SSE for progress notifications; query the API for authoritative final state.
