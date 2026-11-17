@@ -75,3 +75,14 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 - Date inputs use the browser-native date picker; visual details vary by browser/OS.
 - DataTable filtering, column visibility, bulk actions and virtualization remain follow-up work.
 - Popover currently closes through its trigger; outside-click dismissal and richer keyboard navigation are follow-up work.
+
+## Extended form controls
+
+- `TextArea` supports the same label, hint, error and size conventions as `Input`.
+- `PasswordInput` keeps the input controlled/uncontrolled like a native input and provides an accessible visibility toggle. Set `showToggle={false}` when visibility must not be exposed.
+- `NumberInput` is a native number input; use `min`, `max` and `step` for browser-level constraints and validate again at the API boundary.
+- `Checkbox` is a native checkbox with a consistent label and hint layout.
+- `RadioGroup` supports controlled `value/onChange` or `defaultValue`, disabled options and horizontal/vertical layouts.
+- `Switch` is a checkbox with `role="switch"`; use it for immediate on/off preferences, not for a choice that requires a separate form submission.
+
+All controls preserve native form behavior and accept standard input attributes such as `name`, `required`, `disabled` and `autoComplete`. Validation remains owned by the containing form; these components display supplied error text but do not impose a validation library.
