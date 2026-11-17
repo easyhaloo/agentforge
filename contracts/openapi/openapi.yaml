@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: Initial HTTP contract for the AgentForge API.
 servers:
-  - url: /api/v1
+  - url: /
 paths:
   /healthz:
     get:
