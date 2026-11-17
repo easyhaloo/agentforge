@@ -66,7 +66,7 @@ export function ResourceWorkspacePage({ page, onNotify }: Props) {
     if (!name) return;
     const id = page.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) + "-" + String(Date.now()).slice(-5);
     const item: ResourceRecord = createResourceDraft(page, name, id);
-    setStoredRecords((previous) => {
+    setStoredRecords((previous: unknown) => {
       const currentRecords = normalizeResourceRecords(previous, page, config.items);
       return [item, ...currentRecords];
     });
