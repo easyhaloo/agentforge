@@ -11,6 +11,12 @@ import {
   Form,
   FormItem,
   Input,
+  Alert,
+  Empty,
+  Loading,
+  NotificationProvider,
+  Skeleton,
+  useNotification,
   Modal,
   NumberInput,
   PasswordInput,
@@ -45,6 +51,11 @@ async function loadTeamOptions(keyword: string, signal: AbortSignal) {
 }
 
 export function UIShowcasePage() {
+  return <NotificationProvider><UIShowcaseContent /></NotificationProvider>;
+}
+
+function UIShowcaseContent() {
+  const { notify } = useNotification();
   const [inputValue, setInputValue] = useState("agentforge-core");
   const [environment, setEnvironment] = useState("staging");
   const [date, setDate] = useState("2026-11-17");
@@ -125,6 +136,44 @@ export function UIShowcasePage() {
           <Button onClick={() => setDrawerOpen(true)}>Open drawer</Button>
           <Button variant="danger" onClick={() => setConfirmOpen(true)}>Confirm destructive action</Button>
           <Popover trigger="Show contextual info"><div><b>Popover content</b><p>Use for short contextual details and lightweight actions.</p></div></Popover>
+        </div>
+      </section>
+
+
+      <section className="af-showcase-section">
+        <div className="af-showcase-section__heading"><div><h3>Feedback and async states</h3><p>Inline status, transient notifications, empty states, skeletons and loading indicators.</p></div></div>
+        <div className="af-showcase-grid">
+          <div className="af-showcase-card">
+            <h4>Inline alerts</h4>
+            <div style={{ display: "grid", gap: 9 }}>
+              <Alert status="info" title="Information">A background task has been queued.</Alert>
+              <Alert status="success" title="Deployment complete">All checks passed successfully.</Alert>
+              <Alert status="warning" title="Rate limit approaching">Review usage before starting another run.</Alert>
+              <Alert status="error" title="Action required" closable>One integration needs attention.</Alert>
+            </div>
+          </div>
+          <div className="af-showcase-card">
+            <h4>Notifications</h4>
+            <p>Use the global provider for short-lived operation feedback.</p>
+            <div className="af-showcase-row">
+              <Button onClick={() => notify({ status: "success", title: "Saved", message: "Workspace settings were updated." })}>Success</Button>
+              <Button onClick={() => notify({ status: "warning", title: "Attention", message: "A worker is using most of its memory." })}>Warning</Button>
+              <Button onClick={() => notify({ status: "error", title: "Request failed", message: "The service could not be reached." })}>Error</Button>
+            </div>
+          </div>
+          <div className="af-showcase-card">
+            <h4>Loading and skeleton</h4>
+            <Loading label="Fetching service data" />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+              <Skeleton width={38} height={38} circle />
+              <div style={{ flex: 1 }}><Skeleton width="65%" height={11} /><Skeleton width="42%" height={9} /></div>
+            </div>
+            <div style={{ marginTop: 12 }}><Skeleton lines={3} width="100%" height={9} /></div>
+          </div>
+          <div className="af-showcase-card">
+            <h4>Empty state</h4>
+            <Empty title="No deployments yet" description="Create your first deployment to see runtime health and release history." action={<Button size="small" variant="primary">Create deployment</Button>} />
+          </div>
         </div>
       </section>
 
