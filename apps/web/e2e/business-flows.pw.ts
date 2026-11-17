@@ -78,7 +78,7 @@ test("Overview search, status filtering, selection and navigation work together"
   await page.getByRole("combobox", { name: "Filter changesets by status" }).selectOption("Ready for review");
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
   await page.locator(".table-panel").getByRole("button", { name: "View all" }).click();
-  await expect(page.getByRole("heading", { name: "Changesets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changesets", exact: true })).toBeVisible();
 });
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
@@ -105,7 +105,7 @@ test("Resources supports search, status filtering, inspection and creation", asy
   await page.getByRole("textbox", { name: "New Projects name" }).fill("E2E Project");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("heading", { name: "E2E Project" })).toBeVisible();
-  await expect(page.getByText(/created locally/)).toBeVisible();
+  await expect(page.getByRole("main").getByText(/created locally/)).toBeVisible();
 });
 
 test("Changesets loads organization records, searches and persists a new changeset", async ({ page }) => {
@@ -113,6 +113,7 @@ test("Changesets loads organization records, searches and persists a new changes
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByRole("textbox", { name: "Search changesets" }).fill("Browser test");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await page.getByRole("textbox", { name: "Search changesets" }).fill("");
   await page.getByRole("textbox", { name: "Repository" }).fill("easyhaloo/agentforge");
   await page.getByRole("textbox", { name: "Title" }).fill("E2E persisted changeset");
   await page.getByRole("button", { name: "Create changeset" }).last().click();
@@ -139,9 +140,9 @@ test("Organization invitations can be created and displayed", async ({ page }) =
 });
 
 test("application shell remains usable at a mobile viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Projects", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,
