@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import { createResourceDraft, resolveResourceAction } from "./resourceDemoService";
 
 describe("resource demo service", () => {
-  it("creates a typed local draft without remote side effects", () => {
-    expect(createResourceDraft("Projects", " Platform refresh ", "PRJ-123")).toEqual({
-      kind: "resource", id: "PRJ-123", name: "Platform refresh",
-      detail: "Created in Projects · local demo record", status: "Draft",
-      updated: "Just now", owner: "You",
+  it("creates entity-specific local drafts", () => {
+    expect(createResourceDraft("Projects", " Platform refresh ", "PRJ-123")).toMatchObject({
+      kind: "project", id: "PRJ-123", name: "Platform refresh", repositoryCount: 0, lifecycle: "Draft",
+    });
+    expect(createResourceDraft("Repositories", " API ", "REP-123")).toMatchObject({
+      kind: "repository", projectName: "Unassigned", language: "Unknown",
+    });
+    expect(createResourceDraft("Workspaces", " Agent workspace ", "WS-123")).toMatchObject({
+      kind: "workspace", changesetId: "Unlinked", runtime: "Not provisioned",
     });
   });
   it("resolves review, demo, export and no-op actions", () => {
