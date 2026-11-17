@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "../../../domain/delivery";
 import { usePersistentState } from "../../../shared/hooks/usePersistentState";
 import { initialChange, initialEvaluations, initialReviews, type Change, type Evaluation, type Review } from "../model";
+import { createEvaluation, createNextRevision, createReviewDecision } from "../workflow";
 
 export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   const [change, setChange] = usePersistentState<Change>("agentforge:delivery:change", initialChange);
@@ -31,32 +32,18 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   };
 
   const createRevision = () => {
-    const nextRevision = change.revision + 1;
-    setChange({ ...change, revision: nextRevision, status: "Draft" });
+    const result = createNextRevision(change, reviews);
+    setChange(result.change);
+    setReviews(result.reviews);
     setTrailDone(false);
-    setReviews([{
-      id: "REV-" + (891 + nextRevision),
-      revision: nextRevision,
-      revisionId: revisionKey(change.id, nextRevision),
-      decision: "Pending",
-      reviewer: "Mina",
-    }, ...reviews]);
-    record("Created " + change.id + " r" + nextRevision + "; previous evidence is now stale");
+    record("Created " + change.id + " r" + result.change.revision + "; previous evidence is now stale");
   };
 
   const runEvaluation = () => {
-    const passed = repairCount < 1 || change.revision > 3;
-    const evaluation: Evaluation = {
-      id: "EVL-" + (5510 + evaluations.length),
-      revision: change.revision,
-      revisionId: currentRevisionId,
-      status: passed ? "Passed" : "Failed",
-      checks: 38,
-      createdAt: "Just now",
-    };
+    const evaluation = createEvaluation(change, evaluations, repairCount);
     setEvaluations([evaluation, ...evaluations]);
-    setChange({ ...change, status: passed ? "Ready for review" : "Evaluating" });
-    record(evaluation.id + " " + (passed ? "passed" : "failed") + " on " + change.id + " r" + change.revision);
+    setChange({ ...change, status: evaluation.status === "Passed" ? "Ready for review" : "Evaluating" });
+    record(evaluation.id + " " + evaluation.status.toLowerCase() + " on " + change.id + " r" + change.revision);
   };
 
   const decide = (decision: "Approved" | "Changes requested") => {
@@ -64,13 +51,7 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
       record("Review blocked: current passing evidence is required");
       return;
     }
-    const review: Review = {
-      id: "REV-" + (892 + reviews.length),
-      revision: change.revision,
-      revisionId: currentRevisionId,
-      decision,
-      reviewer: "You",
-    };
+    const review = createReviewDecision(change, reviews, decision);
     setReviews([review, ...reviews]);
     setChange({ ...change, status: decision === "Approved" ? "Approved" : "Changes requested" });
     record(decision + " " + change.id + " r" + change.revision);
