@@ -1,11 +1,12 @@
-export type Item = { id: string; name: string; detail: string; status: string; updated: string; owner: string };
-export type ResourceColumn = { label: string; field: keyof Item; format?: "mono" | "status" };
+import type { ResourceRecord, ResourceRow } from "./resourceRecords";
+export type Item = ResourceRow;
+export type ResourceColumn = { label: string; field: keyof ResourceRow; format?: "mono" | "status" };
 export type ResourceActionMode = "create" | "review-queue" | "demo" | "export" | "none";
 export type PageConfig = {
   intro: string;
   stats: [string, string, string][];
   columns: ResourceColumn[];
-  items: Item[];
+  items: ResourceRecord[];
   action: string;
   actionMode: ResourceActionMode;
   detailTitle: string;
@@ -18,7 +19,7 @@ const col = (label: string, field: keyof Item, format?: ResourceColumn["format"]
   ...(format ? { format } : {}),
 });
 
-const make = (rows: [string,string,string,string,string,string][]): Item[] => rows.map(([id,name,detail,status,updated,owner])=>({id,name,detail,status,updated,owner}));
+const make = (rows: [string,string,string,string,string,string][]): ResourceRecord[] => rows.map(([id,name,detail,status,updated,owner])=>({kind:"resource",id,name,detail,status,updated,owner}));
 export const configs: Record<string,PageConfig> = {
   Projects:{intro:"Delivery boundaries that group repositories, teams and change activity.",stats:[["Active projects","12","Across 4 teams"],["Repositories","38","3 archived"],["Open changes","64","18 need review"]],columns:[col("PROJECT","name"),col("REPOSITORIES","detail"),col("STATUS","status","status"),col("UPDATED","updated")],items:make([["PRJ-014","Core Platform","8 repositories · Runtime & APIs","Active","4 min ago","Platform"],["PRJ-012","Developer Experience","6 repositories · CLI & SDK","Active","26 min ago","DevEx"],["PRJ-009","Commerce","11 repositories · Billing & orders","At risk","1 hr ago","Commerce"],["PRJ-004","Legacy Services","13 repositories · Maintenance","Paused","Yesterday","Infra"]]),action:"Create project",actionMode:"create",detailTitle:"Project overview",signals:["Repository ownership and boundaries","Open changes and delivery health","Team membership and permissions"]},
   Repositories:{intro:"Git-compatible repositories connected to the canonical object graph.",stats:[["Repositories","38","Across 12 projects"],["Objects indexed","2.4M","+8.2% this week"],["Default branch","main","Protected"]],columns:[col("ID","id","mono"),col("REPOSITORY","name"),col("PROJECT / STACK","detail"),col("HEALTH","status","status")],items:make([["REP-101","web-platform","Project Core Platform · TypeScript","Healthy","2 min ago","Platform"],["REP-098","agentforge-core","Project Developer Experience · Go","Healthy","18 min ago","DevEx"],["REP-087","billing-api","Project Commerce · Python","Indexing","42 min ago","Commerce"],["REP-061","legacy-gateway","Project Legacy Services · Java","Degraded","Yesterday","Infra"]]),action:"Add repository draft",actionMode:"create",detailTitle:"Repository graph",signals:["Canonical refs and object graph","Branches, tags and commit history","Indexing and synchronization health"]},
@@ -36,3 +37,18 @@ export const configs: Record<string,PageConfig> = {
   "Cost & Usage":{intro:"Understand model, agent and compute consumption by task and project.",stats:[["Credits this month","68.2k","68% of budget"],["Model spend","$1,842","-6% vs last month"],["Compute hours","412h","+12%"]],columns:[col("ID","id","mono"),col("TASK","name"),col("RESOURCE","detail"),col("COST","status")],items:make([["USE-882","Auth token refactor","Agent 04 · 18.2k tokens","$18.42","4 min ago","Platform"],["USE-878","Graph indexing","Eval workers · 6.4h","$12.80","1 hr ago","Core"],["USE-870","Webhook reliability","Model inference · 42 calls","$8.16","3 hr ago","Eventing"],["USE-861","CLI update flow","Workspace runtime · 2.1h","$4.20","Yesterday","DevEx"]]),action:"Export CSV",actionMode:"export",detailTitle:"Usage breakdown",signals:["Cost by model, task and project","Token, runtime and storage dimensions","Budgets, attribution and forecast"]},
   Settings:{intro:"Configure workspace identity, integrations and developer experience.",stats:[["Members","8","2 pending invites"],["Connected integrations","4","All operational"],["API tokens","6","1 expires soon"]],columns:[col("SETTING","name"),col("DESCRIPTION","detail"),col("SCOPE","status"),col("STATE","updated")],items:make([["SET-001","Workspace profile","Name, avatar and defaults","Workspace","Configured","Owner"],["SET-002","Git providers","GitHub connection and permissions","Integration","Connected","Owner"],["SET-003","Model providers","Keys, routing and model defaults","AI runtime","Connected","Owner"],["SET-004","Notifications","Review, trail and policy events","Personal","Configured","You"]]),action:"Edit settings",actionMode:"none",detailTitle:"Configuration",signals:["Workspace and member preferences","Integration health and permissions","API tokens and audit history"]}
 };
+configs.Projects.items = configs.Projects.items.map((record) => {
+  if (record.kind !== "resource") return record;
+  const match = record.detail.match(/^(\\d+) repositories · (.+)$/);
+  return { kind: "project", id: record.id, name: record.name, repositoryCount: match ? Number(match[1]) : 0, description: match?.[2] ?? record.detail, lifecycle: record.status, updatedAt: record.updated, owner: record.owner };
+});
+configs.Repositories.items = configs.Repositories.items.map((record) => {
+  if (record.kind !== "resource") return record;
+  const match = record.detail.match(/^Project (.+) · (.+)$/);
+  return { kind: "repository", id: record.id, name: record.name, projectName: match?.[1] ?? "Unassigned", language: match?.[2] ?? "Unknown", health: record.status, updatedAt: record.updated, owner: record.owner };
+});
+configs.Workspaces.items = configs.Workspaces.items.map((record) => {
+  if (record.kind !== "resource") return record;
+  const separator = record.detail.indexOf(" · ");
+  return { kind: "workspace", id: record.id, name: record.name, changesetId: separator >= 0 ? record.detail.slice(0, separator) : "Unlinked", runtime: separator >= 0 ? record.detail.slice(separator + 3) : record.detail, state: record.status, updatedAt: record.updated, owner: record.owner };
+});
