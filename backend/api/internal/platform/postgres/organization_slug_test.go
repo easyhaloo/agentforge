@@ -57,6 +57,13 @@ func slugSeeds() []slugSeed {
 		// Equal created_at falls back to id order, whatever the insertion order.
 		{"tie-b", "Tie Name", 16, "tie-name-2", false},
 		{"tie-a", "Tie Name", 16, "tie-name", true},
+		// created_at decides before id: order-z is older than order-a.
+		{"order-z", "Order Check", 17, "order-check", true},
+		{"order-a", "Order Check", 18, "order-check-2", false},
+		// The id tie-break is byte order, not the database collation: under
+		// en_US "casea" sorts before "CaseB", under "C" (and here) it does not.
+		{"CaseB", "Case Name", 19, "case-name", true},
+		{"casea", "Case Name", 19, "case-name-2", false},
 	}
 }
 
@@ -240,6 +247,17 @@ func TestOrganizationSlugMigrationBackfillsExistingOrganizations(t *testing.T) {
 	if !reflect.DeepEqual(got, slugOrganizationSlugs(t, ctx, store)) {
 		t.Errorf("second Migrate changed slugs: %v", slugOrganizationSlugs(t, ctx, store))
 	}
+	// The file itself is also safe to replay, independent of the ledger.
+	migration, err := migrations.ReadFile("migrations/" + slugMigrationFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.pool.Exec(ctx, string(migration)); err != nil {
+		t.Fatalf("replaying %s: %v", slugMigrationFile, err)
+	}
+	if !reflect.DeepEqual(got, slugOrganizationSlugs(t, ctx, store)) {
+		t.Errorf("replaying %s changed slugs: %v", slugMigrationFile, slugOrganizationSlugs(t, ctx, store))
+	}
 	var recorded int
 	if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM schema_migrations WHERE version = $1", slugMigrationFile).Scan(&recorded); err != nil {
 		t.Fatal(err)
@@ -264,7 +282,7 @@ func TestOrganizationSlugConstraintsMatchGoRules(t *testing.T) {
 	}
 
 	candidates := []string{
-		"valid-slug", "a", "0", "a--b", strings.Repeat("a", 39),
+		"valid-slug", "a", "0", "a--b", strings.Repeat("b", 39),
 		"current", "Current", "-lead", "trail-", "under_score", "dot.ted", "café",
 		strings.Repeat("a", 40), "", "slug\n", " slug",
 	}
