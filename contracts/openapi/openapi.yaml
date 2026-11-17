@@ -34,7 +34,7 @@ paths:
     get:
       operationId: listChangesets
       summary: List persisted changesets
-      security: []
+      security: [{ bearerAuth: [] }]
       parameters:
         - in: query
           name: limit
@@ -78,7 +78,7 @@ paths:
     get:
       operationId: getChangeset
       summary: Get a changeset and its lifecycle history
-      security: []
+      security: [{ bearerAuth: [] }]
       responses:
         "200":
           description: Persisted changeset
