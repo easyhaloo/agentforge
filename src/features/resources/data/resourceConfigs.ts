@@ -1,5 +1,5 @@
 export type Item = { id: string; name: string; detail: string; status: string; updated: string; owner: string };
-type PageConfig = { intro: string; stats: [string,string,string][]; columns: string[]; items: Item[]; action: string; detailTitle: string; signals: string[] };
+export type PageConfig = { intro: string; stats: [string,string,string][]; columns: string[]; items: Item[]; action: string; detailTitle: string; signals: string[] };
 
 const make = (rows: [string,string,string,string,string,string][]): Item[] => rows.map(([id,name,detail,status,updated,owner])=>({id,name,detail,status,updated,owner}));
 export const configs: Record<string,PageConfig> = {
