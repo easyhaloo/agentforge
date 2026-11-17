@@ -34,6 +34,8 @@ var (
 type Revision struct {
 	ID        ID        `json:"id"`
 	Ref       string    `json:"ref"`
+	CommitSHA string    `json:"commit_sha"`
+	ParentSHA string    `json:"parent_sha,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -51,6 +53,8 @@ type Evidence struct {
 	EvaluationID ID        `json:"evaluation_id"`
 	Kind         string    `json:"kind"`
 	URI          string    `json:"uri"`
+	SHA256       string    `json:"sha256,omitempty"`
+	Size         int64     `json:"size,omitempty"`
 	Status       Status    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 }
@@ -111,7 +115,9 @@ func (c *Changeset) CurrentRevision() (Revision, bool) {
 	return c.Revisions[len(c.Revisions)-1], true
 }
 
-func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error {
+func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error { return c.AddGitRevision(id, ref, ref, "", actor, now) }
+
+func (c *Changeset) AddGitRevision(id ID, ref, commitSHA, parentSHA, actor string, now time.Time) error {
 	if c == nil || id == "" || ref == "" || actor == "" || c.Merge != nil {
 		return ErrInvalidInput
 	}
@@ -120,7 +126,7 @@ func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error {
 			return fmt.Errorf("%w: duplicate revision id", ErrInvalidInput)
 		}
 	}
-	c.Revisions = append(c.Revisions, Revision{ID: id, Ref: ref, CreatedAt: now})
+	c.Revisions = append(c.Revisions, Revision{ID: id, Ref: ref, CommitSHA: commitSHA, ParentSHA: parentSHA, CreatedAt: now})
 	for i := range c.Evidence {
 		if c.Evidence[i].Status == EvidenceActive {
 			c.Evidence[i].Status = EvidenceStale
@@ -152,7 +158,9 @@ func (c *Changeset) RecordEvaluation(id, revisionID ID, status Status, summary, 
 	return nil
 }
 
-func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, actor string, now time.Time) error {
+func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, actor string, now time.Time) error { return c.AttachEvidenceArtifact(id, revisionID, evaluationID, kind, uri, "", 0, actor, now) }
+
+func (c *Changeset) AttachEvidenceArtifact(id, revisionID, evaluationID ID, kind, uri, digest string, size int64, actor string, now time.Time) error {
 	if c == nil || id == "" || kind == "" || uri == "" || actor == "" {
 		return ErrInvalidInput
 	}
@@ -163,13 +171,15 @@ func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, a
 	if !ok || evaluation.RevisionID != revisionID || evaluation.Status != EvaluationPassed {
 		return ErrEvaluationRequired
 	}
-	c.Evidence = append(c.Evidence, Evidence{ID: id, RevisionID: revisionID, EvaluationID: evaluationID, Kind: kind, URI: uri, Status: EvidenceActive, CreatedAt: now})
+	c.Evidence = append(c.Evidence, Evidence{ID: id, RevisionID: revisionID, EvaluationID: evaluationID, Kind: kind, URI: uri, SHA256: digest, Size: size, Status: EvidenceActive, CreatedAt: now})
 	c.record(actor, "evidence.attached", id, "succeeded", now)
 	return nil
 }
 
-func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error {
-	if c == nil || id == "" || reviewer == "" || reviewer == c.CreatedBy {
+func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error { return c.AssignReview(id, revisionID, reviewer, reviewer, comment, now) }
+
+func (c *Changeset) AssignReview(id, revisionID ID, reviewer, actor, comment string, now time.Time) error {
+	if c == nil || id == "" || reviewer == "" || actor == "" || reviewer == c.CreatedBy {
 		return ErrInvalidInput
 	}
 	if err := c.requireCurrent(revisionID); err != nil {
@@ -184,7 +194,7 @@ func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, no
 		}
 	}
 	c.Reviews = append(c.Reviews, Review{ID: id, RevisionID: revisionID, Reviewer: reviewer, Status: ReviewPending, Comment: comment, CreatedAt: now})
-	c.record(reviewer, "review.submitted", id, "succeeded", now)
+	c.record(actor, "review.assigned", id, "succeeded", now)
 	return nil
 }
 
