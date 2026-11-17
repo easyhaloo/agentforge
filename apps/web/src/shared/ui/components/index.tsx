@@ -33,6 +33,7 @@ export function Button({
     <button
       {...props}
       className={`af-button af-button--${variant} af-button--${size} ${className}`.trim()}
+      type={props.type ?? "button"}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
     >
@@ -53,7 +54,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { label, hint, error, controlSize = "middle", id, className = "", ...props },
   ref,
 ) {
-  const inputId = id ?? props.name;
+  const generatedId = useId();
+  const inputId = id ?? props.name ?? generatedId;
   return (
     <label className="af-field" htmlFor={inputId}>
       {label && <span className="af-field__label">{label}</span>}
@@ -82,7 +84,8 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
   placeholder?: string;
 }
 export function Select({ label, options, controlSize = "middle", placeholder, id, className = "", ...props }: SelectProps) {
-  const selectId = id ?? props.name;
+  const generatedId = useId();
+  const selectId = id ?? props.name ?? generatedId;
   return (
     <label className="af-field" htmlFor={selectId}>
       {label && <span className="af-field__label">{label}</span>}
@@ -99,7 +102,8 @@ export interface DatePickerProps extends Omit<InputHTMLAttributes<HTMLInputEleme
   controlSize?: "small" | "middle" | "large";
 }
 export function DatePicker({ label, controlSize = "middle", id, className = "", ...props }: DatePickerProps) {
-  const inputId = id ?? props.name;
+  const generatedId = useId();
+  const inputId = id ?? props.name ?? generatedId;
   return (
     <label className="af-field" htmlFor={inputId}>
       {label && <span className="af-field__label">{label}</span>}
@@ -129,6 +133,7 @@ export function SearchInput({
   const onSearchRef = useRef(onSearch);
   const timerRef = useRef<number | undefined>(undefined);
   const initialRender = useRef(true);
+  const skipDebounceValue = useRef<string | null>(null);
 
   useEffect(() => {
     onSearchRef.current = onSearch;
@@ -139,6 +144,11 @@ export function SearchInput({
       initialRender.current = false;
       return;
     }
+    if (skipDebounceValue.current === value) {
+      skipDebounceValue.current = null;
+      return;
+    }
+    skipDebounceValue.current = null;
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => onSearchRef.current(value.trim()), debounceMs);
     return () => window.clearTimeout(timerRef.current);
@@ -146,6 +156,7 @@ export function SearchInput({
 
   const submitImmediately = () => {
     window.clearTimeout(timerRef.current);
+    skipDebounceValue.current = value;
     onSearchRef.current(value.trim());
   };
 
@@ -162,7 +173,7 @@ export function SearchInput({
           if (event.key === "Enter") submitImmediately();
         }}
       />
-      {value && <button type="button" aria-label="Clear search" onClick={() => { onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
+      {value && <button type="button" aria-label="Clear search" onClick={() => { skipDebounceValue.current = ""; onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
     </div>
   );
 }
