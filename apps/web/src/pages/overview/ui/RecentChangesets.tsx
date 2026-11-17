@@ -87,7 +87,7 @@ export function RecentChangesets({ created, onNavigate, onNotify, onSelect, sele
           rowClassName={(row) => selectedId === row.id ? "selected-row" : ""}
           emptyText={<Empty title="No matching changesets" description="Try another search term or reset the status filter."/>}
         />
-      </div></div>
+      </div>
     </section>
   );
 }
