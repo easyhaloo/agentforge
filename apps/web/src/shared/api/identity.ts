@@ -6,7 +6,7 @@ export type MembershipAuditEvent = { id: string; actor_user_id: string; target_u
 type Page<T> = { items: T[]; limit: number; offset: number };
 export type CreatedInvitation = { invitation: OrganizationInvitation; invitation_url: string; token: string };
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const API_BASE = ""; // Host-only __Host- cookies require a same-origin API reverse proxy.
 export class APIError extends Error {
   constructor(message: string, readonly status: number) { super(message); this.name = "APIError"; }
 }
@@ -49,4 +49,8 @@ export const organizationAPI = {
   revokeInvitation: (organizationID: string, invitationID: string) =>
     request<void>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/invitations/${encodeURIComponent(invitationID)}`, { method: "DELETE" }),
   audit: (organizationID: string) => request<Page<MembershipAuditEvent>>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/membership-audit?limit=100&offset=0`),
+};
+
+export const authAPI = {
+  logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
 };
