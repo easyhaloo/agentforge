@@ -5,19 +5,19 @@ import { OverviewPage, type CreatedChangeset } from "../pages/overview";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { PageHeader } from "./components/PageHeader";
-import { Toast } from "./components/Toast";
 import { CreateChangesetDialog } from "./components/CreateChangesetDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { UIShowcasePage } from "../pages/ui-showcase";
+import { useNotification } from "../shared/ui";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { APIError, accountAPI, type AccountContext } from "../shared/api/identity";
 
 function App() {
   const [active, setActive] = useState("Overview");
-  const [notice, setNotice] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [created, setCreated] = useState<CreatedChangeset[]>([]);
+  const { notify: showNotification } = useNotification();
   const [account, setAccount] = useState<AccountContext | null>(null);
   const [accountState, setAccountState] = useState<"loading" | "ready" | "signed-out" | "unavailable">("loading");
   const [accountError, setAccountError] = useState("");
@@ -41,8 +41,7 @@ function App() {
   useEffect(() => { void loadAccount(); }, []);
 
   const notify = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(""), 2600);
+    showNotification({ status: "success", message, duration: 2600 });
   };
 
   useEffect(() => {
@@ -101,7 +100,6 @@ function App() {
         onCreate={createChangeset}
       />
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={setActive} />
-      <Toast message={notice} />
     </div>
   );
 }
