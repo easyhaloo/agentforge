@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type FormHTMLAttributes,
@@ -124,10 +125,28 @@ export function SearchInput({
   disabled = false,
   className = "",
 }: SearchInputProps) {
+  const onSearchRef = useRef(onSearch);
+  const timerRef = useRef<number | undefined>(undefined);
+  const initialRender = useRef(true);
+
   useEffect(() => {
-    const handle = window.setTimeout(() => onSearch(value.trim()), debounceMs);
-    return () => window.clearTimeout(handle);
-  }, [value, debounceMs, onSearch]);
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
+
+  useEffect(() => {
+    if (initialRender.current) {
+      initialRender.current = false;
+      return;
+    }
+    window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => onSearchRef.current(value.trim()), debounceMs);
+    return () => window.clearTimeout(timerRef.current);
+  }, [value, debounceMs]);
+
+  const submitImmediately = () => {
+    window.clearTimeout(timerRef.current);
+    onSearchRef.current(value.trim());
+  };
 
   return (
     <div className={`af-search ${className}`.trim()}>
@@ -139,10 +158,10 @@ export function SearchInput({
         aria-label={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter") onSearch(value.trim());
+          if (event.key === "Enter") submitImmediately();
         }}
       />
-      {value && <button type="button" aria-label="Clear search" onClick={() => { onChange(""); onSearch(""); }}>×</button>}
+      {value && <button type="button" aria-label="Clear search" onClick={() => { onChange(""); submitImmediately(); }}>×</button>}
     </div>
   );
 }
