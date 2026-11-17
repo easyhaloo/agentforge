@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.6.0
+  version: 0.7.0
   description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
 servers:
   - url: /
@@ -263,6 +263,55 @@ paths:
               schema: { $ref: "#/components/schemas/MembershipAuditPage" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/repositories:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listOrganizationRepositories
+      summary: List registered organization repositories
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Organization repository catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/RepositoryMetadata" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: registerOrganizationRepository
+      summary: Register a repository already provisioned under the trusted Git root
+      description: Owners and administrators only. The API validates the default branch against the configured local Git provider before persisting metadata.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, default_branch]
+              properties:
+                slug: { type: string, pattern: "^[^/]+/[^/]+$" }
+                default_branch: { type: string, minLength: 1 }
+      responses:
+        "201":
+          description: Registered repository
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets:
     parameters:
       - in: path
@@ -337,7 +386,7 @@ paths:
     post:
       operationId: addRevision
       summary: Add a revision and stale prior evidence and reviews
-      description: Returns 501 until a Git provider adapter validates the repository revision
+      description: The Git provider resolves the ref to an immutable commit SHA in the registered organization repository. Previous revision evidence and reviews become stale.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -361,7 +410,7 @@ paths:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
-        "501": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/evaluations:
     parameters:
       - in: path
@@ -371,7 +420,7 @@ paths:
     post:
       operationId: recordEvaluation
       summary: Record an evaluation result for the current revision
-      description: Returns 501 until a trusted evaluation worker is configured; clients cannot assert evaluation outcomes
+      description: Runs trusted server-side Git diff integrity checks and persists the result and content-addressed report. Clients cannot assert evaluation outcomes.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -384,11 +433,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [revision_id, status]
-              properties:
-                revision_id: { type: string }
-                status: { type: string, enum: [passed, failed] }
-                summary: { type: string }
+              required: []
+              properties: {}
       responses:
         "200":
           description: Updated changeset
@@ -407,7 +453,7 @@ paths:
     post:
       operationId: attachEvidence
       summary: Attach evidence from a passed evaluation on the current revision
-      description: Returns 501 until a trusted evidence adapter validates artifact provenance
+      description: Evidence is generated from a persisted passing evaluation report. Client-supplied artifact URLs and digests are not accepted.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -420,12 +466,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [revision_id, evaluation_id, kind, uri]
+              required: [evaluation_id]
               properties:
-                revision_id: { type: string }
                 evaluation_id: { type: string }
-                kind: { type: string }
-                uri: { type: string, format: uri }
       responses:
         "200":
           description: Updated changeset
@@ -444,7 +487,7 @@ paths:
     post:
       operationId: submitReview
       summary: Submit a review for a revision with active evidence
-      description: Returns 501 until the review assignment and authorization workflow is configured
+      description: Assigns a pending review to a verified active organization member other than the changeset author. Only that assigned reviewer can decide.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -457,9 +500,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [revision_id]
+              required: [reviewer_id]
               properties:
-                revision_id: { type: string }
+                reviewer_id: { type: string }
                 comment: { type: string }
       responses:
         "200":
@@ -479,7 +522,7 @@ paths:
     post:
       operationId: decideReview
       summary: Approve or reject a pending review assigned to the authenticated reviewer
-      description: Returns 501 until the review authorization workflow is configured
+      description: The authenticated user must match the assigned reviewer and the review must target the current revision.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -509,6 +552,40 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "501": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/changesets/{id}/merge:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      operationId: mergeChangeset
+      summary: Merge the current revision after server-side gate revalidation
+      description: Requires a passing evaluation, active revision-bound evidence and an approved review. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_ref]
+              properties:
+                target_ref: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Merged changeset with the actual Git merge commit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     sessionCookie:
@@ -630,6 +707,16 @@ components:
         organizations:
           type: array
           items: { $ref: "#/components/schemas/OrganizationSummary" }
+    RepositoryMetadata:
+      type: object
+      required: [organization_id, slug, default_branch, created_by, created_at, updated_at]
+      properties:
+        organization_id: { type: string }
+        slug: { type: string }
+        default_branch: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     Health:
       type: object
       required: [status]
