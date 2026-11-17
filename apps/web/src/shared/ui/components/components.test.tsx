@@ -64,7 +64,9 @@ describe("shared UI primitives", () => {
   it("renders drawer and confirmation dialog accessibility contracts", () => {
     const drawer = renderToStaticMarkup(<Drawer open title="Resource details" onClose={() => undefined}>Details</Drawer>);
     expect(drawer).toContain('role="dialog"');
-    expect(drawer).toContain('aria-label="Resource details"');
+    expect(drawer).toContain('aria-labelledby="');
+    expect(drawer).toContain('<h2 id="');
+    expect(drawer).toContain(">Resource details</h2>");
     const confirmation = renderToStaticMarkup(<ConfirmDialog open danger description="Remove this member?" onCancel={() => undefined} onConfirm={() => undefined} />);
     expect(confirmation).toContain("Are you sure?");
     expect(confirmation).toContain("Remove this member?");
