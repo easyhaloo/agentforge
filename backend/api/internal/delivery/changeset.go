@@ -32,73 +32,74 @@ var (
 )
 
 type Revision struct {
-	ID        ID
-	Ref       string
-	CreatedAt time.Time
+	ID        ID        `json:"id"`
+	Ref       string    `json:"ref"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Evaluation struct {
-	ID         ID
-	RevisionID ID
-	Status     Status
-	Summary    string
-	CreatedAt  time.Time
+	ID         ID        `json:"id"`
+	RevisionID ID        `json:"revision_id"`
+	Status     Status    `json:"status"`
+	Summary    string    `json:"summary"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Evidence struct {
-	ID           ID
-	RevisionID   ID
-	EvaluationID ID
-	Kind         string
-	URI          string
-	Status       Status
-	CreatedAt    time.Time
+	ID           ID        `json:"id"`
+	RevisionID   ID        `json:"revision_id"`
+	EvaluationID ID        `json:"evaluation_id"`
+	Kind         string    `json:"kind"`
+	URI          string    `json:"uri"`
+	Status       Status    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Review struct {
-	ID         ID
-	RevisionID ID
-	Reviewer   string
-	Status     Status
-	Comment    string
-	CreatedAt  time.Time
+	ID         ID        `json:"id"`
+	RevisionID ID        `json:"revision_id"`
+	Reviewer   string    `json:"reviewer"`
+	Status     Status    `json:"status"`
+	Comment    string    `json:"comment"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Merge struct {
-	ID         ID
-	RevisionID ID
-	Actor      string
-	TargetRef  string
-	CommitSHA  string
-	CreatedAt  time.Time
+	ID         ID        `json:"id"`
+	RevisionID ID        `json:"revision_id"`
+	Actor      string    `json:"actor"`
+	TargetRef  string    `json:"target_ref"`
+	CommitSHA  string    `json:"commit_sha"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type AuditEvent struct {
-	Sequence  uint64
-	Actor     string
-	Operation string
-	TargetID  ID
-	Outcome   string
-	At        time.Time
+	Sequence  uint64    `json:"sequence"`
+	Actor     string    `json:"actor"`
+	Operation string    `json:"operation"`
+	TargetID  ID        `json:"target_id"`
+	Outcome   string    `json:"outcome"`
+	At        time.Time `json:"at"`
 }
 
 type Changeset struct {
-	ID          ID
-	Repository  string
-	Title       string
-	Revisions   []Revision
-	Evaluations []Evaluation
-	Evidence    []Evidence
-	Reviews     []Review
-	Merge       *Merge
-	Audit       []AuditEvent
+	ID          ID          `json:"id"`
+	CreatedBy   string      `json:"created_by"`
+	Repository  string      `json:"repository"`
+	Title       string      `json:"title"`
+	Revisions   []Revision  `json:"revisions"`
+	Evaluations []Evaluation `json:"evaluations"`
+	Evidence    []Evidence  `json:"evidence"`
+	Reviews     []Review    `json:"reviews"`
+	Merge       *Merge      `json:"merge,omitempty"`
+	Audit       []AuditEvent `json:"audit"`
 }
 
 func NewChangeset(id ID, repository, title, actor string, now time.Time) (*Changeset, error) {
 	if id == "" || repository == "" || title == "" || actor == "" {
 		return nil, ErrInvalidInput
 	}
-	c := &Changeset{ID: id, Repository: repository, Title: title}
+	c := &Changeset{ID: id, CreatedBy: actor, Repository: repository, Title: title}
 	c.record(actor, "changeset.created", id, "succeeded", now)
 	return c, nil
 }
@@ -168,7 +169,7 @@ func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, a
 }
 
 func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error {
-	if c == nil || id == "" || reviewer == "" {
+	if c == nil || id == "" || reviewer == "" || reviewer == c.CreatedBy {
 		return ErrInvalidInput
 	}
 	if err := c.requireCurrent(revisionID); err != nil {
