@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -338,5 +340,291 @@ func TestCurrentAccountRequiresSessionAndReturnsOrganizationContext(t *testing.T
 	if err:=json.Unmarshal(response.Body.Bytes(),&account); err!=nil { t.Fatal(err) }
 	if account.UserID!="user-1" || len(account.Organizations)!=1 || account.Organizations[0].ID!="org-a" {
 		t.Fatalf("account context=%#v",account)
+	}
+}
+
+// The helpers and tests below cover the changeset list filters and the server-derived status
+// (page-system B2). They decode the wire JSON into local structs so they assert the API contract,
+// not the handler's Go types.
+
+type listFilterWireItem struct {
+	Changeset struct {
+		ID          string `json:"id"`
+		Evaluations []struct {
+			ID string `json:"id"`
+		} `json:"evaluations"`
+		Reviews []struct {
+			ID string `json:"id"`
+		} `json:"reviews"`
+	} `json:"changeset"`
+	Status *string `json:"status"`
+}
+
+type listFilterWirePage struct {
+	Items  []listFilterWireItem `json:"items"`
+	Total  *int                 `json:"total"`
+	Limit  int                  `json:"limit"`
+	Offset int                  `json:"offset"`
+}
+
+func listFilterRequest(handler http.Handler, method, path, body string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+	if method != http.MethodGet {
+		addValidCSRFCookies(request)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
+}
+
+func listFilterFetchPage(t *testing.T, handler http.Handler, path string) listFilterWirePage {
+	t.Helper()
+	response := listFilterRequest(handler, http.MethodGet, path, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET %s: status=%d body=%s", path, response.Code, response.Body.String())
+	}
+	var page listFilterWirePage
+	if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
+	if page.Total == nil {
+		t.Fatalf("GET %s: response has no total: %s", path, response.Body.String())
+	}
+	return page
+}
+
+func listFilterPageIDs(page listFilterWirePage) []string {
+	ids := make([]string, 0, len(page.Items))
+	for _, item := range page.Items {
+		ids = append(ids, item.Changeset.ID)
+	}
+	return ids
+}
+
+// listFilterSeedMemory stores a changeset advanced to stage (draft, in_review or ready_to_merge)
+// with a pinned updated_at so the newest-first order is deterministic.
+func listFilterSeedMemory(t *testing.T, repository *memoryRepository, organizationID string, id delivery.ID, repositoryName, title, author, reviewer string, stage delivery.Lifecycle, updatedAt time.Time) {
+	t.Helper()
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now().UTC()
+	changeset, err := delivery.NewChangeset(id, repositoryName, title, author, now)
+	must(err)
+	switch stage {
+	case delivery.LifecycleDraft:
+	case delivery.LifecycleInReview, delivery.LifecycleReadyToMerge:
+		must(changeset.AddGitRevision("rev-1", "feature", "0123456789012345678901234567890123456789", "base", author, now))
+		must(changeset.RecordEvaluation("eval-1", "rev-1", delivery.EvaluationPassed, "", "worker", now))
+		must(changeset.AttachEvidence("ev-1", "rev-1", "eval-1", "report", "artifact://sha256", "worker", now))
+		must(changeset.AssignReview("review-1", "rev-1", reviewer, author, "", now))
+		if stage == delivery.LifecycleReadyToMerge {
+			must(changeset.DecideReview("review-1", true, reviewer, "", now))
+		}
+	default:
+		t.Fatalf("listFilterSeedMemory does not build %q", stage)
+	}
+	if got := changeset.Lifecycle(); got != stage {
+		t.Fatalf("seed %s is %q, want %q", id, got, stage)
+	}
+	repository.items[scopedKey(organizationID, id)] = delivery.StoredChangeset{Changeset: changeset, Version: 1, CreatedAt: updatedAt, UpdatedAt: updatedAt}
+}
+
+func TestListChangesetsAppliesQueryFilters(t *testing.T) {
+	repository := newMemoryRepository()
+	base := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+	// Newest first in organization A: a4, a2, a3, a1. Organization B's changeset is the newest of all.
+	listFilterSeedMemory(t, repository, "org-a", "a1", "team/api", "Add login", "alice", "rita", delivery.LifecycleInReview, base.Add(1*time.Minute))
+	listFilterSeedMemory(t, repository, "org-a", "a2", "team/api", "Fix cache", "bob", "rita", delivery.LifecycleReadyToMerge, base.Add(3*time.Minute))
+	listFilterSeedMemory(t, repository, "org-a", "a3", "team/web", "Refactor table", "alice", "", delivery.LifecycleDraft, base.Add(2*time.Minute))
+	listFilterSeedMemory(t, repository, "org-a", "a4", "team/web", "Needs review", "carol", "sam", delivery.LifecycleInReview, base.Add(4*time.Minute))
+	listFilterSeedMemory(t, repository, "org-b", "b1", "team/api", "Other tenant", "alice", "rita", delivery.LifecycleInReview, base.Add(5*time.Minute))
+
+	handlerFor := func(user, role string) http.Handler {
+		return NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: namedIdentity{user: user, role: role}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
+	}
+	rita, sam := handlerFor("rita", "member"), handlerFor("sam", "viewer")
+	const orgA, orgB = "/api/v1/organizations/org-a/changesets", "/api/v1/organizations/org-b/changesets"
+
+	cases := []struct {
+		name      string
+		handler   http.Handler
+		path      string
+		want      []string
+		wantTotal int
+	}{
+		{"no filters", rita, orgA, []string{"a4", "a2", "a3", "a1"}, 4},
+		{"empty filter values mean no filter", rita, orgA + "?repository=&status=&reviewer=&q=", []string{"a4", "a2", "a3", "a1"}, 4},
+		{"repository", rita, orgA + "?repository=team/api", []string{"a2", "a1"}, 2},
+		{"repository is exact", rita, orgA + "?repository=team/ap", nil, 0},
+		{"status", rita, orgA + "?status=in_review", []string{"a4", "a1"}, 2},
+		{"status draft", rita, orgA + "?status=draft", []string{"a3"}, 1},
+		{"reviewer by user id", rita, orgA + "?reviewer=sam", []string{"a4"}, 1},
+		{"reviewer me resolves to the authenticated user", rita, orgA + "?reviewer=me", []string{"a2", "a1"}, 2},
+		{"reviewer me follows the principal, not a literal", sam, orgA + "?reviewer=me", []string{"a4"}, 1},
+		{"my pending review queue", rita, orgA + "?reviewer=me&status=in_review", []string{"a1"}, 1},
+		{"reviewer nobody", rita, orgA + "?reviewer=nobody", nil, 0},
+		{"q is case-insensitive", rita, orgA + "?q=ALICE", []string{"a3", "a1"}, 2},
+		{"q is trimmed", rita, orgA + "?q=%20cache%20", []string{"a2"}, 1},
+		{"filters are ANDed", rita, orgA + "?repository=team/api&reviewer=me&status=ready_to_merge", []string{"a2"}, 1},
+		{"repository and q", rita, orgA + "?repository=team/web&q=carol", []string{"a4"}, 1},
+		{"total counts matches before paging", rita, orgA + "?repository=team/api&limit=1&offset=1", []string{"a1"}, 2},
+		{"unfiltered second page", rita, orgA + "?limit=2&offset=2", []string{"a3", "a1"}, 4},
+		{"page beyond the end keeps the total", rita, orgA + "?limit=2&offset=10", nil, 4},
+		{"organization B only sees its own", rita, orgB, []string{"b1"}, 1},
+		{"organization A's repository is empty in organization B", rita, orgB + "?repository=team/web", nil, 0},
+		{"viewers can filter", sam, orgA + "?status=draft", []string{"a3"}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			page := listFilterFetchPage(t, tc.handler, tc.path)
+			if got := listFilterPageIDs(page); !slices.Equal(got, tc.want) || *page.Total != tc.wantTotal {
+				t.Fatalf("got %v total=%d, want %v total=%d", got, *page.Total, tc.want, tc.wantTotal)
+			}
+		})
+	}
+
+	page := listFilterFetchPage(t, rita, orgA+"?limit=1&offset=1")
+	if page.Limit != 1 || page.Offset != 1 {
+		t.Fatalf("limit=%d offset=%d, want the requested 1 and 1", page.Limit, page.Offset)
+	}
+	if body := listFilterRequest(rita, http.MethodGet, orgA+"?reviewer=nobody", "").Body.String(); !strings.Contains(body, `"items":[]`) || !strings.Contains(body, `"total":0`) {
+		t.Fatalf("an empty result must encode items as [] and total as 0: %s", body)
+	}
+}
+
+func TestListChangesetsRejectsInvalidParameters(t *testing.T) {
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), Identity: namedIdentity{user: "rita", role: "member"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
+	const path = "/api/v1/organizations/org-a/changesets?"
+
+	rejected := []struct{ name, query, title string }{
+		{"unknown status", "status=bogus", "Invalid status"},
+		{"status is case-sensitive", "status=Draft", "Invalid status"},
+		{"status uses underscores", "status=ready-to-merge", "Invalid status"},
+		{"query over 200 characters", "q=" + strings.Repeat("a", 201), "Invalid query"},
+		{"query over 200 multi-byte characters", "q=" + url.QueryEscape(strings.Repeat("变", 201)), "Invalid query"},
+		{"non-integer limit", "limit=abc", "Invalid limit"},
+		{"non-integer offset", "offset=abc", "Invalid offset"},
+		{"limit zero", "limit=0", "Invalid pagination"},
+		{"limit above 100", "limit=101", "Invalid pagination"},
+		{"negative offset", "offset=-1", "Invalid pagination"},
+	}
+	for _, tc := range rejected {
+		t.Run(tc.name, func(t *testing.T) {
+			response := listFilterRequest(handler, http.MethodGet, path+tc.query, "")
+			if response.Code != http.StatusBadRequest || response.Header().Get("Content-Type") != "application/problem+json" {
+				t.Fatalf("status=%d content-type=%q body=%s, want a 400 problem", response.Code, response.Header().Get("Content-Type"), response.Body.String())
+			}
+			var problem problemResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
+				t.Fatal(err)
+			}
+			if problem.Status != http.StatusBadRequest || problem.Title != tc.title {
+				t.Fatalf("problem=%+v, want status 400 titled %q", problem, tc.title)
+			}
+		})
+	}
+
+	accepted := []struct{ name, query string }{
+		{"query of exactly 200 characters", "q=" + strings.Repeat("a", 200)},
+		{"query counts characters, not bytes", "q=" + url.QueryEscape(strings.Repeat("变", 200))},
+		{"status draft", "status=draft"},
+		{"status evaluation_pending", "status=evaluation_pending"},
+		{"status evaluation_failed", "status=evaluation_failed"},
+		{"status evidence_required", "status=evidence_required"},
+		{"status review_required", "status=review_required"},
+		{"status in_review", "status=in_review"},
+		{"status changes_requested", "status=changes_requested"},
+		{"status ready_to_merge", "status=ready_to_merge"},
+		{"status merged", "status=merged"},
+	}
+	for _, tc := range accepted {
+		t.Run(tc.name, func(t *testing.T) {
+			if response := listFilterRequest(handler, http.MethodGet, path+tc.query, ""); response.Code != http.StatusOK {
+				t.Fatalf("status=%d body=%s, want 200", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+// TestChangesetResponsesCarryTheServerDerivedStatus walks one changeset through the whole HTTP
+// lifecycle and checks that every stored-changeset response (create, get, list and each mutation)
+// reports the status the server derives, next to version rather than inside the changeset.
+func TestChangesetResponsesCarryTheServerDerivedStatus(t *testing.T) {
+	repository := newMemoryRepository()
+	deps := DeliveryDependencies{Repository: repository, Catalog: &lifecycleCatalog{}, Identity: namedIdentity{user: "author-1", role: "owner"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test", Git: lifecycleGit{}, Evaluator: lifecycleEvaluator{}, Evidence: lifecycleEvidence{}, Reviewers: lifecycleReviewers{}, Locker: lifecycleLocker{}}
+	author := NewHandlerWithDependencies(deps)
+	deps.Identity = namedIdentity{user: "reviewer-1", role: "member"}
+	reviewer := NewHandlerWithDependencies(deps)
+	const base = "/api/v1/organizations/org-a"
+
+	var latest listFilterWireItem
+	step := func(name string, handler http.Handler, method, path, body string, wantCode int, wantStatus string) {
+		t.Helper()
+		response := listFilterRequest(handler, method, path, body)
+		if response.Code != wantCode {
+			t.Fatalf("%s: status=%d body=%s, want %d", name, response.Code, response.Body.String(), wantCode)
+		}
+		latest = listFilterWireItem{}
+		if err := json.Unmarshal(response.Body.Bytes(), &latest); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if latest.Status == nil || *latest.Status != wantStatus {
+			t.Fatalf("%s: status field = %v, want %q: %s", name, latest.Status, wantStatus, response.Body.String())
+		}
+	}
+
+	if response := listFilterRequest(author, http.MethodPost, base+"/repositories", `{"slug":"team/repo","default_branch":"main"}`); response.Code != http.StatusCreated {
+		t.Fatalf("register repository: %d %s", response.Code, response.Body.String())
+	}
+	step("create", author, http.MethodPost, base+"/changesets", `{"repository":"team/repo","title":"Deliver feature"}`, http.StatusCreated, "draft")
+	changePath := base + "/changesets/" + latest.Changeset.ID
+	step("get", author, http.MethodGet, changePath, "", http.StatusOK, "draft")
+	step("add revision", author, http.MethodPost, changePath+"/revisions", `{"ref":"feature"}`, http.StatusOK, "evaluation_pending")
+	step("evaluate", author, http.MethodPost, changePath+"/evaluations", `{}`, http.StatusOK, "review_required")
+	step("attach evidence", author, http.MethodPost, changePath+"/evidence", `{"evaluation_id":"`+latest.Changeset.Evaluations[0].ID+`"}`, http.StatusOK, "review_required")
+	step("assign review", author, http.MethodPost, changePath+"/reviews", `{"reviewer_id":"reviewer-1"}`, http.StatusCreated, "in_review")
+	step("request changes", reviewer, http.MethodPost, changePath+"/reviews/"+latest.Changeset.Reviews[0].ID+"/decision", `{"approved":false}`, http.StatusOK, "changes_requested")
+	step("assign a second review", author, http.MethodPost, changePath+"/reviews", `{"reviewer_id":"reviewer-1"}`, http.StatusCreated, "in_review")
+	step("approve", reviewer, http.MethodPost, changePath+"/reviews/"+latest.Changeset.Reviews[1].ID+"/decision", `{"approved":true}`, http.StatusOK, "ready_to_merge")
+	step("get before merge", author, http.MethodGet, changePath, "", http.StatusOK, "ready_to_merge")
+
+	listed := listFilterFetchPage(t, author, base+"/changesets")
+	if len(listed.Items) != 1 || listed.Items[0].Status == nil || *listed.Items[0].Status != "ready_to_merge" {
+		t.Fatalf("list item status = %+v, want one item that is ready_to_merge", listed.Items)
+	}
+	if page := listFilterFetchPage(t, author, base+"/changesets?status=ready_to_merge"); *page.Total != 1 {
+		t.Fatalf("status=ready_to_merge total=%d, want 1", *page.Total)
+	}
+	if page := listFilterFetchPage(t, author, base+"/changesets?status=in_review"); *page.Total != 0 {
+		t.Fatalf("status=in_review total=%d, want 0", *page.Total)
+	}
+
+	merged := listFilterRequest(author, http.MethodPost, changePath+"/merge", `{"target_ref":"main"}`)
+	if merged.Code != http.StatusOK {
+		t.Fatalf("merge: %d %s", merged.Code, merged.Body.String())
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(merged.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if string(raw["status"]) != `"merged"` {
+		t.Fatalf("merge response status = %s, want \"merged\": %s", raw["status"], merged.Body.String())
+	}
+	if _, ok := raw["version"]; !ok {
+		t.Fatal("merge response lost its version")
+	}
+	var inner map[string]json.RawMessage
+	if err := json.Unmarshal(raw["changeset"], &inner); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := inner["status"]; ok {
+		t.Fatal("status belongs beside version, not inside the changeset")
+	}
+	if page := listFilterFetchPage(t, author, base+"/changesets?status=merged"); *page.Total != 1 {
+		t.Fatalf("status=merged total=%d, want 1", *page.Total)
 	}
 }
