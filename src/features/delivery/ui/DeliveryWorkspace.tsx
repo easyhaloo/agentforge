@@ -1,4 +1,5 @@
 import { Play, Plus, RefreshCw, Sparkles } from "lucide-react";
+import type { RevisionId } from "../../../entities";
 import type { Change, Evaluation, Review } from "../model";
 import { EvaluationEvidence } from "./EvaluationEvidence";
 import { ReviewDecision } from "./ReviewDecision";
@@ -6,7 +7,7 @@ import { TrailSummary } from "./TrailSummary";
 
 type Props = {
   change: Change; title: string; evaluations: Evaluation[]; reviews: Review[];
-  currentRevisionId: string; evidenceCurrent: boolean; approved: boolean;
+  currentRevisionId: RevisionId; evidenceCurrent: boolean; approved: boolean;
   trailDone: boolean; stackBase: string;
   onTitleChange: (title: string) => void; onTitleCommit: () => void;
   onCreateRevision: () => void; onRunEvaluation: () => void; onSelfHeal: () => void;

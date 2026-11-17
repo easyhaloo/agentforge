@@ -1,9 +1,10 @@
 import { canMergeRevision } from "../../../domain/delivery";
+import type { RevisionId } from "../../../entities";
 import type { Change, Evaluation, Review } from "../model";
 
 export function mergeChangeset(
   change: Change,
-  revisionId: string,
+  revisionId: RevisionId,
   evidence: Evaluation | undefined,
   review: Review | undefined,
 ): Change | null {

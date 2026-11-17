@@ -1,9 +1,10 @@
 import { CheckCircle2, GitPullRequest } from "lucide-react";
 import { canApproveRevision } from "../../../domain/delivery";
+import type { RevisionId } from "../../../entities";
 import type { Evaluation, Review } from "../model";
 
 type Props = {
-  currentRevisionId: string;
+  currentRevisionId: RevisionId;
   latestEvaluation: Evaluation | undefined;
   reviews: Review[];
   onDecide: (decision: "Approved" | "Changes requested") => void;
