@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"sync"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
@@ -73,5 +74,87 @@ func TestPostgresOIDCTransactionsAreSingleUseAndExternalIdentityIsStable(t *test
 	}
 	if otherUserID == userID {
 		t.Fatal("distinct issuer/subject identity must not be merged by email")
+	}
+}
+
+func TestBootstrapFirstOwnerIsSerializedAndOneTime(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	store, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	organizationID := "bootstrap-org-" + suffix
+	issuer := "https://bootstrap-issuer.example.test"
+	results := make(chan error, 2)
+	var wait sync.WaitGroup
+	for _, subject := range []string{"owner-a-" + suffix, "owner-b-" + suffix} {
+		wait.Add(1)
+		go func(subject string) {
+			defer wait.Done()
+			_, err := store.BootstrapFirstOwner(ctx, issuer, subject, organizationID, "Bootstrap Organization")
+			results <- err
+		}(subject)
+	}
+	wait.Wait()
+	close(results)
+
+	successes, rejected := 0, 0
+	for err := range results {
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, ErrOwnerAlreadyExists):
+			rejected++
+		default:
+			t.Fatalf("unexpected bootstrap error: %v", err)
+		}
+	}
+	if successes != 1 || rejected != 1 {
+		t.Fatalf("bootstrap successes=%d rejected=%d, want one each", successes, rejected)
+	}
+
+	var ownerCount int
+	if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM organization_memberships WHERE organization_id = $1 AND role = 'owner'", organizationID).Scan(&ownerCount); err != nil {
+		t.Fatal(err)
+	}
+	if ownerCount != 1 {
+		t.Fatalf("owner count=%d, want 1", ownerCount)
+	}
+
+	if _, err := store.BootstrapFirstOwner(ctx, issuer, "late-owner-"+suffix, organizationID, "Bootstrap Organization"); !errors.Is(err, ErrOwnerAlreadyExists) {
+		t.Fatalf("repeat bootstrap error=%v, want ErrOwnerAlreadyExists", err)
+	}
+}
+
+func TestBootstrapFirstOwnerRejectsSuspendedOrganization(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	store, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	organizationID := "bootstrap-suspended-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	if _, err := store.pool.Exec(ctx, "INSERT INTO organizations (id, name, status) VALUES ($1, $1, 'suspended')", organizationID); err != nil {
+		t.Fatal(err)
+	}
+	_, err = store.BootstrapFirstOwner(ctx, "https://bootstrap-issuer.example.test", "suspended-owner", organizationID, "Suspended")
+	if !errors.Is(err, ErrOrganizationInactive) {
+		t.Fatalf("suspended organization bootstrap error=%v, want ErrOrganizationInactive", err)
 	}
 }

@@ -57,3 +57,20 @@ Routes:
 - `POST /api/v1/auth/logout` revokes the current session and clears both session cookies. It requires the configured Origin and session-bound CSRF header/cookie.
 
 If OIDC configuration is absent or provider discovery fails, login returns `503`, protected routes remain unavailable, and `/readyz` remains `503`. A successful OIDC login creates or updates a local user by the immutable `(issuer, subject)` pair; it does not grant organization membership. An operator-controlled first-owner/bootstrap step is still required before the user can access tenant-scoped delivery resources.
+
+## First-owner bootstrap (operator-only)
+
+A successful OIDC login creates a local user but never grants organization access. Provision the first owner from a trusted operator environment with direct database access; there is no public bootstrap HTTP endpoint.
+
+Set the exact issuer and immutable `sub` claim from the configured OIDC provider, then run:
+
+```sh
+export DATABASE_URL='postgres://agentforge:agentforge@localhost:5432/agentforge?sslmode=disable'
+export BOOTSTRAP_OIDC_ISSUER='https://identity.example.com'
+export BOOTSTRAP_OIDC_SUBJECT='the-exact-immutable-sub-claim'
+export BOOTSTRAP_ORGANIZATION_ID='your-organization-id'
+export BOOTSTRAP_ORGANIZATION_NAME='Your Organization'
+go run ./cmd/bootstrap-owner
+```
+
+The command creates the organization if needed, maps the issuer/subject to a local user, and assigns the `owner` role in one transaction. It serializes concurrent attempts and refuses to proceed if the organization already has an owner or is suspended. Re-running bootstrap is not a role-escalation or recovery mechanism; existing organizations must use a separately authorized membership-management workflow.
