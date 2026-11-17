@@ -23,8 +23,9 @@ type ListFilter struct {
 // ascending, and returns the requested page together with the number of matches before paging.
 //
 // It is the single implementation of list matching and paging, shared by every Repository, so
-// stores cannot diverge. Callers validate the page range; out-of-range values give an empty page
-// rather than a panic. The result is never nil and items is not modified.
+// stores cannot diverge. Callers validate the page range; out-of-range input never panics: an
+// offset past the end or a non-positive limit gives an empty page, and a negative offset counts
+// as 0. The result is never nil and items is not modified.
 func FilterAndPage(items []StoredChangeset, filter ListFilter, limit, offset int) ([]StoredChangeset, int) {
 	query := strings.ToLower(strings.TrimSpace(filter.Query))
 	matched := make([]StoredChangeset, 0, len(items))
