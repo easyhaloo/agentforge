@@ -55,6 +55,11 @@ func TestCompleteChangesetLifecycleThroughHTTP(t *testing.T) {
 	if err:=json.Unmarshal(response.Body.Bytes(),&stored);err!=nil{t.Fatal(err)}
 	if len(stored.Changeset.Reviews)!=1 {t.Fatalf("reviews=%d",len(stored.Changeset.Reviews))}
 	reviewID:=string(stored.Changeset.Reviews[0].ID)
+	wrongReviewerRequest:=httptest.NewRequest(http.MethodPost,changePath+"/reviews/"+reviewID+"/decision",bytes.NewBufferString(`{"approved":true}`))
+	addValidCSRFCookies(wrongReviewerRequest);wrongReviewerResponse:=httptest.NewRecorder();handler.ServeHTTP(wrongReviewerResponse,wrongReviewerRequest)
+	if wrongReviewerResponse.Code!=http.StatusForbidden {t.Fatalf("unassigned reviewer decision status=%d, want 403",wrongReviewerResponse.Code)}
+	blockedMerge:=call(http.MethodPost,changePath+"/merge",`{"target_ref":"main"}`)
+	if blockedMerge.Code!=http.StatusConflict {t.Fatalf("merge without approval status=%d, want 409",blockedMerge.Code)}
 	reviewerHandler:=NewHandlerWithDependencies(DeliveryDependencies{Repository:repository,Identity:namedIdentity{user:"reviewer-1",role:"member"},CSRF:allowCSRF{},AllowedOrigin:"https://app.example.test",Git:lifecycleGit{},Evaluator:lifecycleEvaluator{},Evidence:lifecycleEvidence{},Reviewers:lifecycleReviewers{},Catalog:catalog})
 	request:=httptest.NewRequest(http.MethodPost,changePath+"/reviews/"+reviewID+"/decision",bytes.NewBufferString(`{"approved":true,"comment":"Approved"}`))
 	addValidCSRFCookies(request);response=httptest.NewRecorder();reviewerHandler.ServeHTTP(response,request)
