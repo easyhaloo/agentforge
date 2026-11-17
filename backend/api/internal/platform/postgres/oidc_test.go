@@ -100,7 +100,7 @@ func TestBootstrapFirstOwnerIsSerializedAndOneTime(t *testing.T) {
 		wait.Add(1)
 		go func(subject string) {
 			defer wait.Done()
-			_, err := store.BootstrapFirstOwner(ctx, issuer, subject, organizationID, "Bootstrap Organization")
+			_, err := store.BootstrapFirstOwner(ctx, issuer, subject, organizationID, "Bootstrap Organization", "bootstrap-"+suffix)
 			results <- err
 		}(subject)
 	}
@@ -130,7 +130,7 @@ func TestBootstrapFirstOwnerIsSerializedAndOneTime(t *testing.T) {
 		t.Fatalf("owner count=%d, want 1", ownerCount)
 	}
 
-	if _, err := store.BootstrapFirstOwner(ctx, issuer, "late-owner-"+suffix, organizationID, "Bootstrap Organization"); !errors.Is(err, ErrOwnerAlreadyExists) {
+	if _, err := store.BootstrapFirstOwner(ctx, issuer, "late-owner-"+suffix, organizationID, "Bootstrap Organization", "bootstrap-"+suffix); !errors.Is(err, ErrOwnerAlreadyExists) {
 		t.Fatalf("repeat bootstrap error=%v, want ErrOwnerAlreadyExists", err)
 	}
 }
@@ -153,7 +153,7 @@ func TestBootstrapFirstOwnerRejectsSuspendedOrganization(t *testing.T) {
 	if _, err := store.pool.Exec(ctx, "INSERT INTO organizations (id, name, status) VALUES ($1, $1, 'suspended')", organizationID); err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.BootstrapFirstOwner(ctx, "https://bootstrap-issuer.example.test", "suspended-owner", organizationID, "Suspended")
+	_, err = store.BootstrapFirstOwner(ctx, "https://bootstrap-issuer.example.test", "suspended-owner", organizationID, "Suspended", "bootstrap-suspended")
 	if !errors.Is(err, ErrOrganizationInactive) {
 		t.Fatalf("suspended organization bootstrap error=%v, want ErrOrganizationInactive", err)
 	}
