@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban, Check, X } from "lucide-react";
 import { APIError, organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
 
@@ -53,7 +53,7 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Member removal failed"); }
     finally { setBusyID(""); }
   };
-  const createInvitation = async (event: React.FormEvent) => {
+  const createInvitation = async (event: FormEvent) => {
     event.preventDefault(); setCreating(true); setError("");
     try {
       const result = await organizationAPI.createInvitation(organization.id, email.trim(), role);
@@ -93,7 +93,7 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
       <div className="org-panel-head"><div><h3>Organization members</h3><p>Role and status changes are enforced by the server.</p></div></div>
       <div className="org-table-wrap"><table className="org-table"><thead><tr><th>MEMBER</th><th>ROLE</th><th>STATUS</th><th>JOINED</th><th>ACTIONS</th></tr></thead><tbody>
         {members.map(member => {
-          const manageable = organization.role==="owner" || (member.role==="member" || member.role==="viewer");
+          const manageable = member.status!=="removed" && (organization.role==="owner" || member.role==="member" || member.role==="viewer");
           const roleOptions = organization.role==="owner" ? ["admin","member","viewer"] : ["member","viewer"];
           return <tr key={member.user_id}><td><b>{member.display_name}</b><small>{member.email || member.user_id}</small></td><td><select aria-label={`Role for ${member.display_name}`} value={member.role} disabled={!manageable || busyID===member.user_id} onChange={e=>void updateMember(member,{role:e.target.value})}>{[member.role,...roleOptions].filter((v,i,a)=>a.indexOf(v)===i).map(value=><option key={value} value={value}>{value}</option>)}</select></td><td><span className={statusClass(member.status)}>{member.status}</span></td><td>{dateTime(member.created_at)}</td><td><div className="org-actions">{manageable && member.status!=="removed" && <><button className="org-icon-action" title={member.status==="active"?"Suspend member":"Reactivate member"} disabled={busyID===member.user_id} onClick={()=>void updateMember(member,{status:member.status==="active"?"suspended":"active"})}>{member.status==="active"?<Ban size={14}/>:<Check size={14}/>}</button><button className="org-icon-action danger" title="Remove member" disabled={busyID===member.user_id} onClick={()=>void removeMember(member)}><X size={14}/></button></>}</div></td></tr>;
         })}
