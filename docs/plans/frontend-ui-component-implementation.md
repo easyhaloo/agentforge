@@ -7,8 +7,8 @@
 
 | ID | 任务 | 交付物 | 验收 |
 |---|---|---|---|
-| UI-001 | 引入 Ant Design 与 Day.js，核对版本和 lockfile | package.json / package-lock.json | npm ci、build |
-| UI-002 | 建立主题 Token、ConfigProvider 与 UI 公共出口 | shared/ui/theme、index.ts | 应用启动且主题生效 |
+| UI-001 | 核对 React/浏览器原生能力与现有依赖，保持 lockfile 一致 | 技术基线记录 | npm ci、build |
+| UI-002 | 建立 UIThemeProvider、CSS Token 与 UI 公共出口 | shared/ui/theme、index.ts | 应用启动且主题生效 |
 | UI-003 | 封装 Button、Input、TextArea、Select | 基础输入组件 | Props 类型与交互测试 |
 | UI-004 | 封装 DatePicker、DateRangePicker | 日期组件 | API 日期格式转换测试 |
 | UI-005 | 封装 Modal、Drawer、ConfirmDialog | 弹层组件 | Promise 提交、loading、防重复测试 |
@@ -20,7 +20,7 @@
 
 ## 执行策略
 
-1. 按 UI-001 到 UI-002 完成依赖和主题基础，不提前迁移业务页面。
+1. 按 UI-001 到 UI-002 完成技术基线和主题基础，不提前迁移业务页面。
 2. 按 UI-003 到 UI-007 完成第一批通用组件。
 3. 完成 UI-008 数据组件，明确服务端交互协议。
 4. 建设 Showcase 和测试，再逐步迁移既有页面。
@@ -32,6 +32,6 @@
 - 禁止组件封装层依赖业务模块。
 - 组件 Props 必须有 TypeScript 类型。
 - 异步交互必须覆盖 loading、失败和重复提交。
-- 日期传输不得直接传递 Day.js 实例。
+- 日期传输统一使用明确的字符串格式，不传递浏览器事件对象或日期库实例。
 - 表格必须使用稳定 rowKey，默认服务端分页。
 - 不因组件建设顺带改动无关页面或部署配置。
