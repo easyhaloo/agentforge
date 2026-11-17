@@ -76,6 +76,9 @@ jobs:
           go-version: '1.25'
           cache: true
           cache-dependency-path: backend/api/go.mod
+      # Resolve and checksum modules before tests. This also initializes go.sum
+      # for repositories that do not yet commit a checksum file.
+      - run: go mod download
       - run: go test ./...
       - run: go build ./cmd/server
 
