@@ -47,6 +47,12 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run build
+      - name: Install Playwright browser test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.56.1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run shared UI browser tests
+        run: npm run test:e2e
 
   api:
     needs: changes
