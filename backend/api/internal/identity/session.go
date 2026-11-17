@@ -3,6 +3,7 @@ package identity
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -29,7 +30,7 @@ type PrincipalResolver interface {
 }
 
 type CSRFValidator interface {
-	ValidateCSRF(requestContext interface{ Done() <-chan struct{} }, sessionToken, csrfToken string) error
+	ValidateCSRF(context.Context, sessionToken, csrfToken string) error
 }
 
 type Credentials struct {
