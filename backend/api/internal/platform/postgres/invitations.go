@@ -113,13 +113,23 @@ func (s *Store) AcceptInvitation(ctx context.Context, tokenHash, verifiedEmail, 
 	tx,err:=s.pool.Begin(ctx)
 	if err!=nil { return "",fmt.Errorf("begin invitation acceptance: %w",err) }
 	defer tx.Rollback(ctx)
-	var organizationID,role,inviterID string
-	err=tx.QueryRow(ctx,`SELECT organization_id, role, invited_by_user_id FROM organization_invitations
-		WHERE token_hash=$1 AND lower(invited_email)=$2 AND expires_at>now()
-		  AND accepted_at IS NULL AND revoked_at IS NULL FOR UPDATE`,tokenHash,email).Scan(&organizationID,&role,&inviterID)
+
+	// Acquire the organization lock before locking the invitation row. All
+	// invitation writers use this order, avoiding row/advisory-lock inversion.
+	var organizationID string
+	err=tx.QueryRow(ctx,"SELECT organization_id FROM organization_invitations WHERE token_hash=$1",tokenHash).Scan(&organizationID)
+	if errors.Is(err,pgx.ErrNoRows) { return "",identity.ErrInvitationNotFound }
+	if err!=nil { return "",fmt.Errorf("locate invitation organization: %w",err) }
+	if _,err:=tx.Exec(ctx,"SELECT pg_advisory_xact_lock(hashtext($1))",organizationID); err!=nil {
+		return "",fmt.Errorf("lock invitation organization: %w",err)
+	}
+
+	var role,inviterID string
+	err=tx.QueryRow(ctx,`SELECT role, invited_by_user_id FROM organization_invitations
+		WHERE token_hash=$1 AND organization_id=$2 AND lower(invited_email)=$3 AND expires_at>now()
+		  AND accepted_at IS NULL AND revoked_at IS NULL FOR UPDATE`,tokenHash,organizationID,email).Scan(&role,&inviterID)
 	if errors.Is(err,pgx.ErrNoRows) { return "",identity.ErrInvitationNotFound }
 	if err!=nil { return "",fmt.Errorf("verify organization invitation: %w",err) }
-	if _,err:=tx.Exec(ctx,"SELECT pg_advisory_xact_lock(hashtext($1))",organizationID); err!=nil { return "",fmt.Errorf("lock invitation organization: %w",err) }
 	var organizationActive bool
 	if err:=tx.QueryRow(ctx,"SELECT status='active' FROM organizations WHERE id=$1",organizationID).Scan(&organizationActive); err!=nil {
 		return "",fmt.Errorf("verify invitation organization: %w",err)
