@@ -2,7 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   Button,
+  ConfirmDialog,
   DataTable,
+  Drawer,
   DatePicker,
   Input,
   Modal,
@@ -54,6 +56,15 @@ describe("shared UI primitives", () => {
     expect(renderToStaticMarkup(<Empty title="No records" />)).toContain("No records");
     expect(renderToStaticMarkup(<Loading label="Loading records" />)).toContain('role="status"');
     expect(renderToStaticMarkup(<Skeleton lines={2} />)).toContain("af-skeleton");
+  });
+
+  it("renders drawer and confirmation dialog accessibility contracts", () => {
+    const drawer = renderToStaticMarkup(<Drawer open title="Resource details" onClose={() => undefined}>Details</Drawer>);
+    expect(drawer).toContain('role="dialog"');
+    expect(drawer).toContain('aria-label="Resource details"');
+    const confirmation = renderToStaticMarkup(<ConfirmDialog open description="Remove this member?" onCancel={() => undefined} onConfirm={() => undefined} />);
+    expect(confirmation).toContain("Are you sure?");
+    expect(confirmation).toContain("Remove this member?");
   });
 
   it("exposes accessible popover trigger relationships", () => {
