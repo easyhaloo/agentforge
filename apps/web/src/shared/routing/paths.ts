@@ -31,7 +31,10 @@ export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
-/** Same sub-path under another organization; paths outside `/orgs/:org` are returned unchanged. */
+/**
+ * Same sub-path under another organization; paths outside `/orgs/:org` are returned unchanged. The router matches
+ * static segments case-insensitively, so `/ORGS/a/...` is an organization path too; the prefix is emitted as `/orgs`.
+ */
 export function withOrganizationHandle(pathname: string, handle: string): string {
-  return pathname.replace(/^\/orgs\/[^/]+/, `/orgs/${encodeURIComponent(handle)}`);
+  return pathname.replace(/^\/orgs\/[^/]+/i, `/orgs/${encodeURIComponent(handle)}`);
 }
