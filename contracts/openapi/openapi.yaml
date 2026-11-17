@@ -33,11 +33,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
-  /api/v1/changesets:
+  /api/v1/organizations/{organizationID}/changesets:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
     get:
       operationId: listChangesets
       summary: List persisted changesets
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [] }]
       parameters:
         - in: query
           name: limit
@@ -57,7 +62,7 @@ paths:
       operationId: createChangeset
       summary: Create a changeset
       description: Actor identity is resolved by trusted server authentication; client-supplied actor fields are rejected.
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [], csrfToken: [] }]
       requestBody:
         required: true
         content:
@@ -72,8 +77,12 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
-  /api/v1/changesets/{id}:
+  /api/v1/organizations/{organizationID}/changesets/{id}:
     parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
       - in: path
         name: id
         required: true
@@ -81,7 +90,7 @@ paths:
     get:
       operationId: getChangeset
       summary: Get a changeset and its lifecycle history
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [] }]
       responses:
         "200":
           description: Persisted changeset
@@ -89,12 +98,17 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/changesets/{id}/revisions:
+  /api/v1/organizations/{organizationID}/changesets/{id}/revisions:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
     post:
       operationId: addRevision
       summary: Add a revision and stale prior evidence and reviews
       description: Returns 501 until a Git provider adapter validates the repository revision
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -118,12 +132,17 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "501": { $ref: "#/components/responses/Problem" }
-  /api/v1/changesets/{id}/evaluations:
+  /api/v1/organizations/{organizationID}/changesets/{id}/evaluations:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
     post:
       operationId: recordEvaluation
       summary: Record an evaluation result for the current revision
       description: Returns 501 until a trusted evaluation worker is configured; clients cannot assert evaluation outcomes
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -149,12 +168,17 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "501": { $ref: "#/components/responses/Problem" }
-  /api/v1/changesets/{id}/evidence:
+  /api/v1/organizations/{organizationID}/changesets/{id}/evidence:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
     post:
       operationId: attachEvidence
       summary: Attach evidence from a passed evaluation on the current revision
       description: Returns 501 until a trusted evidence adapter validates artifact provenance
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -181,12 +205,17 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "501": { $ref: "#/components/responses/Problem" }
-  /api/v1/changesets/{id}/reviews:
+  /api/v1/organizations/{organizationID}/changesets/{id}/reviews:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
     post:
       operationId: submitReview
       summary: Submit a review for a revision with active evidence
       description: Returns 501 until the review assignment and authorization workflow is configured
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -211,12 +240,17 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "501": { $ref: "#/components/responses/Problem" }
-  /api/v1/changesets/{id}/reviews/{reviewID}/decision:
+  /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
     post:
       operationId: decideReview
       summary: Approve or reject a pending review assigned to the authenticated reviewer
       description: Returns 501 until the review authorization workflow is configured
-      security: [{ bearerAuth: [] }]
+      security: [{ sessionCookie: [], csrfToken: [] }]
       parameters:
         - in: path
           name: id
@@ -247,9 +281,14 @@ paths:
         "501": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: agentforge_session
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
   responses:
     Problem:
       description: RFC 9457 problem response
