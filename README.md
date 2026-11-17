@@ -2,6 +2,15 @@
 
 **Agent-native Source Control & Verified Change Platform** — React + TypeScript frontend prototype.
 
+## Architecture and development
+
+- [Target architecture](docs/architecture/overview.md)
+- [Architecture decisions](docs/architecture/decisions.md)
+- [Development roadmap](docs/plans/development-roadmap.md)
+- [Deployment architecture](docs/deployment/architecture.md)
+
+The approved target is a monorepo with a React frontend and a Go modular-monolith backend. The current root-level React application remains a prototype; the Go backend is planned and is not yet implemented. See the architecture and roadmap documents for the migration sequence.
+
 ## Development
 
 ```bash
