@@ -18,6 +18,7 @@ npm install
 npm run dev
 npm test
 npm run build
+npm run deploy:dry-run
 
 cd backend/api
 go test ./...
