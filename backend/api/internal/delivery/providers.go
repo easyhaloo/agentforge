@@ -121,6 +121,8 @@ func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, re
 	if err != nil { return GitMerge{}, ErrRepositoryInvalid }
 	revision, err := p.run(ctx,path,"rev-parse","--verify","--end-of-options",revisionSHA+"^{commit}")
 	if err != nil { return GitMerge{}, ErrRepositoryInvalid }
+	branch, branchErr := p.run(ctx,path,"symbolic-ref","--quiet","--short","HEAD")
+	if branchErr != nil || branch != targetRef { return GitMerge{}, errors.New("local repository must have the registered target branch checked out") }
 	current, err := p.run(ctx,path,"rev-parse","HEAD")
 	if err != nil || current != target { return GitMerge{}, errors.New("local repository HEAD does not match target ref; synchronize the repository before merging") }
 	if _, ancestorErr := p.run(ctx,path,"merge-base","--is-ancestor",revision,target); ancestorErr == nil {
