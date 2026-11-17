@@ -28,7 +28,7 @@ func (s *Store) ListMembers(ctx context.Context, organizationID string) ([]ident
 		return nil, errors.New("organization ID is required")
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT u.id, u.display_name, CASE WHEN u.email_verified THEN u.email ELSE NULL END,
+		SELECT u.id, u.display_name, COALESCE(CASE WHEN u.email_verified THEN u.email ELSE NULL END, ''),
 		       m.role, m.status, m.created_at, m.updated_at
 		FROM organization_memberships AS m
 		JOIN users AS u ON u.id = m.user_id
@@ -76,6 +76,13 @@ func (s *Store) CreateInvitation(ctx context.Context, organizationID, actorID, a
 	actualRole, err := activeActorRole(ctx, tx, organizationID, actorID)
 	if err != nil {
 		return identity.Invitation{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE organization_invitations SET revoked_at = now()
+		WHERE organization_id = $1 AND lower(email) = $2
+		  AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= now()
+	`, organizationID, email); err != nil {
+		return identity.Invitation{}, fmt.Errorf("expire stale organization invitations: %w", err)
 	}
 	if actualRole != actorRole || !identity.CanInviteRole(actualRole, role) {
 		return identity.Invitation{}, ErrMembershipDenied
@@ -244,6 +251,7 @@ func (s *Store) AcceptInvitation(ctx context.Context, sessionToken, invitationTo
 		SELECT u.id, COALESCE(u.email, ''), u.email_verified
 		FROM sessions AS s JOIN users AS u ON u.id = s.user_id
 		WHERE s.token_hash = $1 AND s.expires_at > now() AND s.revoked_at IS NULL
+		FOR SHARE OF s
 	`, identity.HashToken(sessionToken)).Scan(&userID, &email, &emailVerified)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", identity.ErrUnauthenticated
@@ -254,7 +262,7 @@ func (s *Store) AcceptInvitation(ctx context.Context, sessionToken, invitationTo
 
 	var invitationID, organizationID, invitedEmail, role string
 	err = tx.QueryRow(ctx, `
-		SELECT id, organization_id, email, role
+		SELECT i.id, i.organization_id, i.email, i.role
 		FROM organization_invitations AS i
 		JOIN organizations AS o ON o.id = i.organization_id AND o.status = 'active'
 		WHERE i.token_hash = $1 AND i.expires_at > now()
