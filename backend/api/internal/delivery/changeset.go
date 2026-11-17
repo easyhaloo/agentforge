@@ -229,22 +229,8 @@ func (c *Changeset) CompleteMerge(id ID, actor, targetRef, commitSHA string, now
 	if c == nil || id == "" || actor == "" || targetRef == "" || commitSHA == "" {
 		return ErrInvalidInput
 	}
-	if c.Merge != nil {
-		return ErrAlreadyMerged
-	}
+	if err := c.ValidateMerge(); err != nil { return err }
 	revisionID := c.currentRevisionID()
-	if revisionID == "" {
-		return ErrRevisionNotCurrent
-	}
-	if !c.hasPassedEvaluation(revisionID) {
-		return ErrEvaluationRequired
-	}
-	if !c.hasActiveEvidence(revisionID) {
-		return ErrEvidenceRequired
-	}
-	if !c.hasApprovedReview(revisionID) {
-		return ErrReviewRequired
-	}
 	c.Merge = &Merge{ID: id, RevisionID: revisionID, Actor: actor, TargetRef: targetRef, CommitSHA: commitSHA, CreatedAt: now}
 	c.record(actor, "merge.completed", id, "succeeded", now)
 	return nil
@@ -301,4 +287,15 @@ func (c *Changeset) hasPassedEvaluation(revisionID ID) bool {
 		if evaluation.RevisionID == revisionID && evaluation.Status == EvaluationPassed { return true }
 	}
 	return false
+}
+
+func (c *Changeset) ValidateMerge() error {
+	if c == nil { return ErrInvalidInput }
+	if c.Merge != nil { return ErrAlreadyMerged }
+	revisionID:=c.currentRevisionID()
+	if revisionID=="" { return ErrRevisionNotCurrent }
+	if !c.hasPassedEvaluation(revisionID) { return ErrEvaluationRequired }
+	if !c.hasActiveEvidence(revisionID) { return ErrEvidenceRequired }
+	if !c.hasApprovedReview(revisionID) { return ErrReviewRequired }
+	return nil
 }
