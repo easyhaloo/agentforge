@@ -35,7 +35,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + configuration.Port,
-		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store, Identity: store, CSRF: store, AllowedOrigin: configuration.AppOrigin}),
+		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store, CSRF: store, AllowedOrigin: configuration.AppOrigin}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
