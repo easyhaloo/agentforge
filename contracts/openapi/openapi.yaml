@@ -433,8 +433,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: []
-              properties: {}
+              additionalProperties: false
       responses:
         "200":
           description: Updated changeset
@@ -443,7 +442,7 @@ paths:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
-        "501": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/evidence:
     parameters:
       - in: path
