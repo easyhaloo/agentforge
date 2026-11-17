@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -112,6 +111,6 @@ func TestPostgresStorePersistsWithOrganizationIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	if migrationCount != 1 {
-		t.Fatalf("migration count = %d, want 1 (%s)", migrationCount, fmt.Sprint(migrationCount))
+		t.Fatalf("migration count = %d, want 1", migrationCount)
 	}
 }
