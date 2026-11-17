@@ -256,6 +256,62 @@ func TestFilterAndPageReviewerOnlyMatchesReviewsOfTheCurrentRevision(t *testing.
 	}
 }
 
+// A review superseded by a newer assignment is stale: the reviewer no longer owes it, so it must not
+// keep the changeset in that reviewer's queue (reviewer=bob&status=in_review). Rejected and approved
+// reviews are decisions and keep matching.
+func TestFilterAndPageReviewerIgnoresSupersededReviews(t *testing.T) {
+	now := listFilterEpoch
+	item := listFilterStored(t, listFilterSpec{id: "cs-superseded", repository: "org/api", title: "Superseded review", author: "gina", stage: LifecycleInReview, reviewer: "bob"})
+	c := item.Changeset
+	total := func(filter ListFilter) int {
+		t.Helper()
+		got, total := listFilterRun(t, []StoredChangeset{item}, filter, 10, 0)
+		if total != len(got) {
+			t.Fatalf("total=%d but %d items", total, len(got))
+		}
+		return total
+	}
+	if got := total(ListFilter{Reviewer: "bob", Status: LifecycleInReview}); got != 1 {
+		t.Fatalf("bob's pending review: reviewer=bob&status=in_review total=%d, want 1", got)
+	}
+
+	// carol's assignment supersedes bob's pending review
+	listFilterMust(t, c.AssignReview("review-2", "rev-1", "carol", "gina", "", now))
+	for _, tc := range []struct {
+		name   string
+		filter ListFilter
+		want   int
+	}{
+		{"bob no longer matches", ListFilter{Reviewer: "bob"}, 0},
+		{"bob's queue no longer lists it", ListFilter{Reviewer: "bob", Status: LifecycleInReview}, 0},
+		{"carol matches", ListFilter{Reviewer: "carol"}, 1},
+		{"carol's queue lists it", ListFilter{Reviewer: "carol", Status: LifecycleInReview}, 1},
+	} {
+		if got := total(tc.filter); got != tc.want {
+			t.Errorf("%s: total=%d, want %d", tc.name, got, tc.want)
+		}
+	}
+
+	// a rejection is a decision, not a supersession: carol keeps matching, bob's stale review stays out
+	listFilterMust(t, c.DecideReview("review-2", false, "carol", "needs work", now))
+	if got := total(ListFilter{Reviewer: "carol"}); got != 1 {
+		t.Errorf("carol's rejected review: total=%d, want 1", got)
+	}
+	if got := total(ListFilter{Reviewer: "bob"}); got != 0 {
+		t.Errorf("bob's superseded review after carol's rejection: total=%d, want 0", got)
+	}
+
+	// bob is assigned again: he matches through the new pending review, and through its approval
+	listFilterMust(t, c.AssignReview("review-3", "rev-1", "bob", "gina", "", now))
+	if got := total(ListFilter{Reviewer: "bob", Status: LifecycleInReview}); got != 1 {
+		t.Errorf("bob's new pending review: total=%d, want 1", got)
+	}
+	listFilterMust(t, c.DecideReview("review-3", true, "bob", "approved", now))
+	if got := total(ListFilter{Reviewer: "bob", Status: LifecycleReadyToMerge}); got != 1 {
+		t.Errorf("bob's approved review: total=%d, want 1", got)
+	}
+}
+
 func TestFilterAndPageQueryIsACaseInsensitiveSubstringOverFourFields(t *testing.T) {
 	cases := []struct {
 		name  string
