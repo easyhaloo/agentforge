@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"net/url"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
