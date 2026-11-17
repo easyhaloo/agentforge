@@ -1,58 +1,136 @@
 import { useMemo } from "react";
 import { usePersistentState } from "../../shared/hooks/usePersistentState";
 import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "../../domain/delivery/model";
-import { Activity, ArrowDown, ArrowRight, Check, CheckCircle2, CircleAlert, GitBranch, GitCommitHorizontal, GitPullRequest, Play, Plus, RefreshCw, ShieldCheck, Sparkles, Workflow } from "lucide-react";
-
 import { initialChange, initialEvaluations, initialReviews, stages, type Change, type Evaluation, type Review } from "./model";
+import { DeliveryFlowBanner } from "./ui/DeliveryFlowBanner";
+import { DeliveryStageTrack } from "./ui/DeliveryStageTrack";
+import { DeliveryWorkspace } from "./ui/DeliveryWorkspace";
+import { WorkflowAuditPanel } from "./ui/WorkflowAuditPanel";
+import { DeliveryFlowFooter } from "./ui/DeliveryFlowFooter";
 
-export function DeliveryFlow({page,onNotify}:{page:string;onNotify:(message:string)=>void}) {
-  const [change,setChange]=usePersistentState<Change>("agentforge:delivery:change",initialChange);
-  const [evaluations,setEvaluations]=usePersistentState<Evaluation[]>("agentforge:delivery:evaluations",initialEvaluations);
-  const [reviews,setReviews]=usePersistentState<Review[]>("agentforge:delivery:reviews",initialReviews);
-  const [trailDone,setTrailDone]=usePersistentState("agentforge:delivery:trail-done",false);
-  const [stackBase,setStackBase]=usePersistentState("agentforge:delivery:stack-base","main");
-  const [repairCount,setRepairCount]=usePersistentState("agentforge:delivery:repair-count",0);
-  const [title,setTitle]=usePersistentState("agentforge:delivery:title",initialChange.title);
-  const [events,setEvents]=usePersistentState<string[]>("agentforge:delivery:events",["CS-2481 r3 created from main","EVL-5509 passed 38 checks"]);
-  const latestEval=evaluations[0];
-  const latestReview=reviews[0];
-  const currentRevisionId=revisionKey(change.id,change.revision);
-  const evidenceCurrent=isEvidenceCurrent(currentRevisionId,latestEval);
-  const approved=latestReview?.revisionId===currentRevisionId&&latestReview.decision==="Approved";
-  const stageState=useMemo(()=>[
-    change.status==="Draft"?"In progress":change.status,
-    evidenceCurrent?(latestEval.status==="Passed"?"Passed":"Failed"):"Stale",
-    latestReview?.revisionId===currentRevisionId?latestReview.decision:"Not reviewed",
-    trailDone?"Completed":"In progress"
-  ],[change,latestEval,evidenceCurrent,latestReview,trailDone]);
-  const record=(message:string)=>{setEvents(prev=>[message,...prev].slice(0,8));onNotify(message);};
-  const createRevision=()=>{const next=change.revision+1;setChange({...change,revision:next,status:"Draft"});setTrailDone(false);setReviews([{id:"REV-"+(891+next),revision:next,revisionId:revisionKey(change.id,next),decision:"Pending",reviewer:"Mina"},...reviews]);record(`Created ${change.id} r${next}; previous evidence is now stale`);};
-  const runEval=()=>{const passed=repairCount<1||change.revision>3;const evaluation:Evaluation={id:"EVL-"+(5510+evaluations.length),revision:change.revision,revisionId:currentRevisionId,status:passed?"Passed":"Failed",checks:38,createdAt:"Just now"};setEvaluations([evaluation,...evaluations]);setChange({...change,status:passed?"Ready for review":"Evaluating"});record(`${evaluation.id} ${passed?"passed":"failed"} on ${change.id} r${change.revision}`);};
-  const decide=(decision:"Approved"|"Changes requested")=>{if(!canApproveRevision(currentRevisionId,latestEval)){record("Review blocked: current passing evidence is required");return;}const review:Review={id:"REV-"+(892+reviews.length),revision:change.revision,revisionId:currentRevisionId,decision,reviewer:"You"};setReviews([review,...reviews]);setChange({...change,status:decision==="Approved"?"Approved":"Changes requested"});record(`${decision} ${change.id} r${change.revision}`);};
-  const merge=()=>{if(!canMergeRevision(currentRevisionId,latestEval,latestReview)){record("Merge blocked: approval for the current revision is required");return;}setChange({...change,status:"Merged"});setTrailDone(true);record(`${change.id} r${change.revision} merged; Trail TRL-042 completed`);};
-  const repair=()=>{setRepairCount(repairCount+1);createRevision();record("Self-healing prepared a new revision; run Eval again");};
-  const restack=()=>{setStackBase("main@"+(Date.now()%10000));record("Stack restacked against the latest base (demo)");};
-  const stageIndex=page==="Self-healing"?1:page==="Stacks"?0:Math.max(0,stages.findIndex(s=>s.id===page));
+type Props = { page: string; onNotify: (message: string) => void };
+
+export function DeliveryFlow({ page, onNotify }: Props) {
+  const [change, setChange] = usePersistentState<Change>("agentforge:delivery:change", initialChange);
+  const [evaluations, setEvaluations] = usePersistentState<Evaluation[]>("agentforge:delivery:evaluations", initialEvaluations);
+  const [reviews, setReviews] = usePersistentState<Review[]>("agentforge:delivery:reviews", initialReviews);
+  const [trailDone, setTrailDone] = usePersistentState("agentforge:delivery:trail-done", false);
+  const [stackBase, setStackBase] = usePersistentState("agentforge:delivery:stack-base", "main");
+  const [repairCount, setRepairCount] = usePersistentState("agentforge:delivery:repair-count", 0);
+  const [title, setTitle] = usePersistentState("agentforge:delivery:title", initialChange.title);
+  const [events, setEvents] = usePersistentState<string[]>("agentforge:delivery:events", ["CS-2481 r3 created from main", "EVL-5509 passed 38 checks"]);
+
+  const latestEvaluation = evaluations[0];
+  const latestReview = reviews[0];
+  const currentRevisionId = revisionKey(change.id, change.revision);
+  const evidenceCurrent = isEvidenceCurrent(currentRevisionId, latestEvaluation);
+  const approved = latestReview?.revisionId === currentRevisionId && latestReview.decision === "Approved";
+  const stageState = useMemo(() => [
+    change.status === "Draft" ? "In progress" : change.status,
+    evidenceCurrent ? (latestEvaluation.status === "Passed" ? "Passed" : "Failed") : "Stale",
+    latestReview?.revisionId === currentRevisionId ? latestReview.decision : "Not reviewed",
+    trailDone ? "Completed" : "In progress",
+  ], [change, latestEvaluation, evidenceCurrent, latestReview, currentRevisionId, trailDone]);
+
+  const record = (message: string) => {
+    setEvents((previous) => [message, ...previous].slice(0, 8));
+    onNotify(message);
+  };
+
+  const createRevision = () => {
+    const nextRevision = change.revision + 1;
+    setChange({ ...change, revision: nextRevision, status: "Draft" });
+    setTrailDone(false);
+    setReviews([{
+      id: "REV-" + (891 + nextRevision),
+      revision: nextRevision,
+      revisionId: revisionKey(change.id, nextRevision),
+      decision: "Pending",
+      reviewer: "Mina",
+    }, ...reviews]);
+    record("Created " + change.id + " r" + nextRevision + "; previous evidence is now stale");
+  };
+
+  const runEvaluation = () => {
+    const passed = repairCount < 1 || change.revision > 3;
+    const evaluation: Evaluation = {
+      id: "EVL-" + (5510 + evaluations.length),
+      revision: change.revision,
+      revisionId: currentRevisionId,
+      status: passed ? "Passed" : "Failed",
+      checks: 38,
+      createdAt: "Just now",
+    };
+    setEvaluations([evaluation, ...evaluations]);
+    setChange({ ...change, status: passed ? "Ready for review" : "Evaluating" });
+    record(evaluation.id + " " + (passed ? "passed" : "failed") + " on " + change.id + " r" + change.revision);
+  };
+
+  const decide = (decision: "Approved" | "Changes requested") => {
+    if (!canApproveRevision(currentRevisionId, latestEvaluation)) {
+      record("Review blocked: current passing evidence is required");
+      return;
+    }
+    const review: Review = {
+      id: "REV-" + (892 + reviews.length),
+      revision: change.revision,
+      revisionId: currentRevisionId,
+      decision,
+      reviewer: "You",
+    };
+    setReviews([review, ...reviews]);
+    setChange({ ...change, status: decision === "Approved" ? "Approved" : "Changes requested" });
+    record(decision + " " + change.id + " r" + change.revision);
+  };
+
+  const merge = () => {
+    if (!canMergeRevision(currentRevisionId, latestEvaluation, latestReview)) {
+      record("Merge blocked: approval for the current revision is required");
+      return;
+    }
+    setChange({ ...change, status: "Merged" });
+    setTrailDone(true);
+    record(change.id + " r" + change.revision + " merged; Trail TRL-042 completed");
+  };
+
+  const repair = () => {
+    setRepairCount(repairCount + 1);
+    createRevision();
+    record("Self-healing prepared a new revision; run Eval again");
+  };
+
+  const restack = () => {
+    setStackBase("main@" + (Date.now() % 10000));
+    record("Stack restacked against the latest base (demo)");
+  };
+
+  const stageIndex = page === "Self-healing" ? 1 : page === "Stacks" ? 0 : Math.max(0, stages.findIndex((stage) => stage.id === page));
+
   return <div className="delivery-flow">
-    <div className="flow-banner"><div className="flow-banner-icon"><Workflow size={19}/></div><div><b>Verified delivery workflow</b><p>One revision is traced through evaluation, human review and delivery. Evidence is always revision-scoped.</p></div><span className="demo-pill">INTERACTIVE DEMO</span></div>
-    <div className="flow-stage-track">{stages.map((stage,i)=><div className={`flow-stage ${i===stageIndex?"focused":""} ${i<stageIndex?"visited":""}`} key={stage.id}><div className="flow-stage-top"><span>{i+1}</span><b>{stage.label}</b><small>{stageState[i]}</small></div><p>{stage.desc}</p>{i<stages.length-1&&<ArrowRight size={14}/>}</div>)}</div>
+    <DeliveryFlowBanner />
+    <DeliveryStageTrack stages={stages} stageIndex={stageIndex} stageState={stageState} />
     <div className="flow-main-grid">
-      <section className="card flow-primary">
-        <div className="flow-section-head"><div><span className="eyebrow">ACTIVE CHANGESET</span><h3>{change.id} <span className="revision-chip">r{change.revision}</span></h3><p>Changeset ID is stable across revisions; Git commit SHAs are separate objects.</p></div><span className={`resource-status ${change.status==="Merged"?"flow-good":""}`}>{change.status}</span></div>
-        <label className="flow-label">Change title<input value={title} onChange={e=>setTitle(e.target.value)} onBlur={()=>setChange({...change,title})}/></label>
-        <div className="flow-facts"><div><span>Base branch</span><b>{change.base}</b></div><div><span>Changed files</span><b>{change.files}</b></div><div><span>Stack base</span><b>{stackBase}</b></div></div>
-        <div className="flow-actions">
-          <button className="button secondary compact" onClick={createRevision}><Plus size={14}/> New revision</button>
-          <button className="button primary compact" onClick={runEval}><Play size={14}/> Run Eval</button>
-          <button className="button secondary compact" onClick={repair}><Sparkles size={14}/> Self-heal</button>
-          <button className="button secondary compact" onClick={restack}><RefreshCw size={14}/> Restack</button>
-        </div>
-        <div className="flow-subsection"><div className="flow-subhead"><h4><ShieldCheck size={14}/> Evaluation evidence</h4><span>{evidenceCurrent?"Current":"Stale"}</span></div>{evaluations.slice(0,3).map(e=><div className="evidence-row" key={e.id}><span className={e.status==="Passed"?"evidence-icon pass":"evidence-icon fail"}>{e.status==="Passed"?<Check size={13}/>:<CircleAlert size={13}/>}</span><div><b>{e.id} · r{e.revision}</b><small>{e.checks} checks · {e.createdAt}</small></div><strong>{e.status}</strong></div>)}</div>
-        <div className="flow-subsection"><div className="flow-subhead"><h4><GitPullRequest size={14}/> Review decision</h4><span>{latestReview?.decision??"Not requested"}</span></div>{reviews.slice(0,3).map(r=><div className="evidence-row" key={r.id}><span className="evidence-icon review"><GitPullRequest size={13}/></span><div><b>{r.id} · r{r.revision}</b><small>{r.reviewer} · revision-scoped review</small></div><strong>{r.decision}</strong></div>)}<div className="flow-actions review-actions"><button className="button secondary compact" disabled={!canApproveRevision(currentRevisionId,latestEval)} onClick={()=>decide("Changes requested")}>Request changes</button><button className="button primary compact" disabled={!evidenceCurrent||latestEval.status!=="Passed"} onClick={()=>decide("Approved")}><CheckCircle2 size={14}/> Approve revision</button></div></div>
-        <div className="flow-subsection"><div className="flow-subhead"><h4><GitBranch size={14}/> Stack & Trail</h4><span>{trailDone?"Delivered":"In progress"}</span></div><div className="trail-summary"><div><b>STK-018 · Auth service rollout</b><small>3 changesets · base {stackBase}</small></div><div><b>TRL-042 · Migrate authentication API</b><small>{trailDone?"6/6 changesets completed":"4/6 changesets · waiting on this changeset"}</small></div><button className="button primary compact" disabled={!approved} onClick={merge}><GitCommitHorizontal size={14}/> Merge & complete Trail</button></div></div>
-      </section>
-      <aside className="card flow-aside"><div className="flow-section-head"><div><span className="eyebrow">AUDIT TRAIL</span><h3>Workflow events</h3><p>Ordered activity for this demo changeset.</p></div><Activity size={16}/></div><div className="event-timeline">{events.map((event,i)=><div className="timeline-event" key={event+i}><span className="timeline-dot"/><div><b>{event}</b><small>{i===0?"Just now":`${i*4} min ago`}</small></div></div>)}</div><div className="flow-invariant"><ShieldCheck size={15}/><div><b>Merge gate</b><p>Merge requires a passing evaluation for the exact current revision and an approval for that same revision.</p></div></div><div className="flow-invariant"><GitCommitHorizontal size={15}/><div><b>Evidence invalidation</b><p>Creating a new revision makes prior evaluation evidence and review decisions stale.</p></div></div><div className="prototype-callout"><Sparkles size={14}/>All records are local demo state. No Git commit, remote CI, reviewer notification or merge operation is performed.</div></aside>
+      <DeliveryWorkspace
+        change={change}
+        title={title}
+        evaluations={evaluations}
+        reviews={reviews}
+        currentRevisionId={currentRevisionId}
+        evidenceCurrent={evidenceCurrent}
+        approved={approved}
+        trailDone={trailDone}
+        stackBase={stackBase}
+        onTitleChange={setTitle}
+        onTitleCommit={() => setChange({ ...change, title })}
+        onCreateRevision={createRevision}
+        onRunEvaluation={runEvaluation}
+        onSelfHeal={repair}
+        onRestack={restack}
+        onDecide={decide}
+        onMerge={merge}
+      />
+      <WorkflowAuditPanel events={events} />
     </div>
-    <div className="flow-bottom-note"><CheckCircle2 size={14}/> Try the sequence: New revision → Run Eval → Approve revision → Merge & complete Trail. Then create another revision to see evidence become stale.</div>
+    <DeliveryFlowFooter />
   </div>;
 }
