@@ -7,24 +7,26 @@ The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Page
 - Worker name: `agentforge`
 - Production route: `https://agentforge.gangshusheng.workers.dev`
 - Frontend build command: `npm run build`
+- Worker deployment validation: `npm run deploy:dry-run` (CI only; does not publish)
 - Build output: `dist/`
 - Wrangler deployment command: `npx wrangler deploy`
 
-The repository should contain a Wrangler configuration that declares the static asset directory. Example:
+The repository now contains `wrangler.jsonc`, which declares the Worker entry point, Worker name, compatibility date, Vite build output and SPA fallback:
 
 ```jsonc
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "agentforge",
+  "main": "./src/worker.ts",
   "compatibility_date": "2026-11-17",
   "assets": {
     "directory": "./dist/",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
 }
 ```
 
-The actual compatibility date and configuration must be kept aligned with the installed Wrangler version and repository runtime policy.
+Keep the compatibility date aligned with the repository runtime policy. The Worker entry point delegates requests to the versioned `ASSETS` binding. Cloudflare serves built files from `dist/` and uses the SPA fallback for client-side navigation; the Worker does not pretend to provide backend API behavior.
 
 ## Cloudflare Workers Builds
 
@@ -58,7 +60,7 @@ The Go API is a separate service and is not part of the current frontend Worker 
 Use one production deployment mechanism per application:
 
 - **Frontend:** Cloudflare Workers Builds is the sole production deployment owner. Connect the repository directly in Cloudflare and configure `main` as the production branch. Cloudflare runs `npm run build` and `npx wrangler deploy` from its own build environment.
-- **GitHub Actions:** run dependency installation, tests and production build as CI checks only. Do not add a Wrangler deploy job, Cloudflare API token secret, or Pages deployment workflow to this repository.
+- **GitHub Actions:** run dependency installation, tests, production build and a Wrangler dry-run as CI checks only. The dry-run validates Worker packaging without publishing a deployment. Do not add a Wrangler deploy job, Cloudflare API token secret, or Pages deployment workflow to this repository.
 - **Backend:** use GitHub Actions for build/test and a separate deployment integration for the selected Go hosting provider.
 - **Contracts:** validate OpenAPI and ensure generated/checked frontend client is current.
 

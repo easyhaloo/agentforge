@@ -100,6 +100,7 @@ Current implemented structure:
         revision/                  Revision identity and core type
         evidence/                  Revision-scoped evaluation evidence
         review/                    Revision-scoped review decision
+        resource-records/          Typed records for project, repository, workspace and resource workspaces
       domain/
         delivery/                  Framework-independent delivery invariants and tests
       shared/
@@ -193,7 +194,7 @@ Choose state ownership deliberately:
 4. Server state for data owned by a backend once API integration exists.
 5. Shared application state only for genuinely cross-feature client state.
 
-The current prototype uses browser local storage through a shared hook for demo persistence. Preserve that boundary rather than accessing localStorage throughout components.
+The current prototype uses browser local storage through a shared hook for demo persistence. Preserve that boundary rather than accessing localStorage throughout components. Resource workspace records are discriminated entity types owned by `entities/resource-records`; `pages/resources/data/resourceRecords.ts` is only a page adapter for legacy migration and table projection. Keep page-specific records distinct instead of reintroducing a generic `Item` model.
 
 - Namespace storage keys by product and feature, for example agentforge:delivery:* and agentforge:resources:*.
 - Handle unavailable, malformed or quota-exceeded storage safely.
