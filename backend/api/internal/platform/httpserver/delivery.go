@@ -25,6 +25,7 @@ type DeliveryDependencies struct {
 	Identity    identity.PrincipalResolver
 	CSRF        identity.CSRFValidator
 	AllowedOrigin string
+	OIDC          identity.OIDCHandler
 }
 
 type storedChangesetResponse struct {

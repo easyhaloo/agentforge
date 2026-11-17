@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 )
 
 func TestLoadFromValues(t *testing.T) {
@@ -34,5 +35,42 @@ func TestLoadFromValues(t *testing.T) {
 				t.Fatalf("port = %q, want %q", config.Port, test.wantPort)
 			}
 		})
+	}
+}
+
+func TestLoadOIDCConfiguration(t *testing.T) {
+	valid := func() (*OIDCConfig, time.Duration, error) {
+		return loadOIDC("https://issuer.example.com", "agentforge-client", "secret", "https://api.example.com/auth/oidc/callback", "12h")
+	}
+	config, ttl, err := valid()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config == nil || config.ClientID != "agentforge-client" || ttl != 12*time.Hour {
+		t.Fatalf("OIDC config=%#v ttl=%s", config, ttl)
+	}
+
+	if config, ttl, err := loadOIDC("", "", "", "", ""); err != nil || config != nil || ttl != 12*time.Hour {
+		t.Fatalf("unconfigured OIDC result config=%#v ttl=%s err=%v", config, ttl, err)
+	}
+	tests := []struct {
+		name string
+		issuer, clientID, secret, redirect, ttl string
+	}{
+		{name: "partial configuration", issuer: "https://issuer.example.com"},
+		{name: "insecure remote issuer", issuer: "http://issuer.example.com", clientID: "id", secret: "secret", redirect: "https://api.example.com/callback"},
+		{name: "insecure remote callback", issuer: "https://issuer.example.com", clientID: "id", secret: "secret", redirect: "http://api.example.com/callback"},
+		{name: "invalid TTL", issuer: "https://issuer.example.com", clientID: "id", secret: "secret", redirect: "https://api.example.com/callback", ttl: "999h"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, _, err := loadOIDC(test.issuer, test.clientID, test.secret, test.redirect, test.ttl); err == nil {
+				t.Fatal("expected invalid OIDC configuration to fail")
+			}
+		})
+	}
+
+	if _, ttl, err := loadOIDC("http://localhost:5556", "id", "secret", "http://localhost:8080/auth/oidc/callback", "30m"); err != nil || ttl != 30*time.Minute {
+		t.Fatalf("loopback development config ttl=%s err=%v", ttl, err)
 	}
 }

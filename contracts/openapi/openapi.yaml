@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.3.0
+  version: 0.4.0
   description: Persistent delivery lifecycle API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
 servers:
   - url: /
@@ -33,6 +33,47 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
+  /auth/oidc/login:
+    get:
+      operationId: startOIDCLogin
+      summary: Start OIDC Authorization Code flow with PKCE
+      security: []
+      responses:
+        "302":
+          description: Redirect to the configured OpenID Provider
+        "503": { $ref: "#/components/responses/Problem" }
+  /auth/oidc/callback:
+    get:
+      operationId: completeOIDCLogin
+      summary: Validate OIDC response and establish an application session
+      security: []
+      parameters:
+        - in: query
+          name: code
+          schema: { type: string }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: error
+          schema: { type: string }
+      responses:
+        "303":
+          description: Redirect to the configured application origin after session creation
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current application session
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204":
+          description: Session revoked and authentication cookies cleared
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets:
     parameters:
       - in: path
