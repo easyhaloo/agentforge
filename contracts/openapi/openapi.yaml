@@ -341,7 +341,7 @@ paths:
             enum: [draft, evaluation_pending, evaluation_failed, evidence_required, review_required, in_review, changes_requested, ready_to_merge, merged]
         - in: query
           name: reviewer
-          description: A user id, or the literal `me` for the authenticated user. Matches changesets whose current revision has a review assigned to that user, whatever its decision. Reviews of older revisions do not count. Combine with status=in_review for a pending review queue.
+          description: A user id, or the literal `me` for the authenticated user. Matches changesets whose current revision has a review assigned to that user, whatever its decision, except a review superseded by a newer assignment (status stale), which never matches. Reviews of older revisions do not count. Combine with status=in_review for a pending review queue.
           schema: { type: string }
         - in: query
           name: q
@@ -507,7 +507,7 @@ paths:
     post:
       operationId: submitReview
       summary: Submit a review for a revision with active evidence
-      description: Assigns a pending review to a verified active organization member other than the changeset author. Only that assigned reviewer can decide.
+      description: Assigns a pending review to a verified active organization member other than the changeset author. Only that assigned reviewer can decide. A revision has one active review, so assigning a review supersedes any pending one, which becomes stale, and once the current revision has an approved review the request is refused with 409 until a new revision is added.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -531,6 +531,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision:
@@ -788,7 +789,10 @@ components:
         id: { type: string }
         revision_id: { type: string }
         reviewer: { type: string }
-        status: { type: string, enum: [pending, approved, rejected, stale] }
+        status:
+          type: string
+          enum: [pending, approved, rejected, stale]
+          description: A pending review superseded by a newer assignment on the same revision becomes stale, and so do the pending and approved reviews of a revision that a newer revision replaces. A rejected review stays rejected as history.
         comment: { type: string }
         created_at: { type: string, format: date-time }
     Merge:
