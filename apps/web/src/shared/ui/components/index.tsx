@@ -322,22 +322,26 @@ export interface TabsProps {
   className?: string;
 }
 
+export function getNextEnabledTabIndex(items: TabsItem[], currentIndex: number, key: string): number {
+  const enabled = items.map((item, index) => item.disabled ? -1 : index).filter((index) => index >= 0);
+  if (!enabled.length) return -1;
+  const currentPosition = enabled.indexOf(currentIndex);
+  if (currentPosition < 0) return enabled[0];
+  if (key === "Home") return enabled[0];
+  if (key === "End") return enabled[enabled.length - 1];
+  if (key === "ArrowRight") return enabled[(currentPosition + 1) % enabled.length];
+  if (key === "ArrowLeft") return enabled[(currentPosition - 1 + enabled.length) % enabled.length];
+  return currentIndex;
+}
+
 export function Tabs({ id, items, value, onChange, ariaLabel, className = "" }: TabsProps) {
   const generatedId = useId();
   const baseId = id ?? generatedId;
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const moveFocus = (currentIndex: number, key: string) => {
-    const enabled = items.map((item, index) => item.disabled ? -1 : index).filter((index) => index >= 0);
-    if (!enabled.length) return;
-    const currentPosition = enabled.indexOf(currentIndex);
-    let nextPosition = currentPosition;
-    if (key === "Home") nextPosition = 0;
-    else if (key === "End") nextPosition = enabled.length - 1;
-    else if (key === "ArrowRight") nextPosition = (currentPosition + 1 + enabled.length) % enabled.length;
-    else if (key === "ArrowLeft") nextPosition = (currentPosition - 1 + enabled.length) % enabled.length;
-    if (nextPosition === currentPosition) return;
-    const nextIndex = enabled[nextPosition];
+    const nextIndex = getNextEnabledTabIndex(items, currentIndex, key);
+    if (nextIndex < 0 || nextIndex === currentIndex) return;
     const nextItem = items[nextIndex];
     if (!nextItem) return;
     onChange(nextItem.key);
