@@ -1,9 +1,10 @@
 import type { FormEvent } from "react";
 import { Sparkles } from "lucide-react";
-import type { Item, PageConfig } from "../data/resourceConfigs";
+import type { PageConfig } from "../data/resourceConfigs";
+import type { ResourceRow } from "../data/resourceRecords";
 
 type Props = {
-  page: string; config: PageConfig; items: Item[]; filtered: Item[];
+  page: string; config: PageConfig; items: ResourceRow[]; filtered: ResourceRow[];
   selected: string; query: string; tab: string; showCreate: boolean; newName: string;
   onQueryChange: (value: string) => void; onTabChange: (value: string) => void;
   onSelect: (id: string) => void; onShowCreate: () => void; onHideCreate: () => void;
