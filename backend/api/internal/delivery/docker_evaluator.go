@@ -3,7 +3,6 @@ package delivery
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -37,7 +36,7 @@ func (e DockerEvaluator) Evaluate(ctx context.Context,organizationID,repository,
 		e.Image,"/bin/sh","-lc",e.Command,
 	}
 	command:=exec.CommandContext(runCtx,"docker",args...)
-	command.Env=[]string{"PATH="+os.Getenv("PATH"),"HOME="+os.TempDir(),"DOCKER_CONFIG="+os.DevNull}
+	command.Env=[]string{"PATH="+os.Getenv("PATH"),"HOME="+os.TempDir()}
 	output,runErr:=command.CombinedOutput()
 	result:=EvaluationResult{Passed:runErr==nil,Summary:"Sandboxed repository validation passed"}
 	if runErr!=nil {result.Summary="Sandboxed repository validation failed"}
@@ -54,4 +53,3 @@ func (e DockerEvaluator) Evaluate(ctx context.Context,organizationID,repository,
 }
 
 var _ Evaluator = DockerEvaluator{}
-var _ = errors.Is
