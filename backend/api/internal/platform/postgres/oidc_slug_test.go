@@ -33,14 +33,22 @@ func TestBootstrapFirstOwnerSetsOrganizationSlug(t *testing.T) {
 	ctx, store := slugOpenStore(t)
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
 	derivedName := "Derived Org " + suffix
-	cases := []struct{ label, name, slug, want string }{
-		{"explicit", "Explicit Org", "explicit-" + suffix, "explicit-" + suffix},
+	// id "" means "bootstrap-<label>-<suffix>".
+	cases := []struct{ label, id, name, slug, want string }{
+		{"explicit", "", "Explicit Org", "explicit-" + suffix, "explicit-" + suffix},
 		// The operator CLI derives the slug from the name when none is configured.
-		{"derived", derivedName, identity.Slugify(derivedName), "derived-org-" + suffix},
+		{"derived", "", derivedName, identity.Slugify(derivedName), "derived-org-" + suffix},
+		// An organization's own id may differ from its own slug only by case.
+		{"own-id-in-capitals", "Own-Capitals-" + suffix, "Own Capitals", "own-capitals-" + suffix, "own-capitals-" + suffix},
+		// A capitalised id is fine as long as no other organization has a case variant of its handle.
+		{"capitalised-id", "Capitalised-" + suffix, "Capitalised", "capitalised-handle-" + suffix, "capitalised-handle-" + suffix},
 	}
 	for _, tc := range cases {
 		t.Run(tc.label, func(t *testing.T) {
-			organizationID := "bootstrap-" + tc.label + "-" + suffix
+			organizationID := tc.id
+			if organizationID == "" {
+				organizationID = "bootstrap-" + tc.label + "-" + suffix
+			}
 			userID, err := store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, "owner-"+tc.label+"-"+suffix, organizationID, tc.name, tc.slug)
 			if err != nil {
 				t.Fatal(err)
@@ -48,11 +56,13 @@ func TestBootstrapFirstOwnerSetsOrganizationSlug(t *testing.T) {
 			if _, slug, exists := slugOrganizationRow(t, ctx, store, organizationID); !exists || slug == nil || *slug != tc.want {
 				t.Fatalf("stored slug = %v (exists=%v), want %q", slug, exists, tc.want)
 			}
-			// The handle works end to end and resolves to the canonical id.
+			// Both handles work end to end and resolve to the same canonical id.
 			request, _ := slugNewSession(t, ctx, store, userID)
-			principal, err := store.ResolvePrincipal(request, tc.want)
-			if err != nil || principal.OrganizationID != organizationID || principal.Role != "owner" {
-				t.Fatalf("ResolvePrincipal(%q) = %#v, %v; want organization %q with role owner", tc.want, principal, err, organizationID)
+			for _, handle := range []string{tc.want, organizationID} {
+				principal, err := store.ResolvePrincipal(request, handle)
+				if err != nil || principal.OrganizationID != organizationID || principal.OrganizationSlug != tc.want || principal.Role != "owner" {
+					t.Fatalf("ResolvePrincipal(%q) = %#v, %v; want organization %q slug %q role owner", handle, principal, err, organizationID, tc.want)
+				}
 			}
 		})
 	}
@@ -64,6 +74,11 @@ func TestBootstrapFirstOwnerRejectsInvalidReservedOrConflictingSlug(t *testing.T
 	takenSlug, otherOrganizationID := "taken-"+suffix, "idholder-"+suffix
 	slugInsertOrganization(t, ctx, store, "bootstrap-slug-holder-"+suffix, takenSlug, "active")
 	slugInsertOrganization(t, ctx, store, otherOrganizationID, "", "active")
+	// Handles match ids exactly but slugs ignoring case, so "Beta" opening one organization
+	// while "beta" opens another must not be creatable, in either direction.
+	capitalisedID, lowerSlugHolder := "Beta-"+suffix, "caseholder-"+suffix
+	slugInsertOrganization(t, ctx, store, capitalisedID, "", "active")
+	slugInsertOrganization(t, ctx, store, "bootstrap-case-holder-"+suffix, lowerSlugHolder, "active")
 
 	assertRejected := func(label, organizationID, slug string, want error) {
 		t.Helper()
@@ -100,6 +115,10 @@ func TestBootstrapFirstOwnerRejectsInvalidReservedOrConflictingSlug(t *testing.T
 	assertRejected("slug-in-use", "bootstrap-new-slug-"+suffix, takenSlug, ErrOrganizationSlugConflict)
 	assertRejected("slug-is-another-id", "bootstrap-new-id-"+suffix, otherOrganizationID, ErrOrganizationSlugConflict)
 	assertRejected("id-is-another-slug", takenSlug, "fresh-"+suffix, ErrOrganizationSlugConflict)
+	// New slug versus an existing id that differs only by case.
+	assertRejected("slug-is-another-id-ignoring-case", "bootstrap-new-slug-case-"+suffix, "beta-"+suffix, ErrOrganizationSlugConflict)
+	// New id versus an existing slug that differs only by case.
+	assertRejected("id-is-another-slug-ignoring-case", "CaseHolder-"+suffix, "fresh-case-"+suffix, ErrOrganizationSlugConflict)
 
 	// An organization may use its own id as its slug.
 	sameID := "same-" + suffix
