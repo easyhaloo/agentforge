@@ -40,6 +40,8 @@ func TestReadinessRequiresDatabaseAndIdentity(t *testing.T) {
 	handler := NewHandlerWithDependencies(DeliveryDependencies{
 		Repository: newMemoryRepository(),
 		Identity: fixedIdentity{role: "member"},
+		CSRF: allowCSRF{},
+		AllowedOrigin: "https://app.example.test",
 	})
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	response := httptest.NewRecorder()

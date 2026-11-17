@@ -13,21 +13,18 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
-type Principal struct {
-	UserID         string
-	OrganizationID string
-	Role           string
-}
+type Principal = identity.Principal
 
-type PrincipalResolver interface {
-	ResolvePrincipal(*http.Request, string) (Principal, error)
-}
+type PrincipalResolver = identity.PrincipalResolver
 
 type DeliveryDependencies struct {
-	Repository delivery.Repository
-	Identity   PrincipalResolver
+	Repository  delivery.Repository
+	Identity    identity.PrincipalResolver
+	CSRF        identity.CSRFValidator
+	AllowedOrigin string
 }
 
 type storedChangesetResponse struct {
@@ -224,8 +221,12 @@ func (d DeliveryDependencies) principal(w http.ResponseWriter, r *http.Request, 
 		return Principal{}, false
 	}
 	principal, err := d.Identity.ResolvePrincipal(r, organizationID)
-	if err != nil {
+	if errors.Is(err, identity.ErrUnauthenticated) {
 		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid authenticated identity and active organization membership are required")
+		return Principal{}, false
+	}
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Identity service unavailable", "The authenticated identity could not be verified")
 		return Principal{}, false
 	}
 	if strings.TrimSpace(principal.UserID) == "" || principal.OrganizationID != organizationID {

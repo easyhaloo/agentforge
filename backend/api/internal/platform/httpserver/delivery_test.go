@@ -90,9 +90,10 @@ func (f fixedIdentity) ResolvePrincipal(_ *http.Request, organizationID string) 
 }
 
 func TestDeliveryAPIRequiresTrustedIdentityForWrites(t *testing.T) {
-	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository()})
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
 	path := "/api/v1/organizations/org-a/changesets"
 	request := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(`{"repository":"org/repo","title":"Change","actor":"forged"}`))
+	addValidCSRFCookies(request)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable {
@@ -102,9 +103,10 @@ func TestDeliveryAPIRequiresTrustedIdentityForWrites(t *testing.T) {
 
 func TestDeliveryAPIUsesTrustedIdentityAndOrganizationScope(t *testing.T) {
 	repository := newMemoryRepository()
-	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{role: "member"}})
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{role: "member"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
 	path := "/api/v1/organizations/org-a/changesets"
 	request := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(`{"repository":"org/repo","title":"Add capability"}`))
+	addValidCSRFCookies(request)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusCreated {
@@ -141,8 +143,9 @@ func TestDeliveryAPIUsesTrustedIdentityAndOrganizationScope(t *testing.T) {
 }
 
 func TestViewerCannotCreateChangeset(t *testing.T) {
-	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), Identity: fixedIdentity{role: "viewer"}})
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), Identity: fixedIdentity{role: "viewer"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/organizations/org-a/changesets", bytes.NewBufferString(`{"repository":"org/repo","title":"Change"}`))
+	addValidCSRFCookies(request)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusForbidden {
@@ -160,7 +163,7 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 	if _, err := repository.Create(context.Background(), "org-a", changeset); err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{role: "member"}})
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{role: "member"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
 	base := "/api/v1/organizations/org-a/changesets/cs-existing"
 	requests := []struct{ path, body string }{
 		{base + "/revisions", `{"ref":"commit-1"}`},
@@ -171,6 +174,7 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 	}
 	for _, item := range requests {
 		request := httptest.NewRequest(http.MethodPost, item.path, bytes.NewBufferString(item.body))
+		addValidCSRFCookies(request)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusNotImplemented {

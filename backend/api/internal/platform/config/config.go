@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -11,13 +12,14 @@ import (
 type Config struct {
 	Port        string
 	DatabaseURL string
+	AppOrigin   string
 }
 
 func LoadFromEnv() (Config, error) {
-	return load(os.Getenv("PORT"), os.Getenv("DATABASE_URL"))
+	return load(os.Getenv("PORT"), os.Getenv("DATABASE_URL"), os.Getenv("APP_ORIGIN"))
 }
 
-func load(port, databaseURL string) (Config, error) {
+func load(port, databaseURL, appOrigin string) (Config, error) {
 	port = strings.TrimSpace(port)
 	if port == "" {
 		port = "8080"
@@ -35,5 +37,18 @@ func load(port, databaseURL string) (Config, error) {
 	if err != nil || (parsedURL.Scheme != "postgres" && parsedURL.Scheme != "postgresql") || parsedURL.Host == "" {
 		return Config{}, errors.New("DATABASE_URL must be a valid PostgreSQL URL")
 	}
-	return Config{Port: port, DatabaseURL: databaseURL}, nil
+	appOrigin = strings.TrimSpace(appOrigin)
+	parsedOrigin, originErr := url.Parse(appOrigin)
+	if originErr != nil || (parsedOrigin.Scheme != "http" && parsedOrigin.Scheme != "https") ||
+		parsedOrigin.Host == "" || parsedOrigin.User != nil || parsedOrigin.Path != "" ||
+		parsedOrigin.RawQuery != "" || parsedOrigin.Fragment != "" {
+		return Config{}, errors.New("APP_ORIGIN must be an absolute HTTP(S) origin without a path")
+	}
+	if parsedOrigin.Scheme == "http" {
+		ip := net.ParseIP(parsedOrigin.Hostname())
+		if parsedOrigin.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
+			return Config{}, errors.New("APP_ORIGIN must use HTTPS outside loopback development")
+		}
+	}
+	return Config{Port: port, DatabaseURL: databaseURL, AppOrigin: appOrigin}, nil
 }
