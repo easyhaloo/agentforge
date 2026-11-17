@@ -83,10 +83,10 @@ export function RecentChangesets({ created, onNavigate, onNotify, onSelect, sele
                 <td><span className={`status ${statusClass(row.status)}`}><i />{row.status}</span></td>
                 <td className="muted-text">{row.updated}</td>
                 <td>
-                  <button className="more" type="button" aria-label={`More actions for ${row.id}`} onClick={(event) => {
+                  <Button variant="ghost" size="small" className="more" type="button" aria-label={`More actions for ${row.id}`} onClick={(event) => {
                     event.stopPropagation();
                     onNotify("More actions are available in the full product.");
-                  }}>···</button>
+                  }}>···</Button>
                 </td>
               </tr>
             ))}
