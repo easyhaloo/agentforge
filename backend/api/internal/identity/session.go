@@ -26,6 +26,9 @@ type Principal struct {
 	Role           string
 }
 
+// PrincipalResolver maps a request and the organization handle from its path
+// (an organization id or slug) to the caller's Principal. Principal.OrganizationID
+// is always the canonical organization id.
 type PrincipalResolver interface {
 	ResolvePrincipal(*http.Request, string) (Principal, error)
 }

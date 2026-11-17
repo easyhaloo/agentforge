@@ -131,6 +131,11 @@ func TestPostgresResolvePrincipalAcceptsOrganizationSlugOrID(t *testing.T) {
 	if principal, err := store.ResolvePrincipal(request, strings.ToUpper(orgA)); !errors.Is(err, identity.ErrUnauthenticated) {
 		t.Fatalf("upper-cased organization id resolved %#v, error = %v; want ErrUnauthenticated", principal, err)
 	}
+	// Slug folding is ASCII-only, so it does not depend on Unicode case rules or
+	// the database locale: U+212A (KELVIN SIGN) lowercases to "k" under Unicode rules.
+	if principal, err := store.ResolvePrincipal(request, "\u212Aey-a-"+suffix); !errors.Is(err, identity.ErrUnauthenticated) {
+		t.Fatalf("non-ASCII handle resolved %#v, error = %v; want ErrUnauthenticated", principal, err)
+	}
 }
 
 func TestPostgresResolvePrincipalDoesNotRevealOtherOrganizations(t *testing.T) {

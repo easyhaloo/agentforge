@@ -14,9 +14,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) ResolvePrincipal(request *http.Request, organizationID string) (identity.Principal, error) {
+// ResolvePrincipal resolves the organization handle from a request path, which
+// is either an organization id or slug, among the caller's own active
+// memberships only. A handle that is unknown, or that belongs to an
+// organization the caller cannot access, yields the same ErrUnauthenticated.
+// Principal.OrganizationID is always the canonical id, never the slug. If one
+// organization matches by id and another by slug, the id match wins.
+func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle string) (identity.Principal, error) {
 	cookie, err := request.Cookie(identity.SessionCookieName)
-	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || strings.TrimSpace(organizationID) == "" {
+	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || strings.TrimSpace(organizationHandle) == "" {
 		return identity.Principal{}, identity.ErrUnauthenticated
 	}
 
@@ -29,10 +35,12 @@ func (s *Store) ResolvePrincipal(request *http.Request, organizationID string) (
 		WHERE s.token_hash = $1
 		  AND s.expires_at > now()
 		  AND s.revoked_at IS NULL
-		  AND m.organization_id = $2
+		  AND (m.organization_id = $2 OR o.slug = $3)
 		  AND m.status = 'active'
 		  AND o.status = 'active'
-	`, identity.HashToken(cookie.Value), organizationID).Scan(
+		ORDER BY (m.organization_id = $2) DESC
+		LIMIT 1
+	`, identity.HashToken(cookie.Value), organizationHandle, foldASCIICase(organizationHandle)).Scan(
 		&principal.UserID, &principal.OrganizationID, &principal.Role,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -120,6 +128,17 @@ func (s *Store) RevokeSession(ctx context.Context, sessionToken string) error {
 		return identity.ErrUnauthenticated
 	}
 	return nil
+}
+
+// foldASCIICase lowercases only A-Z so slug matching does not depend on Unicode
+// case rules or the database locale (stored slugs are lowercase ASCII).
+func foldASCIICase(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + 'a' - 'A'
+		}
+		return r
+	}, value)
 }
 
 func newSessionID() (string, error) {

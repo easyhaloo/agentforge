@@ -66,6 +66,9 @@ func slugSeeds() []slugSeed {
 		// en_US "casea" sorts before "CaseB", under "C" (and here) it does not.
 		{"CaseB", "Case Name", 19, "case-name", true},
 		{"casea", "Case Name", 19, "case-name-2", false},
+		// Only ASCII letters survive: U+0130 and U+212A lowercase to "i" and "k" in
+		// Unicode-aware database locales, but must stay separators, as in Slugify.
+		{"uni-2", "\u0130stanbul \u212Aelvin", 20, "stanbul-elvin", true},
 	}
 }
 
