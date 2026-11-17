@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
@@ -65,6 +67,59 @@ func slugSeeds() []slugSeed {
 		{"CaseB", "Case Name", 19, "case-name", true},
 		{"casea", "Case Name", 19, "case-name-2", false},
 	}
+}
+
+func slugOpenStore(t *testing.T) (context.Context, *Store) {
+	t.Helper()
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	t.Cleanup(cancel)
+	store, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(store.Close)
+	return ctx, store
+}
+
+// slugInsertOrganization inserts an organization; an empty slug stores NULL.
+func slugInsertOrganization(t *testing.T, ctx context.Context, store *Store, id, slug, status string) {
+	t.Helper()
+	if _, err := store.pool.Exec(ctx, "INSERT INTO organizations (id, name, slug, status) VALUES ($1, $1, NULLIF($2, ''), $3)", id, slug, status); err != nil {
+		t.Fatalf("insert organization %q: %v", id, err)
+	}
+}
+
+func slugInsertMember(t *testing.T, ctx context.Context, store *Store, organizationID, userID, role, status string) {
+	t.Helper()
+	if _, err := store.pool.Exec(ctx, "INSERT INTO organization_memberships (organization_id, user_id, role, status) VALUES ($1, $2, $3, $4)", organizationID, userID, role, status); err != nil {
+		t.Fatalf("insert membership %q/%q: %v", organizationID, userID, err)
+	}
+}
+
+func slugInsertUser(t *testing.T, ctx context.Context, store *Store, userID string) {
+	t.Helper()
+	if _, err := store.pool.Exec(ctx, "INSERT INTO users (id, display_name) VALUES ($1, $1)", userID); err != nil {
+		t.Fatalf("insert user %q: %v", userID, err)
+	}
+}
+
+// slugNewSession creates a session for userID and returns a request carrying its cookie plus the raw token.
+func slugNewSession(t *testing.T, ctx context.Context, store *Store, userID string) (*http.Request, string) {
+	t.Helper()
+	credentials, err := identity.GenerateCredentials()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateSession(ctx, userID, credentials.SessionToken, credentials.CSRFToken, time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.AddCookie(&http.Cookie{Name: identity.SessionCookieName, Value: credentials.SessionToken})
+	return request, credentials.SessionToken
 }
 
 func slugScratchDatabase(t *testing.T, databaseURL string, sequence int) string {
