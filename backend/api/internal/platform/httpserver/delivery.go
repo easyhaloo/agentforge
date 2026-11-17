@@ -232,7 +232,7 @@ func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request
 
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {
 	principal,ok:=d.principal(w,r,true);if !ok{return}
-	if d.Evaluator==nil { writeProblem(w,503,"Evaluation worker unavailable","A trusted evaluation adapter is not configured");return }
+	if d.Evaluator==nil || d.Git==nil { writeProblem(w,503,"Evaluation worker unavailable","A trusted evaluation adapter and Git provider are required");return }
 	if d.Evidence==nil { writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return }
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
 	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" { writeProblem(w,409,"Revision required","Resolve a Git commit before evaluating this changeset");return }
@@ -305,6 +305,12 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	if d.Git==nil {writeProblem(w,503,"Git provider unavailable","A trusted Git provider is not configured");return}
 	var input struct { TargetRef string `json:"target_ref"` };if !decodeJSON(w,r,&input){return}
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
+	if d.Catalog==nil {writeProblem(w,503,"Repository catalog unavailable","The merge target cannot be verified");return}
+	repositories,catalogErr:=d.Catalog.ListRepositories(r.Context(),principal.OrganizationID)
+	if catalogErr!=nil {writeProblem(w,503,"Repository catalog unavailable","The merge target could not be loaded");return}
+	allowedTarget:=""
+	for _,repository:=range repositories {if repository.Slug==stored.Changeset.Repository {allowedTarget=repository.DefaultBranch;break}}
+	if allowedTarget==""||input.TargetRef!=allowedTarget {writeProblem(w,422,"Invalid merge target","Changesets can only merge into the registered default branch");return}
 	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" {writeProblem(w,409,"Revision required","A resolved Git revision is required");return}
 	merged,err:=d.Git.MergeRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,revision.CommitSHA,input.TargetRef)
 	if err!=nil {writeProblem(w,409,"Git merge rejected","The target branch could not be merged cleanly; no merge record was written");return}
