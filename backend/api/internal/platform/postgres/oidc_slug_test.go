@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -128,12 +130,64 @@ func TestBootstrapFirstOwnerNeverOverwritesAnExistingOrganization(t *testing.T) 
 			if name != organizationID {
 				t.Errorf("organization name = %q, want it unchanged (%q)", name, organizationID)
 			}
-			switch {
-			case tc.organizationSlug == "" && slug != nil:
-				t.Errorf("slug = %q, want it to stay NULL", *slug)
-			case tc.organizationSlug != "" && (slug == nil || *slug != tc.organizationSlug):
-				t.Errorf("slug = %v, want it unchanged (%q)", slug, tc.organizationSlug)
+			got := "<NULL>"
+			if slug != nil {
+				got = *slug
+			}
+			want := tc.organizationSlug
+			if want == "" {
+				want = "<NULL>"
+			}
+			if got != want {
+				t.Errorf("slug = %s, want it unchanged (%s)", got, want)
 			}
 		})
+	}
+}
+
+func TestBootstrapFirstOwnerSerializesCrossedOrganizationHandles(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	// Two concurrent bootstraps whose handles cross: the first organization's slug
+	// is the second organization's id. Exactly one may win, whatever the interleaving.
+	for round := 0; round < 25; round++ {
+		firstID, secondID := fmt.Sprintf("xa-%d-%s", round, suffix), fmt.Sprintf("xb-%d-%s", round, suffix)
+		calls := []struct{ id, slug string }{
+			{firstID, secondID},
+			{secondID, fmt.Sprintf("xs-%d-%s", round, suffix)},
+		}
+		errs := make([]error, len(calls))
+		start := make(chan struct{})
+		var wait sync.WaitGroup
+		for index, call := range calls {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				<-start
+				_, errs[index] = store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, fmt.Sprintf("cross-%d-%d-%s", round, index, suffix), call.id, "Crossed", call.slug)
+			}()
+		}
+		close(start)
+		wait.Wait()
+
+		failures := 0
+		for _, err := range errs {
+			if err != nil {
+				failures++
+				if !errors.Is(err, ErrOrganizationSlugConflict) {
+					t.Fatalf("round %d: unexpected error %v", round, err)
+				}
+			}
+		}
+		if failures != 1 {
+			t.Fatalf("round %d: %d bootstraps failed (%v), want exactly one conflict", round, failures, errs)
+		}
+		var crossed int
+		if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM organizations a JOIN organizations b ON a.slug = b.id AND a.id <> b.id WHERE a.id = ANY($1)", []string{firstID, secondID}).Scan(&crossed); err != nil {
+			t.Fatal(err)
+		}
+		if crossed != 0 {
+			t.Fatalf("round %d: an organization's slug equals another organization's id", round)
+		}
 	}
 }
