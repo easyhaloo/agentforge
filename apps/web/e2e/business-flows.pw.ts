@@ -78,7 +78,7 @@ test("Overview search, status filtering, selection and navigation work together"
   await page.getByRole("combobox", { name: "Filter changesets by status" }).selectOption("Ready for review");
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
   await page.locator(".table-panel").getByRole("button", { name: "View all" }).click();
-  await expect(page.getByRole("heading", { name: "Changesets", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").locator(".page-heading h1")).toHaveText("Changesets");
 });
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
