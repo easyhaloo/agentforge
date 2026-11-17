@@ -1,14 +1,14 @@
 import { useMemo } from "react";
-import {
-  canApproveRevision,
-  canEditChangeset,
-  canMergeRevision,
-  isEvidenceCurrent,
-  isReviewCurrent,
-} from "../../../domain/delivery";
+import { canApproveRevision, canEditChangeset, isEvidenceCurrent, isReviewCurrent } from "../../../domain/delivery";
 import { usePersistentState } from "../../../shared/hooks/usePersistentState";
 import { initialChange, initialEvaluations, initialRevisions, initialReviews, type Change, type Evaluation, type Review } from "../model";
-import { createEvaluation, createNextRevision, createReviewDecision, resolveCurrentRevision } from "../workflow";
+import {
+  createEvaluation,
+  createNextRevision,
+  createReviewDecision,
+  mergeChangeset,
+  resolveCurrentRevision,
+} from "../use-cases";
 
 export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   const [change, setChange] = usePersistentState<Change>("agentforge:delivery:change", initialChange);
@@ -81,11 +81,12 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   };
 
   const merge = () => {
-    if (!canMergeRevision(change, currentRevisionId, latestEvaluation, latestReview)) {
+    const mergedChange = mergeChangeset(change, currentRevisionId, latestEvaluation, latestReview);
+    if (!mergedChange) {
       record("Merge blocked: current passing evidence and approval are required");
       return;
     }
-    setChange({ ...change, status: "Merged" });
+    setChange(mergedChange);
     setTrailDone(true);
     record(change.id + " r" + change.revision + " merged; Trail TRL-042 completed (demo)");
   };

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { initialChange, initialEvaluations, initialRevisions, initialReviews } from "./model";
-import { createEvaluation, createNextRevision, createReviewDecision, resolveCurrentRevision } from "./workflow";
+import {
+  createEvaluation,
+  createNextRevision,
+  createReviewDecision,
+  mergeChangeset,
+  resolveCurrentRevision,
+} from "./use-cases";
 
-describe("delivery feature workflows", () => {
+describe("delivery feature use cases", () => {
   it("creates a revision entity while preserving changeset identity and history", () => {
     const result = createNextRevision(initialChange, initialRevisions, initialReviews);
 
@@ -53,5 +59,13 @@ describe("delivery feature workflows", () => {
 
     expect(approved?.revisionId).toBe(revision.id);
     expect(blocked).toBeNull();
+  });
+
+  it("merges only with current passing evidence and approval", () => {
+    const revision = initialRevisions[0];
+    const approved = createReviewDecision(initialChange, revision, initialReviews, initialEvaluations[0], "Approved");
+    expect(mergeChangeset(initialChange, revision.id, initialEvaluations[0], approved)?.status).toBe("Merged");
+    expect(mergeChangeset(initialChange, revision.id, initialEvaluations[0], initialReviews[0])).toBeNull();
+    expect(mergeChangeset({ ...initialChange, status: "Merged" }, revision.id, initialEvaluations[0], approved)).toBeNull();
   });
 });
