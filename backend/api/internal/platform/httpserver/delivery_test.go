@@ -628,3 +628,131 @@ func TestChangesetResponsesCarryTheServerDerivedStatus(t *testing.T) {
 		t.Fatalf("status=merged total=%d, want 1", *page.Total)
 	}
 }
+
+// listFilterActiveReviewers authorizes the listed users as active members of every organization.
+type listFilterActiveReviewers map[string]bool
+
+func (r listFilterActiveReviewers) IsActiveMember(_ context.Context, _, user string) (bool, error) {
+	return r[user], nil
+}
+
+type listFilterReviewWire struct {
+	Changeset struct {
+		ID      string `json:"id"`
+		Reviews []struct {
+			ID       string `json:"id"`
+			Reviewer string `json:"reviewer"`
+			Status   string `json:"status"`
+		} `json:"reviews"`
+		Audit []struct {
+			Operation string `json:"operation"`
+			TargetID  string `json:"target_id"`
+			Outcome   string `json:"outcome"`
+		} `json:"audit"`
+	} `json:"changeset"`
+	Status string `json:"status"`
+}
+
+// TestOneActiveReviewPerRevisionOverHTTP walks the single-active-review rule through the real
+// handler: a second assignment supersedes the pending review (and the reviewer filter follows), the
+// superseded review cannot be decided, and once the current revision is approved a further
+// assignment is a 409 until a new revision is added.
+func TestOneActiveReviewPerRevisionOverHTTP(t *testing.T) {
+	deps := DeliveryDependencies{
+		Repository: newMemoryRepository(), Catalog: &lifecycleCatalog{}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test",
+		Git: lifecycleGit{}, Evaluator: lifecycleEvaluator{}, Evidence: lifecycleEvidence{}, Locker: lifecycleLocker{},
+		Reviewers: listFilterActiveReviewers{"reviewer-1": true, "reviewer-2": true},
+	}
+	handlerFor := func(user, role string) http.Handler {
+		deps.Identity = namedIdentity{user: user, role: role}
+		return NewHandlerWithDependencies(deps)
+	}
+	author, reviewer1, reviewer2 := handlerFor("author-1", "owner"), handlerFor("reviewer-1", "member"), handlerFor("reviewer-2", "member")
+	const base = "/api/v1/organizations/org-a"
+
+	var latest listFilterReviewWire
+	call := func(name string, handler http.Handler, method, path, body string, want int) {
+		t.Helper()
+		response := listFilterRequest(handler, method, path, body)
+		if response.Code != want {
+			t.Fatalf("%s: status=%d body=%s, want %d", name, response.Code, response.Body.String(), want)
+		}
+		latest = listFilterReviewWire{}
+		if response.Header().Get("Content-Type") == "application/json" {
+			if err := json.Unmarshal(response.Body.Bytes(), &latest); err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+		}
+	}
+	expectStatus := func(name, want string) {
+		t.Helper()
+		if latest.Status != want {
+			t.Fatalf("%s: status field = %q, want %q", name, latest.Status, want)
+		}
+	}
+
+	call("register repository", author, http.MethodPost, base+"/repositories", `{"slug":"team/repo","default_branch":"main"}`, http.StatusCreated)
+	call("create", author, http.MethodPost, base+"/changesets", `{"repository":"team/repo","title":"One active review"}`, http.StatusCreated)
+	changePath := base + "/changesets/" + latest.Changeset.ID
+	call("add revision", author, http.MethodPost, changePath+"/revisions", `{"ref":"feature"}`, http.StatusOK)
+	call("evaluate", author, http.MethodPost, changePath+"/evaluations", `{}`, http.StatusOK)
+	expectStatus("evaluate", "review_required")
+
+	// the second assignment supersedes the first pending review
+	call("assign reviewer-1", author, http.MethodPost, changePath+"/reviews", `{"reviewer_id":"reviewer-1"}`, http.StatusCreated)
+	expectStatus("assign reviewer-1", "in_review")
+	call("assign reviewer-2", author, http.MethodPost, changePath+"/reviews", `{"reviewer_id":"reviewer-2"}`, http.StatusCreated)
+	expectStatus("assign reviewer-2", "in_review")
+	if len(latest.Changeset.Reviews) != 2 || latest.Changeset.Reviews[0].Status != "stale" || latest.Changeset.Reviews[1].Status != "pending" || latest.Changeset.Reviews[1].Reviewer != "reviewer-2" {
+		t.Fatalf("reviews after the second assignment = %+v, want [stale, pending reviewer-2]", latest.Changeset.Reviews)
+	}
+	superseded, current := latest.Changeset.Reviews[0].ID, latest.Changeset.Reviews[1].ID
+	found := false
+	for _, event := range latest.Changeset.Audit {
+		found = found || (event.Operation == "review.superseded" && event.TargetID == superseded && event.Outcome == "stale")
+	}
+	if !found {
+		t.Fatalf("audit = %+v, want a review.superseded event for %s with outcome stale", latest.Changeset.Audit, superseded)
+	}
+
+	// the reviewer filter follows: reviewer-1's queue is empty, reviewer-2's has the changeset
+	for _, tc := range []struct {
+		reviewer string
+		want     int
+	}{{"reviewer-1", 0}, {"reviewer-2", 1}} {
+		if page := listFilterFetchPage(t, author, base+"/changesets?status=in_review&reviewer="+tc.reviewer); *page.Total != tc.want {
+			t.Fatalf("reviewer=%s&status=in_review total=%d, want %d", tc.reviewer, *page.Total, tc.want)
+		}
+	}
+
+	// the superseded review can no longer be decided
+	call("decide the superseded review", reviewer1, http.MethodPost, changePath+"/reviews/"+superseded+"/decision", `{"approved":true}`, http.StatusConflict)
+	call("approve the current review", reviewer2, http.MethodPost, changePath+"/reviews/"+current+"/decision", `{"approved":true}`, http.StatusOK)
+	expectStatus("approve", "ready_to_merge")
+	approvedAudit := len(latest.Changeset.Audit)
+
+	// once the revision is approved, another assignment is a 409 and changes nothing
+	for _, reviewer := range []string{"reviewer-1", "reviewer-2"} {
+		response := listFilterRequest(author, http.MethodPost, changePath+"/reviews", `{"reviewer_id":"`+reviewer+`"}`)
+		listFilterProblem(t, response, http.StatusConflict, "Review already approved")
+		var problem problemResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil {
+			t.Fatal(err)
+		}
+		if want := "The current revision already has an approved review. Add a new revision to request another review."; problem.Detail != want {
+			t.Fatalf("detail = %q, want %q", problem.Detail, want)
+		}
+	}
+	call("get after the refusals", author, http.MethodGet, changePath, "", http.StatusOK)
+	expectStatus("get after the refusals", "ready_to_merge")
+	if len(latest.Changeset.Reviews) != 2 || len(latest.Changeset.Audit) != approvedAudit {
+		t.Fatalf("a refused assignment changed the changeset: %d reviews, %d audit events (was %d)", len(latest.Changeset.Reviews), len(latest.Changeset.Audit), approvedAudit)
+	}
+
+	// a new revision lifts the refusal
+	call("add a second revision", author, http.MethodPost, changePath+"/revisions", `{"ref":"feature-2"}`, http.StatusOK)
+	expectStatus("add a second revision", "evaluation_pending")
+	call("evaluate the second revision", author, http.MethodPost, changePath+"/evaluations", `{}`, http.StatusOK)
+	call("assign on the second revision", author, http.MethodPost, changePath+"/reviews", `{"reviewer_id":"reviewer-1"}`, http.StatusCreated)
+	expectStatus("assign on the second revision", "in_review")
+}
