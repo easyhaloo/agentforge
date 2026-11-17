@@ -14,6 +14,19 @@ import {
   type TableHTMLAttributes,
 } from "react";
 
+export function getFocusTrapTargetIndex(
+  focusableCount: number,
+  activeIndex: number,
+  shiftKey: boolean,
+  focusIsInside: boolean,
+): number | null {
+  if (focusableCount <= 0) return null;
+  if (!focusIsInside) return shiftKey ? focusableCount - 1 : 0;
+  if (shiftKey && activeIndex === 0) return focusableCount - 1;
+  if (!shiftKey && activeIndex === focusableCount - 1) return 0;
+  return null;
+}
+
 export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -236,14 +249,16 @@ export function Modal({
         dialog?.focus();
         return;
       }
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const activeElement = document.activeElement;
+      const targetIndex = getFocusTrapTargetIndex(
+        elements.length,
+        elements.indexOf(activeElement as HTMLElement),
+        event.shiftKey,
+        Boolean(dialog?.contains(activeElement)),
+      );
+      if (targetIndex !== null) {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
+        elements[targetIndex].focus();
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -607,6 +622,7 @@ export interface DrawerProps {
 }
 export function Drawer({ open, title, children, onClose, width = 480, placement = "right" }: DrawerProps) {
   const drawerRef = useRef<HTMLElement>(null);
+  const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   useEffect(() => {
@@ -627,12 +643,18 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
       if (!items.length) {
         event.preventDefault();
         drawer?.focus();
-      } else if (event.shiftKey && document.activeElement === items[0]) {
+        return;
+      }
+      const activeElement = document.activeElement;
+      const targetIndex = getFocusTrapTargetIndex(
+        items.length,
+        items.indexOf(activeElement as HTMLElement),
+        event.shiftKey,
+        Boolean(drawer?.contains(activeElement)),
+      );
+      if (targetIndex !== null) {
         event.preventDefault();
-        items[items.length - 1].focus();
-      } else if (!event.shiftKey && document.activeElement === items[items.length - 1]) {
-        event.preventDefault();
-        items[0].focus();
+        items[targetIndex].focus();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -644,8 +666,8 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
   if (!open) return null;
   return (
     <div className="af-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
-      <aside ref={drawerRef} tabIndex={-1} className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
-        <header className="af-drawer__header"><h2>{title}</h2><button type="button" aria-label="Close drawer" onClick={() => onCloseRef.current()}>×</button></header>
+      <aside ref={drawerRef} tabIndex={-1} className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
+        <header className="af-drawer__header"><h2 id={titleId}>{title}</h2><button type="button" aria-label="Close drawer" onClick={() => onCloseRef.current()}>×</button></header>
         <div className="af-drawer__body">{children}</div>
       </aside>
     </div>
