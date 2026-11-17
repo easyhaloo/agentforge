@@ -28,7 +28,7 @@ func (s *Store) ListMembers(ctx context.Context, organizationID string) ([]ident
 		return nil, errors.New("organization ID is required")
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT u.id, u.display_name, COALESCE(CASE WHEN u.email_verified THEN u.email ELSE NULL END, ''),
+		SELECT u.id, u.display_name, COALESCE(COALESCE(CASE WHEN u.email_verified THEN u.email ELSE NULL END, ''), ''),
 		       m.role, m.status, m.created_at, m.updated_at
 		FROM organization_memberships AS m
 		JOIN users AS u ON u.id = m.user_id
@@ -174,7 +174,7 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, a
 
 	var member identity.Member
 	err = tx.QueryRow(ctx, `
-		SELECT u.id, u.display_name, CASE WHEN u.email_verified THEN u.email ELSE NULL END,
+		SELECT u.id, u.display_name, COALESCE(CASE WHEN u.email_verified THEN u.email ELSE NULL END, ''),
 		       m.role, m.status, m.created_at, m.updated_at
 		FROM organization_memberships AS m
 		JOIN users AS u ON u.id = m.user_id
