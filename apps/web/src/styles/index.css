@@ -72,3 +72,89 @@
 .changeset-create{padding:16px}.changeset-create__heading,.changesets-list__head{display:flex;align-items:center;justify-content:space-between;gap:12px}.changeset-create h3,.changesets-list h3{font-size:12px;margin:0 0 4px}.changeset-create p,.changesets-list p{font-size:10px;color:#8995aa;margin:0}.changeset-create__secure{font-size:9px;color:#8dc9a9;background:#19352e;padding:5px 8px;border-radius:5px}.changeset-create__fields{display:grid;grid-template-columns:1fr 1.5fr auto;align-items:end;gap:10px;margin-top:15px}.changeset-create__fields label{display:grid;gap:6px;color:#aab4c6;font-size:10px}.changeset-create__fields input{height:34px;min-width:0;padding:0 10px;border:1px solid #303c53;border-radius:6px;background:#0c1421;color:#e7eaf2;font-size:11px}
 .changesets-list{overflow:hidden}.changesets-list__head{padding:15px 16px;border-bottom:1px solid #202a3d}.changesets-search{display:flex;align-items:center;gap:7px;min-width:240px;padding:7px 9px;border:1px solid #303a50;border-radius:6px;background:#0d1421;color:#8490a7}.changesets-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#e7eaf2;font-size:10px}.changesets-table-wrap{border:0;border-radius:0}.changesets-table{min-width:800px}.changesets-table td:first-child b{font-size:10px}.changesets-table td:first-child small{margin-top:4px}.changesets-list__foot{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;border-top:1px solid #202a3d;color:#77849b;font-size:9px}.changesets-list__foot span:last-child{display:flex;align-items:center;gap:5px;color:#8c84d4}
 @media(max-width:760px){.changesets-create__fields{grid-template-columns:1fr}.changesets-list__head{align-items:stretch;flex-direction:column}.changesets-search{min-width:0}.changesets-summary{flex-wrap:wrap}}
+
+/* App shell controls migrated to shared Button primitives */
+.sidebar .af-button.org-switch {
+  width: calc(100% - 26px);
+  min-height: 43px;
+  height: auto;
+  margin: 18px 13px 12px;
+  padding: 10px;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 9px;
+  border-radius: 9px;
+}
+.sidebar .af-button.org-switch > span:nth-child(2),
+.sidebar .af-button.profile > span { flex: 1; }
+.sidebar .af-button.org-switch b,
+.sidebar .af-button.profile b { display: block; font-size: 12px; }
+.sidebar .af-button.org-switch small,
+.sidebar .af-button.profile small { display: block; color: #7f8aa2; font-size: 10px; margin-top: 3px; }
+.sidebar .af-button.nav-item {
+  width: 100%;
+  height: 35px;
+  min-height: 35px;
+  justify-content: flex-start;
+  gap: 11px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #98a3b9;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+  margin: 2px 0;
+}
+.sidebar .af-button.nav-item:hover { background: #171f30; color: #e7e9f2; }
+.sidebar .af-button.nav-item.active { background: #272343; color: #c9c0ff; }
+.sidebar .af-button.nav-item span { flex: 1; }
+.sidebar .af-button.nav-item em { font-style: normal; background: #383253; border-radius: 5px; padding: 2px 6px; font-size: 10px; }
+.sidebar .af-button.profile {
+  width: 100%;
+  height: auto;
+  min-height: 46px;
+  justify-content: flex-start;
+  padding: 13px 5px 2px;
+  gap: 9px;
+  border: 0;
+  border-top: 1px solid #20283a;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.top-actions .af-button.searchbox {
+  height: 34px;
+  min-width: 230px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid #283249;
+  border-radius: 7px;
+  background: #111827;
+  color: #7e8aa2;
+  font-size: 11px;
+  font-weight: 400;
+}
+.top-actions .af-button.searchbox kbd { margin-left: auto; }
+.top-actions .af-button.icon-button {
+  position: relative;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #96a2b9;
+}
+.top-actions .af-button.icon-button i {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 5px;
+  height: 5px;
+  background: #a38cff;
+  border-radius: 50%;
+}
