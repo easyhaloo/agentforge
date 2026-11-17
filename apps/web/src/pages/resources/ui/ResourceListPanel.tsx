@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { Sparkles } from "lucide-react";
+import { Button, Input, Select } from "../../../shared/ui";
 import type { PageConfig } from "../data/resourceConfigs";
 import type { ResourceRow } from "../data/resourceRecords";
 
@@ -20,24 +21,21 @@ export function ResourceListPanel(props: Props) {
   return <section className="card resource-list">
     <div className="resource-head">
       <div><h3>{page} workspace</h3><p>{config.intro}</p></div>
-      {config.actionMode !== "none" && <button
-        className="button primary compact"
-        type="button"
-        onClick={config.actionMode === "create" ? onShowCreate : onAction}
-      ><Sparkles size={14} />{config.action}</button>}
+      {config.actionMode !== "none" && <Button variant="primary" size="small" onClick={config.actionMode === "create" ? onShowCreate : onAction}><Sparkles size={14} />{config.action}</Button>}
     </div>
     {showCreate && <form className="resource-create" onSubmit={onCreate}>
-      <input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} aria-label={"New " + page + " name"} />
-      <button className="button primary compact" type="submit">Create</button>
-      <button className="button secondary compact" type="button" onClick={onHideCreate}>Cancel</button>
+      <Input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} aria-label={"New " + page + " name"} />
+      <Button variant="primary" size="small" type="submit">Create</Button>
+      <Button size="small" type="button" onClick={onHideCreate}>Cancel</Button>
     </form>}
     <div className="resource-filters">
-      <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={"Search " + page.toLowerCase() + "..."} aria-label={"Search " + page} />
-      <div className="resource-tabs" role="group" aria-label="Filter by status">
-        {statuses.map((status) =>
-          <button type="button" className={tab === status ? "chosen" : ""} key={status} aria-pressed={tab === status} onClick={() => onTabChange(status)}>{status}</button>
-        )}
-      </div>
+      <Input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={"Search " + page.toLowerCase() + "..."} aria-label={"Search " + page} />
+      <Select
+        aria-label="Filter by status"
+        value={tab}
+        onChange={(event) => onTabChange(event.target.value)}
+        options={statuses.map((status) => ({ label: status === "All" ? "All statuses" : status, value: status }))}
+      />
     </div>
     <div className="resource-table-wrap">
       <table>
