@@ -32,8 +32,10 @@ func validOrganizationHandle(handle string) bool {
 // is either an organization id or slug, among the caller's own active
 // memberships only. A handle that is malformed, unknown, or that belongs to an
 // organization the caller cannot access yields the same ErrUnauthenticated.
-// Principal.OrganizationID is always the canonical id, never the slug. If one
-// organization matches by id and another by slug, the id match wins.
+// Principal.OrganizationID is always the canonical id, never the slug, and
+// Principal.OrganizationSlug is the organization's handle: its slug, or its id
+// when it has none. If one organization matches by id and another by slug, the
+// id match wins.
 func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle string) (identity.Principal, error) {
 	cookie, err := request.Cookie(identity.SessionCookieName)
 	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || !validOrganizationHandle(organizationHandle) {
@@ -42,7 +44,7 @@ func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle strin
 
 	var principal identity.Principal
 	err = s.pool.QueryRow(request.Context(), `
-		SELECT s.user_id, m.organization_id, m.role
+		SELECT s.user_id, m.organization_id, COALESCE(o.slug, o.id), m.role
 		FROM sessions AS s
 		JOIN organization_memberships AS m ON m.user_id = s.user_id
 		JOIN organizations AS o ON o.id = m.organization_id
@@ -55,7 +57,7 @@ func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle strin
 		ORDER BY (m.organization_id = $2) DESC
 		LIMIT 1
 	`, identity.HashToken(cookie.Value), organizationHandle, foldASCIICase(organizationHandle)).Scan(
-		&principal.UserID, &principal.OrganizationID, &principal.Role,
+		&principal.UserID, &principal.OrganizationID, &principal.OrganizationSlug, &principal.Role,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Principal{}, identity.ErrUnauthenticated
