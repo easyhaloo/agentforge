@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Sparkles } from "lucide-react";
 import { Form, Input, Modal, Select, TextArea } from "../../shared/ui";
 
@@ -14,10 +14,14 @@ export function CreateChangesetDialog({ open, onClose, onCreate }: Props) {
   const [title, setTitle] = useState("");
   const [project, setProject] = useState("agentforge-core");
   const [description, setDescription] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const create = () => {
     const value = title.trim();
-    if (!value) return;
+    if (!value) {
+      titleInputRef.current?.focus();
+      return;
+    }
     onCreate(value);
     setTitle("");
     setProject("agentforge-core");
@@ -40,6 +44,7 @@ export function CreateChangesetDialog({ open, onClose, onCreate }: Props) {
     <div className="eyebrow">NEW RESOURCE</div>
     <Form onSubmit={submit}>
       <Input
+        ref={titleInputRef}
         label="Title"
         required
         value={title}
