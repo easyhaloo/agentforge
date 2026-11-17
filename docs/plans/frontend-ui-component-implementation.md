@@ -18,6 +18,14 @@
 | UI-009 | 建设 UI Showcase | 组件展示页面 | 覆盖默认、禁用、加载、错误、空状态 |
 | UI-010 | CI 与文档验收 | 测试与使用文档 | typecheck、test、build 通过 |
 
+## 当前进展（2026-11-17）
+
+- 已完成 UIThemeProvider、Design Tokens 与公共导出入口。
+- 已实现 Button、Input、Select、DatePicker、DateRangePicker、Modal、SearchInput、Form、FormItem、DataTable。
+- 已补充 Drawer、ConfirmDialog、Popover、AsyncSelect；DataTable 支持本地排序、受控行选择与分页回调。
+- 已加入 UI Components 导航入口和交互式 Showcase 页面。
+- 后续继续补齐自动化交互测试、完整 Drawer 焦点管理、表格列筛选/虚拟滚动与业务页面迁移。
+
 ## 执行策略
 
 1. 按 UI-001 到 UI-002 完成技术基线和主题基础，不提前迁移业务页面。
