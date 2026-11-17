@@ -3,6 +3,8 @@ info:
   title: AgentForge API
   version: 0.1.0
   description: Initial HTTP contract for the AgentForge API.
+  license:
+    name: UNLICENSED
 servers:
   - url: /
 paths:
@@ -10,6 +12,7 @@ paths:
     get:
       operationId: getHealth
       summary: Report API process health
+      security: []
       responses:
         "200":
           description: API process is healthy
@@ -17,10 +20,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+        "405":
+          description: Method not allowed
   /readyz:
     get:
       operationId: getReadiness
       summary: Report API readiness
+      security: []
       responses:
         "200":
           description: API is ready to receive requests
@@ -28,6 +34,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+        "405":
+          description: Method not allowed
 components:
   schemas:
     Health:
