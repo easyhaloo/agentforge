@@ -116,8 +116,10 @@ test("Changesets loads organization records, searches and persists a new changes
   await page.getByRole("textbox", { name: "Search changesets" }).fill("");
   await page.getByRole("textbox", { name: "Repository" }).fill("easyhaloo/agentforge");
   await page.getByRole("textbox", { name: "Title" }).fill("E2E persisted changeset");
-  await page.getByRole("button", { name: "Create changeset" }).last().click();
-  await expect(page.getByText("E2E persisted changeset")).toBeVisible();
+  const createResponse = page.waitForResponse((response) => response.url().includes("/api/v1/organizations/org-demo/changesets") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Create changeset", exact: true }).click();
+  expect((await createResponse).status()).toBe(201);
+  await expect(page.getByRole("cell").getByText("E2E persisted changeset")).toBeVisible();
 });
 
 test("Organization role changes are sent to the API and reflected in the member table", async ({ page }) => {
