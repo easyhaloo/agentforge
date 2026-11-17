@@ -10,20 +10,22 @@ The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Page
 - Build output: `dist/`
 - Wrangler deployment command: `npx wrangler deploy`
 
-The repository now contains `wrangler.jsonc`, which declares the Worker name, compatibility date, Vite build output and SPA fallback:
+The repository now contains `wrangler.jsonc`, which declares the Worker entry point, Worker name, compatibility date, Vite build output and SPA fallback:
 
 ```jsonc
 {
   "name": "agentforge",
+  "main": "./src/worker.ts",
   "compatibility_date": "2026-11-17",
   "assets": {
     "directory": "./dist/",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
 }
 ```
 
-Keep the compatibility date aligned with the repository runtime policy. The config intentionally has no Worker entrypoint or custom asset binding: this frontend is a static React SPA served directly through Workers Static Assets.
+Keep the compatibility date aligned with the repository runtime policy. The Worker entry point delegates requests to the versioned `ASSETS` binding. Cloudflare serves built files from `dist/` and uses the SPA fallback for client-side navigation; the Worker does not pretend to provide backend API behavior.
 
 ## Cloudflare Workers Builds
 
