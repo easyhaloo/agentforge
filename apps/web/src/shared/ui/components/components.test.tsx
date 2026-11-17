@@ -11,6 +11,7 @@ import {
   Popover,
   Select,
   Tabs,
+  getNextEnabledTabIndex,
 } from "./index";
 import { Checkbox, RadioGroup, Switch, TextArea } from "./form-controls";
 import { Alert, Empty, Loading, Skeleton, NotificationProvider } from "./feedback";
@@ -91,6 +92,15 @@ describe("shared UI primitives", () => {
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('aria-controls="settings-panel"');
     expect(html).toContain('tabindex="-1"');
+  });
+
+  it("moves tab focus with wraparound while skipping disabled tabs", () => {
+    const items = [{ key: "members" }, { key: "disabled", disabled: true }, { key: "audit" }];
+    expect(getNextEnabledTabIndex(items, 0, "ArrowRight")).toBe(2);
+    expect(getNextEnabledTabIndex(items, 2, "ArrowRight")).toBe(0);
+    expect(getNextEnabledTabIndex(items, 0, "ArrowLeft")).toBe(2);
+    expect(getNextEnabledTabIndex(items, 2, "Home")).toBe(0);
+    expect(getNextEnabledTabIndex(items, 0, "End")).toBe(2);
   });
 
   it("renders data tables with stable row keys and column headers", () => {
