@@ -1,16 +1,14 @@
-import type { Item, PageConfig, ResourceActionMode } from "./resourceConfigs";
+import type { PageConfig, ResourceActionMode } from "./resourceConfigs";
+import type { GenericResourceRecord, ResourceRecord } from "./resourceRecords";
 
 export type ResourceAction =
   | { type: "review-queue"; query: ""; status: "Pending"; message: string }
   | { type: "demo"; message: string }
   | { type: "export"; filename: string; recordCount: number; message: string };
 
-export function createResourceDraft(
-  page: string,
-  name: string,
-  id: string,
-): Item {
+export function createResourceDraft(page: string, name: string, id: string): GenericResourceRecord {
   return {
+    kind: "resource",
     id,
     name: name.trim(),
     detail: `Created in ${page} · local demo record`,
@@ -28,25 +26,12 @@ export function resolveResourceAction(
 ): ResourceAction | null {
   switch (mode) {
     case "review-queue":
-      return {
-        type: "review-queue",
-        query: "",
-        status: "Pending",
-        message: "Showing pending review decisions from local demo data.",
-      };
+      return { type: "review-queue", query: "", status: "Pending", message: "Showing pending review decisions from local demo data." };
     case "demo":
-      return {
-        type: "demo",
-        message: `${action}: local demo simulation only; no remote operation was performed.`,
-      };
+      return { type: "demo", message: `${action}: local demo simulation only; no remote operation was performed.` };
     case "export": {
       const filename = `agentforge-${page.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
-      return {
-        type: "export",
-        filename,
-        recordCount,
-        message: `Exported ${recordCount} local demo records to ${filename}.`,
-      };
+      return { type: "export", filename, recordCount, message: `Exported ${recordCount} local demo records to ${filename}.` };
     }
     case "create":
     case "none":
@@ -56,4 +41,8 @@ export function resolveResourceAction(
 
 export function resolvePageAction(config: PageConfig, page: string, recordCount: number) {
   return resolveResourceAction(config.actionMode, page, config.action, recordCount);
+}
+
+export function resourceRecordCount(records: ResourceRecord[]): number {
+  return records.length;
 }
