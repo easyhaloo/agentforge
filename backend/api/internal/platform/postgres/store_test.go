@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"errors"
+	"math/rand/v2"
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -349,4 +351,153 @@ func TestPostgresStoreRoundTripsTheLifecycleStatus(t *testing.T) {
 	step("new revision review assigned", func() error { return changeset.AssignReview("review-3", "rev-2", "reviewer-2", "author", "", now) }, delivery.LifecycleInReview, "reviewer-2")
 	step("new revision approved", func() error { return changeset.DecideReview("review-3", true, "reviewer-2", "", now) }, delivery.LifecycleReadyToMerge, "reviewer-2")
 	step("merged", func() error { return changeset.CompleteMerge("merge-1", "maintainer", "main", sha, now) }, delivery.LifecycleMerged, "reviewer-2")
+}
+
+// listFilterPoison inserts a row whose JSONB state is valid JSON but cannot be decoded into a
+// delivery.Changeset, so any code path that decodes the row fails.
+func listFilterPoison(t *testing.T, ctx context.Context, store *Store, organizationID, id, repository string, updatedAt time.Time) {
+	t.Helper()
+	_, err := store.pool.Exec(ctx, `
+		INSERT INTO delivery_changesets (organization_id, id, repository, title, state, updated_at)
+		VALUES ($1, $2, $3, 'poisoned', '{"revisions":"x"}', $4)`, organizationID, id, repository, updatedAt)
+	listFilterMust(t, err)
+}
+
+// TestPostgresStoreListDecodesOnlyThePageWithoutStatusReviewerOrQuery proves with undecodable rows
+// that a list narrowed by nothing, or by repository alone, is ordered and paged in SQL and decodes
+// only the requested page, while every request that needs the Go filters has to decode every row.
+func TestPostgresStoreListDecodesOnlyThePageWithoutStatusReviewerOrQuery(t *testing.T) {
+	ctx, store := listFilterOpenStore(t)
+	org := listFilterOrganization(t, ctx, store, "page")
+	base := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+
+	// The four readable changesets are the newest (v4, v3, v2, v1); the five undecodable rows are older.
+	listFilterPersist(t, ctx, store, org, listFilterSeed{id: "v1", repository: "team/api", title: "One", author: "alice", stage: delivery.LifecycleDraft, updatedAt: base.Add(30 * time.Minute)})
+	listFilterPersist(t, ctx, store, org, listFilterSeed{id: "v2", repository: "team/api", title: "Two", author: "alice", stage: delivery.LifecycleDraft, updatedAt: base.Add(40 * time.Minute)})
+	listFilterPersist(t, ctx, store, org, listFilterSeed{id: "v3", repository: "team/web", title: "Three", author: "alice", stage: delivery.LifecycleDraft, updatedAt: base.Add(50 * time.Minute)})
+	listFilterPersist(t, ctx, store, org, listFilterSeed{id: "v4", repository: "team/api", title: "Four", author: "alice", stage: delivery.LifecycleDraft, updatedAt: base.Add(60 * time.Minute)})
+	for i, repository := range []string{"team/api", "team/web", "team/api", "team/web", "team/api"} {
+		listFilterPoison(t, ctx, store, org, "p"+strconv.Itoa(i), repository, base.Add(time.Duration(i)*time.Minute))
+	}
+
+	readable := []struct {
+		name          string
+		filter        delivery.ListFilter
+		limit, offset int
+		want          []delivery.ID
+		wantTotal     int
+	}{
+		{"first page", delivery.ListFilter{}, 3, 0, []delivery.ID{"v4", "v3", "v2"}, 9},
+		{"page ending on the last readable row", delivery.ListFilter{}, 2, 2, []delivery.ID{"v2", "v1"}, 9},
+		{"repository alone", delivery.ListFilter{Repository: "team/api"}, 3, 0, []delivery.ID{"v4", "v2", "v1"}, 6},
+		{"a blank query is no filter", delivery.ListFilter{Query: "  "}, 3, 0, []delivery.ID{"v4", "v3", "v2"}, 9},
+		{"repository with a blank query", delivery.ListFilter{Repository: "team/web", Query: " "}, 1, 0, []delivery.ID{"v3"}, 3},
+		{"offset past the end", delivery.ListFilter{}, 3, 100, nil, 9},
+	}
+	for _, tc := range readable {
+		t.Run(tc.name, func(t *testing.T) {
+			items, total, err := store.List(ctx, org, tc.filter, tc.limit, tc.offset)
+			if err != nil {
+				t.Fatalf("List must decode only the requested page, got: %v", err)
+			}
+			if got := listFilterIDs(items); total != tc.wantTotal || !slices.Equal(got, tc.want) {
+				t.Fatalf("got %v total=%d, want %v total=%d", got, total, tc.want, tc.wantTotal)
+			}
+		})
+	}
+
+	undecodable := []struct {
+		name          string
+		filter        delivery.ListFilter
+		limit, offset int
+	}{
+		// The probe works: rows of the requested page are decoded, and a failure to decode is reported.
+		{"a page that reaches the undecodable rows", delivery.ListFilter{}, 3, 3},
+		// Control: each of these needs the Go filters, hence every row of the organization.
+		{"status needs every row", delivery.ListFilter{Status: delivery.LifecycleDraft}, 3, 0},
+		{"reviewer needs every row", delivery.ListFilter{Reviewer: "nobody"}, 3, 0},
+		{"query needs every row", delivery.ListFilter{Query: "one"}, 3, 0},
+		{"repository and status need every row of the repository", delivery.ListFilter{Repository: "team/api", Status: delivery.LifecycleDraft}, 3, 0},
+	}
+	for _, tc := range undecodable {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, err := store.List(ctx, org, tc.filter, tc.limit, tc.offset); err == nil || !strings.Contains(err.Error(), "decode listed changeset") {
+				t.Fatalf("error = %v, want a decode failure on the undecodable rows", err)
+			}
+		})
+	}
+}
+
+// TestPostgresStoreListSQLPathMatchesFilterAndPage checks that the SQL ordering, paging and count
+// used when only the repository narrows the list give exactly what delivery.FilterAndPage gives
+// over all rows: same items, same order, same total. The data has many equal updated_at values, ids
+// that sort differently bytewise and under the database collation, offsets past the end, a
+// repository filter and a second organization whose newer changesets must never show up.
+func TestPostgresStoreListSQLPathMatchesFilterAndPage(t *testing.T) {
+	ctx, store := listFilterOpenStore(t)
+	rng := rand.New(rand.NewPCG(20261117, 1))
+	base := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+	repositories := []string{"team/api", "team/web", "team/Api", "team/api-v2"}
+	alphabet := []rune("aAbBzZ09_-.é")
+
+	// seed stores count changesets in a new organization: six distinct updated_at values (so many
+	// ties) starting at offset, repositories of the list above and unique random ids.
+	seed := func(label string, count int, offset time.Duration) (string, []delivery.StoredChangeset) {
+		organization := listFilterOrganization(t, ctx, store, label)
+		used := map[delivery.ID]bool{}
+		var all []delivery.StoredChangeset
+		for len(all) < count {
+			runes := make([]rune, 1+rng.IntN(4))
+			for i := range runes {
+				runes[i] = alphabet[rng.IntN(len(alphabet))]
+			}
+			id := delivery.ID(runes)
+			if used[id] {
+				continue
+			}
+			used[id] = true
+			listFilterPersist(t, ctx, store, organization, listFilterSeed{
+				id: id, repository: repositories[rng.IntN(len(repositories))], title: "Random " + string(id), author: "alice",
+				stage: delivery.LifecycleDraft, updatedAt: base.Add(offset + time.Duration(rng.IntN(6))*time.Minute),
+			})
+			stored, err := store.Get(ctx, organization, id)
+			listFilterMust(t, err)
+			all = append(all, stored)
+		}
+		return organization, all
+	}
+	orgA, rowsA := seed("equiv-a", 60, 0)
+	orgB, rowsB := seed("equiv-b", 25, time.Hour) // newer than every row of organization A
+
+	filters := []delivery.ListFilter{
+		{},
+		{Repository: "team/api"}, {Repository: "team/web"}, {Repository: "team/Api"}, {Repository: "team/api-v2"}, {Repository: "team/none"},
+		{Query: "  "}, {Repository: "team/web", Query: "\t "},
+	}
+	for _, organization := range []struct {
+		id   string
+		rows []delivery.StoredChangeset
+	}{{orgA, rowsA}, {orgB, rowsB}} {
+		n := len(organization.rows)
+		for _, filter := range filters {
+			for _, limit := range []int{1, 5, 17, 100} {
+				for _, offset := range []int{0, 1, 7, n - 1, n, n + 25} {
+					want, wantTotal := delivery.FilterAndPage(organization.rows, filter, limit, offset)
+					got, gotTotal, err := store.List(ctx, organization.id, filter, limit, offset)
+					if err != nil {
+						t.Fatalf("%s %+v limit=%d offset=%d: %v", organization.id, filter, limit, offset, err)
+					}
+					same := gotTotal == wantTotal && len(got) == len(want)
+					for i := 0; same && i < len(got); i++ {
+						same = got[i].Changeset.ID == want[i].Changeset.ID && got[i].Version == want[i].Version &&
+							got[i].CreatedAt.Equal(want[i].CreatedAt) && got[i].UpdatedAt.Equal(want[i].UpdatedAt)
+					}
+					if !same {
+						t.Fatalf("%s %+v limit=%d offset=%d:\n got %v total=%d\nwant %v total=%d", organization.id, filter, limit, offset,
+							listFilterIDs(got), gotTotal, listFilterIDs(want), wantTotal)
+					}
+				}
+			}
+		}
+	}
 }
