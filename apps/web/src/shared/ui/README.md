@@ -64,7 +64,7 @@ import {
 - `Drawer` provides a side panel with Escape and backdrop dismissal.
 - `ConfirmDialog` is a confirmation-oriented wrapper around `Modal`; asynchronous confirmation inherits the modal loading and error behavior.
 - `Popover` toggles lightweight contextual content from its trigger.
-- `DataTable` supports sortable columns and controlled row selection. Without an external data-fetching layer, sorting is performed locally; use `onSort` to synchronize sorting with a server query.
+- `DataTable` supports sortable columns and controlled row selection. Use `sortMode="client"` for local sorting (default), or `sortMode="server"` with `onSort` to delegate sorting to the API layer.
 
 ## UI Showcase
 
