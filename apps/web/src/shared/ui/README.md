@@ -5,7 +5,11 @@ Import shared controls from the public entry point:
 ```tsx
 import {
   Button,
+  AsyncSelect,
+  ConfirmDialog,
   DataTable,
+  Drawer,
+  Popover,
   DatePicker,
   Form,
   FormItem,
@@ -53,6 +57,18 @@ import {
 ## DataTable
 
 `DataTable` is presentational and does not fetch data. The caller owns server-side pagination and passes `page`, `pageSize`, and `total`; `onPageChange` should trigger the next API request. Always provide a stable `rowKey`.
+
+## Advanced components
+
+- `AsyncSelect` accepts a `loadOptions(keyword, signal)` function. It debounces requests and aborts the previous request when the keyword changes or the menu closes. Keep `loadOptions` referentially stable (for example, define it outside the component or wrap it in `useCallback`).
+- `Drawer` provides a side panel with Escape and backdrop dismissal.
+- `ConfirmDialog` is a confirmation-oriented wrapper around `Modal`; asynchronous confirmation inherits the modal loading and error behavior.
+- `Popover` toggles lightweight contextual content from its trigger.
+- `DataTable` supports sortable columns and controlled row selection. Without an external data-fetching layer, sorting is performed locally; use `onSort` to synchronize sorting with a server query.
+
+## UI Showcase
+
+Select **UI Components** in the sidebar to inspect and interact with the shared controls, including loading, error, date, overlay, remote select, sorting and selection states.
 
 ## Current limitations
 
