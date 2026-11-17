@@ -1,8 +1,9 @@
 import { Activity, ArrowRight, Check, GitCommitHorizontal, ShieldCheck, X } from "lucide-react";
-import type { Item, PageConfig } from "../data/resourceConfigs";
+import type { PageConfig } from "../data/resourceConfigs";
+import type { ResourceRow } from "../data/resourceRecords";
 
 type Props = {
-  current: Item | undefined;
+  current: ResourceRow | undefined;
   config: Pick<PageConfig, "detailTitle" | "signals">;
   activity: string[];
   onClose: () => void;
