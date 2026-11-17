@@ -14,32 +14,43 @@ type Props = {
 export function ResourceListPanel(props: Props) {
   const { page, config, items, filtered, selected, query, tab, showCreate, newName,
     onQueryChange, onTabChange, onSelect, onShowCreate, onHideCreate, onNewNameChange, onCreate, onAction } = props;
+  const statuses = ["All", ...Array.from(new Set(items.map((item) => item.status)))];
+
   return <section className="card resource-list">
     <div className="resource-head">
       <div><h3>{page} workspace</h3><p>{config.intro}</p></div>
-      <button className="button primary compact" onClick={page === "Cost & Usage" ? onAction : onShowCreate}><Sparkles size={14} />{config.action}</button>
+      {config.actionMode !== "none" && <button
+        className="button primary compact"
+        type="button"
+        onClick={config.actionMode === "create" ? onShowCreate : onAction}
+      ><Sparkles size={14} />{config.action}</button>}
     </div>
     {showCreate && <form className="resource-create" onSubmit={onCreate}>
-      <input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} />
+      <input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} aria-label={"New " + page + " name"} />
       <button className="button primary compact" type="submit">Create</button>
       <button className="button secondary compact" type="button" onClick={onHideCreate}>Cancel</button>
     </form>}
     <div className="resource-filters">
-      <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={"Search " + page.toLowerCase() + "..."} />
-      <div className="resource-tabs">
-        {["All", ...Array.from(new Set(items.map((item) => item.status)))].slice(0, 4).map((status) =>
-          <button className={tab === status ? "chosen" : ""} key={status} onClick={() => onTabChange(status)}>{status}</button>
+      <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={"Search " + page.toLowerCase() + "..."} aria-label={"Search " + page} />
+      <div className="resource-tabs" role="group" aria-label="Filter by status">
+        {statuses.map((status) =>
+          <button type="button" className={tab === status ? "chosen" : ""} key={status} aria-pressed={tab === status} onClick={() => onTabChange(status)}>{status}</button>
         )}
       </div>
     </div>
     <div className="resource-table-wrap">
       <table>
-        <thead><tr>{["ID", "RESOURCE", "OWNER", "STATUS"].map((column) => <th key={column}>{column}</th>)}</tr></thead>
+        <thead><tr>{config.columns.map((column) => <th scope="col" key={column.label}>{column.label}</th>)}</tr></thead>
         <tbody>{filtered.map((item) => <tr key={item.id} className={selected === item.id ? "selected-row" : ""} onClick={() => onSelect(item.id)}>
-          <td><span className="mono">{item.id}</span></td>
-          <td><b>{item.name}</b><small className="cell-detail">{item.detail}</small></td>
-          <td>{item.owner}</td>
-          <td><span className="resource-status">{item.status}</span></td>
+          {config.columns.map((column) => {
+            const value = item[column.field];
+            return <td key={column.label}>
+              {column.format === "mono" ? <span className="mono">{value}</span>
+                : column.format === "status" ? <span className="resource-status">{value}</span>
+                  : column.field === "name" ? <b>{value}</b>
+                    : value}
+            </td>;
+          })}
         </tr>)}</tbody>
       </table>
       {filtered.length === 0 && <div className="empty">No matching resources.</div>}
