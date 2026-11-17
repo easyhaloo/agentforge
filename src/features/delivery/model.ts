@@ -79,7 +79,7 @@ function revisionNumberFromId(value: string): number | null {
 
 function normalizeRevisions(value: unknown): { revisions: Revision[]; changed: boolean } {
   if (!Array.isArray(value)) return { revisions: initialRevisions, changed: true };
-  const revisions = value.flatMap((item): Revision[] => {
+  const normalized = value.flatMap((item): Revision[] => {
     if (!isRecord(item)
       || typeof item.id !== "string"
       || typeof item.changesetId !== "string"
@@ -102,7 +102,8 @@ function normalizeRevisions(value: unknown): { revisions: Revision[]; changed: b
       return [];
     }
   });
-  return { revisions, changed: revisions.length !== value.length };
+  const changed = normalized.length !== value.length;
+  return { revisions: changed ? normalized : value as Revision[], changed };
 }
 
 /** Converts the previous revision-number-based local state to the ID-based model. */
