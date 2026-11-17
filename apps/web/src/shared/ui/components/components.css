@@ -98,3 +98,5 @@
 .af-showcase-status.is-good{background:#17352f;color:#75d4a8}
 .af-showcase-status.is-pending{background:#382d20;color:#e7b36e}
 @media(max-width:760px){.af-showcase-grid{grid-template-columns:1fr}.af-showcase-intro{align-items:flex-start;flex-direction:column}}
+
+.af-modal__error{margin:12px 0 0;color:#e28d98;font-size:11px}
