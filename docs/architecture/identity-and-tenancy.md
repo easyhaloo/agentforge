@@ -104,7 +104,7 @@ The current Changeset API must remain fail-closed until all of the following are
 
 1. OIDC callback, state/nonce/PKCE validation, session persistence, logout and revocation.
 2. Local user and external identity persistence.
-3. Organization and membership lifecycle with a safe first-owner bootstrap.
+3. Organization and membership lifecycle with a safe first-owner bootstrap, administrative APIs, and invitation lifecycle.
 4. Centralized role authorization and request principal context.
 5. Tenant-scoped schema migration and tenant-scoped repository methods.
 6. HTTP routes moved under the organization scope; no legacy unscoped protected route remains.
@@ -117,4 +117,4 @@ Until these gates pass, the UI must continue to present authentication as unavai
 
 The Go API now includes the OIDC Authorization Code + PKCE login/callback/logout flow, provider discovery/JWKS verification, one-time state/nonce storage, hashed application sessions, exact-origin CORS/CSRF, and a database-backed principal resolver. The operator-only `cmd/bootstrap-owner` command can provision the first owner for an organization using the exact OIDC issuer and immutable subject. The OIDC callback now checks for at least one active membership in an active organization before creating a browser session; an authenticated but unprovisioned identity receives 403 and cannot obtain an application session.
 
-Organization invitations and ongoing membership administration are still pending. Until those workflows are implemented and the production OIDC provider is configured, the roadmap remains in Phase 2 and production readiness must not be treated as proof that an organization has been provisioned.
+Organization member administration now includes tenant-scoped member listing, role/status updates, soft removal, and transactional audit attribution. Owners can manage all membership roles; administrators can manage only members/viewers and cannot grant administrative privileges. Mutations serialize on an organization-scoped advisory lock, re-check the actor's active administrative membership in the transaction, and prevent demotion, suspension, or removal of the last active owner. Invitation creation/acceptance and a read API for the audit trail remain pending. Until those workflows are implemented and the production OIDC provider is configured, production readiness must not be treated as proof that an organization has been provisioned.
