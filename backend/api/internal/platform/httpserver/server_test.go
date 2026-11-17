@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -36,12 +37,14 @@ func TestHealthEndpoints(t *testing.T) {
 	}
 }
 
-func TestReadinessRequiresDatabaseAndIdentity(t *testing.T) {
+type readinessLocker struct{}
+func (readinessLocker) LockChangeset(context.Context,string,string)(func(),error){return func(){},nil}
+
+func TestReadinessRequiresAllDeliveryDependencies(t *testing.T) {
 	handler := NewHandlerWithDependencies(DeliveryDependencies{
-		Repository: newMemoryRepository(),
-		Identity: fixedIdentity{role: "member"},
-		CSRF: allowCSRF{},
-		AllowedOrigin: "https://app.example.test",
+		Repository: newMemoryRepository(), Identity: fixedIdentity{role:"member"}, CSRF:allowCSRF{},
+		AllowedOrigin:"https://app.example.test", Git:lifecycleGit{}, Evaluator:lifecycleEvaluator{},
+		Evidence:lifecycleEvidence{}, Catalog:&lifecycleCatalog{}, Locker:readinessLocker{}, Reviewers:lifecycleReviewers{},
 	})
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	response := httptest.NewRecorder()
@@ -50,12 +53,12 @@ func TestReadinessRequiresDatabaseAndIdentity(t *testing.T) {
 		t.Fatalf("readiness response = %d %q, want ready", response.Code, response.Body.String())
 	}
 
-	handler = NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository()})
+	handler = NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), Identity:fixedIdentity{role:"member"}, CSRF:allowCSRF{}, AllowedOrigin:"https://app.example.test"})
 	request = httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable {
-		t.Fatalf("readiness without identity = %d, want %d", response.Code, http.StatusServiceUnavailable)
+		t.Fatalf("readiness without delivery adapters = %d, want %d", response.Code, http.StatusServiceUnavailable)
 	}
 
 }
