@@ -22,12 +22,12 @@ The Go API is the OIDC relying party and owns the callback/session boundary.
 - Discover issuer metadata and validate issuer, signature, audience, nonce, and token time claims.
 - Identify an external identity by the immutable pair (issuer, subject). Email is profile data, never a primary key or authorization key.
 - Create or update the local user profile only after successful OIDC validation.
-- Issue an opaque, random application session identifier in a Secure, HttpOnly, SameSite=Lax cookie. Persist only a cryptographic hash of the session token; store expiry and revocation state in PostgreSQL.
-- Require CSRF protection for cookie-authenticated state-changing requests. Validate Origin against an explicit allowlist.
+- Issue an opaque, random application session identifier in a Secure, HttpOnly, SameSite=Lax, host-only cookie. Persist only a SHA-256 hash of the session token and CSRF token; store expiry and revocation state in PostgreSQL.
+- Require CSRF protection for cookie-authenticated state-changing requests. Validate Origin against the exact configured `APP_ORIGIN` and bind the CSRF token hash to the active session.
 - Do not accept actor IDs, user IDs, roles, or organization IDs as authoritative request-body fields.
 - Do not enable a development identity shortcut in production.
 
-Configuration is explicit: OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URL, SESSION_COOKIE_NAME, SESSION_TTL, and CORS_ALLOWED_ORIGINS. Missing or invalid configuration leaves protected routes unavailable.
+Configuration is explicit and all-or-nothing: OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URL, optional SESSION_TTL, and APP_ORIGIN. The API uses fixed host-only `__Host-agentforge_session` and `__Host-agentforge_csrf` cookie names. Missing or invalid configuration, or failed provider discovery, leaves protected routes unavailable. Non-loopback issuer, callback, and application origins must use HTTPS.
 
 ### 2. Principal and organization selection
 
@@ -112,3 +112,9 @@ The current Changeset API must remain fail-closed until all of the following are
 8. Exact-origin CORS and CSRF protections for browser sessions.
 
 Until these gates pass, the UI must continue to present authentication as unavailable and must not claim that Changeset creation is operational.
+
+## Implementation status
+
+The Go API now includes the OIDC Authorization Code + PKCE login/callback/logout flow, provider discovery/JWKS verification, one-time state/nonce storage, hashed application sessions, exact-origin CORS/CSRF, and a database-backed principal resolver. The operator-only `cmd/bootstrap-owner` command can provision the first owner for an organization using the exact OIDC issuer and immutable subject.
+
+Organization invitations and ongoing membership administration are still pending. Until those workflows are implemented and the production OIDC provider is configured, the roadmap remains in Phase 2 and production readiness must not be treated as proof that an organization has been provisioned.
