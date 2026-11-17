@@ -43,6 +43,7 @@ Common commands:
 - Start development server: npm run dev
 - Run tests: npm test
 - Run TypeScript check and production build: npm run build
+- Validate Cloudflare Worker packaging without deploying: npm run deploy:dry-run
 - Preview production build: npm run preview
 
 The CI workflow runs dependency installation, tests, and production build. Run tests and build before considering a change complete. Do not claim a check passed unless its result was observed.
