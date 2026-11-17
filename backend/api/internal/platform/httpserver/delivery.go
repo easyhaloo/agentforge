@@ -13,21 +13,18 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
-type Principal struct {
-	UserID         string
-	OrganizationID string
-	Role           string
-}
+type Principal = identity.Principal
 
-type PrincipalResolver interface {
-	ResolvePrincipal(*http.Request, string) (Principal, error)
-}
+type PrincipalResolver = identity.PrincipalResolver
 
 type DeliveryDependencies struct {
-	Repository delivery.Repository
-	Identity   PrincipalResolver
+	Repository  delivery.Repository
+	Identity    identity.PrincipalResolver
+	CSRF        identity.CSRFValidator
+	AllowedOrigin string
 }
 
 type storedChangesetResponse struct {
