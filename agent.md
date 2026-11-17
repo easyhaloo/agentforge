@@ -90,7 +90,8 @@ Current implemented structure:
         delivery/                  Changeset delivery workflow
           hooks/                   React state and persistence adapter
           ui/                      Delivery workflow presentation components
-          workflow.ts              Pure feature-level workflow operations
+          use-cases/                Create revision, run evaluation, decide review and merge
+          workflow.ts              Compatibility re-export for delivery use cases
         resources/                 Resource workspaces and resource configuration
           data/                    Resource fixtures and page configuration
           ui/                      Resource list and inspector components
