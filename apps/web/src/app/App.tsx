@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { DeliveryFlow } from "../features/delivery";
+import { createChangeset as createChangesetRequest } from "../features/delivery/api";
+import { ApiError } from "../shared/api";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { OverviewPage, type CreatedChangeset } from "../pages/overview";
 import { Sidebar } from "./components/Sidebar";
@@ -36,11 +38,20 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const createChangeset = (title: string) => {
-    const id = "CS-" + (2482 + created.length);
-    setCreated((current) => [{ id, title }, ...current]);
-    notify(id + " created in local demo state: " + title);
-    setShowCreate(false);
+  const createChangeset = async (input: { title: string; repository: string }): Promise<boolean> => {
+    try {
+      const result = await createChangesetRequest(input);
+      setCreated((current) => [{ id: result.changeset.id, title: result.changeset.title }, ...current]);
+      notify("Changeset " + result.changeset.id + " was persisted.");
+      setActive("Changesets");
+      return true;
+    } catch (error) {
+      const message = error instanceof ApiError
+        ? error.message
+        : error instanceof Error ? error.message : "Changeset creation failed.";
+      notify("Changeset was not created: " + message);
+      return false;
+    }
   };
 
   return (
@@ -51,8 +62,8 @@ function App() {
         <div className="content">
           <PageHeader
             active={active}
-            onRefresh={() => notify("Demo data refreshed.")}
-            onCreate={active === "Overview" ? () => setShowCreate(true) : undefined}
+            onRefresh={() => notify(active === "Overview" ? "Overview metrics are not connected to the API yet." : "Refresh the delivery workspace below.")}
+            onCreate={active === "Overview" || active === "Changesets" ? () => setShowCreate(true) : undefined}
           />
           {active === "Overview" ? (
             <OverviewPage onNavigate={setActive} onNotify={notify} created={created} />
@@ -62,8 +73,8 @@ function App() {
             <ResourceWorkspacePage key={active} page={active} onNotify={notify} />
           )}
           <footer>
-            <span>AgentForge Prototype <b>v0.1.0</b></span>
-            <span><i className="live-dot" /> All systems operational <span className="footer-sep">·</span> Mock environment</span>
+            <span>AgentForge <b>v0.1.0</b></span>
+            <span><i className="live-dot" /> Core Changeset metadata uses the API <span className="footer-sep">·</span> Other workspaces are not yet integrated</span>
           </footer>
         </div>
       </main>
