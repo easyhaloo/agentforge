@@ -51,7 +51,7 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, t
 	if strings.TrimSpace(organizationID) == "" || strings.TrimSpace(actorID) == "" || strings.TrimSpace(targetID) == "" ||
 		(role == nil && status == nil) || (role != nil && !validMembershipRole(*role)) ||
 		(status != nil && *status != "active" && *status != "suspended") {
-		return identity.Organizationidentity.OrganizationMember{}, ErrInvalidMembershipChange
+		return identity.OrganizationMember{}, ErrInvalidMembershipChange
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil { return identity.OrganizationMember{}, fmt.Errorf("begin membership update: %w", err) }
@@ -174,4 +174,4 @@ func validMembershipRole(role string) bool {
 	return false
 }
 
-var _ = errors.Is
+
