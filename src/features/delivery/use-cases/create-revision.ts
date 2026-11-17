@@ -33,7 +33,6 @@ export function createNextRevision(
   };
   const nextReview: Review = {
     id: reviewId("REV-" + (891 + number)),
-    revision: number,
     revisionId: revision.id,
     decision: "Pending",
     reviewer: "Mina",

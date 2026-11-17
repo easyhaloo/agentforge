@@ -1,12 +1,12 @@
 import { Play, Plus, RefreshCw, Sparkles } from "lucide-react";
 import type { RevisionId } from "../../../entities";
-import type { Change, Evaluation, Review } from "../model";
+import type { Change, Evaluation, EvaluationView, ReviewView } from "../model";
 import { EvaluationEvidence } from "./EvaluationEvidence";
 import { ReviewDecision } from "./ReviewDecision";
 import { TrailSummary } from "./TrailSummary";
 
 type Props = {
-  change: Change; title: string; evaluations: Evaluation[]; reviews: Review[];
+  change: Change; title: string; evaluations: Evaluation[]; evaluationViews: EvaluationView[]; reviews: ReviewView[];
   currentRevisionId: RevisionId; evidenceCurrent: boolean; approved: boolean;
   trailDone: boolean; stackBase: string;
   onTitleChange: (title: string) => void; onTitleCommit: () => void;
@@ -17,7 +17,7 @@ type Props = {
 
 export function DeliveryWorkspace(props: Props) {
   const {
-    change, title, evaluations, reviews, currentRevisionId, evidenceCurrent, approved,
+    change, title, evaluations, evaluationViews, reviews, currentRevisionId, evidenceCurrent, approved,
     trailDone, stackBase, onTitleChange, onTitleCommit, onCreateRevision,
     onRunEvaluation, onSelfHeal, onRestack, onDecide, onMerge,
   } = props;
@@ -43,7 +43,7 @@ export function DeliveryWorkspace(props: Props) {
       <button className="button secondary compact" onClick={onSelfHeal}><Sparkles size={14} /> Self-heal</button>
       <button className="button secondary compact" onClick={onRestack}><RefreshCw size={14} /> Restack</button>
     </div>
-    <EvaluationEvidence evaluations={evaluations} evidenceCurrent={evidenceCurrent} />
+    <EvaluationEvidence evaluations={evaluationViews} evidenceCurrent={evidenceCurrent} />
     <ReviewDecision currentRevisionId={currentRevisionId} latestEvaluation={evaluations[0]} reviews={reviews} onDecide={onDecide} />
     <TrailSummary trailDone={trailDone} stackBase={stackBase} approved={approved} onMerge={onMerge} />
   </section>;

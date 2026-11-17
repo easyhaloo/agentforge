@@ -20,6 +20,7 @@ export function DeliveryFlow({ page, onNotify }: Props) {
         change={workflow.change}
         title={workflow.title}
         evaluations={workflow.evaluations}
+        evaluationViews={workflow.evaluationViews}
         reviews={workflow.reviews}
         currentRevisionId={workflow.currentRevisionId}
         evidenceCurrent={workflow.evidenceCurrent}

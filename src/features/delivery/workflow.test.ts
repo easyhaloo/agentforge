@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialChange, initialEvaluations, initialRevisions, initialReviews } from "./model";
+import { initialChange, initialEvaluations, initialRevisions, initialReviews, selectEvaluationViews, selectReviewViews } from "./model";
 import {
   createEvaluation,
   createNextRevision,
@@ -19,6 +19,7 @@ describe("delivery feature use cases", () => {
     expect(result?.revision.changesetId).toBe(initialChange.id);
     expect(result?.revisions).toHaveLength(2);
     expect(result?.reviews[0].revisionId).toBe(result?.revision.id);
+    expect(result?.reviews[0]).not.toHaveProperty("revision");
     expect(result?.reviews).toContain(initialReviews[0]);
   });
 
@@ -43,11 +44,24 @@ describe("delivery feature use cases", () => {
 
     expect(evaluation?.revisionId).toBe(revision.id);
     expect(evaluation?.status).toBe("Passed");
+    expect(evaluation).not.toHaveProperty("revision");
   });
 
   it("does not evaluate a revision that does not belong to the active changeset revision", () => {
     const wrongRevision = { ...initialRevisions[0], number: 2, id: "CS-2481@r2" };
     expect(createEvaluation(initialChange, wrongRevision, initialEvaluations, "Passed")).toBeNull();
+  });
+
+  it("projects revision numbers into feature view models without storing them on entities", () => {
+    const evaluations = selectEvaluationViews(initialEvaluations, initialRevisions);
+    const reviews = selectReviewViews(initialReviews, initialRevisions);
+
+    expect(evaluations[0].revisionNumber).toBe(3);
+    expect(reviews[0].revisionNumber).toBe(3);
+    expect(selectEvaluationViews(initialEvaluations, []).at(0)?.revisionNumber).toBeNull();
+    expect(selectReviewViews(initialReviews, []).at(0)?.revisionNumber).toBeNull();
+    expect(initialEvaluations[0]).not.toHaveProperty("revision");
+    expect(initialReviews[0]).not.toHaveProperty("revision");
   });
 
   it("requires current passing evidence before creating a review decision", () => {
@@ -58,6 +72,7 @@ describe("delivery feature use cases", () => {
     }, "Approved");
 
     expect(approved?.revisionId).toBe(revision.id);
+    expect(approved).not.toHaveProperty("revision");
     expect(blocked).toBeNull();
   });
 

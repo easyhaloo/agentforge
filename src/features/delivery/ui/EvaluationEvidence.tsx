@@ -1,7 +1,7 @@
 import { Check, CircleAlert, ShieldCheck } from "lucide-react";
-import type { Evaluation } from "../model";
+import type { EvaluationView } from "../model";
 
-type Props = { evaluations: Evaluation[]; evidenceCurrent: boolean };
+type Props = { evaluations: EvaluationView[]; evidenceCurrent: boolean };
 
 export function EvaluationEvidence({ evaluations, evidenceCurrent }: Props) {
   return <div className="flow-subsection">
@@ -10,7 +10,7 @@ export function EvaluationEvidence({ evaluations, evidenceCurrent }: Props) {
       <span className={evaluation.status === "Passed" ? "evidence-icon pass" : "evidence-icon fail"}>
         {evaluation.status === "Passed" ? <Check size={13} /> : <CircleAlert size={13} />}
       </span>
-      <div><b>{evaluation.id} · r{evaluation.revision}</b><small>{evaluation.checks} checks · {evaluation.createdAt}</small></div>
+      <div><b>{evaluation.id} · r{evaluation.revisionNumber ?? "?"}</b><small>{evaluation.checks} checks · {evaluation.createdAt}</small></div>
       <strong>{evaluation.status}</strong>
     </div>)}
   </div>;
