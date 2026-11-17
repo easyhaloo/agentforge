@@ -14,6 +14,7 @@ function App() {
   const [notice,setNotice] = useState("");
   const [showCreate,setShowCreate] = useState(false);
   const [commandOpen,setCommandOpen] = useState(false);
+  const [created,setCreated] = useState<string[]>([]);
   const notify = (message: string) => { setNotice(message); window.setTimeout(()=>setNotice(""),2600); };
   useEffect(()=>{
     const onKeyDown=(event: KeyboardEvent)=>{
@@ -23,14 +24,14 @@ function App() {
     window.addEventListener("keydown",onKeyDown);
     return ()=>window.removeEventListener("keydown",onKeyDown);
   },[]);
-  const createChangeset = (title: string) => { notify("Changeset created in local demo state: "+title); setShowCreate(false); };
+  const createChangeset = (title: string) => { const id="CS-"+(2482+created.length); setCreated(current=>[...current,id]); notify(id+" created in local demo state: "+title); setShowCreate(false); };
   return <div className="shell">
     <Sidebar active={active} onNavigate={setActive}/>
     <main className="main">
       <Topbar active={active} onSearch={()=>setCommandOpen(true)} onNotify={notify}/>
       <div className="content">
         <PageHeader active={active} onRefresh={()=>notify("Demo data refreshed.")} onCreate={active==="Overview"?()=>setShowCreate(true):undefined}/>
-        {active==="Overview" ? <OverviewPage onNavigate={setActive} onNotify={notify} onCreate={()=>setShowCreate(true)}/> :
+        {active==="Overview" ? <OverviewPage onNavigate={setActive} onNotify={notify} created={created}/> :
           ["Changesets","Eval","Review","Trails","Stacks","Self-healing"].includes(active) ? <DeliveryFlow page={active} onNotify={notify}/> :
           <ResourceWorkspace page={active} onNotify={notify}/>}
         <footer><span>AgentForge Prototype <b>v0.1.0</b></span><span><i className="live-dot"/> All systems operational <span className="footer-sep">·</span> Mock environment</span></footer>

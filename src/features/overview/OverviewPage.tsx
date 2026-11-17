@@ -10,14 +10,12 @@ const seedRows = [
   ["CS-2468","Fix workspace cleanup race","runtime","Draft","Yesterday"]
 ];
 
-type Props = { onNavigate: (page: string) => void; onNotify: (message: string) => void; onCreate: () => void };
-export function OverviewPage({ onNavigate, onNotify, onCreate }: Props) {
+type Props = { onNavigate: (page: string) => void; onNotify: (message: string) => void; created: string[] };
+export function OverviewPage({ onNavigate, onNotify, created }: Props) {
   const [query,setQuery] = useState("");
   const [filter,setFilter] = useState("All");
   const [selected,setSelected] = useState("CS-2481");
-  const [created,setCreated] = useState<string[]>([]);
   const rows = [...seedRows,...created.map(id=>[id,"New prototype changeset","agentforge-demo","Draft","Just now"] as string[])].filter(row=>(filter==="All"||row[3]===filter)&&row.join(" ").toLowerCase().includes(query.toLowerCase()));
-  const addChangeset = (title: string) => { const id="CS-"+(2482+created.length); setCreated(current=>[...current,id]); setSelected(id); onNotify(id+" created in local demo state: "+title); };
   return <>
     <div className="metric-grid">{metrics.map(([label,value,delta])=><div className="metric card" key={label}><div className="metric-top">{label}<span><Activity size={15}/></span></div><strong>{value}</strong><small>{delta}</small></div>)}</div>
     <div className="dashboard-grid">
@@ -26,6 +24,5 @@ export function OverviewPage({ onNavigate, onNotify, onCreate }: Props) {
     </div>
     <section className="card table-panel"><div className="panel-head table-title"><div><h3>Recent changesets</h3><p>Track the latest work moving through verification.</p></div><button className="link-button" onClick={()=>onNavigate("Changesets")}>View all <ArrowRight size={14}/></button></div><div className="table-tools"><div className="inline-search"><Search size={14}/><input placeholder="Search overview..." value={query} onChange={event=>setQuery(event.target.value)}/></div><select value={filter} onChange={event=>setFilter(event.target.value)}><option>All</option><option>Ready for review</option><option>Evaluating</option><option>Changes requested</option><option>Merged</option><option>Draft</option></select><button className="button secondary compact" onClick={()=>{setQuery("");setFilter("All");}}>More filters <ChevronDown size={13}/></button></div><div className="table-wrap"><table><thead><tr><th>IDENTIFIER</th><th>NAME</th><th>PROJECT</th><th>STATUS</th><th>UPDATED</th><th/></tr></thead><tbody>{rows.map(row=><tr key={row[0]} onClick={()=>setSelected(row[0])} className={selected===row[0]?"selected-row":""}><td><span className="mono">{row[0]}</span></td><td><b>{row[1]}</b></td><td><span className="repo-tag"><Code2 size={12}/>{row[2]}</span></td><td><span className={"status "+(row[3]==="Merged"?"success":row[3]==="Evaluating"?"info":row[3]==="Draft"?"muted":row[3]==="Changes requested"?"danger":"warning")}><i/>{row[3]}</span></td><td className="muted-text">{row[4]}</td><td><button className="more" onClick={event=>{event.stopPropagation();onNotify("More actions are available in the full product.");}}>···</button></td></tr>)}</tbody></table>{rows.length===0&&<div className="empty">No matching records.</div>}</div></section>
     {selected&&<section className="detail-strip card"><div className="detail-icon"><GitPullRequest size={18}/></div><div><b>{selected} <span className="detail-title">Selected changeset</span></b><p>Revision r3 · Base main · 12 files changed · 42 checks</p></div><div className="detail-right"><span className="status success"><i/>Evidence current</span><button className="link-button" onClick={()=>onNotify("Changeset detail view is a prototype interaction.")}>Open details <ArrowRight size={14}/></button></div></section>}
-    <div className="sr-only"><button onClick={onCreate}>Create changeset</button><button onClick={()=>addChangeset("Created from overview")}>Create local record</button></div>
   </>;
 }
