@@ -53,11 +53,11 @@ function App() {
           <PageHeader
             active={active}
             onRefresh={() => notify("Demo data refreshed.")}
-            onCreate={active === "UI Components" ? (
-            <UIShowcasePage />
-          ) : active === "Overview" ? () => setShowCreate(true) : undefined}
+            onCreate={active === "Overview" ? () => setShowCreate(true) : undefined}
           />
-          {active === "Overview" ? (
+          {active === "UI Components" ? (
+            <UIShowcasePage />
+          ) : active === "Overview" ? (
             <OverviewPage onNavigate={setActive} onNotify={notify} created={created} />
           ) : ["Changesets", "Eval", "Review", "Trails", "Stacks", "Self-healing"].includes(active) ? (
             <DeliveryFlow page={active} onNotify={notify} />
