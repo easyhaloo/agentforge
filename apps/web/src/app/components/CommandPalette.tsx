@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { ArrowRight, CircleDot, Search } from "lucide-react";
-import { groups } from "../navigation";
+import { navigationItems } from "../navigation";
 import { Button, Input, Modal } from "../../shared/ui";
 
 type Props = { open: boolean; onClose: () => void; onNavigate: (page: string) => void };
 
 export function CommandPalette({ open, onClose, onNavigate }: Props) {
   const [query, setQuery] = useState("");
-  const pages = groups
-    .flatMap((group) => group.items.map(([name]) => String(name)))
+  const pages = navigationItems
+    .map((item) => item.label)
     .filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
 
   const navigate = (page: string) => {

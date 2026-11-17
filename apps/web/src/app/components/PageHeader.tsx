@@ -1,6 +1,6 @@
 import { Activity, Plus } from "lucide-react";
 import { Button } from "../../shared/ui";
-import { descriptions } from "../navigation";
+import { navigationItems } from "../navigation";
 
 type Props = { active: string; onRefresh: () => void; onCreate?: () => void };
 
@@ -10,7 +10,7 @@ export function PageHeader({ active, onRefresh, onCreate }: Props) {
       <div>
         <div className="eyebrow">AGENTFORGE / {active.toUpperCase()}</div>
         <h1>{active}</h1>
-        <p>{descriptions[active]}</p>
+        <p>{navigationItems.find((item) => item.label === active)?.description}</p>
       </div>
       <div className="heading-actions">
         <Button className="button secondary" onClick={onRefresh}>
