@@ -18,13 +18,13 @@ AgentForge 前端基于 React 19、TypeScript、Vite。基础组件建设采用�
 
 ### 2.1 基线
 
-采用 **Ant Design 作为基础组件引擎**，使用其 React 组件、Form、ConfigProvider Design Token、DatePicker、Select、Modal、Table 等成熟能力。日期值在 UI 层使用 Day.js；跨 API 边界统一转换为 ISO 8601 字符串或约定的日期字符串。
+采用 **React + 原生 HTML 表单/交互能力作为第一层基础引擎**，由 AgentForge 在 `shared/ui` 中统一封装 API、主题和交互约束。日期输入使用浏览器原生 `input[type=date]`，组件值和 API 边界统一使用 `YYYY-MM-DD` 字符串。复杂日期、虚拟表格、富文本等能力只有在明确需求出现后再引入专用依赖。
 
 理由：
 1. AgentForge 属于管理控制台型产品，表单、筛选、表格、弹窗密集；
-2. Ant Design 的组件覆盖度高，组件间交互和主题体系一致；
-3. 无需同时维护多套 headless primitives、CSS utility 和日期/表格插件；
-4. 通过 `shared/ui` 适配层隔离底层依赖，未来可以替换实现而不影响业务模块。
+2. 现有产品已有成熟的深色视觉样式，原生控件可降低迁移成本并保持轻量；
+3. React 负责组件组合和状态，浏览器原生控件提供基础输入、日期和表单能力；
+4. 通过 `shared/ui` 隔离底层实现，复杂控件未来可按需替换为专用组件引擎。
 
 不在业务页面直接使用 Ant Design 原始组件。新增 UI 依赖统一从 `apps/web/src/shared/ui` 暴露。现有 lucide-react 可继续用于业务图标；不重复引入另一套图标系统，底层组件默认图标按主题规范统一。
 
@@ -41,7 +41,7 @@ apps/web/src/shared/
   lib/                # 非 UI 基础设施（如已有约定则沿用）
 ```
 
-依赖方向：`pages/features -> shared/ui -> antd`。禁止 `shared/ui` 依赖 `features/domain/pages`；禁止业务模块绕过封装层直接引用 antd。
+依赖方向：`pages/features -> shared/ui -> React / browser primitives`。禁止 `shared/ui` 依赖 `features/domain/pages`；业务模块不得绕过封装层自行实现重复的基础交互。
 
 ## 4. 组件目录与范围
 
@@ -125,7 +125,7 @@ apps/web/src/shared/
 
 ## 6. 设计 Token
 
-通过 Ant Design ConfigProvider 集中管理，不允许页面级随意覆盖全局主题。
+通过 `UIThemeProvider`、Design Tokens 和 CSS Custom Properties 集中管理，不允许页面级随意覆盖全局主题。
 
 首批 Token 类别：
 - 色彩：primary、success、warning、error、info、text、muted、border、surface、background；
@@ -144,7 +144,7 @@ apps/web/src/shared/
 import { Button, DataTable, DatePicker, Form, Input, Modal, SearchInput, Select } from "@/shared/ui";
 ```
 
-- 业务模块不得 `import { Button } from "antd"`；
+- 业务模块必须从 `@/shared/ui` 导入基础组件，不得重复实现通用控件；
 - 统一组件优先导出具名组件和明确 Props 类型；
 - Props 继承底层类型时，显式省略不兼容属性；
 - 组件内部不处理业务 API、不读取业务 store；
@@ -154,8 +154,8 @@ import { Button, DataTable, DatePicker, Form, Input, Modal, SearchInput, Select 
 
 ### Phase 0：基线与主题
 - 核对现有样式、依赖和页面约束；
-- 安装并锁定 Ant Design、Day.js；
-- 建立 ConfigProvider、主题 Token 和 shared/ui 入口；
+- 核对依赖与 lockfile，避免无必要的 UI 依赖；
+- 建立 UIThemeProvider、CSS Design Tokens 和 shared/ui 入口；
 - 增加组件约束与目录规范。
 
 ### Phase 1：第一批高频组件
@@ -189,10 +189,10 @@ import { Button, DataTable, DatePicker, Form, Input, Modal, SearchInput, Select 
 | 项目 | 决策 |
 |---|---|
 | 前端框架 | React 19 + TypeScript + Vite |
-| 基础组件引擎 | Ant Design |
-| 日期适配 | Day.js |
+| 基础组件引擎 | React + 原生 HTML 控件（复杂组件按需选型） |
+| 日期适配 | 原生 date input，值为 YYYY-MM-DD 字符串 |
 | 组件封装目录 | `apps/web/src/shared/ui` |
 | 业务导入入口 | `@/shared/ui` |
 | 表格策略 | 服务端分页/排序/筛选优先 |
-| 主题策略 | ConfigProvider + Design Tokens |
+| 主题策略 | UIThemeProvider + CSS Custom Properties |
 | 建设方式 | 分阶段落地，先基础组件后业务迁移 |
