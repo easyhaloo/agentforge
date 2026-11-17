@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
 type healthResponse struct {
@@ -32,6 +34,18 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		}
 		writeHealth(w, http.StatusOK, "ready")
 	})
+	if deps.OIDC == nil {
+		unavailable := func(w http.ResponseWriter, _ *http.Request) {
+			writeProblem(w, http.StatusServiceUnavailable, "OIDC unavailable", "A validated OIDC provider is not configured")
+		}
+		mux.HandleFunc("GET /auth/oidc/login", unavailable)
+		mux.HandleFunc("GET /auth/oidc/callback", unavailable)
+		mux.HandleFunc("POST /api/v1/auth/logout", unavailable)
+	} else {
+		mux.HandleFunc("GET /auth/oidc/login", deps.OIDC.Login)
+		mux.HandleFunc("GET /auth/oidc/callback", deps.OIDC.Callback)
+		mux.HandleFunc("POST /api/v1/auth/logout", deps.OIDC.Logout)
+	}
 	mux.Handle("/", newDeliveryHandler(deps))
 	return requestIDMiddleware(corsMiddleware(csrfMiddleware(mux, deps.CSRF, deps.AllowedOrigin), deps.AllowedOrigin))
 }
