@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { DeliveryFlow } from "../features/delivery/DeliveryFlow";
-import { ResourceWorkspace } from "../features/resources/ResourceWorkspace";
+import { DeliveryFlow } from "../features/delivery";
+import { ResourceWorkspace } from "../features/resources";
 import { OverviewPage, type CreatedChangeset } from "../pages/overview";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
