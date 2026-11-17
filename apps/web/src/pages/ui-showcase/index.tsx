@@ -56,11 +56,6 @@ export function UIShowcasePage() {
 
 function UIShowcaseContent() {
   const { notify } = useNotification();
-  return <NotificationProvider><UIShowcaseContent /></NotificationProvider>;
-}
-
-function UIShowcaseContent() {
-  const { notify } = useNotification();
   const [inputValue, setInputValue] = useState("agentforge-core");
   const [environment, setEnvironment] = useState("staging");
   const [date, setDate] = useState("2026-11-17");
