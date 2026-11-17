@@ -24,6 +24,7 @@ export {
   type ModalProps,
   type DataTableProps,
   type DataTableColumn,
+  type DataTableFilterOption,
   type DataTablePagination,
   type DrawerProps,
   type AsyncSelectOption,

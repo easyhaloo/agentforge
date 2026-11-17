@@ -38,9 +38,17 @@ func TestPostgresSessionResolutionAndCSRFBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	active, err := store.HasActiveMembership(ctx, userID)
+	if err != nil || active {
+		t.Fatalf("membership before provisioning active=%v err=%v, want false", active, err)
+	}
 	_, err = store.pool.Exec(ctx, "INSERT INTO organization_memberships (organization_id, user_id, role, status) VALUES ($1, $2, 'admin', 'active')", organizationID, userID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	active, err = store.HasActiveMembership(ctx, userID)
+	if err != nil || !active {
+		t.Fatalf("active membership lookup active=%v err=%v, want true", active, err)
 	}
 
 	credentials, err := identity.GenerateCredentials()

@@ -115,6 +115,6 @@ Until these gates pass, the UI must continue to present authentication as unavai
 
 ## Implementation status
 
-The Go API now includes the OIDC Authorization Code + PKCE login/callback/logout flow, provider discovery/JWKS verification, one-time state/nonce storage, hashed application sessions, exact-origin CORS/CSRF, and a database-backed principal resolver. The operator-only `cmd/bootstrap-owner` command can provision the first owner for an organization using the exact OIDC issuer and immutable subject.
+The Go API now includes the OIDC Authorization Code + PKCE login/callback/logout flow, provider discovery/JWKS verification, one-time state/nonce storage, hashed application sessions, exact-origin CORS/CSRF, and a database-backed principal resolver. The operator-only `cmd/bootstrap-owner` command can provision the first owner for an organization using the exact OIDC issuer and immutable subject. The OIDC callback now checks for at least one active membership in an active organization before creating a browser session; an authenticated but unprovisioned identity receives 403 and cannot obtain an application session.
 
 Organization invitations and ongoing membership administration are still pending. Until those workflows are implemented and the production OIDC provider is configured, the roadmap remains in Phase 2 and production readiness must not be treated as proof that an organization has been provisioned.

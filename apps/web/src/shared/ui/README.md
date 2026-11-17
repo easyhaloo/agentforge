@@ -97,3 +97,39 @@ All controls preserve native form behavior and accept standard input attributes 
 - `NotificationProvider` owns transient notifications. Wrap the relevant application subtree once, then call `useNotification().notify({ status, title, message, duration })` from descendants. A duration of `0` keeps a notification visible until dismissed. The provider exposes `dismiss(id)` and supports placement and a maximum visible count.
 
 Prefer inline `Alert` for persistent context, `Notification` for completed user-triggered operations, `Empty` for genuinely empty collections, and `Skeleton` when the final content layout is known.
+### DataTable filters, column visibility and bulk actions
+
+`DataTable` can optionally show a column chooser, filter row and selection toolbar:
+
+```tsx
+<DataTable
+  columns={[
+    {
+      key: "status",
+      title: "Status",
+      filterOptions: [
+        { label: "Healthy", value: "healthy" },
+        { label: "Pending", value: "pending" },
+      ],
+    },
+  ]}
+  data={rows}
+  rowKey="id"
+  filterMode="server"
+  filters={filters}
+  onFilterChange={(next) => {
+    setFilters(next);
+    setPage(1);
+    // Fetch the next page using the new filters.
+  }}
+  selectedRowKeys={selectedKeys}
+  onSelectionChange={setSelectedKeys}
+  bulkActions={<Button onClick={archiveSelected}>Archive selected</Button>}
+/>
+```
+
+- `filterOptions` enables a native select filter for a column. The default `filterMode="client"` filters the supplied rows by exact value; use `filterMode="server"` with `filters/onFilterChange` when the API owns filtering and pagination.
+- `visibleColumnKeys/onVisibleColumnsChange` control visible columns. Without them, the table manages visibility internally. The built-in chooser keeps at least one data column visible.
+- `bulkActions` renders only while at least one row is selected. The caller owns the action, authorization, confirmation and mutation lifecycle.
+- Select-all applies to the rows currently supplied to the table (normally the current page), not every record on the server.
+- Virtual scrolling is not included yet. Prefer server pagination for large datasets until a measured performance requirement justifies a virtualization dependency.

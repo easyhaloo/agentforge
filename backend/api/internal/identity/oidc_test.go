@@ -27,6 +27,7 @@ func (r *oidcTestRepository) ConsumeOIDCAuthTransaction(context.Context, string)
 func (r *oidcTestRepository) UpsertExternalIdentity(context.Context, string, string, string, string) (string, error) {
 	return "user-1", nil
 }
+func (r *oidcTestRepository) HasActiveMembership(context.Context, string) (bool, error) { return true, nil }
 func (r *oidcTestRepository) CreateSession(context.Context, string, string, string, time.Time) (string, error) {
 	return "session-1", nil
 }

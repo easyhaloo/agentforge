@@ -78,7 +78,7 @@ function UIShowcaseContent() {
   const columns: DataTableColumn<DemoRow>[] = [
     { key: "id", title: "ID", width: 90, sortable: true },
     { key: "name", title: "SERVICE", sortable: true },
-    { key: "status", title: "STATUS", render: (value) => <span className={value === "Healthy" ? "af-showcase-status is-good" : "af-showcase-status is-pending"}>{String(value)}</span> },
+    { key: "status", title: "STATUS", filterOptions: [{ label: "Healthy", value: "Healthy" }, { label: "Pending", value: "Pending" }], render: (value) => <span className={value === "Healthy" ? "af-showcase-status is-good" : "af-showcase-status is-pending"}>{String(value)}</span> },
     { key: "updated", title: "UPDATED", sortable: true },
   ];
 
@@ -179,7 +179,7 @@ function UIShowcaseContent() {
 
       <section className="af-showcase-section">
         <div className="af-showcase-section__heading"><div><h3>Data table</h3><p>Sortable columns, row selection and server-driven pagination callbacks.</p></div><span className="af-showcase-meta">{selectedRows.length} selected · {sortMessage}</span></div>
-        <DataTable columns={columns} data={rows} rowKey="id" selectedRowKeys={selectedRows} onSelectionChange={setSelectedRows} onSort={(key, direction) => setSortMessage(direction ? key + " " + direction : "No sort applied")} pagination={{ page: 1, pageSize: 10, total: rows.length }} />
+        <DataTable columns={columns} data={rows} rowKey="id" selectedRowKeys={selectedRows} onSelectionChange={setSelectedRows} onSort={(key, direction) => setSortMessage(direction ? key + " " + direction : "No sort applied")} bulkActions={<Button size="small" variant="danger" onClick={() => setSelectedRows([])}>Clear selection</Button>} pagination={{ page: 1, pageSize: 10, total: rows.length }} />
       </section>
 
       <Modal open={modalOpen} title="Create workspace" onCancel={() => setModalOpen(false)} onOk={async () => { await new Promise((resolve) => window.setTimeout(resolve, 350)); setModalOpen(false); }}>
