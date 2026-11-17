@@ -44,7 +44,7 @@ async function loadTeamOptions(keyword: string, signal: AbortSignal) {
   return all.filter((name) => name.toLowerCase().includes(keyword.toLowerCase())).map((name) => ({ label: name, value: name.toLowerCase().replaceAll(" ", "-") }));
 }
 
-export function UIShowcasePage() {
+export function UIShowcasePage() {\n  return <NotificationProvider><UIShowcaseContent /></NotificationProvider>;\n}\n\nfunction UIShowcaseContent() {\n  const { notify } = useNotification();
   const [inputValue, setInputValue] = useState("agentforge-core");
   const [environment, setEnvironment] = useState("staging");
   const [date, setDate] = useState("2026-11-17");
