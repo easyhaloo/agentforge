@@ -65,6 +65,8 @@ func NewLocalGitProvider(root string, timeout time.Duration) (*LocalGitProvider,
 	absolute, err := filepath.Abs(root)
 	if err != nil { return nil, err }
 	if err := os.MkdirAll(absolute, 0700); err != nil { return nil, err }
+	absolute, err = filepath.EvalSymlinks(absolute)
+	if err != nil { return nil, err }
 	return &LocalGitProvider{Root:absolute, Timeout:timeout}, nil
 }
 
@@ -80,9 +82,13 @@ func (p *LocalGitProvider) repositoryPath(organizationID, repository string) (st
 	if err != nil { return "", err }
 	relative, err := filepath.Rel(p.Root, absolute)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) { return "", ErrRepositoryInvalid }
-	info, err := os.Stat(absolute)
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil { return "", ErrProviderUnavailable }
+	relative, err = filepath.Rel(p.Root, resolved)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) { return "", ErrRepositoryInvalid }
+	info, err := os.Stat(resolved)
 	if err != nil || !info.IsDir() { return "", ErrProviderUnavailable }
-	return absolute, nil
+	return resolved, nil
 }
 
 func (p *LocalGitProvider) run(ctx context.Context, repository string, args ...string) (string, error) {
@@ -115,12 +121,9 @@ func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, re
 	if err != nil { return GitMerge{}, ErrRepositoryInvalid }
 	revision, err := p.run(ctx,path,"rev-parse","--verify","--end-of-options",revisionSHA+"^{commit}")
 	if err != nil { return GitMerge{}, ErrRepositoryInvalid }
-	if _, err = p.run(ctx,path,"merge-base","--is-ancestor",target,revision); err != nil {
-		// The merge may still be valid; the merge command below is the final conflict check.
-	}
 	current, err := p.run(ctx,path,"rev-parse","HEAD")
 	if err != nil || current != target { return GitMerge{}, errors.New("local repository HEAD does not match target ref; synchronize the repository before merging") }
-	if _, err = p.run(ctx,path,"merge","--no-ff","--no-edit",revision); err != nil { return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry") }
+	if _, err = p.run(ctx,path,"-c","user.name=AgentForge","-c","user.email=agentforge@localhost","merge","--no-ff","--no-edit",revision); err != nil { return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry") }
 	merged, err := p.run(ctx,path,"rev-parse","HEAD")
 	if err != nil { return GitMerge{}, err }
 	return GitMerge{CommitSHA:merged,TargetRef:targetRef},nil
