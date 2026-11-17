@@ -39,7 +39,7 @@ Always run the suite as `CI=1 npm run test:e2e`: without `CI`, Playwright silent
 
 ## API isolation
 
-The application tests intercept `/api/v1/**` requests in Playwright (`apps/web/e2e/support/api-mocks.ts`). The mocks model the account context (organizations carry a `slug`; a second organization and a signed-out `401` are available per test), sign-out, organization members, invitations, audit history, and changeset list/create endpoints. No test sends a request to a real API. Browser local storage is cleared before each scenario so delivery workflow state is deterministic.
+The application tests intercept `/api/v1/**` requests in Playwright (`apps/web/e2e/support/api-mocks.ts`). The mocks model the account context (organizations carry a `slug`; a second organization and a signed-out `401` are available per test), sign-out, organization members, invitations, audit history, and changeset list/create endpoints. No test sends a request to a real API. Browser local storage is cleared before each scenario so delivery workflow state is deterministic. Chromium is launched with `--host-resolver-rules` (see `playwright.config.ts`), so every host except `127.0.0.1` and `localhost` fails to resolve immediately: tests never wait on, or depend on, the network (for example the Google Fonts `@import` in `styles/index.css`, which now falls back to system fonts).
 
 ## CI
 
