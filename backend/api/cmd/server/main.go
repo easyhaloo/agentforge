@@ -56,7 +56,7 @@ func main() {
 	server := &http.Server{
 		Addr:              ":" + configuration.Port,
 		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
-			Repository: store, Identity: principalResolver, CSRF: store,
+			Repository: store, Identity: principalResolver, CSRF: store, Membership: store,
 			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
