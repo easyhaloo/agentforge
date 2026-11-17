@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import { canApproveRevision, canEditChangeset, isEvidenceCurrent, isReviewCurrent } from "../../../domain/delivery";
 import { usePersistentState } from "../../../shared/hooks/usePersistentState";
-import { initialChange, initialEvaluations, initialRevisions, initialReviews, type Change, type Evaluation, type Review } from "../model";
+import {
+  initialChange, initialEvaluations, initialRevisions, initialReviews,
+  selectEvaluationViews, selectReviewViews,
+  type Change, type Evaluation, type Review,
+} from "../model";
 import {
   createEvaluation,
   createNextRevision,
@@ -25,6 +29,8 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   const currentRevisionId = currentRevision.id;
   const latestEvaluation = evaluations[0];
   const latestReview = reviews[0];
+  const evaluationViews = selectEvaluationViews(evaluations, revisions);
+  const reviewViews = selectReviewViews(reviews, revisions);
   const evidenceCurrent = isEvidenceCurrent(currentRevisionId, latestEvaluation);
   const reviewCurrent = isReviewCurrent(currentRevisionId, latestReview);
   const approved = reviewCurrent && latestReview?.decision === "Approved";
@@ -116,7 +122,7 @@ export function useDeliveryWorkflow(onNotify: (message: string) => void) {
   };
 
   return {
-    change, title, evaluations, reviews, currentRevisionId, evidenceCurrent,
+    change, title, evaluations, evaluationViews, reviews: reviewViews, currentRevisionId, evidenceCurrent,
     approved, trailDone, stackBase, events, stageState,
     setTitle, commitTitle, createRevision, runEvaluation, repair, restack, decide, merge,
   };

@@ -19,7 +19,6 @@ export function createReviewDecision(
 
   return {
     id: reviewId("REV-" + (892 + reviews.length)),
-    revision: revision.number,
     revisionId: revision.id,
     decision,
     reviewer: "You",

@@ -17,7 +17,6 @@ export function createEvaluation(
 
   return {
     id: evidenceId("EVL-" + (5510 + evaluations.length)),
-    revision: revision.number,
     revisionId: revision.id,
     status,
     checks: 38,

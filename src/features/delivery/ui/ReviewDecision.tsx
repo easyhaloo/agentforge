@@ -1,12 +1,12 @@
 import { CheckCircle2, GitPullRequest } from "lucide-react";
 import { canApproveRevision } from "../../../domain/delivery";
 import type { RevisionId } from "../../../entities";
-import type { Evaluation, Review } from "../model";
+import type { Evaluation, ReviewView } from "../model";
 
 type Props = {
   currentRevisionId: RevisionId;
   latestEvaluation: Evaluation | undefined;
-  reviews: Review[];
+  reviews: ReviewView[];
   onDecide: (decision: "Approved" | "Changes requested") => void;
 };
 
@@ -18,7 +18,7 @@ export function ReviewDecision({ currentRevisionId, latestEvaluation, reviews, o
     <div className="flow-subhead"><h4><GitPullRequest size={14} /> Review decision</h4><span>{latestReview?.decision ?? "Not requested"}</span></div>
     {reviews.slice(0, 3).map((review) => <div className="evidence-row" key={review.id}>
       <span className="evidence-icon review"><GitPullRequest size={13} /></span>
-      <div><b>{review.id} · r{review.revision}</b><small>{review.reviewer} · revision-scoped review</small></div>
+      <div><b>{review.id} · r{review.revisionNumber ?? "?"}</b><small>{review.reviewer} · revision-scoped review</small></div>
       <strong>{review.decision}</strong>
     </div>)}
     <div className="flow-actions review-actions">
