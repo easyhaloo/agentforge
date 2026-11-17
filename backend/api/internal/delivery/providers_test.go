@@ -42,6 +42,9 @@ func TestLocalGitProviderResolvesRevisionAndMerges(t *testing.T) {
 	if err!=nil{t.Fatal(err)}
 	if merged.TargetRef!="main"||len(merged.CommitSHA)!=40{t.Fatalf("merge=%#v",merged)}
 	if got:=stringTrim(gitTest(t,repository,"rev-parse","HEAD"));got!=merged.CommitSHA{t.Fatalf("HEAD=%s merge=%s",got,merged.CommitSHA)}
+	retried,err:=provider.MergeRevision(context.Background(),"org-a","team/repo",revision.CommitSHA,"main")
+	if err!=nil{t.Fatal(err)}
+	if retried.CommitSHA!=merged.CommitSHA{t.Fatalf("merge retry commit=%s, want idempotent %s",retried.CommitSHA,merged.CommitSHA)}
 }
 
 func TestLocalGitProviderRejectsPathTraversalAndUnresolvedRefs(t *testing.T) {
