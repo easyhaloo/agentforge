@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
-	"github.com/jackc/pgx/v5"
 )
 
 type ActorResolver interface {
@@ -126,7 +124,7 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 	changeset, err := delivery.NewChangeset(delivery.ID(id), strings.TrimSpace(input.Repository), strings.TrimSpace(input.Title), actor, time.Now().UTC())
 	if err != nil { writeProblem(w, http.StatusBadRequest, "Invalid changeset", err.Error()); return }
 	stored, err := d.Repository.Create(r.Context(), changeset)
-	if errors.Is(err, pgx.ErrNoRows) { writeProblem(w, http.StatusConflict, "Changeset conflict", "The changeset could not be created"); return }
+	if errors.Is(err, delivery.ErrVersionConflict) { writeProblem(w, http.StatusConflict, "Changeset conflict", "A changeset with this identifier already exists"); return }
 	if err != nil { writeProblem(w, http.StatusInternalServerError, "Unable to create changeset", "The changeset could not be persisted"); return }
 	writeJSON(w, http.StatusCreated, toChangesetResponse(stored))
 }
@@ -248,4 +246,3 @@ func writeProblem(w http.ResponseWriter, status int, title, detail string) {
 	_ = json.NewEncoder(w).Encode(problemResponse{Type: "about:blank", Title: title, Status: status, Detail: detail})
 }
 
-var _ context.Context
