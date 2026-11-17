@@ -8,6 +8,7 @@ import {
   type ButtonHTMLAttributes,
   type FormHTMLAttributes,
   type InputHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type SelectHTMLAttributes,
   type TableHTMLAttributes,
@@ -20,7 +21,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: "small" | "middle" | "large";
 }
 
-export function Button({
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant = "secondary",
   loading = false,
   size = "middle",
@@ -28,10 +29,11 @@ export function Button({
   className = "",
   children,
   ...props
-}: ButtonProps) {
+}: ButtonProps, ref) {
   return (
     <button
       {...props}
+      ref={ref}
       className={`af-button af-button--${variant} af-button--${size} ${className}`.trim()}
       type={props.type ?? "button"}
       disabled={disabled || loading}
@@ -41,7 +43,7 @@ export function Button({
       {children}
     </button>
   );
-}
+});
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
@@ -303,6 +305,72 @@ export function Form({ children, className = "", ...props }: FormProps) {
 }
 export function FormItem({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`af-form-item ${className}`.trim()}>{children}</div>;
+}
+
+export interface TabsItem {
+  key: string;
+  label: ReactNode;
+  disabled?: boolean;
+}
+
+export interface TabsProps {
+  id?: string;
+  items: TabsItem[];
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  className?: string;
+}
+
+export function Tabs({ id, items, value, onChange, ariaLabel, className = "" }: TabsProps) {
+  const generatedId = useId();
+  const baseId = id ?? generatedId;
+  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const moveFocus = (currentIndex: number, key: string) => {
+    const enabled = items.map((item, index) => item.disabled ? -1 : index).filter((index) => index >= 0);
+    if (!enabled.length) return;
+    const currentPosition = enabled.indexOf(currentIndex);
+    let nextPosition = currentPosition;
+    if (key === "Home") nextPosition = 0;
+    else if (key === "End") nextPosition = enabled.length - 1;
+    else if (key === "ArrowRight") nextPosition = (currentPosition + 1 + enabled.length) % enabled.length;
+    else if (key === "ArrowLeft") nextPosition = (currentPosition - 1 + enabled.length) % enabled.length;
+    if (nextPosition === currentPosition) return;
+    const nextIndex = enabled[nextPosition];
+    const nextItem = items[nextIndex];
+    if (!nextItem) return;
+    onChange(nextItem.key);
+    buttonRefs.current[nextIndex]?.focus();
+  };
+
+  return (
+    <div className={`af-tabs ${className}`.trim()} role="tablist" aria-label={ariaLabel}>
+      {items.map((item, index) => (
+        <Button
+          key={item.key}
+          ref={(node) => { buttonRefs.current[index] = node; }}
+          variant="ghost"
+          type="button"
+          role="tab"
+          id={`${baseId}-tab-${item.key}`}
+          aria-controls={`${baseId}-panel`}
+          aria-selected={value === item.key}
+          tabIndex={value === item.key ? 0 : -1}
+          disabled={item.disabled}
+          onClick={() => onChange(item.key)}
+          onKeyDown={(event: ReactKeyboardEvent<HTMLButtonElement>) => {
+            if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) {
+              event.preventDefault();
+              moveFocus(index, event.key);
+            }
+          }}
+        >
+          {item.label}
+        </Button>
+      ))}
+    </div>
+  );
 }
 
 export interface DataTableFilterOption {
