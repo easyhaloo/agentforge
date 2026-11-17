@@ -1,4 +1,5 @@
-import { Link, useLocation, useOutletContext } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation, useOutletContext, useRouteError } from "react-router-dom";
 import { DeliveryFlow } from "../features/delivery";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
@@ -46,5 +47,37 @@ export function NotFound() {
       <p>Nothing is served at {pathname}.</p>
       <Link className="button primary" to={flatPaths.overview}>Go to Overview</Link>
     </section>
+  );
+}
+
+// Route errors are logged for developers and never shown: the message and stack of an Error are internal details.
+function useLogRouteError() {
+  const error = useRouteError();
+  useEffect(() => { console.error("AgentForge route error", error); }, [error]);
+}
+
+/** Replaces only the page area when a page fails, so the sidebar and topbar stay usable. */
+export function PageError() {
+  useLogRouteError();
+  return (
+    <section className="card org-auth-state" role="alert">
+      <h2>Something went wrong</h2>
+      <p>This page could not be displayed. Try again later, or go back to the overview.</p>
+      <Link className="button primary" to={flatPaths.overview}>Go to Overview</Link>
+    </section>
+  );
+}
+
+/** Last resort for errors thrown by the root layout itself, when there is no shell to keep. */
+export function RootError() {
+  useLogRouteError();
+  return (
+    <div className="content">
+      <section className="card org-auth-state" role="alert">
+        <h2>Something went wrong</h2>
+        <p>AgentForge could not be displayed. Reload the page to try again.</p>
+        <a className="button primary" href="/">Reload AgentForge</a>
+      </section>
+    </div>
   );
 }
