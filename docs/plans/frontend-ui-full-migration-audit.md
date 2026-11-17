@@ -31,18 +31,18 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 | Delivery | `features/delivery/*` | 页面级原生交互控件扫描无命中；主要操作使用共享 UI | 工作流状态、审批、合并和证据状态回归 |
 | Resources | `pages/resources/*` | 页面级原生交互控件扫描无命中；列表、Inspector 使用共享 UI | 筛选、导出、本地持久化和详情交互回归 |
 | Changesets | `pages/changesets/ChangesetsPage.tsx` | PR #59 迁移创建、搜索、刷新及输入控件 | 表单校验、搜索和 API 状态回归 |
-| Organization | `pages/organization/OrganizationManagementPage.tsx` | PR #59 迁移成员/邀请操作、角色选择及表单；成员移除改用 ConfirmDialog；管理页标签切换改用共享 Tabs | 角色权限、邀请、撤销、成员移除和错误态回归 |
+| Organization | `pages/organization/OrganizationManagementPage.tsx` | PR #59 迁移成员/邀请操作、角色选择及表单；成员移除改用 ConfirmDialog；成员/邀请表格改用 DataTable，管理页标签切换改用共享 Tabs | 角色权限、邀请、撤销、成员移除和错误态回归 |
 | UI Showcase | `pages/ui-showcase/index.tsx` | 共享组件演示入口 | 对照真实业务用法检查组件 API |
-| 共享 UI | `shared/ui/components/*`、`shared/ui/theme/*` | 已补充基础组件渲染契约测试；Tabs 提供方向键/Home/End 键盘切换；Popover 增加外部点击关闭、Escape 和焦点返回；ConfirmDialog 危险操作使用 danger 按钮 | 浏览器级焦点、键盘、遮罩和交互测试 |
+| 共享 UI | `shared/ui/components/*`、`shared/ui/theme/*` | 已补充基础组件渲染契约测试；Tabs 提供方向键/Home/End 键盘切换；Organization 表格迁移 DataTable；Popover 增加外部点击关闭、Escape 和焦点返回；ConfirmDialog 危险操作使用 danger 按钮 | 浏览器级焦点、键盘、遮罩和交互测试 |
 | 样式系统 | `styles/index.css`、`shared/ui/components/components.css`、`shared/ui/theme/theme.css` | 页面控件已复用共享组件；保留业务布局/视觉类 | 清理确认无引用的历史规则，不破坏登录链接和业务布局 |
 
 ## 4. 自动化迁移门禁
 
 新增 `src/architecture/shared-ui-usage.test.ts`，对 `shared/ui` 之外的全部 TSX 文件执行静态约束：
 
-1. 禁止业务页面直接写原生 `<button>`、`<input>`、`<select>`、`<textarea>`。
+1. 禁止业务页面直接写原生 `<button>`、`<input>`、`<select>`、`<textarea>`、`<table>`。
 2. 禁止业务页面调用 `window.confirm/alert/prompt`。
-3. 禁止在共享 UI 之外自建 `role="dialog"` 或 `modal-backdrop`。
+3. 禁止在共享 UI 之外自建 `role="dialog"`、`role="tablist"` 或 `modal-backdrop`。
 4. 业务页面应通过 `@/shared/ui`（或对应相对公共出口）使用共享控件。
 
 共享 UI 实现内部允许原生控件，避免把“组件内部实现”误判为业务绕过。新增业务页面若直接使用原生交互控件，测试会失败。
