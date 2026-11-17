@@ -70,7 +70,7 @@
 - [x] 最新 PR #59 的 `npm test`、`npm run build` 和 GitHub `ci-gate` 均通过。
 - [x] PR #59 已合并到 main。
 - [x] Modal/Drawer 焦点逃逸后的 Tab/Shift+Tab 回收逻辑及 Drawer 可访问标题关系已补充单元测试（PR #64）。
-- [ ] 完成真实浏览器中的完整交互与移动端回归；Playwright 基础套件已新增，覆盖 Modal/Drawer/Popover/Tabs/CommandPalette，CI 首轮结果待确认。
+- [ ] 完成真实浏览器中的完整交互与移动端回归；Playwright 基础套件已通过 CI（6 项 Chromium 浏览器测试全部通过），覆盖 Modal/Drawer/Popover/Tabs/CommandPalette；完整业务流程和移动端回归仍待扩展。
 - [ ] 完成 Overview、Delivery、Resources、Changesets、Organization 的业务回归。
 - [x] 已清理无引用的 Modal、CommandPalette、Toast 历史样式；保留登录链接和业务布局样式（PR #63）。
 - [ ] 对其余业务 CSS 完成更全面的引用核验和浏览器视觉回归。
@@ -99,5 +99,5 @@
 | 2026-11-17 | PR #59 全量控件迁移、组件能力和静态门禁 | 已合并；48 tests、build、ci-gate 通过 |
 | 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | 已合并（PR #63） |
 | 2026-11-17 | Modal/Drawer 焦点管理与 Drawer 标题无障碍关系 | 已合并（PR #64；CI run #243 的 npm ci、npm test、npm run build、ci-gate 全部通过） |
-| 2026-11-17 | Playwright Chromium 浏览器测试基线 | PR #67 开发中；CI 首轮验证待确认 |
+| 2026-11-17 | Playwright Chromium 浏览器测试基线 | PR #67：6 项浏览器测试、49 项单元测试、生产构建和 ci-gate 全部通过（Actions run #261） |
 | 待执行 | Overview、Delivery、Resources、Changesets、Organization 业务回归及最终验收 | 进行中 |
