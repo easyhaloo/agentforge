@@ -28,7 +28,7 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		checker, ok := deps.Repository.(readinessChecker)
-		if !ok || deps.Identity == nil || deps.CSRF == nil || strings.TrimSpace(deps.AllowedOrigin) == "" || checker.Ping(r.Context()) != nil {
+		if !ok || deps.Identity == nil || deps.CSRF == nil || deps.Git == nil || deps.Evaluator == nil || deps.Evidence == nil || deps.Catalog == nil || deps.Locker == nil || deps.Reviewers == nil || strings.TrimSpace(deps.AllowedOrigin) == "" || checker.Ping(r.Context()) != nil {
 			writeHealth(w, http.StatusServiceUnavailable, "not_ready")
 			return
 		}
