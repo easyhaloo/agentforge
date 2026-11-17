@@ -144,3 +144,6 @@
 .af-table__filters select{width:100%;min-width:70px;height:26px;padding:0 6px;border:1px solid #303c53;border-radius:4px;background:#0c1421;color:#aeb8c9;font:9px inherit}
 .af-table__filters select:focus-visible,.af-table-columns summary:focus-visible{outline:2px solid #8171ed;outline-offset:2px}
 @media(max-width:560px){.af-table-toolbar{align-items:flex-start;flex-direction:column}.af-table-toolbar__start{flex-wrap:wrap}}
+
+.af-table tbody tr[tabindex="0"]{cursor:pointer}
+.af-table tbody tr[tabindex="0"]:focus-visible{outline:2px solid #8171ed;outline-offset:-2px}
