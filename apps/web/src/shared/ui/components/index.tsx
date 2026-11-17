@@ -206,9 +206,11 @@ export function Modal({
   const [submitError, setSubmitError] = useState("");
   const busy = submitting || confirmLoading;
   const busyRef = useRef(busy);
+  const onCancelRef = useRef(onCancel);
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   busyRef.current = busy;
+  onCancelRef.current = onCancel;
 
   useEffect(() => {
     if (!open) return;
@@ -220,7 +222,7 @@ export function Modal({
     focusable()[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !busyRef.current) {
-        onCancel();
+        onCancelRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -245,7 +247,7 @@ export function Modal({
       window.removeEventListener("keydown", onKeyDown);
       previouslyFocused?.focus();
     };
-  }, [open, onCancel]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -324,6 +326,7 @@ export interface DataTableProps<T> extends Omit<TableHTMLAttributes<HTMLTableEle
   selectedRowKeys?: Array<string | number>;
   onSelectionChange?: (keys: Array<string | number>, rows: T[]) => void;
   onSort?: (key: string, direction: "asc" | "desc" | null) => void;
+  sortMode?: "client" | "server";
 }
 export function DataTable<T>({
   columns,
@@ -336,6 +339,7 @@ export function DataTable<T>({
   selectedRowKeys,
   onSelectionChange,
   onSort,
+  sortMode = "client",
   className = "",
   ...tableProps
 }: DataTableProps<T>) {
@@ -354,7 +358,7 @@ export function DataTable<T>({
     onSelectionChange?.(keys, checked ? data : []);
   };
   const sortedData = useMemo(() => {
-    if (!sortState) return data;
+    if (!sortState || sortMode === "server") return data;
     const column = columns.find((item) => String(item.key) === sortState.key);
     if (!column) return data;
     return [...data].sort((a, b) => {
@@ -365,7 +369,7 @@ export function DataTable<T>({
         : String(av ?? "").localeCompare(String(bv ?? ""), undefined, { numeric: true });
       return sortState.direction === "asc" ? result : -result;
     });
-  }, [data, columns, sortState, onSort]);
+  }, [data, columns, sortState, sortMode]);
   const changeSort = (key: string) => {
     const direction = sortState?.key !== key ? "asc" : sortState.direction === "asc" ? "desc" : null;
     setSortState(direction ? { key, direction } : null);
@@ -442,17 +446,46 @@ export interface DrawerProps {
   placement?: "left" | "right";
 }
 export function Drawer({ open, title, children, onClose, width = 480, placement = "right" }: DrawerProps) {
+  const drawerRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const drawer = drawerRef.current;
+    const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    focusable()[0]?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) {
+        event.preventDefault();
+        drawer?.focus();
+      } else if (event.shiftKey && document.activeElement === items[0]) {
+        event.preventDefault();
+        items[items.length - 1].focus();
+      } else if (!event.shiftKey && document.activeElement === items[items.length - 1]) {
+        event.preventDefault();
+        items[0].focus();
+      }
+    };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="af-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <aside className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
-        <header className="af-drawer__header"><h2>{title}</h2><button type="button" aria-label="Close drawer" onClick={onClose}>×</button></header>
+    <div className="af-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
+      <aside ref={drawerRef} tabIndex={-1} className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
+        <header className="af-drawer__header"><h2>{title}</h2><button type="button" aria-label="Close drawer" onClick={() => onCloseRef.current()}>×</button></header>
         <div className="af-drawer__body">{children}</div>
       </aside>
     </div>
