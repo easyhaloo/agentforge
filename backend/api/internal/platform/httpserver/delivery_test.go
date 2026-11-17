@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
 type memoryRepository struct {
@@ -191,3 +192,68 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 }
 
 var _ delivery.Repository = (*memoryRepository)(nil)
+
+
+type fakeMembershipRepository struct {
+	members []identity.OrganizationMember
+	updatedRole string
+	updatedStatus string
+	removedUser string
+}
+
+func (f *fakeMembershipRepository) ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error) {
+	return f.members, nil
+}
+func (f *fakeMembershipRepository) UpdateMembership(_ context.Context, _, _, userID string, role, status *string) (identity.OrganizationMember, error) {
+	member := identity.OrganizationMember{UserID:userID, Role:"member", Status:"active"}
+	if role != nil { member.Role = *role; f.updatedRole = *role }
+	if status != nil { member.Status = *status; f.updatedStatus = *status }
+	return member, nil
+}
+func (f *fakeMembershipRepository) RemoveMembership(_ context.Context, _, _, userID string) error {
+	f.removedUser = userID
+	return nil
+}
+
+func TestOrganizationMemberManagementRequiresAdminRole(t *testing.T) {
+	for _, role := range []string{"member", "viewer"} {
+		handler := NewHandlerWithDependencies(DeliveryDependencies{
+			Repository:newMemoryRepository(), Identity:fixedIdentity{role:role}, CSRF:allowCSRF{},
+			AllowedOrigin:"https://app.example.test", Membership:&fakeMembershipRepository{},
+		})
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/organizations/org-a/members", nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("role %s list members status=%d, want 403", role, response.Code)
+		}
+	}
+}
+
+func TestOrganizationMemberManagementUsesAuthenticatedActorAndScopedOrganization(t *testing.T) {
+	repository := &fakeMembershipRepository{members:[]identity.OrganizationMember{{UserID:"member-1",Role:"member",Status:"active"}}}
+	handler := NewHandlerWithDependencies(DeliveryDependencies{
+		Repository:newMemoryRepository(), Identity:fixedIdentity{role:"owner"}, CSRF:allowCSRF{},
+		AllowedOrigin:"https://app.example.test", Membership:repository,
+	})
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/organizations/org-a/members", nil)
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK { t.Fatalf("list status=%d body=%s",listResponse.Code,listResponse.Body.String()) }
+
+	updateRequest := httptest.NewRequest(http.MethodPatch, "/api/v1/organizations/org-a/members/member-1", bytes.NewBufferString(`{"role":"viewer"}`))
+	addValidCSRFCookies(updateRequest)
+	updateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK || repository.updatedRole != "viewer" {
+		t.Fatalf("update status=%d role=%q body=%s",updateResponse.Code,repository.updatedRole,updateResponse.Body.String())
+	}
+
+	removeRequest := httptest.NewRequest(http.MethodDelete, "/api/v1/organizations/org-a/members/member-1", nil)
+	addValidCSRFCookies(removeRequest)
+	removeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(removeResponse, removeRequest)
+	if removeResponse.Code != http.StatusNoContent || repository.removedUser != "member-1" {
+		t.Fatalf("remove status=%d target=%q",removeResponse.Code,repository.removedUser)
+	}
+}
