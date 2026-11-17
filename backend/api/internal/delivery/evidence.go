@@ -23,9 +23,10 @@ func (s *LocalEvidenceStore) Put(ctx context.Context, organizationID, changesetI
 	if err:=ctx.Err();err!=nil{return EvidenceArtifact{},err}
 	if s==nil || s.Root=="" || organizationID=="" || changesetID=="" || len(content)==0 { return EvidenceArtifact{},errors.New("invalid evidence artifact") }
 	sum:=sha256.Sum256(content); digest:=hex.EncodeToString(sum[:])
-	directory:=filepath.Join(s.Root,organizationID,changesetID)
+	orgKey:=sha256.Sum256([]byte(organizationID)); changesetKey:=sha256.Sum256([]byte(changesetID))
+	directory:=filepath.Join(s.Root,hex.EncodeToString(orgKey[:]),hex.EncodeToString(changesetKey[:]))
 	if err:=os.MkdirAll(directory,0700);err!=nil{return EvidenceArtifact{},err}
 	path:=filepath.Join(directory,digest+".json")
 	if err:=os.WriteFile(path,content,0600);err!=nil{return EvidenceArtifact{},err}
-	return EvidenceArtifact{URI:"file://"+path,SHA256:digest,Size:int64(len(content))},nil
+	return EvidenceArtifact{URI:"artifact://"+hex.EncodeToString(orgKey[:])+"/"+hex.EncodeToString(changesetKey[:])+"/"+digest,SHA256:digest,Size:int64(len(content))},nil
 }
