@@ -51,11 +51,28 @@ Acceptance: frontend behavior is preserved; web, API and contract CI checks pass
 
 ## Phase 2 — Backend platform and persistence
 
-- PostgreSQL lifecycle and migrations.
-- Request IDs, config validation, Problem Details errors and authorization middleware.
-- Transaction management and module ownership conventions.
+Priority: P1  
+Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24)  
+Status: **In progress** — persistence and tenant-scope foundations are merged; production identity is not implemented.
 
-Acceptance: migrations apply cleanly; readiness reflects dependencies; middleware and database integration tests pass.
+Implemented:
+- PostgreSQL schema for organizations, users, external identities, memberships, sessions, and organization-owned Changesets.
+- Versioned, transactional SQL migration ledger with an advisory lock.
+- Organization-scoped Changeset repository methods and SQL predicates.
+- Organization-scoped API routes requiring a trusted `PrincipalResolver`.
+- Role checks at the HTTP boundary; unknown roles and viewer writes are denied.
+- Database + identity-aware readiness. The production server intentionally remains `not_ready` until an identity resolver is configured.
+- Local PostgreSQL Compose setup and API startup documentation.
+
+Remaining:
+- Implement OIDC Authorization Code + PKCE, state/nonce validation, session creation, rotation, expiry, logout and revocation.
+- Implement user/external identity persistence and organization membership lookup.
+- Add a safe operator-controlled first-owner/bootstrap path.
+- Implement CSRF validation and exact-origin CORS for cookie-authenticated writes.
+- Add cross-tenant authorization tests for every read/write path and session lifecycle tests.
+- Add committed Go module checksums and migration upgrade tests.
+
+Acceptance: unauthenticated requests are rejected; every organization route is backed by a verified active membership; SQL remains tenant-scoped; readiness reflects PostgreSQL and identity dependencies; security and integration tests pass.
 
 ## Phase 3 — Core delivery domain
 
