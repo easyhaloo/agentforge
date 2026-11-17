@@ -1,22 +1,20 @@
 import { useEffect, useState } from "react";
 import { DeliveryFlow } from "../features/delivery";
 import { ResourceWorkspacePage } from "../pages/resources";
-import { OverviewPage, type CreatedChangeset } from "../pages/overview";
+import { OverviewPage } from "../pages/overview";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { PageHeader } from "./components/PageHeader";
-import { CreateChangesetDialog } from "./components/CreateChangesetDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { UIShowcasePage } from "../pages/ui-showcase";
 import { useNotification } from "../shared/ui";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
+import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 
 function App() {
   const [active, setActive] = useState("Overview");
-  const [showCreate, setShowCreate] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [created, setCreated] = useState<CreatedChangeset[]>([]);
   const { notify: showNotification } = useNotification();
   const [account, setAccount] = useState<AccountContext | null>(null);
   const [accountState, setAccountState] = useState<"loading" | "ready" | "signed-out" | "unavailable">("loading");
@@ -66,19 +64,11 @@ function App() {
       }
       if (event.key === "Escape") {
         setCommandOpen(false);
-        setShowCreate(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  const createChangeset = (title: string) => {
-    const id = "CS-" + (2482 + created.length);
-    setCreated((current) => [{ id, title }, ...current]);
-    notify(id + " created in local demo state: " + title);
-    setShowCreate(false);
-  };
 
   return (
     <div className="shell">
@@ -88,15 +78,16 @@ function App() {
         <div className="content">
           <PageHeader
             active={active}
-            onRefresh={() => active === "Organization" ? void loadAccount() : notify("Demo data refreshed.")}
-            onCreate={active === "Overview" ? () => setShowCreate(true) : undefined}
+            onRefresh={() => active === "Organization" || active === "Changesets" ? void loadAccount() : notify("Demo data refreshed.")}
           />
           {active === "UI Components" ? (
             <UIShowcasePage />
           ) : active === "Organization" ? (
             accountState === "loading" ? <section className="card org-auth-state">Loading authenticated account and organizations…</section> : accountState === "signed-out" ? <section className="card org-auth-state"><h2>Sign in to manage your organization</h2><p>Organization settings require an authenticated AgentForge session.</p><a className="button primary" href="/auth/oidc/login">Continue with SSO</a><button className="button secondary" onClick={() => void loadAccount()}>Retry</button></section> : accountState === "unavailable" ? <section className="card org-auth-state"><h2>Organization service unavailable</h2><p>{accountError}</p><button className="button secondary" onClick={() => void loadAccount()}>Retry</button></section> : account?.organizations.find((organization) => organization.id === selectedOrganizationID) ? <OrganizationManagementPage key={selectedOrganizationID} organization={account.organizations.find((organization) => organization.id === selectedOrganizationID)!} onNotify={notify} /> : <section className="card org-auth-state"><h2>No active organization</h2><p>This account has no active organization membership. Ask an organization owner for an invitation.</p></section>
+          ) : active === "Changesets" ? (
+            accountState === "loading" ? <section className="card org-auth-state">Loading authenticated account and organizations…</section> : accountState === "signed-out" ? <section className="card org-auth-state"><h2>Sign in to view changesets</h2><p>Changesets are scoped to an authenticated organization.</p><a className="button primary" href="/auth/oidc/login">Continue with SSO</a></section> : accountState === "unavailable" ? <section className="card org-auth-state"><h2>Changeset service unavailable</h2><p>{accountError}</p><button className="button secondary" onClick={() => void loadAccount()}>Retry</button></section> : account?.organizations.find((organization) => organization.id === selectedOrganizationID) ? <ChangesetsPage key={selectedOrganizationID} organization={account.organizations.find((organization) => organization.id === selectedOrganizationID)!} onNotify={notify} /> : <section className="card org-auth-state"><h2>No active organization</h2><p>This account has no active organization membership.</p></section>
           ) : active === "Overview" ? (
-            <OverviewPage onNavigate={setActive} onNotify={notify} created={created} />
+            <OverviewPage onNavigate={setActive} onNotify={notify} created={[]} />
           ) : ["Changesets", "Eval", "Review", "Trails", "Stacks", "Self-healing"].includes(active) ? (
             <DeliveryFlow page={active} onNotify={notify} />
           ) : (
@@ -108,11 +99,6 @@ function App() {
           </footer>
         </div>
       </main>
-      <CreateChangesetDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreate={createChangeset}
-      />
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={setActive} />
     </div>
   );
