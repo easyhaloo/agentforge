@@ -21,6 +21,7 @@ func TestLoadFromValues(t *testing.T) {
 		{name: "invalid database URL", port: "8080", databaseURL: "http://localhost/db", appOrigin: "http://localhost:5173", wantErr: true},
 		{name: "missing app origin", port: "8080", databaseURL: "postgres://localhost/agentforge", wantErr: true},
 		{name: "app origin path rejected", port: "8080", databaseURL: "postgres://localhost/agentforge", appOrigin: "https://app.example.com/path", wantErr: true},
+		{name: "remote HTTP origin rejected", port: "8080", databaseURL: "postgres://localhost/agentforge", appOrigin: "http://app.example.com", wantErr: true},
 	}
 
 	for _, test := range tests {
