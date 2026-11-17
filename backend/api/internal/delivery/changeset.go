@@ -236,6 +236,9 @@ func (c *Changeset) CompleteMerge(id ID, actor, targetRef, commitSHA string, now
 	if revisionID == "" {
 		return ErrRevisionNotCurrent
 	}
+	if !c.hasPassedEvaluation(revisionID) {
+		return ErrEvaluationRequired
+	}
 	if !c.hasActiveEvidence(revisionID) {
 		return ErrEvidenceRequired
 	}
@@ -291,4 +294,11 @@ func (c *Changeset) hasApprovedReview(revisionID ID) bool {
 
 func (c *Changeset) record(actor, operation string, target ID, outcome string, now time.Time) {
 	c.Audit = append(c.Audit, AuditEvent{Sequence: uint64(len(c.Audit) + 1), Actor: actor, Operation: operation, TargetID: target, Outcome: outcome, At: now})
+}
+
+func (c *Changeset) hasPassedEvaluation(revisionID ID) bool {
+	for _, evaluation := range c.Evaluations {
+		if evaluation.RevisionID == revisionID && evaluation.Status == EvaluationPassed { return true }
+	}
+	return false
 }
