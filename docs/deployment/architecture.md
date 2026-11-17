@@ -2,17 +2,13 @@
 
 ## Current frontend deployment
 
-The current Cloudflare project is a **Cloudflare Worker**, not Pages. It serves the Vite build as Worker Static Assets.
+The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Pages project. It serves the React/Vite build output as Worker Static Assets. Production deployment is owned by Cloudflare Workers Builds through its direct Git integration; GitHub Actions is responsible for validation only.
 
-- Worker: `agentforge`
-- Route: `https://agentforge.gangshusheng.workers.dev`
-- Workers Builds root directory: repository root (`/`)
-- Build command: `npm run build`
+- Worker name: `agentforge`
+- Production route: `https://agentforge.gangshusheng.workers.dev`
+- Frontend build command: `npm run build`
 - Build output: `apps/web/dist/`
-- Deploy command: `npx wrangler deploy`
-- Wrangler config: root `wrangler.jsonc`
-
-The root npm workspace installs dependencies and delegates frontend commands to `apps/web`. The root Wrangler config points static assets to `./apps/web/dist` and enables SPA fallback.
+- Wrangler deployment command: `npx wrangler deploy`
 
 ## Cloudflare Workers Builds
 
@@ -23,18 +19,17 @@ The root npm workspace installs dependencies and delegates frontend commands to 
 | Deploy command | `npx wrangler deploy` |
 | Production branch | `main` |
 
-Do not switch the project to Pages or use `wrangler pages deploy`. GitHub CI success does not prove the Cloudflare dashboard deployment succeeded; verify that separately before considering production deployment validated.
+Cloudflare Workers Builds is the sole production deployment owner. Do not add a second GitHub Actions Wrangler deployment or use `wrangler pages deploy`.
 
-## Backend deployment (target)
+## Backend deployment
 
-The Go API is independent of the frontend Worker:
-- Build from `backend/api`.
-- Deploy to a Go/container-capable runtime.
-- Configure PostgreSQL and object storage through server-side secrets.
-- Expose HTTPS API, health and readiness endpoints.
-- Configure public frontend API base URL and restrict CORS.
-- Keep database credentials, Git provider tokens and signing keys server-side.
+The Go API is independent of the frontend Worker. Build from `backend/api`, deploy to a Go/container-capable runtime, configure PostgreSQL and object storage through server-side secrets, expose HTTPS health/readiness endpoints, and restrict CORS to intended frontend origins.
 
 ## CI/CD ownership
 
-Use one production deployment mechanism per application. Frontend remains on Cloudflare Workers Builds unless that integration is explicitly disabled before moving to GitHub Actions/Wrangler. Backend deploys independently. CI validates the OpenAPI contract. No workflow should run a Pages deployment command.
+- **Frontend:** Cloudflare Workers Builds deploys from the repository's `main` branch.
+- **GitHub Actions:** dependency installation, tests, production build and contract validation only.
+- **Backend:** build/test in GitHub Actions and deploy through a separate Go hosting integration.
+- **Contracts:** validate OpenAPI and keep the checked frontend client aligned.
+
+Never commit credentials or expose backend secrets through frontend build variables.

@@ -1,11 +1,16 @@
 import { Activity, ArrowRight, Check, GitCommitHorizontal, ShieldCheck, X } from "lucide-react";
 import type { Item, PageConfig } from "../data/resourceConfigs";
 
-type Props = { page: string; config: PageConfig; current: Item | undefined; activity: string[]; onClose: () => void; onAction: () => void };
+type Props = {
+  current: Item | undefined;
+  config: Pick<PageConfig, "detailTitle" | "signals">;
+  activity: string[];
+  onClose: () => void;
+};
 
-export function ResourceInspector({ page, config, current, activity, onClose, onAction }: Props) {
+export function ResourceInspector({ current, config, activity, onClose }: Props) {
   return <aside className="card resource-detail">
-    <div className="resource-detail-top"><span className="eyebrow">INSPECTOR</span><button className="icon-button" onClick={onClose}><X size={15} /></button></div>
+    <div className="resource-detail-top"><span className="eyebrow">INSPECTOR</span><button className="icon-button" type="button" onClick={onClose} aria-label="Close inspector"><X size={15} /></button></div>
     {current ? <>
       <div className="resource-detail-icon"><GitCommitHorizontal size={20} /></div>
       <h3>{current.name}</h3><div className="resource-id">{current.id}</div>
@@ -15,8 +20,8 @@ export function ResourceInspector({ page, config, current, activity, onClose, on
         <div><span>Last updated</span><b>{current.updated}</b></div>
       </div>
       <div className="detail-divider" /><h4>{config.detailTitle}</h4>
+      <p className="inspector-description">{current.detail}</p>
       {config.signals.map((signal, index) => <div className="signal-row" key={signal}><span>{index + 1}</span>{signal}<ArrowRight size={13} /></div>)}
-      <button className="button secondary detail-action" onClick={onAction}>Open {page.toLowerCase()} details <ArrowRight size={14} /></button>
     </> : <div className="empty">Select a resource to inspect its details.</div>}
     {activity.length > 0 && <div className="local-activity">
       <h4><Activity size={13} /> Local activity</h4>
