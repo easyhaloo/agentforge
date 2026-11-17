@@ -1,7 +1,7 @@
 # AgentForge 前端共享 UI 全量迁移审计与验收基线
 
-> 状态：业务页面共享 UI 迁移已合并；进入 CSS 清理与最终验收
-> 当前主分支基线：`0d05609f66f1ca018ed9d35c4476c1df15f8d054`  
+> 状态：业务页面共享 UI 迁移与第一轮 CSS 清理已合并；进入浏览器级回归与最终验收
+> 当前主分支基线：`1943b00b8a26269c79c4b772d5001f539e64b5e6`  
 > 审计日期：2026-11-17  
 > 范围：`apps/web/src`
 
@@ -33,7 +33,7 @@
 | Changesets | `pages/changesets/ChangesetsPage.tsx` | PR #59 已迁移创建、搜索、刷新及输入控件 | 表单校验、搜索和 API 状态回归 |
 | Organization | `pages/organization/OrganizationManagementPage.tsx` | PR #59 已迁移成员/邀请操作、角色选择及表单；成员移除改用 ConfirmDialog；成员/邀请表格改用 DataTable，管理页标签切换改用共享 Tabs | 角色权限、邀请、撤销、成员移除和错误态回归 |
 | UI Showcase | `pages/ui-showcase/index.tsx` | 共享组件演示入口 | 对照真实业务用法检查组件 API |
-| 共享 UI | `shared/ui/components/*`、`shared/ui/theme/*` | 已补充基础组件渲染契约测试；Tabs 提供方向键/Home/End 键盘切换；Organization 表格迁移 DataTable；Popover 增加外部点击关闭、Escape 和焦点返回；ConfirmDialog 危险操作使用 danger 按钮 | 浏览器级焦点、键盘、遮罩和交互测试 |
+| 共享 UI | `shared/ui/components/*`、`shared/ui/theme/*` | 已补充基础组件渲染契约测试；Tabs 提供方向键/Home/End 键盘切换；Popover 支持外部点击关闭、Escape 和焦点返回；Modal/Drawer 补齐焦点逃逸后的 Tab 回收；Drawer 标题通过 aria-labelledby 关联可见标题 | 浏览器级焦点、键盘、遮罩和交互测试 |
 | 样式系统 | `styles/index.css`、`shared/ui/components/components.css`、`shared/ui/theme/theme.css` | 页面控件已复用共享组件；保留业务布局/视觉类 | 清理确认无引用的历史规则，不破坏登录链接和业务布局 |
 
 ## 4. 自动化迁移门禁
@@ -57,7 +57,7 @@
 | D | 应用壳账户控件、Changesets、Organization 控件迁移 | 已合并（PR #59） |
 | E | Modal、Drawer、ConfirmDialog、Popover 能力与测试 | 已合并（PR #59）：静态契约测试、Tabs 键盘导航单元测试及 Popover/ConfirmDialog 改进 |
 | F | 全仓原生控件/浏览器对话框扫描门禁 | 已合并（PR #59） |
-| G | 样式清理、业务交互回归和最终验收 | 进行中 |
+| G | 样式清理、业务交互回归和最终验收 | CSS 第一轮清理已合并（PR #63）；Modal/Drawer 焦点管理已合并（PR #64）；浏览器级回归仍待完成 |
 
 ## 6. 验收门槛
 
@@ -69,9 +69,10 @@
 - [x] Popover 支持外部点击关闭、Escape 关闭和 Escape 后焦点返回；ConfirmDialog 危险操作使用 danger 样式。
 - [x] 最新 PR #59 的 `npm test`、`npm run build` 和 GitHub `ci-gate` 均通过。
 - [x] PR #59 已合并到 main。
+- [x] Modal/Drawer 焦点逃逸后的 Tab/Shift+Tab 回收逻辑及 Drawer 可访问标题关系已补充单元测试（PR #64）。
 - [ ] 真实浏览器中验证 Modal/Drawer/Popover 的焦点、键盘、遮罩和移动端行为。
 - [ ] 完成 Overview、Delivery、Resources、Changesets、Organization 的业务回归。
-- [x] 已清理无引用的 Modal、CommandPalette、Toast 历史样式；保留登录链接和业务布局样式。
+- [x] 已清理无引用的 Modal、CommandPalette、Toast 历史样式；保留登录链接和业务布局样式（PR #63）。
 - [ ] 对其余业务 CSS 完成更全面的引用核验和浏览器视觉回归。
 - [ ] 所有专项 PR 合并，形成最终差异清单和验收报告。
 
@@ -79,7 +80,7 @@
 
 - `DataTable`、`Input`、`Select` 等共享组件内部使用原生 HTML 是预期实现，不属于页面迁移缺口。
 - `styles/index.css` 的 `.button` 仍用于登录导航链接等非按钮语义元素；`.nav-item`、`.profile`、`.searchbox` 等类名用于业务布局和共享 Button 的页面级视觉，不应仅因类名存在就盲目删除。
-- 新增共享 UI 测试使用 React 服务端静态渲染，验证结构和无障碍属性；它不等同于真实浏览器交互测试。当前项目未引入额外 DOM 测试依赖，浏览器级回归仍列为最终验收项。
+- 新增共享 UI 测试使用 React 服务端静态渲染与纯逻辑单元测试，验证结构、无障碍属性和焦点索引计算；它不等同于真实浏览器交互测试。当前项目未引入 Playwright 或 DOM 测试依赖，浏览器级回归仍列为最终验收项。
 - Popover 当前支持 Tab 自然焦点顺序，不承诺完整的菜单式方向键导航。
 - Cloudflare Workers Builds 是仓库外部集成检查，不等同于 `.github/workflows/ci.yml` 的 `ci-gate`；不得为通过外部生产部署检查而重新引入 Cloudflare 生产部署验证流水线。
 
@@ -96,5 +97,6 @@
 | 2026-11-17 | 共享 UI 契约测试、Popover 焦点/关闭改进、ConfirmDialog danger 变体、Tabs 键盘交互 | 已合并（PR #59，48 tests、build、ci-gate 全部通过） |
 | 2026-11-17 | 全仓共享 UI 静态门禁 | 已合并（PR #59） |
 | 2026-11-17 | PR #59 全量控件迁移、组件能力和静态门禁 | 已合并；48 tests、build、ci-gate 通过 |
-| 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | PR #63，CI 通过，待合并 |
-| 待执行 | 浏览器级交互回归和最终验收 | 进行中 |
+| 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | 已合并（PR #63） |
+| 2026-11-17 | Modal/Drawer 焦点管理与 Drawer 标题无障碍关系 | 已合并（PR #64；CI run #243 的 npm ci、npm test、npm run build、ci-gate 全部通过） |
+| 待执行 | Playwright 浏览器级交互回归、业务回归和最终验收 | 进行中 |
