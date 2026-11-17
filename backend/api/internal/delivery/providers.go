@@ -123,7 +123,10 @@ func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, re
 	if err != nil { return GitMerge{}, ErrRepositoryInvalid }
 	current, err := p.run(ctx,path,"rev-parse","HEAD")
 	if err != nil || current != target { return GitMerge{}, errors.New("local repository HEAD does not match target ref; synchronize the repository before merging") }
-	if _, err = p.run(ctx,path,"-c","user.name=AgentForge","-c","user.email=agentforge@localhost","merge","--no-ff","--no-edit",revision); err != nil { return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry") }
+	if _, ancestorErr := p.run(ctx,path,"merge-base","--is-ancestor",revision,target); ancestorErr == nil {
+		return GitMerge{CommitSHA:target,TargetRef:targetRef},nil
+	}
+	if _, err = p.run(ctx,path,"-c","core.hooksPath=/dev/null","-c","user.name=AgentForge","-c","user.email=agentforge@localhost","merge","--no-ff","--no-edit",revision); err != nil { return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry") }
 	merged, err := p.run(ctx,path,"rev-parse","HEAD")
 	if err != nil { return GitMerge{}, err }
 	return GitMerge{CommitSHA:merged,TargetRef:targetRef},nil
