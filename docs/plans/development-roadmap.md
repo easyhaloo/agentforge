@@ -73,6 +73,8 @@ Implemented:
 - OIDC callback verifies active membership or consumes a pending single-use invitation whose email matches the provider-verified email before issuing a session; arbitrary first logins cannot create authenticated application sessions.
 - Organization invitations are tenant-scoped, expire after seven days, persist only token hashes, support listing/revocation, and are consumed atomically during verified OIDC callback.
 - `GET /api/v1/me` returns the authenticated profile and only active organization memberships, providing the server-authoritative organization selector context for the frontend.
+- The web shell now loads `/api/v1/me`, switches among active organizations, and exposes real member, invitation and audit views using the tenant-scoped APIs; member role/status changes and invitation lifecycle operations are sent to the backend.
+- Web mutations include the readable session-bound CSRF cookie in `X-CSRF-Token`; the HttpOnly session credential is never read by JavaScript or persisted in browser storage. The web API uses same-origin paths so host-only `__Host-` cookies remain correctly scoped.
 - Organization Owners/Admins can read paginated membership audit history; invitation acceptance is recorded with actor/target attribution.
 - Operator-only, transactionally serialized first-owner bootstrap CLI; first login never silently grants organization membership.
 - Local PostgreSQL Compose setup, OIDC configuration, and bootstrap documentation.
@@ -94,11 +96,22 @@ Acceptance: complete delivery workflow through APIs; stale evidence/review canno
 
 ## Phase 4 — Frontend API migration
 
-- Add typed API client from OpenAPI.
-- Replace fixtures and LocalStorage business persistence incrementally.
-- Add loading/error/retry states and SSE progress subscriptions.
+Status: **In progress** — authenticated account context and organization administration are connected to real APIs; delivery-domain migration remains.
 
-Acceptance: backend is source of truth for delivery; state survives refresh and cross-browser use.
+Implemented:
+- Typed identity and organization API client with credentialed same-origin requests, CSRF mutation headers and structured HTTP errors.
+- Server-authoritative account profile and organization selector from `GET /api/v1/me`.
+- Organization member list, role/status update, suspension/reactivation and removal UI.
+- Invitation creation, one-time URL display/copy, listing and revocation UI.
+- Membership audit history UI and role-aware management affordances.
+- Explicit signed-out, unauthorized and API-unavailable states; session revocation on sign-out.
+
+Remaining:
+- Replace delivery workflow fixtures/LocalStorage with Changeset, Revision, Evaluation, Evidence, Review and merge APIs as those backend adapters become available.
+- Add SSE progress subscriptions after durable execution events exist.
+- Add end-to-end browser tests against a configured OIDC provider and PostgreSQL environment.
+
+Acceptance: backend is source of truth for delivery; state survives refresh and cross-browser use; organization and identity mutations remain server-authorized.
 
 ## Phase 5 — Execution subsystem
 
