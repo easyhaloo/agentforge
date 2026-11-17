@@ -258,3 +258,34 @@ test("Ctrl+K opens the command palette and selecting a page navigates by URL", a
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
+
+test("selecting the page you are already on in the palette does not add a history entry", async ({ page }) => {
+  await installApiMocks(page);
+  await page.goto("/");
+  await sidebarLink(page, "Projects").click();
+  await expect(pageHeading(page)).toHaveText("Projects");
+  const dialog = page.getByRole("dialog", { name: "Jump to a page" });
+
+  await page.keyboard.press("Control+k");
+  await dialog.getByRole("textbox", { name: "Search pages" }).fill("Projects");
+  await dialog.getByRole("button", { name: /Projects/ }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(pageHeading(page)).toHaveText("Overview");
+});
+
+test("signing out while already on / does not add a history entry", async ({ page }) => {
+  await installApiMocks(page);
+  await page.goto("/");
+  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
+  const entries = () => page.evaluate(() => history.length);
+  const before = await entries();
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByText("You have signed out.")).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  expect(await entries()).toBe(before);
+});
