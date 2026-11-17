@@ -13,7 +13,8 @@ type ListFilter struct {
 	// Status matches the server-derived Changeset.Lifecycle().
 	Status Lifecycle
 	// Reviewer is a user id. It matches changesets whose CURRENT revision has a review assigned
-	// to that user, whatever its decision; reviews of older revisions never match.
+	// to that user, whatever its decision, except a review superseded by a newer assignment (stale);
+	// reviews of older revisions never match.
 	Reviewer string
 	// Query is a case-insensitive substring of the changeset id, title, repository or creator.
 	Query string
@@ -76,7 +77,7 @@ func (f ListFilter) matches(c *Changeset, query string) bool {
 
 func (c *Changeset) reviewAssignedTo(revisionID ID, reviewer string) bool {
 	for _, review := range c.Reviews {
-		if review.RevisionID == revisionID && review.Reviewer == reviewer {
+		if review.RevisionID == revisionID && review.Reviewer == reviewer && review.Status != ReviewStale {
 			return true
 		}
 	}

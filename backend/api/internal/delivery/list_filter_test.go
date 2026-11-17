@@ -256,6 +256,28 @@ func TestFilterAndPageReviewerOnlyMatchesReviewsOfTheCurrentRevision(t *testing.
 	}
 }
 
+// A new revision stales pending and approved reviews but leaves a rejection as history. That
+// rejection still belongs to the older revision, so only the current-revision rule keeps it out of
+// the filter.
+func TestFilterAndPageReviewerIgnoresRejectedReviewsOfOlderRevisions(t *testing.T) {
+	item := listFilterStored(t, listFilterSpec{id: "cs-old-rejection", repository: "org/api", title: "Old rejection", author: "gina", stage: LifecycleChangesRequested, reviewer: "bob"})
+	total := func(reviewer string) int {
+		t.Helper()
+		_, total := listFilterRun(t, []StoredChangeset{item}, ListFilter{Reviewer: reviewer}, 10, 0)
+		return total
+	}
+	if got := total("bob"); got != 1 {
+		t.Fatalf("bob's rejection of the current revision: total=%d, want 1", got)
+	}
+	listFilterMust(t, item.Changeset.AddGitRevision("rev-2", "feature", "0123456789012345678901234567890123456789", "base", "gina", listFilterEpoch))
+	if status := listFilterReviewByID(t, item.Changeset, "review-1").Status; status != ReviewRejected {
+		t.Fatalf("a new revision left the rejection %q, want it kept as history (rejected)", status)
+	}
+	if got := total("bob"); got != 0 {
+		t.Fatalf("bob's rejection of the older revision: total=%d, want 0", got)
+	}
+}
+
 // A review superseded by a newer assignment is stale: the reviewer no longer owes it, so it must not
 // keep the changeset in that reviewer's queue (reviewer=bob&status=in_review). Rejected and approved
 // reviews are decisions and keep matching.
