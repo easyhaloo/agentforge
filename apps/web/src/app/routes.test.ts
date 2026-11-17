@@ -62,6 +62,18 @@ describe("route table", () => {
   });
 });
 
+describe("error boundaries", () => {
+  it("gives the root layout its own fallback and keeps every page inside a boundary below it, so a failing page leaves the shell in place", () => {
+    expect(routes[0].errorElement, "root route fallback (errors thrown by the layout itself)").toBeTruthy();
+    for (const pathname of [...navigationItems.map((item) => itemHref(item, "demo")), "/nope"]) {
+      const matches = matchRoutes(routes, pathname);
+      expect(matches, pathname).not.toBeNull();
+      const boundary = matches!.findIndex((match, index) => index > 0 && match.route.errorElement);
+      expect(boundary, `${pathname} needs an errorElement route between the root layout and the page`).toBeGreaterThan(0);
+    }
+  });
+});
+
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
     const path = resolve(directory, entry);
