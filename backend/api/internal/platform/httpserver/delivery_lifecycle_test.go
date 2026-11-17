@@ -19,7 +19,7 @@ type lifecycleGit struct{}
 func (lifecycleGit) ResolveRevision(_ context.Context,_,_,ref string)(delivery.GitRevision,error){return delivery.GitRevision{Ref:ref,CommitSHA:"commit-"+ref,ParentSHA:"commit-base"},nil}
 func (lifecycleGit) MergeRevision(_ context.Context,_,_,_,target string)(delivery.GitMerge,error){return delivery.GitMerge{CommitSHA:"merge-commit",TargetRef:target},nil}
 type lifecycleEvaluator struct{}
-func (lifecycleEvaluator) Evaluate(context.Context,string,string,string,string)(delivery.EvaluationResult,error){return delivery.EvaluationResult{Passed:true,Summary:"checks passed",Report:[]byte(`{"checks":[{"name":"unit","passed":true}]}`)},nil}
+func (lifecycleEvaluator) Evaluate(_ context.Context,job delivery.EvaluationJob)(delivery.EvaluationResult,error){return delivery.EvaluationResult{JobID:job.ID,OrganizationID:job.OrganizationID,ChangesetID:job.ChangesetID,RevisionID:job.RevisionID,BaseSHA:job.BaseSHA,RevisionSHA:job.RevisionSHA,Passed:true,Summary:"checks passed",Report:[]byte(`{"checks":[{"name":"unit","passed":true}]}`)},nil}
 type lifecycleEvidence struct{}
 func (lifecycleEvidence) Put(context.Context,string,string,[]byte)(delivery.EvidenceArtifact,error){return delivery.EvidenceArtifact{URI:"file:///evidence/report.json",SHA256:"sha256-test",Size:42},nil}
 type lifecycleReviewers struct{}

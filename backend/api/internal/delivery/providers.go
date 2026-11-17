@@ -33,14 +33,30 @@ type GitMerge struct {
 	TargetRef string
 }
 
+type EvaluationJob struct {
+	ID             string
+	OrganizationID string
+	ChangesetID    ID
+	RevisionID     ID
+	Repository     string
+	BaseSHA        string
+	RevisionSHA    string
+}
+
 type Evaluator interface {
-	Evaluate(context.Context, string, string, string, string) (EvaluationResult, error)
+	Evaluate(context.Context, EvaluationJob) (EvaluationResult, error)
 }
 
 type EvaluationResult struct {
-	Passed bool
-	Summary string
-	Report []byte
+	JobID          string
+	OrganizationID string
+	ChangesetID    ID
+	RevisionID     ID
+	BaseSHA        string
+	RevisionSHA    string
+	Passed         bool
+	Summary        string
+	Report         []byte
 }
 
 type EvidenceStore interface {

@@ -19,9 +19,9 @@ type DockerEvaluator struct {
 	Timeout time.Duration
 }
 
-func (e DockerEvaluator) Evaluate(ctx context.Context,organizationID,repository,baseSHA,revisionSHA string)(EvaluationResult,error) {
+func (e DockerEvaluator) Evaluate(ctx context.Context,job EvaluationJob)(EvaluationResult,error) {
 	if e.Git==nil||strings.TrimSpace(e.Image)==""||strings.TrimSpace(e.Command)=="" {return EvaluationResult{},ErrProviderUnavailable}
-	path,err:=e.Git.repositoryPath(organizationID,repository);if err!=nil{return EvaluationResult{},err}
+	path,err:=e.Git.repositoryPath(job.OrganizationID,job.Repository);if err!=nil{return EvaluationResult{},err}
 	timeout:=e.Timeout;if timeout<=0{timeout=10*time.Minute}
 	runCtx,cancel:=context.WithTimeout(ctx,timeout);defer cancel()
 	args:=[]string{
@@ -32,13 +32,13 @@ func (e DockerEvaluator) Evaluate(ctx context.Context,organizationID,repository,
 		"--mount","type=bind,src="+path+",dst=/workspace,readonly",
 		"--workdir","/workspace",
 		"--env","HOME=/tmp","--env","GOCACHE=/tmp/go-cache","--env","GOMODCACHE=/tmp/go-mod-cache",
-		"--env","AGENTFORGE_BASE_SHA="+baseSHA,"--env","AGENTFORGE_REVISION_SHA="+revisionSHA,
+		"--env","AGENTFORGE_BASE_SHA="+job.BaseSHA,"--env","AGENTFORGE_REVISION_SHA="+job.RevisionSHA,
 		e.Image,"/bin/sh","-lc",e.Command,
 	}
 	command:=exec.CommandContext(runCtx,"docker",args...)
 	command.Env=[]string{"PATH="+os.Getenv("PATH"),"HOME="+os.TempDir()}
 	output,runErr:=command.CombinedOutput()
-	result:=EvaluationResult{Passed:runErr==nil,Summary:"Sandboxed repository validation passed"}
+	result:=EvaluationResult{JobID:job.ID,OrganizationID:job.OrganizationID,ChangesetID:job.ChangesetID,RevisionID:job.RevisionID,BaseSHA:job.BaseSHA,RevisionSHA:job.RevisionSHA,Passed:runErr==nil,Summary:"Sandboxed repository validation passed"}
 	if runErr!=nil {result.Summary="Sandboxed repository validation failed"}
 	result.Report,_=json.Marshal(struct{
 		Image string `json:"image"`
@@ -47,7 +47,7 @@ func (e DockerEvaluator) Evaluate(ctx context.Context,organizationID,repository,
 		RevisionSHA string `json:"revision_sha"`
 		Passed bool `json:"passed"`
 		Output string `json:"output"`
-	}{e.Image,e.Command,baseSHA,revisionSHA,result.Passed,strings.TrimSpace(string(output))})
+	}{e.Image,e.Command,job.BaseSHA,job.RevisionSHA,result.Passed,strings.TrimSpace(string(output))})
 	if runErr!=nil {return result,fmt.Errorf("%w: %s",ErrEvaluationFailed,strings.TrimSpace(string(output)))}
 	return result,nil
 }

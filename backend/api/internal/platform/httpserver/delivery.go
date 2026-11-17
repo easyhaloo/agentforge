@@ -247,9 +247,13 @@ func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Re
 	if baseRef=="" {writeProblem(w,409,"Repository not registered","Register this repository before evaluating changesets");return}
 	baseRevision,baseErr:=d.Git.ResolveRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,baseRef)
 	if baseErr!=nil {writeProblem(w,409,"Target branch unavailable","The registered default branch could not be resolved");return}
-	result,evalErr:=d.Evaluator.Evaluate(r.Context(),principal.OrganizationID,stored.Changeset.Repository,baseRevision.CommitSHA,revision.CommitSHA)
+	evaluationID,err:=newID();if err!=nil{writeProblem(w,500,"Unable to create evaluation job","An identifier could not be generated");return}
+	job:=delivery.EvaluationJob{ID:evaluationID,OrganizationID:principal.OrganizationID,ChangesetID:stored.Changeset.ID,RevisionID:revision.ID,Repository:stored.Changeset.Repository,BaseSHA:baseRevision.CommitSHA,RevisionSHA:revision.CommitSHA}
+	result,evalErr:=d.Evaluator.Evaluate(r.Context(),job)
+	if result.JobID!=job.ID||result.OrganizationID!=job.OrganizationID||result.ChangesetID!=job.ChangesetID||result.RevisionID!=job.RevisionID||result.BaseSHA!=job.BaseSHA||result.RevisionSHA!=job.RevisionSHA {
+		writeProblem(w,502,"Invalid evaluation result","The trusted evaluator returned a result that does not match the server-issued job identity and immutable revision");return
+	}
 	status:=delivery.EvaluationPassed;if evalErr!=nil||!result.Passed {status=delivery.EvaluationFailed}
-	evaluationID,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record evaluation","An identifier could not be generated");return}
 	if err=stored.Changeset.RecordEvaluationAgainstBase(delivery.ID(evaluationID),revision.ID,baseRevision.CommitSHA,status,result.Summary,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
 	if len(result.Report)>0 {
 		artifact,putErr:=d.Evidence.Put(r.Context(),principal.OrganizationID,string(stored.Changeset.ID),result.Report)
