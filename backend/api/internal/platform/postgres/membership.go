@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	ErrInvitationExists       = errors.New("a pending invitation already exists")
-	ErrInvitationNotFound     = errors.New("invitation is invalid or expired")
-	ErrInvitationEmailMismatch = errors.New("invitation email does not match verified account email")
-	ErrAlreadyMember          = errors.New("user is already an active organization member")
-	ErrOwnerProtected         = errors.New("organization owner cannot be changed or removed through membership management")
-	ErrMemberNotFound         = errors.New("organization member not found")
-	ErrMembershipDenied       = errors.New("membership operation is not permitted")
+	ErrInvitationExists = identity.ErrInvitationExists
+	ErrInvitationNotFound = identity.ErrInvitationNotFound
+	ErrInvitationEmailMismatch = identity.ErrInvitationEmailMismatch
+	ErrAlreadyMember = identity.ErrAlreadyMember
+	ErrOwnerProtected = identity.ErrOwnerProtected
+	ErrMemberNotFound = identity.ErrMemberNotFound
+	ErrMembershipDenied = identity.ErrMembershipDenied
 )
 
 func (s *Store) ListMembers(ctx context.Context, organizationID string) ([]identity.Member, error) {
@@ -138,6 +138,9 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, a
 	if err != nil {
 		return identity.Member{}, fmt.Errorf("load target membership: %w", err)
 	}
+	if previousRole == "owner" {
+		return identity.Member{}, ErrOwnerProtected
+	}
 	if !identity.CanChangeMember(actualActorRole, previousRole, nextRole) {
 		return identity.Member{}, ErrMembershipDenied
 	}
@@ -207,11 +210,11 @@ func (s *Store) RemoveMembership(ctx context.Context, organizationID, actorID, a
 	if err != nil {
 		return fmt.Errorf("load target membership: %w", err)
 	}
-	if !identity.CanRemoveMember(actualActorRole, targetRole) {
-		return ErrMembershipDenied
-	}
 	if targetRole == "owner" {
 		return ErrOwnerProtected
+	}
+	if !identity.CanRemoveMember(actualActorRole, targetRole) {
+		return ErrMembershipDenied
 	}
 	if err := insertMembershipEvent(ctx, tx, organizationID, actorID, targetUserID, "member.removed", "", targetRole, "", targetStatus, "removed"); err != nil {
 		return err
@@ -252,9 +255,10 @@ func (s *Store) AcceptInvitation(ctx context.Context, sessionToken, invitationTo
 	var invitationID, organizationID, invitedEmail, role string
 	err = tx.QueryRow(ctx, `
 		SELECT id, organization_id, email, role
-		FROM organization_invitations
-		WHERE token_hash = $1 AND expires_at > now()
-		  AND accepted_at IS NULL AND revoked_at IS NULL
+		FROM organization_invitations AS i
+		JOIN organizations AS o ON o.id = i.organization_id AND o.status = 'active'
+		WHERE i.token_hash = $1 AND i.expires_at > now()
+		  AND i.accepted_at IS NULL AND i.revoked_at IS NULL
 		FOR UPDATE
 	`, identity.HashToken(invitationToken)).Scan(&invitationID, &organizationID, &invitedEmail, &role)
 	if errors.Is(err, pgx.ErrNoRows) {
