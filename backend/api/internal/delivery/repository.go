@@ -24,6 +24,7 @@ type Repository interface {
 	Get(context.Context, string, ID) (StoredChangeset, error)
 	// List returns one page of the organization's changesets matching filter, newest first, and the
 	// number of matches before paging. Implementations reject limit outside 1-100 or a negative
-	// offset with ErrInvalidInput and share FilterAndPage so they cannot diverge.
+	// offset with ErrInvalidInput and must return exactly what FilterAndPage returns over all of
+	// the organization's changesets, whichever of that work they do in their own storage.
 	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]StoredChangeset, int, error)
 }

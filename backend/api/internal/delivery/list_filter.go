@@ -22,10 +22,12 @@ type ListFilter struct {
 // FilterAndPage applies filter to items, orders the matches by UpdatedAt descending then ID
 // ascending, and returns the requested page together with the number of matches before paging.
 //
-// It is the single implementation of list matching and paging, shared by every Repository, so
-// stores cannot diverge. Callers validate the page range; out-of-range input never panics: an
-// offset past the end or a non-positive limit gives an empty page, and a negative offset counts
-// as 0. The result is never nil and items is not modified.
+// It defines what a list returns: a Repository must return exactly this over all of the
+// organization's changesets. A store may do part of the work in its own storage only when a test
+// pins the equivalence (the PostgreSQL store pages in SQL when just the repository narrows the
+// list). Callers validate the page range; out-of-range input never panics: an offset past the end
+// or a non-positive limit gives an empty page, and a negative offset counts as 0. The result is
+// never nil and items is not modified.
 func FilterAndPage(items []StoredChangeset, filter ListFilter, limit, offset int) ([]StoredChangeset, int) {
 	query := strings.ToLower(strings.TrimSpace(filter.Query))
 	matched := make([]StoredChangeset, 0, len(items))

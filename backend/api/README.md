@@ -71,7 +71,7 @@ Every stored-changeset response (create, get, list and each mutation) carries a 
 
 `limit` (1-100, default 20) and `offset` apply after filtering, and `total` in the response is the number of matches before paging. Results are ordered by `updated_at` descending, then by id. Filtering never crosses organizations.
 
-Current limitation: the PostgreSQL store pushes only `repository` into SQL, then loads that organization's matching changesets and filters and pages them in Go, so a list request costs O(changesets per organization). Denormalizing the status and the current reviewers into indexed columns is the upgrade path.
+Current limitation: when `repository` is the only filter (or there is none) the PostgreSQL store orders, pages and counts in SQL, so a request transfers and decodes only the requested page. A request that filters by `status`, `reviewer` or `q` still loads and decodes every changeset of the organization (of the repository when one is given) and filters them in Go, so it costs O(changesets per organization). Denormalizing the status and the current reviewers into indexed columns is the upgrade path.
 
 ### Local Git provider layout
 
