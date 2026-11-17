@@ -1,4 +1,5 @@
 import { GitBranch, GitCommitHorizontal } from "lucide-react";
+import { Button } from "../../../shared/ui";
 
 type Props = { trailDone: boolean; stackBase: string; approved: boolean; onMerge: () => void };
 
@@ -8,7 +9,7 @@ export function TrailSummary({ trailDone, stackBase, approved, onMerge }: Props)
     <div className="trail-summary">
       <div><b>STK-018 · Auth service rollout</b><small>3 changesets · base {stackBase}</small></div>
       <div><b>TRL-042 · Migrate authentication API</b><small>{trailDone ? "6/6 changesets completed" : "4/6 changesets · waiting on this changeset"}</small></div>
-      <button className="button primary compact" disabled={!approved} onClick={onMerge}><GitCommitHorizontal size={14} /> Merge & complete Trail</button>
+      <Button variant="primary" size="small" className="compact" disabled={!approved} onClick={onMerge}><GitCommitHorizontal size={14} /> Merge & complete Trail</Button>
     </div>
   </div>;
 }
