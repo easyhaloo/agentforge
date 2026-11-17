@@ -86,3 +86,40 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 - `Switch` is a checkbox with `role="switch"`; use it for immediate on/off preferences, not for a choice that requires a separate form submission.
 
 All controls preserve native form behavior and accept standard input attributes such as `name`, `required`, `disabled` and `autoComplete`. Validation remains owned by the containing form; these components display supplied error text but do not impose a validation library.
+
+### DataTable filters, column visibility and bulk actions
+
+`DataTable` can optionally show a column chooser, filter row and selection toolbar:
+
+```tsx
+<DataTable
+  columns={[
+    {
+      key: "status",
+      title: "Status",
+      filterOptions: [
+        { label: "Healthy", value: "healthy" },
+        { label: "Pending", value: "pending" },
+      ],
+    },
+  ]}
+  data={rows}
+  rowKey="id"
+  filterMode="server"
+  filters={filters}
+  onFilterChange={(next) => {
+    setFilters(next);
+    setPage(1);
+    // Fetch the next page using the new filters.
+  }}
+  selectedRowKeys={selectedKeys}
+  onSelectionChange={setSelectedKeys}
+  bulkActions={<Button onClick={archiveSelected}>Archive selected</Button>}
+/>
+```
+
+- `filterOptions` enables a native select filter for a column. The default `filterMode="client"` filters the supplied rows by exact value; use `filterMode="server"` with `filters/onFilterChange` when the API owns filtering and pagination.
+- `visibleColumnKeys/onVisibleColumnsChange` control visible columns. Without them, the table manages visibility internally. The built-in chooser keeps at least one data column visible.
+- `bulkActions` renders only while at least one row is selected. The caller owns the action, authorization, confirmation and mutation lifecycle.
+- Select-all applies to the rows currently supplied to the table (normally the current page), not every record on the server.
+- Virtual scrolling is not included yet. Prefer server pagination for large datasets until a measured performance requirement justifies a virtualization dependency.
