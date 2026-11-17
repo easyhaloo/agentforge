@@ -26,7 +26,6 @@ export {
   type DataTableColumn,
   type DataTableFilterOption,
   type DataTablePagination,
-  type DataTableProps,
   type DrawerProps,
   type AsyncSelectOption,
 } from "./components";
