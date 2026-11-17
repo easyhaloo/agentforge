@@ -59,3 +59,15 @@ func TestReadinessRequiresDatabaseAndIdentity(t *testing.T) {
 	}
 
 }
+
+func TestOIDCRoutesFailClosedWhenProviderIsNotConfigured(t *testing.T) {
+	handler := NewHandler()
+	for _, path := range []string{"/auth/oidc/login", "/auth/oidc/callback"} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("%s status=%d, want 503", path, response.Code)
+		}
+	}
+}
