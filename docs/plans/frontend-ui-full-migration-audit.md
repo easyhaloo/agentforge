@@ -16,9 +16,9 @@
 
 ## 2. 仓库基线盘点
 
-基线提交 `9f25cd8216d944d92582e72ca2adf2c6df6984d5` 的 `apps/web/src` 包含：
+基线审计最初提交 `9f25cd8216d944d92582e72ca2adf2c6df6984d5` 的 `apps/web/src` 为 82 个文件；在 PR #52、#53、#54 合并后的当前 `main`（`ab9b3358f396bc822f00f3ce875ce7a2b656cca9`）复盘为：
 
-- 82 个源文件：32 个 TSX、46 个 TS、3 个 CSS（其余为入口/样式相关文件统计口径以树清单为准）。
+- 84 个源文件：28 个 TSX、48 个 TS、3 个 CSS，其余为其他源码/声明文件。统计范围为 `apps/web/src` 下全部 blob 文件；共享 UI 实现文件包含在源文件总数中，页面 TSX 审计时单独排除 `shared/ui`。
 - 共享 UI 位于 `src/shared/ui`，已有 Button、Input、Select、TextArea、PasswordInput、NumberInput、Checkbox、RadioGroup、Switch、Form、FormItem、DatePicker、DateRangePicker、SearchInput、AsyncSelect、Modal、Drawer、ConfirmDialog、Popover、DataTable、Alert、Empty、Loading、Skeleton、NotificationProvider 等能力。
 - 已完成的页面迁移包括 CreateChangesetDialog、CommandPalette、Overview RecentChangesets/SelectedChangesetPanel、资源列表与 Inspector、DeliveryWorkspace 的主要输入和操作、反馈组件等。
 - 前端脚本提供 `npm run build`（含 TypeScript 检查和 Vite build）及 `npm run test`（Vitest）。
@@ -27,7 +27,7 @@
 
 | 区域 | 主要文件 | 基线判断 | 后续工作 |
 |---|---|---|---|
-| 应用壳与导航 | `app/App.tsx`、`app/components/PageHeader.tsx`、`Sidebar.tsx`、`Topbar.tsx`、`Toast.tsx` | 仍有自定义按钮、通知状态和全局快捷键编排 | 统一 Button/IconButton、通知服务和可访问性；保留导航语义 |
+| 应用壳与导航 | `app/App.tsx`、`app/components/PageHeader.tsx`、`Sidebar.tsx`、`Topbar.tsx`、`Toast.tsx` | PR #52 已迁移头部/侧栏/顶栏操作；PR #53 已统一通知并移除 Toast；认证状态 Retry、组织选择和账户操作继续由 PR #57 补齐 | 以 PR #57 为当前实现，核验键盘、无障碍和组织切换行为 |
 | 应用弹层 | `CreateChangesetDialog.tsx`、`CommandPalette.tsx` | 已迁移到 Modal/Input/Button | 回归焦点、键盘和关闭行为 |
 | Overview | `pages/overview/ui/*` | 部分已迁移；RecentChangesets 和 SelectedChangesetPanel 已使用共享组件 | 审计 ActivityFeed、Metrics、Chart、页面级操作和表格；消除旧实现 |
 | 旧 Overview 实现 | `features/overview/OverviewPage.tsx` | 与 `pages/overview/ui/OverviewPage.tsx` 存在重复实现迹象，当前 App 使用 pages 入口 | 确认引用关系；删除无用重复代码或统一到正式页面，避免双重维护 |
@@ -94,7 +94,7 @@
 |---|---|---|
 | 2026-11-17 | 确认 PR #49 CommandPalette 迁移已合并，CI 成功 | 完成 |
 | 2026-11-17 | 完成 `apps/web/src` 文件盘点并建立 82 文件/32 TSX 审计基线 | 完成 |
-| 2026-11-17 | 全量迁移矩阵、静态审计规则和验收门槛 | 本文档 |
-| 待执行 | 应用壳与全局通知迁移 | 未开始 |
-| 待执行 | Overview/Delivery/Resources 全量迁移与重复实现清理 | 未开始 |
+| 2026-11-17 | 全量迁移矩阵、静态审计规则和验收门槛 | 已合并（PR #51） |
+| 2026-11-17 | 应用壳按钮迁移与通知统一 | 已合并（PR #52、#53） |\n| 2026-11-17 | Overview 重复实现清理 | 已合并（PR #54） |\n| 2026-11-17 | 全仓 TSX 控件扫描：28 个 TSX 文件；非共享 UI 页面中，剩余通用原生按钮/输入/选择器集中在 App、Changesets、Organization | 扫描完成，PR #57 正在处理 |\n| 2026-11-17 | 当前业务控件迁移：App、Sidebar、PageHeader、Topbar、Changesets、Organization | PR #57 已提交，待 CI 验证 |\n| 待执行 | 共享 UI 内部组件、Modal/Drawer/Popover 行为和可访问性专项测试 | 未开始 |
+| 待执行 | Overview/Delivery/Resources 交互行为、重复样式和例外项复核 | 未开始 |
 | 待执行 | 样式清理、测试补齐与全仓验收 | 未开始 |
