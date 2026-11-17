@@ -19,6 +19,9 @@ Export the API configuration (copy `.env.example` values into your shell; the Go
 export PORT=8080
 export DATABASE_URL='postgres://agentforge:agentforge@localhost:5432/agentforge?sslmode=disable'
 export APP_ORIGIN='http://localhost:5173'
+# Provision local Git repositories under $GIT_REPOSITORY_ROOT/<org-id>/<owner>/<repo>.
+export GIT_REPOSITORY_ROOT='/var/lib/agentforge/git'
+export EVIDENCE_ROOT='/var/lib/agentforge/evidence'
 go run ./cmd/server
 ```
 
@@ -29,15 +32,34 @@ The server validates `PORT`, `DATABASE_URL`, and the exact `APP_ORIGIN` at start
 - `GET /healthz` reports process health.
 - `GET /readyz` reports database, identity, CSRF, and application-origin readiness. It currently returns `503` until all trusted dependencies are configured.
 
-## Delivery API availability
+## Complete Changeset lifecycle
 
-Delivery routes are organization-scoped:
+The delivery control plane exposes an organization-scoped lifecycle:
 
-`/api/v1/organizations/{organizationID}/changesets`
+1. **Repository metadata** — Owners and administrators register an already-provisioned Git repository and default branch. The API verifies that the branch resolves under the configured local Git root before persisting metadata.
+2. **Revision** — The API resolves a branch, tag, or commit to an immutable commit SHA. A new revision invalidates prior revision evidence and review approvals.
+3. **Evaluation** — Clients cannot submit a passing result. The server runs the trusted Git diff integrity evaluator and persists its outcome and report.
+4. **Evidence** — Passing evaluation reports are written to content-addressed storage. Evidence metadata records the SHA-256 digest, byte size, evaluation, and revision.
+5. **Review** — A review can be assigned only to an active member of the same organization and never to the changeset author. Only the assigned reviewer can approve or reject it.
+6. **Merge** — The server revalidates current passing evaluation, active evidence, and approved review, then performs a no-fast-forward Git merge and persists the actual merge commit SHA.
+7. **Audit and verification** — Each domain transition is appended to the changeset audit trail; PostgreSQL optimistic versions prevent stale state updates, and API/integration tests exercise the complete lifecycle.
 
-The PostgreSQL store now implements session resolution against the hashed session token, expiry, revocation, active organization membership, and active organization state. State-changing API requests additionally require the exact configured `APP_ORIGIN`, matching CSRF cookie/header values, and a CSRF hash bound to the same active session. Session tokens and CSRF tokens are stored only as SHA-256 hashes. The server wires CSRF and CORS protection, but intentionally does not wire the session resolver until OIDC login/callback can create trusted sessions. Protected delivery routes therefore remain unavailable to end users. Do not add a development actor or bypass this boundary.
+### Local Git provider layout
 
-Session creation, resolution, CSRF validation, and revocation storage primitives are available for the upcoming OIDC callback and logout endpoints. Revision creation, evaluation, evidence attachment, and review operations also remain unavailable until their trusted provider/worker adapters are implemented.
+The current provider is a local Git adapter (the provider interface is intentionally independent of Git hosting vendor APIs). An operator provisions repositories using this layout:
+
+```text
+$GIT_REPOSITORY_ROOT/
+  <organization-id>/
+    <owner>/
+      <repository>/
+```
+
+Repositories must be initialized and contain their default branch before registration. The API does not clone arbitrary URLs, accept filesystem paths from callers, or run repository hooks. Path traversal and symlink escapes are rejected. The local adapter performs Git ref resolution and no-fast-forward merges; the evaluator currently runs `git diff --check` and does not claim to run the repository's full test suite. A production CI/evaluation runner and remote GitHub/GitLab provider can be added behind the same interfaces without allowing clients to assert results.
+
+Set both `GIT_REPOSITORY_ROOT` and `EVIDENCE_ROOT` to enable the complete lifecycle. If either is absent, the related routes return `503`; the API never fabricates a revision, evaluation, evidence artifact, review, or merge. Evidence files are stored with restrictive permissions and referenced by opaque content-addressed artifact URIs rather than exposing filesystem paths.
+
+The PostgreSQL store owns organization-scoped changesets and repository metadata. Every state update uses an expected version; a concurrent update returns `409` and must be reloaded. The API enforces session identity, active organization membership, role checks, exact Origin, and session-bound CSRF for all writes.
 
 ## OIDC authentication
 
