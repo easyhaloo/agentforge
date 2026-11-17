@@ -2,17 +2,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   Button,
-  Checkbox,
   DataTable,
   DatePicker,
   Input,
   Modal,
   Popover,
-  RadioGroup,
   Select,
-  Switch,
-  TextArea,
 } from "./index";
+import { Checkbox, RadioGroup, Switch, TextArea } from "./form-controls";
 import { Alert, Empty, Loading, Skeleton, NotificationProvider } from "./feedback";
 
 describe("shared UI primitives", () => {
