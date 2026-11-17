@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"testing"
 	"time"
-
-	
 )
 
 type oidcTestRepository struct {
