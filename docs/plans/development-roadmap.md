@@ -40,14 +40,12 @@ Implemented and merged:
 - Moved the React/Vite application into `apps/web` and introduced root npm workspace scripts.
 - Retained the latest `main` resource-record models, resource workspace behavior, and Worker entrypoint while relocating the frontend.
 - Configured Wrangler Worker Static Assets to serve `apps/web/dist`.
-- Added path-aware CI for frontend tests/build and Worker dry-run, Go tests/build, and OpenAPI lint.
+- Added path-aware CI for frontend tests/build, Go tests/build, and OpenAPI lint. Cloudflare production deployment is handled by Cloudflare Workers Builds, outside GitHub Actions CI.
 
 Remaining:
-- Generate and commit a reproducible npm lockfile.
-- Verify Cloudflare Workers Builds against the actual production project settings; Wrangler dry-run is not a production deployment.
 - Add local development environment examples and complete API configuration validation.
 
-Acceptance: frontend behavior is preserved; web, API and contract CI checks pass; Worker packaging is valid; no Pages deploy workflow, duplicate production deploy path or committed secrets.
+Acceptance: frontend behavior is preserved; web, API and contract CI checks pass; Cloudflare Workers Builds remains the sole frontend production deployment path; no Pages deploy workflow, duplicate production deploy path or committed secrets.
 
 ## Phase 2 — Backend platform and persistence
 
