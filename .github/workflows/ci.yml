@@ -78,7 +78,8 @@ jobs:
           cache-dependency-path: backend/api/go.mod
       # Resolve and checksum modules before tests. This also initializes go.sum
       # for repositories that do not yet commit a checksum file.
-      - run: go mod download
+      # Generate the complete module graph and checksums before compiling packages.
+      - run: go mod tidy
       - run: go test ./...
       - run: go build ./cmd/server
 
