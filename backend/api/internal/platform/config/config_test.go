@@ -74,3 +74,25 @@ func TestLoadOIDCConfiguration(t *testing.T) {
 		t.Fatalf("loopback development config ttl=%s err=%v", ttl, err)
 	}
 }
+
+func TestLoadFromEnvValidatesSandboxEvaluatorConfiguration(t *testing.T) {
+	t.Setenv("PORT","8080")
+	t.Setenv("DATABASE_URL","postgres://agentforge:agentforge@localhost:5432/agentforge?sslmode=disable")
+	t.Setenv("APP_ORIGIN","http://localhost:5173")
+	t.Setenv("OIDC_ISSUER_URL","")
+	t.Setenv("OIDC_CLIENT_ID","")
+	t.Setenv("OIDC_CLIENT_SECRET","")
+	t.Setenv("OIDC_REDIRECT_URL","")
+	t.Setenv("SESSION_TTL","")
+	t.Setenv("GIT_REPOSITORY_ROOT","")
+	t.Setenv("EVIDENCE_ROOT","")
+	t.Setenv("EVALUATION_DOCKER_IMAGE","ghcr.io/example/evaluator:latest")
+	t.Setenv("EVALUATION_COMMAND","go test ./...")
+	if _,err:=LoadFromEnv();err==nil {t.Fatal("mutable evaluator image tags must be rejected")}
+	t.Setenv("EVALUATION_DOCKER_IMAGE","")
+	if _,err:=LoadFromEnv();err==nil {t.Fatal("partial evaluator configuration must be rejected")}
+	t.Setenv("EVALUATION_DOCKER_IMAGE","ghcr.io/example/evaluator@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	configuration,err:=LoadFromEnv()
+	if err!=nil {t.Fatal(err)}
+	if configuration.EvaluationDockerImage==""||configuration.EvaluationCommand!="go test ./..." {t.Fatalf("evaluation configuration=%#v",configuration)}
+}
