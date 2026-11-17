@@ -104,10 +104,11 @@ Implemented:
 - Organization member list, role/status update, suspension/reactivation and removal UI.
 - Invitation creation, one-time URL display/copy, listing and revocation UI.
 - Membership audit history UI and role-aware management affordances.
+- Changesets page now reads and creates organization-scoped records through PostgreSQL-backed APIs; the list displays persisted IDs, repository, status summary, revision count and storage version.
 - Explicit signed-out, unauthorized and API-unavailable states; session revocation on sign-out.
 
 Remaining:
-- Replace delivery workflow fixtures/LocalStorage with Changeset, Revision, Evaluation, Evidence, Review and merge APIs as those backend adapters become available.
+- Replace the remaining delivery workflow fixtures/LocalStorage with Revision, Evaluation, Evidence, Review and merge APIs. The current backend exposes persistent Changeset create/list/get, but Git-provider revision creation and trusted evaluation/evidence/review/merge adapters are not yet implemented (those routes fail closed with 501).
 - Add SSE progress subscriptions after durable execution events exist.
 - Add end-to-end browser tests against a configured OIDC provider and PostgreSQL environment.
 
