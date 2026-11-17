@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strconv"
@@ -38,4 +39,53 @@ func TestPostgresCurrentAccountListsOnlyActiveOrganizations(t *testing.T) {
 	if _,err:=store.CurrentAccount(ctx,"invalid"); !errors.Is(err,identity.ErrUnauthenticated) { t.Fatalf("invalid session error=%v",err) }
 	if err:=store.RevokeSession(ctx,token); err!=nil { t.Fatal(err) }
 	if _,err:=store.CurrentAccount(ctx,token); !errors.Is(err,identity.ErrUnauthenticated) { t.Fatalf("revoked session error=%v",err) }
+}
+
+func TestPostgresCurrentAccountReturnsOrganizationSlugWithIDFallback(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	user := "slug-account-user-" + suffix
+	// Organizations are listed by name, then id; a name equal to the id puts "a" before "b".
+	withSlug, withoutSlug := "slug-acct-a-"+suffix, "slug-acct-b-"+suffix
+	slug := "acct-handle-" + suffix
+	slugInsertUser(t, ctx, store, user)
+	slugInsertOrganization(t, ctx, store, withSlug, slug, "active")
+	slugInsertOrganization(t, ctx, store, withoutSlug, "", "active")
+	slugInsertMember(t, ctx, store, withSlug, user, "owner", "active")
+	slugInsertMember(t, ctx, store, withoutSlug, user, "member", "active")
+	_, token := slugNewSession(t, ctx, store, user)
+
+	account, err := store.CurrentAccount(ctx, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check the wire shape that GET /api/v1/me serves, not only the Go struct.
+	encoded, err := json.Marshal(account)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire struct {
+		Organizations []map[string]any `json:"organizations"`
+	}
+	if err := json.Unmarshal(encoded, &wire); err != nil {
+		t.Fatal(err)
+	}
+	want := []map[string]any{
+		{"id": withSlug, "name": withSlug, "role": "owner", "slug": slug},
+		// A NULL slug falls back to the id, so every organization always has a handle.
+		{"id": withoutSlug, "name": withoutSlug, "role": "member", "slug": withoutSlug},
+	}
+	if len(wire.Organizations) != len(want) {
+		t.Fatalf("organizations = %v, want %v", wire.Organizations, want)
+	}
+	for index := range want {
+		for key, value := range want[index] {
+			if wire.Organizations[index][key] != value {
+				t.Errorf("organizations[%d][%q] = %v, want %v (organization %v)", index, key, wire.Organizations[index][key], value, wire.Organizations[index])
+			}
+		}
+		if len(wire.Organizations[index]) != len(want[index]) {
+			t.Errorf("organizations[%d] = %v, want exactly the keys of %v", index, wire.Organizations[index], want[index])
+		}
+	}
 }
