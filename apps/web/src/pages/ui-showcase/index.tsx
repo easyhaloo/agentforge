@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   AsyncSelect,
   Button,
+  Checkbox,
   ConfirmDialog,
   DataTable,
   DatePicker,
@@ -11,9 +12,14 @@ import {
   FormItem,
   Input,
   Modal,
+  NumberInput,
+  PasswordInput,
   Popover,
+  RadioGroup,
   SearchInput,
   Select,
+  Switch,
+  TextArea,
   type DataTableColumn,
   type SelectOption,
 } from "@/shared/ui";
@@ -49,6 +55,11 @@ export function UIShowcasePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [team, setTeam] = useState("");
+  const [password, setPassword] = useState("agentforge-secret");
+  const [replicas, setReplicas] = useState(3);
+  const [notifications, setNotifications] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [accessLevel, setAccessLevel] = useState("maintainer");
   const [selectedRows, setSelectedRows] = useState<Array<string | number>>([]);
   const [rows] = useState(initialRows);
   const [sortMessage, setSortMessage] = useState("No sort applied");
@@ -84,6 +95,26 @@ export function UIShowcasePage() {
             <FormItem><AsyncSelect value={team} onChange={setTeam} loadOptions={loadTeamOptions} placeholder="Find a team..." /></FormItem>
           </Form>
           <div className="af-showcase-card"><h4>Search</h4><p>Debounced search with immediate Enter submission.</p><SearchInput value={search} onChange={setSearch} onSearch={setSearchResult} placeholder="Search projects..." /><div className="af-showcase-result">Last submitted query: <b>{searchResult || "—"}</b></div></div>
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <div className="af-showcase-section__heading"><div><h3>Extended form controls</h3><p>Accessible password, numeric, multiline, choice and toggle inputs.</p></div></div>
+        <div className="af-showcase-grid">
+          <Form>
+            <FormItem><TextArea label="Description" rows={3} defaultValue="A reusable workspace for agent-driven development." hint="Keep descriptions concise and actionable." /></FormItem>
+            <FormItem><PasswordInput label="API token" value={password} onChange={(event) => setPassword(event.target.value)} hint="Visibility can be toggled without changing the value." autoComplete="new-password" /></FormItem>
+            <FormItem><NumberInput label="Worker replicas" min={1} max={20} step={1} value={replicas} onChange={(event) => setReplicas(Number(event.target.value))} /></FormItem>
+            <FormItem><Checkbox label="I accept the workspace policy" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} /></FormItem>
+          </Form>
+          <div className="af-showcase-card">
+            <h4>Choice and preferences</h4>
+            <p>Controlled radio group and accessible switch.</p>
+            <RadioGroup label="Default access level" name="showcase-access" direction="vertical" value={accessLevel} onChange={setAccessLevel} options={[{ label: "Viewer", value: "viewer" }, { label: "Maintainer", value: "maintainer" }, { label: "Administrator", value: "admin" }]} />
+            <div className="af-showcase-result"><b>{accessLevel}</b> access selected</div>
+            <Switch label="Release notifications" description="Receive updates when a release changes state." checked={notifications} onChange={(event) => setNotifications(event.target.checked)} />
+            <div className="af-showcase-result">Notifications: <b>{notifications ? "Enabled" : "Disabled"}</b> · Replicas: <b>{replicas || 0}</b></div>
+          </div>
         </div>
       </section>
 
