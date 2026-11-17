@@ -7,16 +7,42 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
+
+type OIDCConfig struct {
+	IssuerURL    string
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+}
 
 type Config struct {
 	Port        string
 	DatabaseURL string
 	AppOrigin   string
+	OIDC        *OIDCConfig
+	SessionTTL  time.Duration
 }
 
 func LoadFromEnv() (Config, error) {
-	return load(os.Getenv("PORT"), os.Getenv("DATABASE_URL"), os.Getenv("APP_ORIGIN"))
+	configuration, err := load(os.Getenv("PORT"), os.Getenv("DATABASE_URL"), os.Getenv("APP_ORIGIN"))
+	if err != nil {
+		return Config{}, err
+	}
+	oidcConfig, sessionTTL, err := loadOIDC(
+		os.Getenv("OIDC_ISSUER_URL"),
+		os.Getenv("OIDC_CLIENT_ID"),
+		os.Getenv("OIDC_CLIENT_SECRET"),
+		os.Getenv("OIDC_REDIRECT_URL"),
+		os.Getenv("SESSION_TTL"),
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	configuration.OIDC = oidcConfig
+	configuration.SessionTTL = sessionTTL
+	return configuration, nil
 }
 
 func load(port, databaseURL, appOrigin string) (Config, error) {
@@ -51,4 +77,60 @@ func load(port, databaseURL, appOrigin string) (Config, error) {
 		}
 	}
 	return Config{Port: port, DatabaseURL: databaseURL, AppOrigin: appOrigin}, nil
+}
+
+func loadOIDC(issuerURL, clientID, clientSecret, redirectURL, sessionTTL string) (*OIDCConfig, time.Duration, error) {
+	values := []string{issuerURL, clientID, clientSecret, redirectURL}
+	configured := 0
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			configured++
+		}
+	}
+	if configured == 0 {
+		if strings.TrimSpace(sessionTTL) != "" {
+			return nil, 0, errors.New("SESSION_TTL requires complete OIDC configuration")
+		}
+		return nil, 12 * time.Hour, nil
+	}
+	if configured != len(values) {
+		return nil, 0, errors.New("OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and OIDC_REDIRECT_URL must be configured together")
+	}
+
+	issuerURL = strings.TrimSpace(issuerURL)
+	issuer, err := url.Parse(issuerURL)
+	if err != nil || (issuer.Scheme != "https" && issuer.Scheme != "http") ||
+		issuer.Host == "" || issuer.User != nil || issuer.RawQuery != "" || issuer.Fragment != "" {
+		return nil, 0, errors.New("OIDC_ISSUER_URL must be an absolute issuer URL without query or fragment")
+	}
+	if issuer.Scheme == "http" {
+		ip := net.ParseIP(issuer.Hostname())
+		if issuer.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
+			return nil, 0, errors.New("OIDC_ISSUER_URL must use HTTPS outside loopback development")
+		}
+	}
+
+	redirect, err := url.Parse(strings.TrimSpace(redirectURL))
+	if err != nil || (redirect.Scheme != "https" && redirect.Scheme != "http") ||
+		redirect.Host == "" || redirect.User != nil || redirect.Fragment != "" {
+		return nil, 0, errors.New("OIDC_REDIRECT_URL must be an absolute HTTP(S) callback URL")
+	}
+	if redirect.Scheme == "http" {
+		ip := net.ParseIP(redirect.Hostname())
+		if redirect.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
+			return nil, 0, errors.New("OIDC_REDIRECT_URL must use HTTPS outside loopback development")
+		}
+	}
+
+	ttl := 12 * time.Hour
+	if strings.TrimSpace(sessionTTL) != "" {
+		ttl, err = time.ParseDuration(strings.TrimSpace(sessionTTL))
+		if err != nil || ttl < 5*time.Minute || ttl > 7*24*time.Hour {
+			return nil, 0, errors.New("SESSION_TTL must be between 5m and 168h")
+		}
+	}
+	return &OIDCConfig{
+		IssuerURL: issuerURL, ClientID: strings.TrimSpace(clientID),
+		ClientSecret: clientSecret, RedirectURL: redirect.String(),
+	}, ttl, nil
 }
