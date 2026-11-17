@@ -60,7 +60,7 @@ Every stored-changeset response (create, get, list and each mutation) carries a 
 | `ready_to_merge` | The latest review of the current revision is approved |
 | `merged` | A merge has been recorded |
 
-`status` is for display and filtering. `POST .../merge` revalidates the merge gate itself and stays the authority on whether a merge is allowed.
+`status` is for display and filtering, not an authorization: `ready_to_merge` means the lifecycle gates recorded for the current revision are satisfied, but `POST .../merge` re-validates the current target branch and review state when it runs and can still refuse with 409 or 422, so clients must treat merge as a command that can fail and show the server's reason.
 
 `GET /api/v1/organizations/{organizationID}/changesets` accepts these optional filters, combined with AND:
 

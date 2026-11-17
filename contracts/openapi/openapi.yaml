@@ -354,6 +354,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ChangesetPage" }
         "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createChangeset
@@ -819,7 +822,7 @@ components:
         status:
           type: string
           enum: [draft, evaluation_pending, evaluation_failed, evidence_required, review_required, in_review, changes_requested, ready_to_merge, merged]
-          description: Overall state derived by the server from the current revision only. Evaluations, evidence and reviews of older revisions never count. Clients display it and must not derive it.
+          description: Overall state derived by the server from the current revision only. Evaluations, evidence and reviews of older revisions never count. Clients display it and must not derive it. `ready_to_merge` means the lifecycle gates recorded for the current revision are satisfied. It does not guarantee that a merge will succeed, because the merge endpoint re-validates the current target branch and review state when it runs and can refuse with 409 or 422. Clients must treat merge as a command that can fail and show the server's reason.
         version: { type: integer, minimum: 1 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
