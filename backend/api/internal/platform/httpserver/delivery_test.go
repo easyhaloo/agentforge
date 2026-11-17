@@ -199,6 +199,9 @@ type fakeMembershipRepository struct {
 	updatedRole string
 	updatedStatus string
 	removedUser string
+	invitations []identity.OrganizationInvitation
+	audit []identity.MembershipAuditEvent
+	createdTokenHash string
 }
 
 func (f *fakeMembershipRepository) ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error) {
@@ -214,6 +217,14 @@ func (f *fakeMembershipRepository) RemoveMembership(_ context.Context, _, _, use
 	f.removedUser = userID
 	return nil
 }
+func (f *fakeMembershipRepository) CreateInvitation(_ context.Context, org, actor, email, role, tokenHash string, expires time.Time) (identity.OrganizationInvitation,error) {
+	f.createdTokenHash=tokenHash
+	return identity.OrganizationInvitation{ID:"invite-1",Email:email,Role:role,Status:"pending",InvitedBy:actor,ExpiresAt:expires},nil
+}
+func (f *fakeMembershipRepository) ListInvitations(context.Context,string,int,int) ([]identity.OrganizationInvitation,error) { return f.invitations,nil }
+func (f *fakeMembershipRepository) RevokeInvitation(context.Context,string,string,string) error { return nil }
+func (f *fakeMembershipRepository) ListMembershipAudit(context.Context,string,int,int) ([]identity.MembershipAuditEvent,error) { return f.audit,nil }
+
 
 func TestOrganizationMemberManagementRequiresAdminRole(t *testing.T) {
 	for _, role := range []string{"member", "viewer"} {
