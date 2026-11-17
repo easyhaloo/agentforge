@@ -1,4 +1,5 @@
 import { CheckCircle2, GitPullRequest } from "lucide-react";
+import { Button } from "../../../shared/ui";
 import { canApproveRevision } from "../../../domain/delivery";
 import type { RevisionId } from "../../../entities";
 import type { Evaluation, ReviewView } from "../model";
@@ -22,8 +23,8 @@ export function ReviewDecision({ currentRevisionId, latestEvaluation, reviews, o
       <strong>{review.decision}</strong>
     </div>)}
     <div className="flow-actions review-actions">
-      <button className="button secondary compact" disabled={!canReview} onClick={() => onDecide("Changes requested")}>Request changes</button>
-      <button className="button primary compact" disabled={!canReview} onClick={() => onDecide("Approved")}><CheckCircle2 size={14} /> Approve revision</button>
+      <Button variant="secondary" size="small" className="compact" disabled={!canReview} onClick={() => onDecide("Changes requested")}>Request changes</Button>
+      <Button variant="primary" size="small" className="compact" disabled={!canReview} onClick={() => onDecide("Approved")}><CheckCircle2 size={14} /> Approve revision</Button>
     </div>
   </div>;
 }
