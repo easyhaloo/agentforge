@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import { Button } from "../../../shared/ui";
 import { overviewActivity } from "../data/overviewData";
 
 type Props = {
@@ -13,9 +14,9 @@ export function ActivityFeed({ onNavigate }: Props) {
           <h3>Activity stream</h3>
           <p>Latest events across your workspace</p>
         </div>
-        <button className="link-button" type="button" onClick={() => onNavigate("Trails")}>
+        <Button variant="ghost" size="small" onClick={() => onNavigate("Trails")}>
           View all <ArrowRight size={14} />
-        </button>
+        </Button>
       </div>
       {overviewActivity.map((event) => (
         <div className="activity-row" key={event.title}>
