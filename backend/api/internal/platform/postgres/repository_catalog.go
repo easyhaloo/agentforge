@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -49,4 +48,3 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 }
 
 var _ delivery.RepositoryCatalog=(*Store)(nil)
-var _ = pgx.ErrNoRows
