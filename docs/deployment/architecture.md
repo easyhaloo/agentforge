@@ -2,63 +2,39 @@
 
 ## Current frontend deployment
 
-The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Pages project. It serves the React/Vite build output as Worker Static Assets.
+The current Cloudflare project is a **Cloudflare Worker**, not Pages. It serves the Vite build as Worker Static Assets.
 
-- Worker name: `agentforge`
-- Production route: `https://agentforge.gangshusheng.workers.dev`
-- Frontend build command: `npm run build`
-- Build output: `dist/`
-- Wrangler deployment command: `npx wrangler deploy`
+- Worker: `agentforge`
+- Route: `https://agentforge.gangshusheng.workers.dev`
+- Workers Builds root directory: repository root (`/`)
+- Build command: `npm run build`
+- Build output: `apps/web/dist/`
+- Deploy command: `npx wrangler deploy`
+- Wrangler config: root `wrangler.jsonc`
 
-The repository should contain a Wrangler configuration that declares the static asset directory. Example:
-
-```jsonc
-{
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "agentforge",
-  "compatibility_date": "2026-11-17",
-  "assets": {
-    "directory": "./dist/",
-    "not_found_handling": "single-page-application"
-  }
-}
-```
-
-The actual compatibility date and configuration must be kept aligned with the installed Wrangler version and repository runtime policy.
+The root npm workspace installs dependencies and delegates frontend commands to `apps/web`. The root Wrangler config points static assets to `./apps/web/dist` and enables SPA fallback.
 
 ## Cloudflare Workers Builds
 
-For the existing Worker project, configure:
-
 | Setting | Value |
 | --- | --- |
-| Root directory | `/` while the frontend remains at repository root |
+| Root directory | `/` |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
 | Production branch | `main` |
 
-After the frontend is moved to `apps/web`, update the build configuration to install/build from that application and ensure Wrangler resolves the correct configuration and asset directory. Do not change the Cloudflare root/build settings until that migration is ready.
-
-Do not use `wrangler pages deploy` for this Worker.
+Do not switch the project to Pages or use `wrangler pages deploy`. GitHub CI success does not prove the Cloudflare dashboard deployment succeeded; verify that separately before considering production deployment validated.
 
 ## Backend deployment (target)
 
-The Go API is a separate service and is not part of the current frontend Worker deployment.
-
-- Build a Go binary or container from `backend/api`.
+The Go API is independent of the frontend Worker:
+- Build from `backend/api`.
 - Deploy to a Go/container-capable runtime.
-- Configure production PostgreSQL and object storage through server-side secrets.
-- Expose HTTPS API endpoint, health and readiness checks.
-- Configure frontend's public API base URL as non-secret build/runtime configuration.
-- Restrict CORS to intended frontend origins.
+- Configure PostgreSQL and object storage through server-side secrets.
+- Expose HTTPS API, health and readiness endpoints.
+- Configure public frontend API base URL and restrict CORS.
 - Keep database credentials, Git provider tokens and signing keys server-side.
 
 ## CI/CD ownership
 
-Use one production deployment mechanism per application:
-
-- Frontend: existing Cloudflare Workers Builds, or GitHub Actions with Wrangler after explicitly disabling Cloudflare Git/Workers Builds deployment. Do not run both for the same production branch.
-- Backend: GitHub Actions build/test plus deployment to the selected Go hosting provider.
-- Contracts: validate OpenAPI and ensure generated/checked frontend client is current.
-
-The existing Pages-specific workflow must not deploy to the current Worker project. Remove or replace it as part of CI/CD foundation work.
+Use one production deployment mechanism per application. Frontend remains on Cloudflare Workers Builds unless that integration is explicitly disabled before moving to GitHub Actions/Wrangler. Backend deploys independently. CI validates the OpenAPI contract. No workflow should run a Pages deployment command.
