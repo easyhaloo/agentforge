@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { AppAccountContext, type AccountState } from "./account-context";
@@ -15,7 +15,7 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const notify = useNotify();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const { org: urlHandle } = useParams();
   const matches = useMatches();
   const [account, setAccount] = useState<AccountContext | null>(null);
@@ -83,6 +83,10 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // The router serves /projects/ like /projects, but the sidebar highlights only the exact path (NavLink `end`), so
+  // trailing slashes are removed (history `replace`, query and hash kept) before a page is shown.
+  const trailingSlash = pathname.length > 1 && pathname.endsWith("/");
+
   const label = routeLabel(matches.at(-1)?.handle);
   const item = navigationItemFor(label);
   // Organization pages are backed by the account API; the mock pages only simulate a refresh.
@@ -99,7 +103,7 @@ function App() {
           <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} />
           <div className="content">
             <PageHeader label={label} description={item?.description} onRefresh={item ? refresh : undefined} />
-            <Outlet />
+            {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             <footer>
               <span>AgentForge Prototype <b>v0.1.0</b></span>
               <span><i className="live-dot" /> All systems operational <span className="footer-sep">·</span> Mock environment</span>
