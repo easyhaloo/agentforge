@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: AgentForge API
   version: 0.4.0
-  description: Persistent delivery lifecycle API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
+  description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
 servers:
   - url: /
 paths:
@@ -74,6 +74,76 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/members:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listOrganizationMembers
+      summary: List members in the selected organization
+      description: Restricted to active organization owners and administrators
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Organization member page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationMemberPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/members/{userID}:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: userID
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateOrganizationMember
+      summary: Change a member role or active/suspended status
+      description: Owners can manage all roles. Administrators can manage members and viewers but cannot grant administrative or owner privileges or modify another administrator. The last active owner cannot be demoted or suspended.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateOrganizationMember" }
+      responses:
+        "200":
+          description: Updated organization membership
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationMember" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: removeOrganizationMember
+      summary: Remove a member from the organization
+      description: Removal is soft-deleted and audited. The last active owner cannot be removed.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204": { description: Membership removed }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets:
     parameters:
       - in: path
