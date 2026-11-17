@@ -79,6 +79,20 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/me:
+    get:
+      operationId: getCurrentAccount
+      summary: Get the authenticated account and its active organizations
+      description: Returns only organizations where the current session user has an active membership and the organization is active. No user or organization identifier is accepted from the client.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Authenticated account context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountContext" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -599,6 +613,23 @@ components:
           items: { $ref: "#/components/schemas/MembershipAuditEvent" }
         limit: { type: integer }
         offset: { type: integer }
+    OrganizationSummary:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [owner, admin, member, viewer] }
+    AccountContext:
+      type: object
+      required: [user_id, display_name, organizations]
+      properties:
+        user_id: { type: string }
+        display_name: { type: string }
+        email: { type: string }
+        organizations:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationSummary" }
     Health:
       type: object
       required: [status]
