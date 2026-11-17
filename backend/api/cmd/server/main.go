@@ -37,8 +37,7 @@ func main() {
 	var oidcHandler identity.OIDCHandler
 	var principalResolver identity.PrincipalResolver
 	if configuration.OIDC != nil {
-		oidcContext, cancel := context.WithTimeout(ctx, 10*time.Second)
-		authenticator, authErr := identity.NewOIDCAuthenticator(oidcContext, identity.OIDCConfig{
+		authenticator, authErr := identity.NewOIDCAuthenticator(ctx, identity.OIDCConfig{
 			IssuerURL: configuration.OIDC.IssuerURL,
 			ClientID: configuration.OIDC.ClientID,
 			ClientSecret: configuration.OIDC.ClientSecret,
@@ -46,7 +45,6 @@ func main() {
 			SessionTTL: configuration.SessionTTL,
 			AppOrigin: configuration.AppOrigin,
 		}, store)
-		cancel()
 		if authErr != nil {
 			logger.Error("OIDC provider initialization failed; protected routes remain unavailable", "error", authErr)
 		} else {
