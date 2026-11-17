@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban, Check, X } from "lucide-react";
 import { APIError, organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
-import { Button, ConfirmDialog, Input, Select } from "../../shared/ui";
+import { Button, ConfirmDialog, Input, Select, Tabs } from "../../shared/ui";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 type Tab = "members" | "invitations" | "audit";
@@ -83,13 +83,21 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
       <span className="org-role">{organization.role}</span>
       <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> Refresh</Button>
     </div>
-    <div className="org-tabs" role="tablist" aria-label="Organization administration">
-      <Button variant="ghost" className={tab==="members"?"is-active":""} onClick={()=>setTab("members")} role="tab" aria-selected={tab==="members"}><Users size={14}/> Members <em>{members.length}</em></Button>
-      <Button variant="ghost" className={tab==="invitations"?"is-active":""} onClick={()=>setTab("invitations")} role="tab" aria-selected={tab==="invitations"}><Mail size={14}/> Invitations <em>{invitations.length}</em></Button>
-      <Button variant="ghost" className={tab==="audit"?"is-active":""} onClick={()=>setTab("audit")} role="tab" aria-selected={tab==="audit"}><History size={14}/> Audit history</Button>
-    </div>
+    <Tabs
+      id="organization-admin"
+      value={tab}
+      onChange={(value) => setTab(value as Tab)}
+      ariaLabel="Organization administration"
+      className="org-tabs"
+      items={[
+        { key: "members", label: <><Users size={14}/> Members <em>{members.length}</em></> },
+        { key: "invitations", label: <><Mail size={14}/> Invitations <em>{invitations.length}</em></> },
+        { key: "audit", label: <><History size={14}/> Audit history</> },
+      ]}
+    />
     {error && <div className="org-error" role="alert">{error}</div>}
     {created && <div className="org-invite-created"><div><b>Invitation created</b><p>This one-time link is shown only now. Send it through your approved secure channel.</p></div><code>{created.invitation_url}</code><Button className="button secondary" onClick={()=>void copyInvitation()}><Clipboard size={14}/> Copy link</Button><Button variant="ghost" className="org-icon-action" aria-label="Dismiss invitation link" onClick={()=>setCreated(null)}><X size={15}/></Button></div>}
+    <div role="tabpanel" id="organization-admin-panel" aria-labelledby={`organization-admin-tab-${tab}`} tabIndex={0}>
     {loading ? <div className="org-loading">Loading organization data…</div> : tab==="members" ? <>
       <div className="org-panel-head"><div><h3>Organization members</h3><p>Role and status changes are enforced by the server.</p></div></div>
       <div className="org-table-wrap"><table className="org-table"><thead><tr><th>MEMBER</th><th>ROLE</th><th>STATUS</th><th>JOINED</th><th>ACTIONS</th></tr></thead><tbody>
@@ -115,6 +123,7 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
       <div className="org-panel-head"><div><h3>Membership audit history</h3><p>Newest membership and invitation events first.</p></div></div>
       <div className="org-audit-list">{events.map(event=><article key={event.id}><span className="org-audit-icon"><History size={14}/></span><div><b>{event.action.replaceAll("_"," ")}</b><p>Actor <code>{event.actor_user_id}</code> · Target <code>{event.target_user_id}</code></p><small>{event.before_role || "—"} / {event.before_status} → {event.after_role || event.before_role || "—"} / {event.after_status}</small></div><time>{dateTime(event.created_at)}</time></article>)}{!events.length&&<div className="org-empty">No audit events recorded yet.</div>}</div>
     </>}
+    </div>
     <ConfirmDialog
       open={Boolean(memberToRemove)}
       title="Remove organization member?"
