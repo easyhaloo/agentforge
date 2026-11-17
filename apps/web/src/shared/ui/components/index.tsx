@@ -252,6 +252,7 @@ export interface DataTableColumn<T> {
   title: string;
   width?: number | string;
   render?: (value: unknown, row: T, index: number) => ReactNode;
+  sortable?: boolean;
 }
 export interface DataTablePagination {
   page: number;
@@ -266,6 +267,9 @@ export interface DataTableProps<T> extends Omit<TableHTMLAttributes<HTMLTableEle
   emptyText?: string;
   pagination?: DataTablePagination;
   onPageChange?: (page: number, pageSize: number) => void;
+  selectedRowKeys?: Array<string | number>;
+  onSelectionChange?: (keys: Array<string | number>, rows: T[]) => void;
+  onSort?: (key: string, direction: "asc" | "desc" | null) => void;
 }
 export function DataTable<T>({
   columns,
@@ -275,10 +279,44 @@ export function DataTable<T>({
   emptyText = "No data",
   pagination,
   onPageChange,
+  selectedRowKeys,
+  onSelectionChange,
+  onSort,
   className = "",
   ...tableProps
 }: DataTableProps<T>) {
   const getRowKey = (row: T) => typeof rowKey === "function" ? rowKey(row) : String(row[rowKey]);
+  const [internalSelected, setInternalSelected] = useState<Array<string | number>>([]);
+  const [sortState, setSortState] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const selected = selectedRowKeys ?? internalSelected;
+  const toggleRow = (key: string | number, checked: boolean) => {
+    const next = checked ? [...selected, key] : selected.filter((item) => item !== key);
+    if (selectedRowKeys === undefined) setInternalSelected(next);
+    onSelectionChange?.(next, data.filter((row) => next.includes(getRowKey(row))));
+  };
+  const toggleAll = (checked: boolean) => {
+    const keys = checked ? data.map(getRowKey) : [];
+    if (selectedRowKeys === undefined) setInternalSelected(keys);
+    onSelectionChange?.(keys, checked ? data : []);
+  };
+  const sortedData = useMemo(() => {
+    if (onSort || !sortState) return data;
+    const column = columns.find((item) => String(item.key) === sortState.key);
+    if (!column) return data;
+    return [...data].sort((a, b) => {
+      const av = (a as unknown as Record<string, unknown>)[sortState.key];
+      const bv = (b as unknown as Record<string, unknown>)[sortState.key];
+      const result = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av ?? "").localeCompare(String(bv ?? ""), undefined, { numeric: true });
+      return sortState.direction === "asc" ? result : -result;
+    });
+  }, [data, columns, sortState, onSort]);
+  const changeSort = (key: string) => {
+    const direction = sortState?.key !== key ? "asc" : sortState.direction === "asc" ? "desc" : null;
+    setSortState(direction ? { key, direction } : null);
+    onSort?.(key, direction);
+  };
   const pageCount = pagination ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize)) : 1;
   const visiblePages = useMemo(() => {
     if (!pagination) return [];
@@ -289,11 +327,16 @@ export function DataTable<T>({
   return (
     <div className="af-table-wrap">
       <table {...tableProps} className={`af-table ${className}`.trim()}>
-        <thead><tr>{columns.map((column) => <th key={String(column.key)} style={{ width: column.width }}>{column.title}</th>)}</tr></thead>
+        <thead><tr>
+          {onSelectionChange && <th className="af-table__selection"><input type="checkbox" aria-label="Select all rows" checked={data.length > 0 && data.every((row) => selected.includes(getRowKey(row)))} onChange={(event) => toggleAll(event.target.checked)} /></th>}
+          {columns.map((column) => <th key={String(column.key)} style={{ width: column.width }}>
+            {column.sortable ? <button type="button" className="af-table__sort" onClick={() => changeSort(String(column.key))}>{column.title}<span aria-hidden="true">{sortState?.key === String(column.key) ? sortState.direction === "asc" ? " ↑" : " ↓" : " ↕"}</span></button> : column.title}
+          </th>)}
+        </tr></thead>
         <tbody>
-          {loading ? <tr><td colSpan={columns.length} className="af-table__state">Loading…</td></tr> :
+          {loading ? <tr><td colSpan={columns.length + (onSelectionChange ? 1 : 0)} className="af-table__state">Loading…</td></tr> :
             data.length === 0 ? <tr><td colSpan={columns.length} className="af-table__state">{emptyText}</td></tr> :
-              data.map((row, index) => <tr key={getRowKey(row)}>{columns.map((column) => {
+              sortedData.map((row, index) => <tr key={getRowKey(row)}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{columns.map((column) => {
                 const value = (row as unknown as Record<string, unknown>)[String(column.key)];
                 return <td key={String(column.key)}>{column.render ? column.render(value, row, index) : String(value ?? "—")}</td>;
               })}</tr>)}
@@ -331,6 +374,101 @@ export function DateRangePicker({
       <DatePicker aria-label={startLabel} value={start} max={end || undefined} onChange={(event) => onChange({ start: event.target.value, end })} />
       <span>—</span>
       <DatePicker aria-label={endLabel} value={end} min={start || undefined} onChange={(event) => onChange({ start, end: event.target.value })} />
+    </div>
+  );
+}
+
+
+export interface DrawerProps {
+  open: boolean;
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+  width?: number | string;
+  placement?: "left" | "right";
+}
+export function Drawer({ open, title, children, onClose, width = 480, placement = "right" }: DrawerProps) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="af-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <aside className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
+        <header className="af-drawer__header"><h2>{title}</h2><button type="button" aria-label="Close drawer" onClick={onClose}>×</button></header>
+        <div className="af-drawer__body">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+export function ConfirmDialog({
+  open, title = "Are you sure?", description, confirmText = "Confirm", danger = false, onCancel, onConfirm,
+}: {
+  open: boolean; title?: string; description: ReactNode; confirmText?: string; danger?: boolean;
+  onCancel: () => void; onConfirm: () => void | Promise<void>;
+}) {
+  return (
+    <Modal open={open} title={title} onCancel={onCancel} onOk={onConfirm} okText={confirmText}>
+      <p className="af-confirm-description">{description}</p>
+      {danger && <p className="af-confirm-warning">This action cannot be undone.</p>}
+    </Modal>
+  );
+}
+
+export function Popover({ trigger, children, placement = "bottom" }: {
+  trigger: ReactNode; children: ReactNode; placement?: "bottom" | "top";
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="af-popover">
+      <button type="button" className="af-popover__trigger" aria-expanded={open} onClick={() => setOpen((value) => !value)}>{trigger}</button>
+      {open && <div className={`af-popover__content af-popover__content--${placement}`} role="dialog">{children}</div>}
+    </div>
+  );
+}
+
+export interface AsyncSelectOption { label: string; value: string; }
+export function AsyncSelect({ value, onChange, loadOptions, placeholder = "Search options...", debounceMs = 250, disabled = false }: {
+  value?: string; onChange: (value: string, option?: AsyncSelectOption) => void;
+  loadOptions: (keyword: string, signal: AbortSignal) => Promise<AsyncSelectOption[]>;
+  placeholder?: string; debounceMs?: number; disabled?: boolean;
+}) {
+  const [keyword, setKeyword] = useState("");
+  const [options, setOptions] = useState<AsyncSelectOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const result = await loadOptions(keyword.trim(), controller.signal);
+        if (!controller.signal.aborted) setOptions(result);
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Unable to load options");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, debounceMs);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [keyword, open, debounceMs, loadOptions]);
+  const selected = options.find((option) => option.value === value);
+  return (
+    <div className="af-async-select">
+      <button type="button" className="af-select af-async-select__control" disabled={disabled} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        {selected?.label ?? value ?? placeholder}<span>⌄</span>
+      </button>
+      {open && <div className="af-async-select__menu">
+        <input autoFocus value={keyword} placeholder={placeholder} onChange={(event) => setKeyword(event.target.value)} />
+        {loading ? <div className="af-async-select__state">Loading…</div> : error ? <div className="af-async-select__state af-field__error">{error}</div> : options.length ? options.map((option) => <button type="button" key={option.value} onClick={() => { onChange(option.value, option); setOpen(false); setKeyword(""); }}>{option.label}</button>) : <div className="af-async-select__state">No options</div>}
+      </div>}
     </div>
   );
 }
