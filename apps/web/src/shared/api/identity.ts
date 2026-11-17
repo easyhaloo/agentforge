@@ -61,9 +61,9 @@ export type StoredChangeset = {
     created_by: string;
     repository: string;
     title: string;
-    revisions: Array<{ id: string; ref: string; created_at: string }>;
-    evaluations: Array<{ id: string; revision_id: string; status: string; summary: string; created_at: string }>;
-    evidence: Array<{ id: string; revision_id: string; evaluation_id: string; kind: string; uri: string; status: string; created_at: string }>;
+    revisions: Array<{ id: string; ref: string; commit_sha: string; parent_sha?: string; created_at: string }>;
+    evaluations: Array<{ id: string; revision_id: string; base_sha?: string; status: string; summary: string; created_at: string }>;
+    evidence: Array<{ id: string; revision_id: string; evaluation_id: string; kind: string; uri: string; sha256?: string; size?: number; status: string; created_at: string }>;
     reviews: Array<{ id: string; revision_id: string; reviewer: string; status: string; comment: string; created_at: string }>;
     merge?: { id: string; revision_id: string; actor: string; target_ref: string; commit_sha: string; created_at: string };
     audit: Array<{ sequence: number; actor: string; operation: string; target_id: string; outcome: string; at: string }>;
@@ -72,7 +72,20 @@ export type StoredChangeset = {
   created_at: string;
   updated_at: string;
 };
+export type RepositoryMetadata = { organization_id: string; slug: string; default_branch: string; created_by: string; created_at: string; updated_at: string };
+export const repositoryAPI = {
+  list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`),
+  register: (organizationID: string, slug: string, defaultBranch: string) =>
+    request<RepositoryMetadata>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`, {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch})}),
+};
 export const changesetAPI = {
+  get: (organizationID: string, id: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}`),
+  addRevision: (organizationID: string,id: string,ref: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/revisions`,{method:"POST",body:JSON.stringify({ref})}),
+  evaluate: (organizationID: string,id: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/evaluations`,{method:"POST",body:JSON.stringify({})}),
+  attachEvidence: (organizationID: string,id: string,evaluationID: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/evidence`,{method:"POST",body:JSON.stringify({evaluation_id:evaluationID})}),
+  assignReview: (organizationID: string,id: string,reviewerID: string,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews`,{method:"POST",body:JSON.stringify({reviewer_id:reviewerID,comment})}),
+  decideReview: (organizationID: string,id: string,reviewID: string,approved: boolean,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewID)}/decision`,{method:"POST",body:JSON.stringify({approved,comment})}),
+  merge: (organizationID: string,id: string,targetRef: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef})}),
   list: (organizationID: string) =>
     request<{ items: StoredChangeset[]; limit: number; offset: number }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?limit=100&offset=0`),
   create: (organizationID: string, repository: string, title: string) =>

@@ -172,15 +172,14 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 		{base + "/evaluations", `{"revision_id":"rev-1","status":"passed","summary":"client cannot assert success"}`},
 		{base + "/evidence", `{"revision_id":"rev-1","evaluation_id":"eval-1","kind":"ci","uri":"https://example.test"}`},
 		{base + "/reviews", `{"revision_id":"rev-1"}`},
-		{base + "/reviews/rev-1/decision", `{"approved":true}`},
 	}
 	for _, item := range requests {
 		request := httptest.NewRequest(http.MethodPost, item.path, bytes.NewBufferString(item.body))
 		addValidCSRFCookies(request)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusNotImplemented {
-			t.Fatalf("%s status=%d, want %d: %s", item.path, response.Code, http.StatusNotImplemented, response.Body.String())
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("%s status=%d, want %d: %s", item.path, response.Code, http.StatusServiceUnavailable, response.Body.String())
 		}
 	}
 	persisted, err := repository.Get(context.Background(), "org-a", "cs-existing")

@@ -1,10 +1,12 @@
 package config
 
 import (
+	"encoding/hex"
 	"errors"
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +25,10 @@ type Config struct {
 	AppOrigin   string
 	OIDC        *OIDCConfig
 	SessionTTL  time.Duration
+	GitRepositoryRoot string
+	EvidenceRoot string
+	EvaluationDockerImage string
+	EvaluationCommand string
 }
 
 func LoadFromEnv() (Config, error) {
@@ -42,6 +48,14 @@ func LoadFromEnv() (Config, error) {
 	}
 	configuration.OIDC = oidcConfig
 	configuration.SessionTTL = sessionTTL
+	configuration.GitRepositoryRoot = strings.TrimSpace(os.Getenv("GIT_REPOSITORY_ROOT"))
+	configuration.EvidenceRoot = strings.TrimSpace(os.Getenv("EVIDENCE_ROOT"))
+	configuration.EvaluationDockerImage = strings.TrimSpace(os.Getenv("EVALUATION_DOCKER_IMAGE"))
+	configuration.EvaluationCommand = strings.TrimSpace(os.Getenv("EVALUATION_COMMAND"))
+	if (configuration.EvaluationDockerImage == "") != (configuration.EvaluationCommand == "") { return Config{}, errors.New("EVALUATION_DOCKER_IMAGE and EVALUATION_COMMAND must be configured together") }
+	if configuration.EvaluationDockerImage != "" { _, digest, ok := strings.Cut(configuration.EvaluationDockerImage, "@sha256:"); if !ok || len(digest) != 64 { return Config{}, errors.New("EVALUATION_DOCKER_IMAGE must be pinned by a 64-character sha256 digest") }; if _, decodeErr := hex.DecodeString(digest); decodeErr != nil { return Config{}, errors.New("EVALUATION_DOCKER_IMAGE contains an invalid sha256 digest") } }
+	if configuration.GitRepositoryRoot != "" { configuration.GitRepositoryRoot, err = filepath.Abs(configuration.GitRepositoryRoot); if err != nil { return Config{}, errors.New("GIT_REPOSITORY_ROOT must be a valid local path") } }
+	if configuration.EvidenceRoot != "" { configuration.EvidenceRoot, err = filepath.Abs(configuration.EvidenceRoot); if err != nil { return Config{}, errors.New("EVIDENCE_ROOT must be a valid local path") } }
 	return configuration, nil
 }
 

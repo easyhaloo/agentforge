@@ -29,17 +29,21 @@ var (
 	ErrEvidenceRequired   = errors.New("active evidence is required")
 	ErrReviewRequired     = errors.New("an approved review is required")
 	ErrAlreadyMerged      = errors.New("changeset is already merged")
+	ErrReviewForbidden = errors.New("only the assigned reviewer can decide this review")
 )
 
 type Revision struct {
 	ID        ID        `json:"id"`
 	Ref       string    `json:"ref"`
+	CommitSHA string    `json:"commit_sha"`
+	ParentSHA string    `json:"parent_sha,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type Evaluation struct {
 	ID         ID        `json:"id"`
 	RevisionID ID        `json:"revision_id"`
+	BaseSHA    string    `json:"base_sha,omitempty"`
 	Status     Status    `json:"status"`
 	Summary    string    `json:"summary"`
 	CreatedAt  time.Time `json:"created_at"`
@@ -51,6 +55,8 @@ type Evidence struct {
 	EvaluationID ID        `json:"evaluation_id"`
 	Kind         string    `json:"kind"`
 	URI          string    `json:"uri"`
+	SHA256       string    `json:"sha256,omitempty"`
+	Size         int64     `json:"size,omitempty"`
 	Status       Status    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 }
@@ -111,7 +117,9 @@ func (c *Changeset) CurrentRevision() (Revision, bool) {
 	return c.Revisions[len(c.Revisions)-1], true
 }
 
-func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error {
+func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error { return c.AddGitRevision(id, ref, ref, "", actor, now) }
+
+func (c *Changeset) AddGitRevision(id ID, ref, commitSHA, parentSHA, actor string, now time.Time) error {
 	if c == nil || id == "" || ref == "" || actor == "" || c.Merge != nil {
 		return ErrInvalidInput
 	}
@@ -120,7 +128,7 @@ func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error {
 			return fmt.Errorf("%w: duplicate revision id", ErrInvalidInput)
 		}
 	}
-	c.Revisions = append(c.Revisions, Revision{ID: id, Ref: ref, CreatedAt: now})
+	c.Revisions = append(c.Revisions, Revision{ID: id, Ref: ref, CommitSHA: commitSHA, ParentSHA: parentSHA, CreatedAt: now})
 	for i := range c.Evidence {
 		if c.Evidence[i].Status == EvidenceActive {
 			c.Evidence[i].Status = EvidenceStale
@@ -152,7 +160,20 @@ func (c *Changeset) RecordEvaluation(id, revisionID ID, status Status, summary, 
 	return nil
 }
 
-func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, actor string, now time.Time) error {
+func (c *Changeset) RecordEvaluationAgainstBase(id, revisionID ID, baseSHA string, status Status, summary, actor string, now time.Time) error {
+	if baseSHA == "" {
+		return ErrInvalidInput
+	}
+	if err := c.RecordEvaluation(id, revisionID, status, summary, actor, now); err != nil {
+		return err
+	}
+	c.Evaluations[len(c.Evaluations)-1].BaseSHA = baseSHA
+	return nil
+}
+
+func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, actor string, now time.Time) error { return c.AttachEvidenceArtifact(id, revisionID, evaluationID, kind, uri, "", 0, actor, now) }
+
+func (c *Changeset) AttachEvidenceArtifact(id, revisionID, evaluationID ID, kind, uri, digest string, size int64, actor string, now time.Time) error {
 	if c == nil || id == "" || kind == "" || uri == "" || actor == "" {
 		return ErrInvalidInput
 	}
@@ -163,13 +184,15 @@ func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, a
 	if !ok || evaluation.RevisionID != revisionID || evaluation.Status != EvaluationPassed {
 		return ErrEvaluationRequired
 	}
-	c.Evidence = append(c.Evidence, Evidence{ID: id, RevisionID: revisionID, EvaluationID: evaluationID, Kind: kind, URI: uri, Status: EvidenceActive, CreatedAt: now})
+	c.Evidence = append(c.Evidence, Evidence{ID: id, RevisionID: revisionID, EvaluationID: evaluationID, Kind: kind, URI: uri, SHA256: digest, Size: size, Status: EvidenceActive, CreatedAt: now})
 	c.record(actor, "evidence.attached", id, "succeeded", now)
 	return nil
 }
 
-func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error {
-	if c == nil || id == "" || reviewer == "" || reviewer == c.CreatedBy {
+func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error { return c.AssignReview(id, revisionID, reviewer, reviewer, comment, now) }
+
+func (c *Changeset) AssignReview(id, revisionID ID, reviewer, actor, comment string, now time.Time) error {
+	if c == nil || id == "" || reviewer == "" || actor == "" || reviewer == c.CreatedBy {
 		return ErrInvalidInput
 	}
 	if err := c.requireCurrent(revisionID); err != nil {
@@ -184,7 +207,7 @@ func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, no
 		}
 	}
 	c.Reviews = append(c.Reviews, Review{ID: id, RevisionID: revisionID, Reviewer: reviewer, Status: ReviewPending, Comment: comment, CreatedAt: now})
-	c.record(reviewer, "review.submitted", id, "succeeded", now)
+	c.record(actor, "review.assigned", id, "succeeded", now)
 	return nil
 }
 
@@ -201,7 +224,7 @@ func (c *Changeset) DecideReview(id ID, approved bool, reviewer, comment string,
 			return ErrRevisionNotCurrent
 		}
 		if review.Reviewer != reviewer {
-			return ErrInvalidInput
+			return ErrReviewForbidden
 		}
 		if approved {
 			review.Status = ReviewApproved
@@ -219,19 +242,8 @@ func (c *Changeset) CompleteMerge(id ID, actor, targetRef, commitSHA string, now
 	if c == nil || id == "" || actor == "" || targetRef == "" || commitSHA == "" {
 		return ErrInvalidInput
 	}
-	if c.Merge != nil {
-		return ErrAlreadyMerged
-	}
+	if err := c.ValidateMerge(); err != nil { return err }
 	revisionID := c.currentRevisionID()
-	if revisionID == "" {
-		return ErrRevisionNotCurrent
-	}
-	if !c.hasActiveEvidence(revisionID) {
-		return ErrEvidenceRequired
-	}
-	if !c.hasApprovedReview(revisionID) {
-		return ErrReviewRequired
-	}
 	c.Merge = &Merge{ID: id, RevisionID: revisionID, Actor: actor, TargetRef: targetRef, CommitSHA: commitSHA, CreatedAt: now}
 	c.record(actor, "merge.completed", id, "succeeded", now)
 	return nil
@@ -281,4 +293,33 @@ func (c *Changeset) hasApprovedReview(revisionID ID) bool {
 
 func (c *Changeset) record(actor, operation string, target ID, outcome string, now time.Time) {
 	c.Audit = append(c.Audit, AuditEvent{Sequence: uint64(len(c.Audit) + 1), Actor: actor, Operation: operation, TargetID: target, Outcome: outcome, At: now})
+}
+
+func (c *Changeset) latestEvaluation(revisionID ID) (Evaluation, bool) {
+	for i := len(c.Evaluations) - 1; i >= 0; i-- {
+		if c.Evaluations[i].RevisionID == revisionID {
+			return c.Evaluations[i], true
+		}
+	}
+	return Evaluation{}, false
+}
+
+func (c *Changeset) LatestEvaluation(revisionID ID) (Evaluation, bool) {
+	return c.latestEvaluation(revisionID)
+}
+
+func (c *Changeset) hasPassedEvaluation(revisionID ID) bool {
+	evaluation, ok := c.latestEvaluation(revisionID)
+	return ok && evaluation.Status == EvaluationPassed
+}
+
+func (c *Changeset) ValidateMerge() error {
+	if c == nil { return ErrInvalidInput }
+	if c.Merge != nil { return ErrAlreadyMerged }
+	revisionID:=c.currentRevisionID()
+	if revisionID=="" { return ErrRevisionNotCurrent }
+	if !c.hasPassedEvaluation(revisionID) { return ErrEvaluationRequired }
+	if !c.hasActiveEvidence(revisionID) { return ErrEvidenceRequired }
+	if !c.hasApprovedReview(revisionID) { return ErrReviewRequired }
+	return nil
 }
