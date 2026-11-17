@@ -73,6 +73,5 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 ## Current limitations
 
 - Date inputs use the browser-native date picker; visual details vary by browser/OS.
-- Modal provides Escape and backdrop dismissal but does not yet implement a full focus trap.
-- DataTable currently provides pagination and loading/empty states; column sorting, filtering, row selection, and virtualization are subsequent increments.
-- AsyncSelect and Drawer are not part of this initial component batch.
+- DataTable filtering, column visibility, bulk actions and virtualization remain follow-up work.
+- Popover currently closes through its trigger; outside-click dismissal and richer keyboard navigation are follow-up work.
