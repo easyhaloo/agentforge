@@ -2,7 +2,18 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+var (
+	ErrInvitationExists = errors.New("a pending invitation already exists")
+	ErrInvitationNotFound = errors.New("invitation is invalid or expired")
+	ErrInvitationEmailMismatch = errors.New("invitation email does not match verified account email")
+	ErrAlreadyMember = errors.New("user is already an active organization member")
+	ErrOwnerProtected = errors.New("organization owner cannot be changed or removed through membership management")
+	ErrMemberNotFound = errors.New("organization member not found")
+	ErrMembershipDenied = errors.New("membership operation is not permitted")
 )
 
 type Member struct {
