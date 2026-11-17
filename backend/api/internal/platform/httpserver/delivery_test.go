@@ -36,11 +36,8 @@ func (m *memoryRepository) List(_ context.Context,limit,offset int)([]delivery.S
 	items:=make([]delivery.StoredChangeset,0,len(m.items)); for _,item:=range m.items{items=append(items,item)}
 	if offset>=len(items){return []delivery.StoredChangeset{},nil}; end:=offset+limit;if end>len(items){end=len(items)};return items[offset:end],nil
 }
-type sequenceIdentity struct { actors []string; index int }
-func (s *sequenceIdentity) ResolveActor(*http.Request)(string,error) {
-	if s.index >= len(s.actors) { return "", errors.New("identity sequence exhausted") }
-	actor := s.actors[s.index]; s.index++; return actor, nil
-}
+type fixedIdentity struct{}
+func (fixedIdentity) ResolveActor(*http.Request)(string,error) { return "test-user",nil }
 
 func TestDeliveryAPIRequiresTrustedIdentityForWrites(t *testing.T) {
 	handler:=NewHandlerWithDependencies(DeliveryDependencies{Repository:newMemoryRepository()})
@@ -49,36 +46,48 @@ func TestDeliveryAPIRequiresTrustedIdentityForWrites(t *testing.T) {
 	if response.Code!=http.StatusServiceUnavailable { t.Fatalf("status=%d, want %d",response.Code,http.StatusServiceUnavailable) }
 }
 
-func TestDeliveryLifecyclePersistsRevisionBoundState(t *testing.T) {
-	repository:=newMemoryRepository()
-	handler:=NewHandlerWithDependencies(DeliveryDependencies{Repository:repository,Identity:&sequenceIdentity{actors:[]string{"author","maintainer","maintainer","maintainer","reviewer","reviewer"}}})
-	call:=func(method,path,body string) *httptest.ResponseRecorder {
-		t.Helper(); request:=httptest.NewRequest(method,path,bytes.NewBufferString(body)); response:=httptest.NewRecorder();handler.ServeHTTP(response,request);return response
-	}
-	created:=call(http.MethodPost,"/api/v1/changesets",`{"repository":"org/repo","title":"Add capability"}`)
-	if created.Code!=http.StatusCreated { t.Fatalf("create status=%d body=%s",created.Code,created.Body.String()) }
+func TestDeliveryAPIUsesTrustedIdentityForChangesetMetadata(t *testing.T) {
+	repository := newMemoryRepository()
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{}})
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/changesets", bytes.NewBufferString(`{"repository":"org/repo","title":"Add capability"}`))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated { t.Fatalf("create status=%d body=%s", response.Code, response.Body.String()) }
 	var stored storedChangesetResponse
-	if err:=json.Unmarshal(created.Body.Bytes(),&stored);err!=nil{t.Fatal(err)}
-	id:=stored.Changeset.ID
-	revision:=call(http.MethodPost,"/api/v1/changesets/"+string(id)+"/revisions",`{"ref":"commit-1"}`)
-	if revision.Code!=http.StatusOK{t.Fatalf("revision status=%d body=%s",revision.Code,revision.Body.String())}
-	stored=decodeStored(t,revision)
-	revisionID:=stored.Changeset.Revisions[0].ID
-	evaluation:=call(http.MethodPost,"/api/v1/changesets/"+string(id)+"/evaluations",mustJSON(t,map[string]any{"revision_id":revisionID,"status":"passed","summary":"checks passed"}))
-	if evaluation.Code!=http.StatusOK{t.Fatalf("evaluation status=%d body=%s",evaluation.Code,evaluation.Body.String())}
-	stored=decodeStored(t,evaluation)
-	evaluationID:=stored.Changeset.Evaluations[0].ID
-	evidence:=call(http.MethodPost,"/api/v1/changesets/"+string(id)+"/evidence",mustJSON(t,map[string]any{"revision_id":revisionID,"evaluation_id":evaluationID,"kind":"ci","uri":"https://ci.example/run/1"}))
-	if evidence.Code!=http.StatusOK{t.Fatalf("evidence status=%d body=%s",evidence.Code,evidence.Body.String())}
-	review:=call(http.MethodPost,"/api/v1/changesets/"+string(id)+"/reviews",mustJSON(t,map[string]any{"revision_id":revisionID,"comment":"Please review"}))
-	if review.Code!=http.StatusOK{t.Fatalf("review status=%d body=%s",review.Code,review.Body.String())}
-	stored=decodeStored(t,review)
-	reviewID:=stored.Changeset.Reviews[0].ID
-	decision:=call(http.MethodPost,"/api/v1/changesets/"+string(id)+"/reviews/"+string(reviewID)+"/decision",`{"approved":true,"comment":"Approved"}`)
-	if decision.Code!=http.StatusOK{t.Fatalf("decision status=%d body=%s",decision.Code,decision.Body.String())}
-	stored=decodeStored(t,decision)
-	if stored.Changeset.Reviews[0].Status!=delivery.ReviewApproved { t.Fatalf("review status=%q, want approved",stored.Changeset.Reviews[0].Status) }
-	if len(stored.Changeset.Audit)!=6 { t.Fatalf("audit events=%d, want 6",len(stored.Changeset.Audit)) }
+	if err := json.Unmarshal(response.Body.Bytes(), &stored); err != nil { t.Fatal(err) }
+	if stored.Changeset.CreatedBy != "test-user" { t.Fatalf("created_by=%q, want trusted identity", stored.Changeset.CreatedBy) }
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/changesets", nil)
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK { t.Fatalf("list status=%d body=%s", listResponse.Code, listResponse.Body.String()) }
+}
+
+func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
+	repository := newMemoryRepository()
+	now := time.Now().UTC()
+	changeset, err := delivery.NewChangeset("cs-existing", "org/repo", "Change", "author", now)
+	if err != nil { t.Fatal(err) }
+	if _, err := repository.Create(context.Background(), changeset); err != nil { t.Fatal(err) }
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Repository: repository, Identity: fixedIdentity{}})
+	requests := []struct{ path, body string }{
+		{"/api/v1/changesets/cs-existing/revisions", `{"ref":"commit-1"}`},
+		{"/api/v1/changesets/cs-existing/evaluations", `{"revision_id":"rev-1","status":"passed","summary":"client cannot assert success"}`},
+		{"/api/v1/changesets/cs-existing/evidence", `{"revision_id":"rev-1","evaluation_id":"eval-1","kind":"ci","uri":"https://example.test"}`},
+		{"/api/v1/changesets/cs-existing/reviews", `{"revision_id":"rev-1"}`},
+		{"/api/v1/changesets/cs-existing/reviews/rev-1/decision", `{"approved":true}`},
+	}
+	for _, item := range requests {
+		request := httptest.NewRequest(http.MethodPost, item.path, bytes.NewBufferString(item.body))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusNotImplemented { t.Fatalf("%s status=%d, want %d: %s", item.path, response.Code, http.StatusNotImplemented, response.Body.String()) }
+	}
+	persisted, err := repository.Get(context.Background(), "cs-existing")
+	if err != nil { t.Fatal(err) }
+	if len(persisted.Changeset.Revisions) != 0 || len(persisted.Changeset.Evaluations) != 0 || len(persisted.Changeset.Evidence) != 0 || len(persisted.Changeset.Reviews) != 0 {
+		t.Fatal("unconfigured adapters must not mutate delivery state")
+	}
 }
 
 func decodeStored(t *testing.T,response *httptest.ResponseRecorder) storedChangesetResponse {
