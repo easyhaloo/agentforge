@@ -109,14 +109,22 @@ func (s *Store) BootstrapFirstOwner(ctx context.Context, issuer, subject, organi
 		return "", fmt.Errorf("create bootstrap organization: %w", err)
 	}
 	if created.RowsAffected() == 1 {
-		// A handle must resolve to one organization: the new slug must not be another
-		// organization's id, and the new id must not be another organization's slug.
+		// A handle must resolve to one organization. Resolution matches ids exactly but
+		// slugs ignoring ASCII case, so the new slug must not equal another organization's
+		// id, and the new id must not equal another organization's slug, ignoring ASCII
+		// case (otherwise "Beta" would open one organization and "beta" another).
 		var conflict bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM organizations WHERE id <> $1 AND (id = $2 OR slug = $1))", organizationID, organizationSlug).Scan(&conflict); err != nil {
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM organizations
+				WHERE id <> $1
+				  AND (translate(id, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') = $2 OR slug = $3)
+			)
+		`, organizationID, organizationSlug, foldASCIICase(organizationID)).Scan(&conflict); err != nil {
 			return "", fmt.Errorf("check organization handle conflicts: %w", err)
 		}
 		if conflict {
-			return "", fmt.Errorf("%w: slug %q and id %q must not match another organization's id or slug", ErrOrganizationSlugConflict, organizationSlug, organizationID)
+			return "", fmt.Errorf("%w: slug %q and id %q must not match another organization's id or slug, ignoring case", ErrOrganizationSlugConflict, organizationSlug, organizationID)
 		}
 	}
 	var organizationStatus string
