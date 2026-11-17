@@ -41,4 +41,4 @@ apps/web/src/
 
 ## Prototype boundaries
 
-Seeded mock data and browser local storage remain in the frontend prototype. Real Git operations, remote CI, Agent Runtime sessions, review notifications, merge operations and backend persistence are not implemented yet.
+Seeded mock data and browser LocalStorage remain in the frontend prototype. Real Git operations, remote CI, Agent Runtime sessions, review notifications, merge operations and backend persistence are not implemented yet.
