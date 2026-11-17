@@ -83,6 +83,8 @@ func TestChangesetLifecycleStatus(t *testing.T) {
 			{"new revision approved", concat(newRevisionInReview, []step{decision("review-2", true, "reviewer")}), LifecycleReadyToMerge},
 			{"rejected then reassigned and pending", concat(inReview, []step{decision("review-1", false, "reviewer"), review("review-2", "rev-1", "reviewer-2")}), LifecycleInReview},
 			{"rejected then reassigned and approved", concat(inReview, []step{decision("review-1", false, "reviewer"), review("review-2", "rev-1", "reviewer-2"), decision("review-2", true, "reviewer-2")}), LifecycleReadyToMerge},
+			{"assigning while a review is pending supersedes it", concat(inReview, []step{review("review-2", "rev-1", "reviewer-2")}), LifecycleInReview},
+			{"approved after the first review was superseded", concat(inReview, []step{review("review-2", "rev-1", "reviewer-2"), decision("review-2", true, "reviewer-2")}), LifecycleReadyToMerge},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -94,33 +96,6 @@ func TestChangesetLifecycleStatus(t *testing.T) {
 				// ADR-003: the reported status must agree with the authoritative merge gate.
 				if got != LifecycleMerged && (got == LifecycleReadyToMerge) != (c.ValidateMerge() == nil) {
 					t.Fatalf("Lifecycle() = %q but ValidateMerge() = %v", got, c.ValidateMerge())
-				}
-			})
-		}
-	})
-
-	// KNOWN DIVERGENCE, reported in the B2 handoff and deliberately not papered over: the status
-	// follows the frontend rule (the LATEST review of the current revision decides), while
-	// ValidateMerge accepts ANY approved review of the current revision. AssignReview can add a
-	// second review after an approval, so the merge gate stays open while the status is not
-	// ready_to_merge. Change this test together with whichever side is aligned.
-	t.Run("known divergence from the merge gate", func(t *testing.T) {
-		cases := []struct {
-			name  string
-			steps []step
-			want  Lifecycle
-		}{
-			{"approved then a newer review is pending", concat(approved, []step{review("review-2", "rev-1", "reviewer-2")}), LifecycleInReview},
-			{"approved then a newer review rejects", concat(approved, []step{review("review-2", "rev-1", "reviewer-2"), decision("review-2", false, "reviewer-2")}), LifecycleChangesRequested},
-		}
-		for _, tc := range cases {
-			t.Run(tc.name, func(t *testing.T) {
-				c := build(t, tc.steps)
-				if got := c.Lifecycle(); got != tc.want {
-					t.Fatalf("Lifecycle() = %q, want %q", got, tc.want)
-				}
-				if err := c.ValidateMerge(); err != nil {
-					t.Fatalf("ValidateMerge() = %v, want nil (the gate accepts any approved review)", err)
 				}
 			})
 		}

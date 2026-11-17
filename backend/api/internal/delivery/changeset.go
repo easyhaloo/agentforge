@@ -30,6 +30,7 @@ var (
 	ErrReviewRequired     = errors.New("an approved review is required")
 	ErrAlreadyMerged      = errors.New("changeset is already merged")
 	ErrReviewForbidden = errors.New("only the assigned reviewer can decide this review")
+	ErrReviewAlreadyApproved = errors.New("a review is already approved for the current revision")
 )
 
 type Revision struct {
