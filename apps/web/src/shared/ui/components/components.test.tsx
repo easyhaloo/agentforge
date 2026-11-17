@@ -104,9 +104,9 @@ describe("shared UI primitives", () => {
   });
 
   it("renders data tables with stable row keys and column headers", () => {
-    const html = renderToStaticMarkup(<DataTable columns={[{ key: "name", title: "Name" }]} data={[{ id: "one", name: "Example" }]} rowKey="id" />);
+    const html = renderToStaticMarkup(<DataTable columns={[{ key: "name", title: "Name", render: (_, row) => <strong>{row.name}</strong> }]} data={[{ id: "one", name: "Example" }]} rowKey="id" showColumnVisibility={false} />);
     expect(html).toContain("<th");
-    expect(html).toContain("Example");
+    expect(html).toContain("<strong>Example</strong>");
   });
 
   it("provides an accessible notification viewport", () => {
