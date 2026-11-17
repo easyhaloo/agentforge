@@ -16,7 +16,7 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-var ErrVersionConflict = errors.New("changeset version conflict")
+var ErrVersionConflict = delivery.ErrVersionConflict
 
 type Store struct {
 	pool *pgxpool.Pool
