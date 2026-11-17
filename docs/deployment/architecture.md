@@ -10,11 +10,10 @@ The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Page
 - Build output: `dist/`
 - Wrangler deployment command: `npx wrangler deploy`
 
-The repository should contain a Wrangler configuration that declares the static asset directory. Example:
+The repository now contains `wrangler.jsonc`, which declares the Worker name, compatibility date, Vite build output and SPA fallback:
 
 ```jsonc
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "agentforge",
   "compatibility_date": "2026-11-17",
   "assets": {
@@ -24,7 +23,7 @@ The repository should contain a Wrangler configuration that declares the static 
 }
 ```
 
-The actual compatibility date and configuration must be kept aligned with the installed Wrangler version and repository runtime policy.
+Keep the compatibility date aligned with the repository runtime policy. The config intentionally has no Worker entrypoint or custom asset binding: this frontend is a static React SPA served directly through Workers Static Assets.
 
 ## Cloudflare Workers Builds
 
