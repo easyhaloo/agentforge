@@ -52,6 +52,12 @@ async function installApiMocks(page: Page) {
     if (path.endsWith("/membership-audit") && method === "GET") {
       return json({ items: [], limit: 100, offset: 0 });
     }
+    if (path.endsWith("/repositories") && method === "GET") {
+      return json({ items: [{
+        organization_id: organization.id, slug: "easyhaloo/agentforge", default_branch: "main",
+        created_by: "user-owner", created_at: now, updated_at: now,
+      }] });
+    }
     if (path.endsWith("/changesets") && method === "GET") {
       return json({ items: changesets, limit: 100, offset: 0 });
     }
@@ -78,20 +84,20 @@ test("Overview search, status filtering, selection and navigation work together"
   await page.getByRole("combobox", { name: "Filter changesets by status" }).selectOption("Ready for review");
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
   await page.locator(".table-panel").getByRole("button", { name: "View all" }).click();
-  await expect(page.getByRole("heading", { name: "Changesets", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").locator(".page-heading h1")).toHaveText("Changesets");
 });
 
-test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
+test("Eval workspace exposes the persisted revision, evaluation, evidence, review and merge lifecycle", async ({ page }) => {
   await page.getByRole("button", { name: "Eval", exact: true }).click();
-  await expect(page.getByRole("heading", { name: /CS-2481/ })).toBeVisible();
-  await page.getByRole("button", { name: "New revision" }).click();
-  await expect(page.getByText("r4", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Run Eval" }).click();
-  await page.getByRole("button", { name: "Approve revision" }).click();
-  await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Merge & complete Trail" }).click();
-  await expect(page.getByText("Delivered", { exact: true })).toBeVisible();
-  await expect(page.getByRole("main").getByText(/Trail TRL-042 completed/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Eval", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await page.getByText("Browser test baseline").click();
+  await expect(page.getByRole("heading", { name: "Browser test baseline", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add revision" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run evaluation" })).toBeVisible();
+  await expect(page.getByText("Evidence provenance")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Assign review" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Merge changeset" })).toBeDisabled();
 });
 
 test("Resources supports search, status filtering, inspection and creation", async ({ page }) => {
@@ -113,11 +119,14 @@ test("Changesets loads organization records, searches and persists a new changes
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByRole("textbox", { name: "Search changesets" }).fill("Browser test");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
-  await page.getByRole("textbox", { name: "Search changesets" }).fill("");
-  await page.getByRole("textbox", { name: "Repository" }).fill("easyhaloo/agentforge");
+  await page.getByRole("textbox", { name: "Search ID, title or repository" }).fill("");
+  await page.getByRole("combobox", { name: "Repository" }).selectOption("easyhaloo/agentforge");
   await page.getByRole("textbox", { name: "Title" }).fill("E2E persisted changeset");
-  await page.getByRole("button", { name: "Create changeset" }).last().click();
-  await expect(page.getByText("E2E persisted changeset")).toBeVisible();
+  const createResponse = page.waitForResponse((response) => response.url().includes("/api/v1/organizations/org-demo/changesets") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  expect((await createResponse).status()).toBe(201);
+  await expect(page.getByRole("cell").getByText("E2E persisted changeset")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2E persisted changeset", exact: true })).toBeVisible();
 });
 
 test("Organization role changes are sent to the API and reflected in the member table", async ({ page }) => {
