@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"math/rand/v2"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"strconv"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 )
 
 func TestPostgresStorePersistsWithOrganizationIsolation(t *testing.T) {
@@ -499,5 +502,46 @@ func TestPostgresStoreListSQLPathMatchesFilterAndPage(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// listFilterMemberIdentity resolves every request to a member of the requested organization.
+type listFilterMemberIdentity struct{}
+
+func (listFilterMemberIdentity) ResolvePrincipal(_ *http.Request, organizationID string) (httpserver.Principal, error) {
+	return httpserver.Principal{UserID: "listfilter-user", OrganizationID: organizationID, Role: "member"}, nil
+}
+
+// TestPostgresBackedListRefusesMalformedTextWithA400 drives the real handler over the real store:
+// PostgreSQL cannot store NUL or invalid UTF-8 in text (SQLSTATE 22021), so a repository filter
+// such as ?repository=%00 used to surface as a 500. Malformed text must be a 400 and a well-formed
+// request must still be served.
+func TestPostgresBackedListRefusesMalformedTextWithA400(t *testing.T) {
+	ctx, store := listFilterOpenStore(t)
+	org := listFilterOrganization(t, ctx, store, "malformed")
+	listFilterPersist(t, ctx, store, org, listFilterSeed{id: "m1", repository: "team/api", title: "Readable", author: "alice", stage: delivery.LifecycleDraft, updatedAt: time.Now().UTC()})
+	handler := httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store, Identity: listFilterMemberIdentity{}})
+	get := func(path string) *httptest.ResponseRecorder {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		return response
+	}
+	base := "/api/v1/organizations/" + org + "/changesets"
+
+	for _, target := range []string{
+		base + "?repository=%00", base + "?repository=a%00b", base + "?repository=%ff", base + "?repository=%e5%8f",
+		base + "?q=%00", base + "?reviewer=%ff", base + "?status=%00",
+		base + "/%00", base + "/%ff",
+		"/api/v1/organizations/%00/changesets",
+	} {
+		if response := get(target); response.Code != http.StatusBadRequest || response.Header().Get("Content-Type") != "application/problem+json" {
+			t.Errorf("GET %s: status=%d content-type=%q body=%s, want a 400 problem", target, response.Code, response.Header().Get("Content-Type"), response.Body.String())
+		}
+	}
+	if response := get(base + "?repository=team%2Fapi&q=%E5%8F%98"); response.Code != http.StatusOK {
+		t.Fatalf("well-formed list: status=%d body=%s, want 200", response.Code, response.Body.String())
+	}
+	if response := get(base + "/m1"); response.Code != http.StatusOK {
+		t.Fatalf("well-formed get: status=%d body=%s, want 200", response.Code, response.Body.String())
 	}
 }
