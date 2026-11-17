@@ -236,8 +236,15 @@ func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Re
 	if d.Evidence==nil { writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return }
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
 	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" { writeProblem(w,409,"Revision required","Resolve a Git commit before evaluating this changeset");return }
-	base:=revision.ParentSHA;if base=="" { base=revision.CommitSHA+"^" }
-	result,evalErr:=d.Evaluator.Evaluate(r.Context(),principal.OrganizationID,stored.Changeset.Repository,base,revision.CommitSHA)
+	if d.Catalog==nil {writeProblem(w,503,"Repository catalog unavailable","The target branch cannot be verified");return}
+	repositories,catalogErr:=d.Catalog.ListRepositories(r.Context(),principal.OrganizationID)
+	if catalogErr!=nil {writeProblem(w,503,"Repository catalog unavailable","The target branch could not be loaded");return}
+	baseRef:=""
+	for _,repository:=range repositories {if repository.Slug==stored.Changeset.Repository {baseRef=repository.DefaultBranch;break}}
+	if baseRef=="" {writeProblem(w,409,"Repository not registered","Register this repository before evaluating changesets");return}
+	baseRevision,baseErr:=d.Git.ResolveRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,baseRef)
+	if baseErr!=nil {writeProblem(w,409,"Target branch unavailable","The registered default branch could not be resolved");return}
+	result,evalErr:=d.Evaluator.Evaluate(r.Context(),principal.OrganizationID,stored.Changeset.Repository,baseRevision.CommitSHA,revision.CommitSHA)
 	status:=delivery.EvaluationPassed;if evalErr!=nil||!result.Passed {status=delivery.EvaluationFailed}
 	evaluationID,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record evaluation","An identifier could not be generated");return}
 	if err=stored.Changeset.RecordEvaluation(delivery.ID(evaluationID),revision.ID,status,result.Summary,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
