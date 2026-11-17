@@ -60,7 +60,7 @@ Migrate incrementally toward a simplified Feature-Sliced structure only when cod
 - `shared/`: business-agnostic UI primitives, hooks, utilities, configuration and infrastructure.
 - `domain/`: retain framework-independent business invariants and pure rules; do not move domain logic into React components.
 
-The Overview page now lives in `pages/overview`. Existing `features/delivery` and `features/resources` remain in place until their boundaries can be migrated safely. This is an incremental target, not a claim that all layers already exist.
+The Overview page lives in `pages/overview`, and navigation-level resource workspaces live in `pages/resources`. The delivery workflow remains in `features/delivery` until its boundary can be migrated safely. This is an incremental target, not a claim that all layers already exist.
 
 ### Componentization rules
 
@@ -118,11 +118,15 @@ A module may contain only the subfolders it actually needs. Common optional resp
 - Must not become the home for feature business logic or large page implementations.
 - Keep App.tsx focused. Extract the shell, overview page, command palette, dialogs and other substantial UI into appropriately owned components as they evolve.
 
+**pages**
+- Owns navigation-level screen composition and page-specific view state.
+- Composes feature workflows and entity views; keep route-specific configuration alongside the owning page.
+- Extract reusable user actions into `features` only when they have a clear workflow boundary.
+
 **features**
 - Owns user-facing workflows, feature components, feature-specific hooks and orchestration.
 - May call domain functions and shared utilities.
 - Should expose a small public entry point to pages or app.
-- Keep page-specific resource configuration close to its owning page; extract reusable user actions into features.
 
 **domain**
 - Owns framework-independent business types, identity rules, invariants and pure business logic.
