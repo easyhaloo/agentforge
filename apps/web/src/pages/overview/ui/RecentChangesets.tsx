@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, Code2 } from "lucide-react";
-import { Button, Empty, Input, Select } from "../../../shared/ui";
+import { Button, DataTable, Empty, Input, Select } from "../../../shared/ui";
 import { recentChangesetSeeds } from "../data/overviewData";
 import type { CreatedChangeset, OverviewChangesetRow } from "../model/types";
 
@@ -70,30 +70,24 @@ export function RecentChangesets({ created, onNavigate, onNotify, onSelect, sele
         </Button>
       </div>
       <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>IDENTIFIER</th><th>NAME</th><th>PROJECT</th><th>STATUS</th><th>UPDATED</th><th /></tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} onClick={() => onSelect(row.id)} className={selectedId === row.id ? "selected-row" : ""}>
-                <td><span className="mono">{row.id}</span></td>
-                <td><b>{row.title}</b></td>
-                <td><span className="repo-tag"><Code2 size={12} />{row.project}</span></td>
-                <td><span className={`status ${statusClass(row.status)}`}><i />{row.status}</span></td>
-                <td className="muted-text">{row.updated}</td>
-                <td>
-                  <Button variant="ghost" size="small" className="more" type="button" aria-label={`More actions for ${row.id}`} onClick={(event) => {
-                    event.stopPropagation();
-                    onNotify("More actions are available in the full product.");
-                  }}>···</Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {rows.length === 0 && <Empty title="No matching changesets" description="Try another search term or reset the status filter." />}
-      </div>
+        <DataTable
+          className="recent-changesets-table"
+          columns={[
+            { key: "id", title: "IDENTIFIER", render: (_, row) => <span className="mono">{row.id}</span> },
+            { key: "title", title: "NAME", render: (_, row) => <b>{row.title}</b> },
+            { key: "project", title: "PROJECT", render: (_, row) => <span className="repo-tag"><Code2 size={12}/>{row.project}</span> },
+            { key: "status", title: "STATUS", render: (_, row) => <span className={`status ${statusClass(row.status)}`}><i/>{row.status}</span> },
+            { key: "updated", title: "UPDATED", render: (_, row) => <span className="muted-text">{row.updated}</span> },
+            { key: "actions", title: "", render: (_, row) => <Button variant="ghost" size="small" className="more" type="button" aria-label={`More actions for ${row.id}`} onClick={(event) => { event.stopPropagation(); onNotify("More actions are available in the full product."); }}>···</Button> },
+          ]}
+          data={rows}
+          rowKey="id"
+          showColumnVisibility={false}
+          onRowClick={(row) => onSelect(row.id)}
+          rowClassName={(row) => selectedId === row.id ? "selected-row" : ""}
+          emptyText={<Empty title="No matching changesets" description="Try another search term or reset the status filter."/>}
+        />
+      </div></div>
     </section>
   );
 }
