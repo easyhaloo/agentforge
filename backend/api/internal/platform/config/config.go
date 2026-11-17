@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -42,6 +43,12 @@ func load(port, databaseURL, appOrigin string) (Config, error) {
 		parsedOrigin.Host == "" || parsedOrigin.User != nil || parsedOrigin.Path != "" ||
 		parsedOrigin.RawQuery != "" || parsedOrigin.Fragment != "" {
 		return Config{}, errors.New("APP_ORIGIN must be an absolute HTTP(S) origin without a path")
+	}
+	if parsedOrigin.Scheme == "http" {
+		ip := net.ParseIP(parsedOrigin.Hostname())
+		if parsedOrigin.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
+			return Config{}, errors.New("APP_ORIGIN must use HTTPS outside loopback development")
+		}
 	}
 	return Config{Port: port, DatabaseURL: databaseURL, AppOrigin: appOrigin}, nil
 }
