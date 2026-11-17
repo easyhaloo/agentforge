@@ -117,11 +117,11 @@ test("Changesets loads organization records, searches and persists a new changes
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByPlaceholder("Search ID, title or repository").fill("Browser test");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
-  await page.getByRole("textbox", { name: "Search changesets" }).fill("");
-  await page.getByRole("textbox", { name: "Repository" }).fill("easyhaloo/agentforge");
+  await page.getByPlaceholder("Search ID, title or repository").fill("");
+  await page.getByRole("combobox", { name: "Repository" }).selectOption("easyhaloo/agentforge");
   await page.getByRole("textbox", { name: "Title" }).fill("E2E persisted changeset");
   const createResponse = page.waitForResponse((response) => response.url().includes("/api/v1/organizations/org-demo/changesets") && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Create changeset", exact: true }).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   expect((await createResponse).status()).toBe(201);
   await expect(page.getByRole("cell").getByText("E2E persisted changeset")).toBeVisible();
 });
