@@ -17,6 +17,7 @@ func TestLoadFromValues(t *testing.T) {
 		{name: "invalid port", port: "70000", databaseURL: "postgres://localhost/agentforge", wantErr: true},
 		{name: "invalid port text", port: "http", databaseURL: "postgres://localhost/agentforge", wantErr: true},
 		{name: "missing database", port: "8080", wantErr: true},
+		{name: "invalid database URL", port: "8080", databaseURL: "http://localhost/db", wantErr: true},
 	}
 
 	for _, test := range tests {
