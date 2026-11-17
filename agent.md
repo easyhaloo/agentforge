@@ -86,15 +86,15 @@ Current implemented structure:
         components/                Shell-owned UI components
       pages/
         overview/                  Overview page, page sections, view model and fixtures
+        resources/                 Resource workspace page composition, page config and sections
+          data/                    Resource fixtures and page configuration
+          ui/                      Resource list and inspector sections
       features/
         delivery/                  Changeset delivery workflow
           hooks/                   React state and persistence adapter
           ui/                      Delivery workflow presentation components
           use-cases/                Create revision, run evaluation, decide review and merge
           workflow.ts              Compatibility re-export for delivery use cases
-        resources/                 Resource workspaces and resource configuration
-          data/                    Resource fixtures and page configuration
-          ui/                      Resource list and inspector components
       entities/
         changeset/                 Changeset identity and core type
         revision/                  Revision identity and core type
@@ -114,15 +114,15 @@ A module may contain only the subfolders it actually needs. Common optional resp
 
 **app**
 - Owns application composition, top-level navigation, global providers and shell-level concerns.
-- Connects feature entry points.
+- Connects page and feature entry points.
 - Must not become the home for feature business logic or large page implementations.
 - Keep App.tsx focused. Extract the shell, overview page, command palette, dialogs and other substantial UI into appropriately owned components as they evolve.
 
 **features**
 - Owns user-facing workflows, feature components, feature-specific hooks and orchestration.
 - May call domain functions and shared utilities.
-- Should expose a small page or feature entry point to app.
-- Keep resource-specific configuration close to the resources feature, not in the application shell.
+- Should expose a small public entry point to pages or app.
+- Keep page-specific resource configuration close to its owning page; extract reusable user actions into features.
 
 **domain**
 - Owns framework-independent business types, identity rules, invariants and pure business logic.
