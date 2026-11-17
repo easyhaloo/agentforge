@@ -62,9 +62,10 @@ describe("shared UI primitives", () => {
     const drawer = renderToStaticMarkup(<Drawer open title="Resource details" onClose={() => undefined}>Details</Drawer>);
     expect(drawer).toContain('role="dialog"');
     expect(drawer).toContain('aria-label="Resource details"');
-    const confirmation = renderToStaticMarkup(<ConfirmDialog open description="Remove this member?" onCancel={() => undefined} onConfirm={() => undefined} />);
+    const confirmation = renderToStaticMarkup(<ConfirmDialog open danger description="Remove this member?" onCancel={() => undefined} onConfirm={() => undefined} />);
     expect(confirmation).toContain("Are you sure?");
     expect(confirmation).toContain("Remove this member?");
+    expect(confirmation).toContain("af-button--danger");
   });
 
   it("exposes accessible popover trigger relationships", () => {
