@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -102,9 +104,10 @@ func (s *Store) RevokeSession(ctx context.Context, sessionToken string) error {
 }
 
 func newSessionID() (string, error) {
-	value, err := randomBytes(16)
+	value := make([]byte, 16)
+	_, err := rand.Read(value)
 	if err != nil {
 		return "", fmt.Errorf("generate session ID: %w", err)
 	}
-	return encodeHex(value), nil
+	return hex.EncodeToString(value), nil
 }
