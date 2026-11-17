@@ -4,12 +4,20 @@
 ALTER TABLE organizations
     ADD COLUMN IF NOT EXISTS slug TEXT;
 
+-- Created before the backfill so that every "is this slug taken" probe below is
+-- an index lookup, not a sequential scan (a unique index allows many NULLs).
+CREATE UNIQUE INDEX IF NOT EXISTS organizations_slug_key
+    ON organizations (slug);
+
 -- Deterministic backfill, oldest organization first; ties are broken by id in
 -- byte order (COLLATE "C") so the result does not depend on the database
 -- collation. The base slug follows identity.Slugify (ASCII only, so it does not
 -- depend on the database locale either). A candidate is skipped, and -2, -3, ...
 -- is tried, when it is the reserved word 'current', another organization's
 -- slug, or a different organization's id.
+-- ponytail: k organizations with the same base slug cost O(k^2) index probes
+-- (1500 identical names: ~4 s, 3000: ~17 s). If that ever matters, remember the
+-- next free suffix per base slug instead of probing from -2 each time.
 DO $$
 DECLARE
     organization RECORD;
@@ -50,6 +58,3 @@ ALTER TABLE organizations
 ALTER TABLE organizations
     ADD CONSTRAINT organizations_slug_check
     CHECK (slug ~ '^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$' AND slug <> 'current');
-
-CREATE UNIQUE INDEX IF NOT EXISTS organizations_slug_key
-    ON organizations (slug);
