@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -191,28 +192,67 @@ export function Modal({
   width = 520,
 }: ModalProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const busy = submitting || confirmLoading;
+  const busyRef = useRef(busy);
+  const dialogRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  busyRef.current = busy;
 
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    focusable()[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancel();
+      if (event.key === "Escape" && !busyRef.current) {
+        onCancel();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      if (!elements.length) {
+        event.preventDefault();
+        dialog?.focus();
+        return;
+      }
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, busy, onCancel]);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open, onCancel]);
 
   useEffect(() => {
-    if (!open) setSubmitting(false);
+    if (!open) {
+      setSubmitting(false);
+      setSubmitError("");
+    }
   }, [open]);
 
   if (!open) return null;
 
   const handleOk = async () => {
     if (!onOk || busy) return;
+    setSubmitError("");
     try {
       setSubmitting(true);
       await onOk();
+    } catch (cause) {
+      setSubmitError(cause instanceof Error ? cause.message : "Unable to complete this action");
     } finally {
       setSubmitting(false);
     }
@@ -222,12 +262,15 @@ export function Modal({
     <div className="af-modal-backdrop" onMouseDown={(event) => {
       if (closeOnBackdrop && event.target === event.currentTarget && !busy) onCancel();
     }}>
-      <section className="af-modal" role="dialog" aria-modal="true" aria-labelledby="af-modal-title" style={{ width }}>
+      <section ref={dialogRef} tabIndex={-1} className="af-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
         <header className="af-modal__header">
-          <h2 id="af-modal-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <button type="button" className="af-modal__close" aria-label="Close dialog" onClick={onCancel} disabled={busy}>×</button>
         </header>
-        <div className="af-modal__body">{children}</div>
+        <div className="af-modal__body">
+          {children}
+          {submitError && <p className="af-modal__error" role="alert">{submitError}</p>}
+        </div>
         <footer className="af-modal__footer">
           <Button onClick={onCancel} disabled={busy}>{cancelText}</Button>
           {onOk && <Button variant="primary" onClick={handleOk} loading={busy}>{okText}</Button>}
@@ -300,7 +343,7 @@ export function DataTable<T>({
     onSelectionChange?.(keys, checked ? data : []);
   };
   const sortedData = useMemo(() => {
-    if (onSort || !sortState) return data;
+    if (!sortState) return data;
     const column = columns.find((item) => String(item.key) === sortState.key);
     if (!column) return data;
     return [...data].sort((a, b) => {
