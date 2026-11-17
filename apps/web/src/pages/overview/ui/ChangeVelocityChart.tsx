@@ -1,5 +1,3 @@
-import { ChevronDown } from "lucide-react";
-
 export function ChangeVelocityChart() {
   return (
     <section className="card panel">
@@ -8,9 +6,9 @@ export function ChangeVelocityChart() {
           <h3>Change velocity</h3>
           <p>Changesets created and merged · Last 7 days</p>
         </div>
-        <button className="select-like" type="button">
-          Last 7 days <ChevronDown size={13} />
-        </button>
+        <span className="select-like" aria-label="Selected time range: Last 7 days">
+          Last 7 days
+        </span>
       </div>
       <div className="chart">
         <div className="chart-y">
