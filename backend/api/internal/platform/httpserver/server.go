@@ -39,10 +39,12 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		}
 		mux.HandleFunc("GET /auth/oidc/login", unavailable)
 		mux.HandleFunc("GET /auth/oidc/callback", unavailable)
+		mux.HandleFunc("GET /auth/invitations/accept", unavailable)
 		mux.HandleFunc("POST /api/v1/auth/logout", unavailable)
 	} else {
 		mux.HandleFunc("GET /auth/oidc/login", deps.OIDC.Login)
 		mux.HandleFunc("GET /auth/oidc/callback", deps.OIDC.Callback)
+		mux.HandleFunc("GET /auth/invitations/accept", deps.OIDC.AcceptInvitation)
 		mux.HandleFunc("POST /api/v1/auth/logout", deps.OIDC.Logout)
 	}
 	mux.Handle("/", newDeliveryHandler(deps))
