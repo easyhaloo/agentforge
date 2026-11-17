@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.4.0
+  version: 0.5.0
   description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
 servers:
   - url: /
