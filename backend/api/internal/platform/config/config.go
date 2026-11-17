@@ -13,7 +13,11 @@ type Config struct {
 }
 
 func LoadFromEnv() (Config, error) {
-	port := strings.TrimSpace(os.Getenv("PORT"))
+	return load(os.Getenv("PORT"), os.Getenv("DATABASE_URL"))
+}
+
+func load(port, databaseURL string) (Config, error) {
+	port = strings.TrimSpace(port)
 	if port == "" {
 		port = "8080"
 	}
@@ -22,7 +26,7 @@ func LoadFromEnv() (Config, error) {
 		return Config{}, errors.New("PORT must be an integer between 1 and 65535")
 	}
 
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	databaseURL = strings.TrimSpace(databaseURL)
 	if databaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL is required")
 	}
