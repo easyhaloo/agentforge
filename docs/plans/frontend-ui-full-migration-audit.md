@@ -71,7 +71,8 @@
 - [x] PR #59 已合并到 main。
 - [ ] 真实浏览器中验证 Modal/Drawer/Popover 的焦点、键盘、遮罩和移动端行为。
 - [ ] 完成 Overview、Delivery、Resources、Changesets、Organization 的业务回归。
-- [ ] 基于引用扫描清理历史 CSS；保留登录链接及业务布局所需样式。
+- [x] 已清理无引用的 Modal、CommandPalette、Toast 历史样式；保留登录链接和业务布局样式。
+- [ ] 对其余业务 CSS 完成更全面的引用核验和浏览器视觉回归。
 - [ ] 所有专项 PR 合并，形成最终差异清单和验收报告。
 
 ## 7. 风险与明确例外
@@ -95,5 +96,5 @@
 | 2026-11-17 | 共享 UI 契约测试、Popover 焦点/关闭改进、ConfirmDialog danger 变体、Tabs 键盘交互 | 已合并（PR #59，48 tests、build、ci-gate 全部通过） |
 | 2026-11-17 | 全仓共享 UI 静态门禁 | 已合并（PR #59） |
 | 2026-11-17 | PR #59 全量控件迁移、组件能力和静态门禁 | 已合并；48 tests、build、ci-gate 通过 |
-| 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | 本 PR |
+| 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | PR #63，CI 通过，待合并 |
 | 待执行 | 浏览器级交互回归和最终验收 | 进行中 |
