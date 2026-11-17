@@ -32,7 +32,7 @@ Status: **Completed**.
 
 Priority: P0
 Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5) · [PR #6](https://github.com/easyhaloo/agentforge/pull/6)
-Status: **In progress**.
+Status: **Implementation complete; final acceptance pending**.
 
 Completed in PR #6:
 - Initialized Go module and HTTP server with `/healthz`, `/readyz`, structured logs and graceful shutdown.
@@ -40,14 +40,16 @@ Completed in PR #6:
 - Moved React/Vite frontend to `apps/web` and introduced root npm workspace scripts.
 - Added root Wrangler Worker Static Assets configuration.
 - Added path-aware CI jobs for frontend, backend and OpenAPI contract validation.
+- Synchronized the latest `main` resource-record model and resource workspace changes into the `apps/web` workspace without restoring the old root `src/` tree.
+- Added the Worker entry point, Static Assets binding and SPA fallback; CI now runs Wrangler dry-run packaging validation.
+- Latest complete validation: [Actions run #44030681707](https://github.com/easyhaloo/agentforge/actions/runs/44030681707), head `30ae4fbdcf74c7d6ac1200a4143026a2f11bcf74`; frontend install/test/build/dry-run, Go test/build and OpenAPI lint all passed.
 
 Remaining:
-- Frontend tests/build, Go tests/build and OpenAPI validation all passed in [Actions run #44014719878](https://github.com/easyhaloo/agentforge/actions/runs/44014719878) for head `77de1b970051c9c1f501a3c5655eb67ef8e2f434`.
-- Verify Cloudflare Workers Builds from repository root deploys `apps/web/dist` successfully.
-- Generate and commit a reproducible npm lockfile; none existed at the inspected baseline.
+- Generate and commit a reproducible npm lockfile; `package-lock.json` is not yet present.
+- Verify Cloudflare Workers Builds deploys the frontend from repository root to the production Worker.
 - Add local development environment examples and complete API configuration validation.
 
-Acceptance: frontend behavior preserved; all CI checks pass; Worker deployment remains valid; no Pages deploy command or committed secrets.
+Acceptance: frontend behavior preserved; all CI checks pass on the latest PR head; Worker deployment is verified in the target environment; no Pages deploy command or committed secrets.
 
 ## Phase 2 — Backend platform and persistence
 
