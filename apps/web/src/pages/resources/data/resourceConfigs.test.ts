@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { configs } from "./resourceConfigs";
+import { toResourceRow } from "./resourceRecords";
 
 describe("resource page configuration", () => {
-  it("defines valid table columns for every resource page", () => {
+  it("defines valid table columns and entity models for every resource page", () => {
     for (const [page, config] of Object.entries(configs)) {
       expect(config.columns.length, page).toBeGreaterThan(0);
+      const rows = config.items.map(toResourceRow);
       for (const column of config.columns) {
-        expect(config.items.every((item) => typeof item[column.field] === "string"), page).toBe(true);
+        expect(rows.every((row) => typeof row[column.field] === "string"), page).toBe(true);
       }
+      expect(config.items.every((record) => record.kind !== "unclassified"), page).toBe(true);
     }
   });
 
