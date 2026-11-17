@@ -32,22 +32,23 @@ Status: **Completed**.
 
 Priority: P0
 Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5) · [PR #6](https://github.com/easyhaloo/agentforge/pull/6)
-Status: **In progress**.
+Status: **Integration validation** — implementation is on `phase-1-foundation-reconciled`; it is not merged to `main`.
 
-Completed in PR #6:
-- Initialized Go module and HTTP server with `/healthz`, `/readyz`, structured logs and graceful shutdown.
-- Added endpoint tests and initial OpenAPI contract.
-- Moved React/Vite frontend to `apps/web` and introduced root npm workspace scripts.
-- Added root Wrangler Worker Static Assets configuration.
-- Added path-aware CI jobs for frontend, backend and OpenAPI contract validation.
+Implemented in this integration branch:
+- Initialized the Go HTTP API with `/healthz`, `/readyz`, structured logs and graceful shutdown.
+- Added endpoint tests and the initial health/readiness OpenAPI contract.
+- Moved the React/Vite application into `apps/web` and introduced root npm workspace scripts.
+- Retained the latest `main` resource-record models, resource workspace behavior, and Worker entrypoint while relocating the frontend.
+- Configured Wrangler Worker Static Assets to serve `apps/web/dist`.
+- Added path-aware CI for frontend tests/build and Worker dry-run, Go tests/build, and OpenAPI lint.
 
 Remaining:
-- Frontend tests/build, Go tests/build and OpenAPI validation all passed in [Actions run #44014719878](https://github.com/easyhaloo/agentforge/actions/runs/44014719878) for head `77de1b970051c9c1f501a3c5655eb67ef8e2f434`.
-- Verify Cloudflare Workers Builds from repository root deploys `apps/web/dist` successfully.
-- Generate and commit a reproducible npm lockfile; none existed at the inspected baseline.
+- Confirm all new CI jobs pass on this branch.
+- Generate and commit a reproducible npm lockfile.
+- Verify the Cloudflare Workers Builds integration against the actual production project settings; a Wrangler dry-run is not a production deployment.
 - Add local development environment examples and complete API configuration validation.
 
-Acceptance: frontend behavior preserved; all CI checks pass; Worker deployment remains valid; no Pages deploy command or committed secrets.
+Acceptance: frontend behavior is preserved; web, API and contract CI checks pass; Worker packaging is valid; no Pages deploy workflow, duplicate production deploy path or committed secrets.
 
 ## Phase 2 — Backend platform and persistence
 
