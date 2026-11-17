@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.2.0
-  description: Persistent delivery lifecycle API. Write operations require a trusted authenticated identity provider.
+  version: 0.3.0
+  description: Persistent delivery lifecycle API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
 servers:
   - url: /
 paths:
@@ -62,7 +62,7 @@ paths:
       operationId: createChangeset
       summary: Create a changeset
       description: Actor identity is resolved by trusted server authentication; client-supplied actor fields are rejected.
-      security: [{ sessionCookie: [], csrfToken: [] }]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
         content:
@@ -284,7 +284,11 @@ components:
     sessionCookie:
       type: apiKey
       in: cookie
-      name: agentforge_session
+      name: __Host-agentforge_session
+    csrfCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-agentforge_csrf
     csrfToken:
       type: apiKey
       in: header
