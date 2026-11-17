@@ -70,6 +70,7 @@ Implemented:
 - OIDC Authorization Code + PKCE with provider discovery/JWKS validation, state/nonce/PKCE, one-time authorization transactions, ID-token validation, and session rotation.
 - External identity upsert by immutable `(issuer, subject)`; unverified email is never used as an identity key.
 - OIDC login, callback, and CSRF-protected logout routes.
+- OIDC callback verifies that the local user has an active membership in an active organization before issuing a session; arbitrary first logins cannot create authenticated application sessions.
 - Operator-only, transactionally serialized first-owner bootstrap CLI; first login never silently grants organization membership.
 - Local PostgreSQL Compose setup, OIDC configuration, and bootstrap documentation.
 
@@ -77,7 +78,7 @@ Remaining:
 - Implement organization membership lifecycle: list members, invitations, role changes, suspension/removal, and audit attribution.
 - Centralize role and membership authorization policy outside HTTP handlers.
 - Configure the production OIDC provider and registered callback URL through deployment secrets/environment; verify end-to-end login in the deployed environment.
-- Add cross-tenant authorization tests for every read/write path and session expiry/rotation tests.
+- Add cross-tenant authorization tests for every read/write path, callback-level rejection tests for unprovisioned identities, and session expiry/rotation tests.
 - Commit reproducible Go module checksums and add explicit migration upgrade tests.
 
 Acceptance: unauthenticated requests are rejected; every organization route is backed by a verified active membership; SQL remains tenant-scoped; readiness reflects PostgreSQL and identity dependencies; security and integration tests pass.
