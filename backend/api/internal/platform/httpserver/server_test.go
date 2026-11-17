@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -57,5 +56,4 @@ func TestReadinessRequiresDatabaseAndIdentity(t *testing.T) {
 		t.Fatalf("readiness without identity = %d, want %d", response.Code, http.StatusServiceUnavailable)
 	}
 
-	_ = context.Background()
 }
