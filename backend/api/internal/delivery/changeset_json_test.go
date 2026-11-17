@@ -113,18 +113,23 @@ func TestChangesetJSONLegacyNullArraysRemarshalAsEmptyArrays(t *testing.T) {
 }
 
 func TestChangesetJSONPointerAndValueMarshalIdentically(t *testing.T) {
-	now := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
-	changeset, err := NewChangeset("cs-receiver", "org/repo", "Receiver", "author", now)
-	if err != nil {
-		t.Fatal(err)
+	// Each encoding gets its own changeset: a pointer receiver would fill the
+	// nil slices of the changeset it is called on, which would hide the
+	// difference from a value encoded afterwards.
+	fresh := func() *Changeset {
+		changeset, err := NewChangeset("cs-receiver", "org/repo", "Receiver", "author", time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return changeset
 	}
-	byPointer, err := json.Marshal(changeset)
+	byPointer, err := json.Marshal(fresh())
 	if err != nil {
 		t.Fatal(err)
 	}
 	// A value passed to Marshal is not addressable, so only a value receiver
 	// makes it use the same encoding as the pointer.
-	byValue, err := json.Marshal(*changeset)
+	byValue, err := json.Marshal(*fresh())
 	if err != nil {
 		t.Fatal(err)
 	}
