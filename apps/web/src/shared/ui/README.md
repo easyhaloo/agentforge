@@ -64,7 +64,7 @@ import {
 - `Drawer` provides a side panel with Escape and backdrop dismissal.
 - `ConfirmDialog` is a confirmation-oriented wrapper around `Modal`; asynchronous confirmation inherits the modal loading and error behavior.
 - `Popover` toggles lightweight contextual content from its trigger.
-- `DataTable` supports sortable columns and controlled row selection. Use `sortMode="client"` for local sorting (default), or `sortMode="server"` with `onSort` to delegate sorting to the API layer.
+- `DataTable` supports sortable columns, controlled row selection and optional row activation. Use `onRowClick` to handle row activation; rows become keyboard-focusable and activate with Enter or Space. Use `rowClassName` to apply state classes such as the selected-row treatment. Interactive controls inside a row do not trigger row activation. Use `sortMode="client"` for local sorting (default), or `sortMode="server"` with `onSort` to delegate sorting to the API layer.
 
 ## UI Showcase
 
@@ -73,7 +73,7 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 ## Current limitations
 
 - Date inputs use the browser-native date picker; visual details vary by browser/OS.
-- DataTable filtering, column visibility, bulk actions and virtualization remain follow-up work.
+- DataTable supports filtering, column visibility, bulk actions and accessible row activation. Virtualization is intentionally deferred until performance measurements justify it.
 - Popover currently closes through its trigger; outside-click dismissal and richer keyboard navigation are follow-up work.
 
 ## Extended form controls

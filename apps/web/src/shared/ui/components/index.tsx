@@ -340,6 +340,8 @@ export interface DataTableProps<T> extends Omit<TableHTMLAttributes<HTMLTableEle
   onVisibleColumnsChange?: (keys: string[]) => void;
   bulkActions?: ReactNode;
   showColumnVisibility?: boolean;
+  onRowClick?: (row: T) => void;
+  rowClassName?: (row: T) => string;
 }
 export function DataTable<T>({
   columns,
@@ -360,6 +362,8 @@ export function DataTable<T>({
   onVisibleColumnsChange,
   bulkActions,
   showColumnVisibility = true,
+  onRowClick,
+  rowClassName,
   className = "",
   ...tableProps
 }: DataTableProps<T>) {
@@ -476,7 +480,7 @@ export function DataTable<T>({
         <tbody>
           {loading ? <tr><td colSpan={emptyColumnCount} className="af-table__state">Loading…</td></tr> :
             sortedData.length === 0 ? <tr><td colSpan={emptyColumnCount} className="af-table__state">{emptyText}</td></tr> :
-              sortedData.map((row, index) => <tr key={getRowKey(row)}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{visibleColumns.map((column) => {
+              sortedData.map((row, index) => <tr key={getRowKey(row)} className={rowClassName?.(row)} tabIndex={onRowClick ? 0 : undefined} aria-label={onRowClick ? "Open row" : undefined} onClick={(event) => { if (!onRowClick) return; const target = event.target; if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button']")) return; onRowClick(row); }} onKeyDown={(event) => { if (!onRowClick || event.target !== event.currentTarget) return; if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onRowClick(row); } }}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{visibleColumns.map((column) => {
                 const value = (row as unknown as Record<string, unknown>)[String(column.key)];
                 return <td key={String(column.key)}>{column.render ? column.render(value, row, index) : String(value ?? "—")}</td>;
               })}</tr>)}
