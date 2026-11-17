@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
 type healthResponse struct {
