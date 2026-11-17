@@ -476,7 +476,7 @@ paths:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "401": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
-        "501": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/reviews:
     parameters:
       - in: path
@@ -728,11 +728,75 @@ components:
       properties:
         repository: { type: string, minLength: 1 }
         title: { type: string, minLength: 1 }
+    Revision:
+      type: object
+      required: [id, ref, commit_sha, created_at]
+      properties:
+        id: { type: string }
+        ref: { type: string }
+        commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        parent_sha: { type: string }
+        created_at: { type: string, format: date-time }
+    Evaluation:
+      type: object
+      required: [id, revision_id, status, summary, created_at]
+      properties:
+        id: { type: string }
+        revision_id: { type: string }
+        status: { type: string, enum: [pending, passed, failed] }
+        summary: { type: string }
+        created_at: { type: string, format: date-time }
+    Evidence:
+      type: object
+      required: [id, revision_id, evaluation_id, kind, uri, status, created_at]
+      properties:
+        id: { type: string }
+        revision_id: { type: string }
+        evaluation_id: { type: string }
+        kind: { type: string }
+        uri: { type: string }
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        size: { type: integer, minimum: 0 }
+        status: { type: string, enum: [active, stale] }
+        created_at: { type: string, format: date-time }
+    Review:
+      type: object
+      required: [id, revision_id, reviewer, status, comment, created_at]
+      properties:
+        id: { type: string }
+        revision_id: { type: string }
+        reviewer: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, stale] }
+        comment: { type: string }
+        created_at: { type: string, format: date-time }
+    Merge:
+      type: object
+      required: [id, revision_id, actor, target_ref, commit_sha, created_at]
+      properties:
+        id: { type: string }
+        revision_id: { type: string }
+        actor: { type: string }
+        target_ref: { type: string }
+        commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        created_at: { type: string, format: date-time }
     StoredChangeset:
       type: object
       required: [changeset, version, created_at, updated_at]
       properties:
-        changeset: { type: object }
+        changeset:
+          type: object
+          required: [id, created_by, repository, title, revisions, evaluations, evidence, reviews, audit]
+          properties:
+            id: { type: string }
+            created_by: { type: string }
+            repository: { type: string }
+            title: { type: string }
+            revisions: { type: array, items: { $ref: "#/components/schemas/Revision" } }
+            evaluations: { type: array, items: { $ref: "#/components/schemas/Evaluation" } }
+            evidence: { type: array, items: { $ref: "#/components/schemas/Evidence" } }
+            reviews: { type: array, items: { $ref: "#/components/schemas/Review" } }
+            merge: { $ref: "#/components/schemas/Merge" }
+            audit: { type: array, items: { type: object } }
         version: { type: integer, minimum: 1 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
