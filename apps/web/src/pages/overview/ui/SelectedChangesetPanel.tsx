@@ -1,4 +1,5 @@
 import { ArrowRight, GitPullRequest } from "lucide-react";
+import { Button } from "../../../shared/ui";
 
 type Props = {
   changesetId: string;
@@ -15,9 +16,9 @@ export function SelectedChangesetPanel({ changesetId, onNotify }: Props) {
       </div>
       <div className="detail-right">
         <span className="status success"><i />Evidence current</span>
-        <button className="link-button" type="button" onClick={() => onNotify("Changeset detail view is a prototype interaction.")}>
+        <Button variant="ghost" size="small" onClick={() => onNotify("Changeset detail view is a prototype interaction.")}>
           Open details <ArrowRight size={14} />
-        </button>
+        </Button>
       </div>
     </section>
   );
