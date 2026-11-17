@@ -36,6 +36,7 @@ type OIDCRepository interface {
 	CreateOIDCAuthTransaction(context.Context, string, string, time.Time) error
 	ConsumeOIDCAuthTransaction(context.Context, string) (string, error)
 	UpsertExternalIdentity(context.Context, string, string, string, string) (string, error)
+	HasActiveMembership(context.Context, string) (bool, error)
 	CreateSession(context.Context, string, string, string, time.Time) (string, error)
 	RevokeSession(context.Context, string) error
 }
@@ -171,6 +172,20 @@ func (a *OIDCAuthenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		clearOIDCCookies(w)
 		writeAuthProblem(w, http.StatusServiceUnavailable, "Identity persistence unavailable", "The verified identity could not be saved")
+		return
+	}
+	// A verified external identity is not, by itself, an AgentForge account
+	// authorization. Only provisioned active organization members may receive
+	// an application session; first-owner provisioning stays operator-controlled.
+	activeMembership, err := a.repository.HasActiveMembership(r.Context(), userID)
+	if err != nil {
+		clearOIDCCookies(w)
+		writeAuthProblem(w, http.StatusServiceUnavailable, "Membership lookup unavailable", "Organization access could not be verified")
+		return
+	}
+	if !activeMembership {
+		clearOIDCCookies(w)
+		writeAuthProblem(w, http.StatusForbidden, "Organization access required", "This identity is not an active member of an AgentForge organization. Ask an organization owner to provision access.")
 		return
 	}
 
