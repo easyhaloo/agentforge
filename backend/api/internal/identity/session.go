@@ -30,6 +30,12 @@ type PrincipalResolver interface {
 	ResolvePrincipal(*http.Request, string) (Principal, error)
 }
 
+type OIDCHandler interface {
+	Login(http.ResponseWriter, *http.Request)
+	Callback(http.ResponseWriter, *http.Request)
+	Logout(http.ResponseWriter, *http.Request)
+}
+
 type CSRFValidator interface {
 	ValidateCSRF(ctx context.Context, sessionToken, csrfToken string) error
 }
@@ -72,6 +78,8 @@ func GenerateCredentials() (Credentials, error) {
 	}
 	return Credentials{SessionToken: sessionToken, CSRFToken: csrfToken}, nil
 }
+
+func GenerateToken() (string, error) { return randomToken() }
 
 func HashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
