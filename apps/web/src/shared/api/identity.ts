@@ -54,3 +54,29 @@ export const organizationAPI = {
 export const authAPI = {
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
 };
+
+export type StoredChangeset = {
+  changeset: {
+    id: string;
+    created_by: string;
+    repository: string;
+    title: string;
+    revisions: Array<{ id: string; ref: string; created_at: string }>;
+    evaluations: Array<{ id: string; revision_id: string; status: string; summary: string; created_at: string }>;
+    evidence: Array<{ id: string; revision_id: string; evaluation_id: string; kind: string; uri: string; status: string; created_at: string }>;
+    reviews: Array<{ id: string; revision_id: string; reviewer: string; status: string; comment: string; created_at: string }>;
+    merge?: { id: string; revision_id: string; actor: string; target_ref: string; commit_sha: string; created_at: string };
+    audit: Array<{ sequence: number; actor: string; operation: string; target_id: string; outcome: string; at: string }>;
+  };
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+export const changesetAPI = {
+  list: (organizationID: string) =>
+    request<{ items: StoredChangeset[]; limit: number; offset: number }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?limit=100&offset=0`),
+  create: (organizationID: string, repository: string, title: string) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
+      method: "POST", body: JSON.stringify({ repository, title }),
+    }),
+};
