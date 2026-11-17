@@ -4,11 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/jackc/pgx/v5"
 )
 
 // lockGetPromptly runs a plain query on the query pool, the way a handler loads a changeset, and
@@ -276,4 +281,79 @@ func TestStoreCloseClosesBothPools(t *testing.T) {
 		t.Error("a closed store granted a lock")
 	}
 	store.Close() // a second Close must not panic; the fixture closes the store once more
+}
+
+// lockPoolGoroutines counts the background goroutines of open pgx pools in this process. Every
+// pool starts one when it is created and stops it only in Close.
+func lockPoolGoroutines() int {
+	buffer := make([]byte, 1<<22)
+	return strings.Count(string(buffer[:runtime.Stack(buffer, true)]), "pgxpool.(*Pool).backgroundHealthCheck")
+}
+
+// A pool that Open created and then abandoned would keep running for ever. The lock pool opens no
+// connection, so a leaked one is visible only as its goroutine.
+func TestOpenClosesBothPoolsWhenItFails(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// A scratch database whose schema_migrations cannot hold migration names: Open creates both
+	// pools and connects, and then the first migration lookup fails.
+	name := "agentforge_lock_" + lockSuffix()
+	admin, err := pgx.Connect(ctx, databaseURL)
+	lockMust(t, err)
+	_, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize())
+	admin.Close(ctx)
+	lockMust(t, err)
+	t.Cleanup(func() {
+		// Its own connection: cleanups run after the test body's deferred calls.
+		cleanup, stop := context.WithTimeout(context.Background(), 20*time.Second)
+		defer stop()
+		dropper, err := pgx.Connect(cleanup, databaseURL)
+		if err != nil {
+			t.Errorf("connect to drop scratch database %s: %v", name, err)
+			return
+		}
+		defer dropper.Close(cleanup)
+		if _, err := dropper.Exec(cleanup, "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
+			t.Errorf("drop scratch database %s: %v", name, err)
+		}
+	})
+	parsed, err := url.Parse(databaseURL)
+	lockMust(t, err)
+	parsed.Path = "/" + name
+	scratch, err := pgx.Connect(ctx, parsed.String())
+	lockMust(t, err)
+	_, err = scratch.Exec(ctx, "CREATE TABLE schema_migrations (version integer)")
+	lockMust(t, err)
+	scratch.Close(ctx)
+
+	// Let the pools of earlier tests finish stopping before taking the baseline.
+	before := lockPoolGoroutines()
+	for settled := 0; settled < 3; {
+		time.Sleep(100 * time.Millisecond)
+		if now := lockPoolGoroutines(); now == before {
+			settled++
+		} else {
+			before, settled = now, 0
+		}
+	}
+
+	store, err := Open(ctx, parsed.String())
+	if err == nil {
+		store.Close()
+		t.Fatal("Open succeeded although the migration cannot run")
+	}
+	if !strings.Contains(err.Error(), "check migration") {
+		t.Fatalf("Open failed at the wrong stage: %v (want the migration lookup, after both pools exist)", err)
+	}
+	current := 0
+	lockEventually(t, 3*time.Second, "a pool created by the failed Open is still running", func() bool {
+		current = lockPoolGoroutines()
+		return current <= before
+	})
+	t.Logf("PROBE failed Open left %d pool goroutines (%d before)", current, before)
 }
