@@ -74,7 +74,7 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 
 - Date inputs use the browser-native date picker; visual details vary by browser/OS.
 - DataTable supports filtering, column visibility, bulk actions and accessible row activation. Virtualization is intentionally deferred until performance measurements justify it.
-- Popover currently closes through its trigger; outside-click dismissal and richer keyboard navigation are follow-up work.
+- Popover dismisses on outside pointer interaction and Escape, restores focus to its trigger on Escape, and exposes an accessible dialog relationship. Tab follows the natural focus order; full menu-style arrow-key navigation is intentionally not implied.
 
 ## Extended form controls
 
