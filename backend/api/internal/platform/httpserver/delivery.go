@@ -383,7 +383,9 @@ func (d DeliveryDependencies) principal(w http.ResponseWriter, r *http.Request, 
 		writeProblem(w, http.StatusServiceUnavailable, "Identity service unavailable", "The authenticated identity could not be verified")
 		return Principal{}, false
 	}
-	if strings.TrimSpace(principal.UserID) == "" || principal.OrganizationID != organizationID {
+	// The path segment is an organization handle (id or slug). ResolvePrincipal is the only
+	// authority that maps it to a canonical id, and every query below uses principal.OrganizationID.
+	if strings.TrimSpace(principal.UserID) == "" || strings.TrimSpace(principal.OrganizationID) == "" {
 		writeProblem(w, http.StatusForbidden, "Organization access denied", "The authenticated principal is not authorized for the selected organization")
 		return Principal{}, false
 	}
