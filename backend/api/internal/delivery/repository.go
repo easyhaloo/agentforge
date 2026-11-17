@@ -19,8 +19,8 @@ type StoredChangeset struct {
 }
 
 type Repository interface {
-	Create(context.Context, *Changeset) (StoredChangeset, error)
-	Update(context.Context, *Changeset, int64) (StoredChangeset, error)
-	Get(context.Context, ID) (StoredChangeset, error)
-	List(context.Context, int, int) ([]StoredChangeset, error)
+	Create(context.Context, string, *Changeset) (StoredChangeset, error)
+	Update(context.Context, string, *Changeset, int64) (StoredChangeset, error)
+	Get(context.Context, string, ID) (StoredChangeset, error)
+	List(context.Context, string, int, int) ([]StoredChangeset, error)
 }
