@@ -303,12 +303,18 @@ export function FormItem({ children, className = "" }: { children: ReactNode; cl
   return <div className={`af-form-item ${className}`.trim()}>{children}</div>;
 }
 
+export interface DataTableFilterOption {
+  label: string;
+  value: string;
+}
 export interface DataTableColumn<T> {
   key: keyof T | string;
   title: string;
   width?: number | string;
   render?: (value: unknown, row: T, index: number) => ReactNode;
   sortable?: boolean;
+  filterOptions?: DataTableFilterOption[];
+  filterPlaceholder?: string;
 }
 export interface DataTablePagination {
   page: number;
@@ -327,6 +333,13 @@ export interface DataTableProps<T> extends Omit<TableHTMLAttributes<HTMLTableEle
   onSelectionChange?: (keys: Array<string | number>, rows: T[]) => void;
   onSort?: (key: string, direction: "asc" | "desc" | null) => void;
   sortMode?: "client" | "server";
+  filterMode?: "client" | "server";
+  filters?: Record<string, string>;
+  onFilterChange?: (filters: Record<string, string>) => void;
+  visibleColumnKeys?: string[];
+  onVisibleColumnsChange?: (keys: string[]) => void;
+  bulkActions?: ReactNode;
+  showColumnVisibility?: boolean;
 }
 export function DataTable<T>({
   columns,
@@ -340,28 +353,61 @@ export function DataTable<T>({
   onSelectionChange,
   onSort,
   sortMode = "client",
+  filterMode = "client",
+  filters,
+  onFilterChange,
+  visibleColumnKeys,
+  onVisibleColumnsChange,
+  bulkActions,
+  showColumnVisibility = true,
   className = "",
   ...tableProps
 }: DataTableProps<T>) {
   const getRowKey = (row: T) => typeof rowKey === "function" ? rowKey(row) : String(row[rowKey]);
   const [internalSelected, setInternalSelected] = useState<Array<string | number>>([]);
   const [sortState, setSortState] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [internalFilters, setInternalFilters] = useState<Record<string, string>>({});
+  const [internalVisibleKeys, setInternalVisibleKeys] = useState<string[]>(() => columns.map((column) => String(column.key)));
   const selected = selectedRowKeys ?? internalSelected;
+  const activeFilters = filters ?? internalFilters;
+  const visibleKeys = visibleColumnKeys ?? internalVisibleKeys;
+  const visibleColumns = columns.filter((column) => visibleKeys.includes(String(column.key)));
+  const hasActiveFilters = Object.values(activeFilters).some(Boolean);
+  const setFilters = (next: Record<string, string>) => {
+    if (filters === undefined) setInternalFilters(next);
+    onFilterChange?.(next);
+  };
+  const setVisibleKeys = (next: string[]) => {
+    if (visibleColumnKeys === undefined) setInternalVisibleKeys(next);
+    onVisibleColumnsChange?.(next);
+  };
   const toggleRow = (key: string | number, checked: boolean) => {
     const next = checked ? [...selected, key] : selected.filter((item) => item !== key);
     if (selectedRowKeys === undefined) setInternalSelected(next);
     onSelectionChange?.(next, data.filter((row) => next.includes(getRowKey(row))));
   };
   const toggleAll = (checked: boolean) => {
-    const keys = checked ? data.map(getRowKey) : [];
+    const pageKeys = data.map(getRowKey);
+    const keys = checked
+      ? Array.from(new Set([...selected, ...pageKeys]))
+      : selected.filter((key) => !pageKeys.includes(key));
     if (selectedRowKeys === undefined) setInternalSelected(keys);
-    onSelectionChange?.(keys, checked ? data : []);
+    onSelectionChange?.(keys, data.filter((row) => keys.includes(getRowKey(row))));
   };
+  const filteredData = useMemo(() => {
+    if (filterMode === "server") return data;
+    return data.filter((row) => columns.every((column) => {
+      const filterValue = activeFilters[String(column.key)];
+      if (!filterValue) return true;
+      const value = (row as unknown as Record<string, unknown>)[String(column.key)];
+      return String(value ?? "") === filterValue;
+    }));
+  }, [data, columns, activeFilters, filterMode]);
   const sortedData = useMemo(() => {
-    if (!sortState || sortMode === "server") return data;
+    if (!sortState || sortMode === "server") return filteredData;
     const column = columns.find((item) => String(item.key) === sortState.key);
-    if (!column) return data;
-    return [...data].sort((a, b) => {
+    if (!column) return filteredData;
+    return [...filteredData].sort((a, b) => {
       const av = (a as unknown as Record<string, unknown>)[sortState.key];
       const bv = (b as unknown as Record<string, unknown>)[sortState.key];
       const result = typeof av === "number" && typeof bv === "number"
@@ -369,7 +415,7 @@ export function DataTable<T>({
         : String(av ?? "").localeCompare(String(bv ?? ""), undefined, { numeric: true });
       return sortState.direction === "asc" ? result : -result;
     });
-  }, [data, columns, sortState, sortMode]);
+  }, [filteredData, columns, sortState, sortMode]);
   const changeSort = (key: string) => {
     const direction = sortState?.key !== key ? "asc" : sortState.direction === "asc" ? "desc" : null;
     setSortState(direction ? { key, direction } : null);
@@ -381,20 +427,56 @@ export function DataTable<T>({
     const start = Math.max(1, Math.min(pagination.page - 2, pageCount - 4));
     return Array.from({ length: Math.min(5, pageCount) }, (_, index) => start + index);
   }, [pagination, pageCount]);
+  const selectionColumnCount = onSelectionChange ? 1 : 0;
+  const emptyColumnCount = Math.max(1, visibleColumns.length + selectionColumnCount);
 
   return (
     <div className="af-table-wrap">
+      {(showColumnVisibility || bulkActions || hasActiveFilters || onFilterChange) && (
+        <div className="af-table-toolbar">
+          <div className="af-table-toolbar__start">
+            {onSelectionChange && <span className="af-table-toolbar__selection">{selected.length} selected</span>}
+            {bulkActions && selected.length > 0 && <div className="af-table-toolbar__bulk">{bulkActions}</div>}
+          </div>
+          {showColumnVisibility && (
+            <details className="af-table-columns">
+              <summary>Columns</summary>
+              <div className="af-table-columns__menu">
+                {columns.map((column) => {
+                  const key = String(column.key);
+                  return <label key={key}><input type="checkbox" checked={visibleKeys.includes(key)} disabled={visibleKeys.length === 1 && visibleKeys.includes(key)} onChange={(event) => setVisibleKeys(event.target.checked ? [...visibleKeys, key] : visibleKeys.filter((item) => item !== key))} />{column.title}</label>;
+                })}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
       <table {...tableProps} className={`af-table ${className}`.trim()}>
-        <thead><tr>
-          {onSelectionChange && <th className="af-table__selection"><input type="checkbox" aria-label="Select all rows" checked={data.length > 0 && data.every((row) => selected.includes(getRowKey(row)))} onChange={(event) => toggleAll(event.target.checked)} /></th>}
-          {columns.map((column) => <th key={String(column.key)} style={{ width: column.width }}>
-            {column.sortable ? <button type="button" className="af-table__sort" onClick={() => changeSort(String(column.key))}>{column.title}<span aria-hidden="true">{sortState?.key === String(column.key) ? sortState.direction === "asc" ? " ↑" : " ↓" : " ↕"}</span></button> : column.title}
-          </th>)}
-        </tr></thead>
+        <thead>
+          <tr>
+            {onSelectionChange && <th className="af-table__selection"><input type="checkbox" aria-label="Select all rows on this page" checked={data.length > 0 && data.every((row) => selected.includes(getRowKey(row)))} onChange={(event) => toggleAll(event.target.checked)} /></th>}
+            {visibleColumns.map((column) => <th key={String(column.key)} style={{ width: column.width }}>
+              {column.sortable ? <button type="button" className="af-table__sort" onClick={() => changeSort(String(column.key))}>{column.title}<span aria-hidden="true">{sortState?.key === String(column.key) ? sortState.direction === "asc" ? " ↑" : " ↓" : " ↕"}</span></button> : column.title}
+            </th>)}
+          </tr>
+          {columns.some((column) => column.filterOptions?.length) && (
+            <tr className="af-table__filters">
+              {onSelectionChange && <th />}
+              {visibleColumns.map((column) => <th key={String(column.key)}>
+                {column.filterOptions?.length ? (
+                  <select aria-label={`Filter ${column.title}`} value={activeFilters[String(column.key)] ?? ""} onChange={(event) => setFilters({ ...activeFilters, [String(column.key)]: event.target.value })}>
+                    <option value="">{column.filterPlaceholder ?? "All"}</option>
+                    {column.filterOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                ) : null}
+              </th>)}
+            </tr>
+          )}
+        </thead>
         <tbody>
-          {loading ? <tr><td colSpan={columns.length + (onSelectionChange ? 1 : 0)} className="af-table__state">Loading…</td></tr> :
-            data.length === 0 ? <tr><td colSpan={columns.length + (onSelectionChange ? 1 : 0)} className="af-table__state">{emptyText}</td></tr> :
-              sortedData.map((row, index) => <tr key={getRowKey(row)}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{columns.map((column) => {
+          {loading ? <tr><td colSpan={emptyColumnCount} className="af-table__state">Loading…</td></tr> :
+            sortedData.length === 0 ? <tr><td colSpan={emptyColumnCount} className="af-table__state">{emptyText}</td></tr> :
+              sortedData.map((row, index) => <tr key={getRowKey(row)}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{visibleColumns.map((column) => {
                 const value = (row as unknown as Record<string, unknown>)[String(column.key)];
                 return <td key={String(column.key)}>{column.render ? column.render(value, row, index) : String(value ?? "—")}</td>;
               })}</tr>)}
