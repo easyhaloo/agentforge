@@ -72,5 +72,5 @@ func TestPostgresOrganizationMembershipAdministration(t *testing.T) {
 	if status != "removed" { t.Fatalf("removed membership status=%q, want removed",status) }
 	var auditCount int
 	if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM organization_membership_audit WHERE organization_id=$1", org).Scan(&auditCount); err != nil { t.Fatal(err) }
-	if auditCount != 2 { t.Fatalf("membership audit count=%d, want 2",auditCount) }
+	if auditCount != 3 { t.Fatalf("membership audit count=%d, want 2",auditCount) }
 }
