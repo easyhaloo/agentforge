@@ -7,6 +7,7 @@ The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Page
 - Worker name: `agentforge`
 - Production route: `https://agentforge.gangshusheng.workers.dev`
 - Frontend build command: `npm run build`
+- Worker deployment validation: `npm run deploy:dry-run` (CI only; does not publish)
 - Build output: `dist/`
 - Wrangler deployment command: `npx wrangler deploy`
 
@@ -59,7 +60,7 @@ The Go API is a separate service and is not part of the current frontend Worker 
 Use one production deployment mechanism per application:
 
 - **Frontend:** Cloudflare Workers Builds is the sole production deployment owner. Connect the repository directly in Cloudflare and configure `main` as the production branch. Cloudflare runs `npm run build` and `npx wrangler deploy` from its own build environment.
-- **GitHub Actions:** run dependency installation, tests and production build as CI checks only. Do not add a Wrangler deploy job, Cloudflare API token secret, or Pages deployment workflow to this repository.
+- **GitHub Actions:** run dependency installation, tests, production build and a Wrangler dry-run as CI checks only. The dry-run validates Worker packaging without publishing a deployment. Do not add a Wrangler deploy job, Cloudflare API token secret, or Pages deployment workflow to this repository.
 - **Backend:** use GitHub Actions for build/test and a separate deployment integration for the selected Go hosting provider.
 - **Contracts:** validate OpenAPI and ensure generated/checked frontend client is current.
 
