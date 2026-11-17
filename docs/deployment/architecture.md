@@ -2,7 +2,7 @@
 
 ## Current frontend deployment
 
-The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Pages project. It serves the React/Vite build output as Worker Static Assets.
+The current Cloudflare project is a **Cloudflare Worker**, not a Cloudflare Pages project. It serves the React/Vite build output as Worker Static Assets. Production deployment is owned by Cloudflare Workers Builds through its direct Git integration; GitHub Actions is responsible for validation only.
 
 - Worker name: `agentforge`
 - Production route: `https://agentforge.gangshusheng.workers.dev`
@@ -57,8 +57,9 @@ The Go API is a separate service and is not part of the current frontend Worker 
 
 Use one production deployment mechanism per application:
 
-- Frontend: existing Cloudflare Workers Builds, or GitHub Actions with Wrangler after explicitly disabling Cloudflare Git/Workers Builds deployment. Do not run both for the same production branch.
-- Backend: GitHub Actions build/test plus deployment to the selected Go hosting provider.
-- Contracts: validate OpenAPI and ensure generated/checked frontend client is current.
+- **Frontend:** Cloudflare Workers Builds is the sole production deployment owner. Connect the repository directly in Cloudflare and configure `main` as the production branch. Cloudflare runs `npm run build` and `npx wrangler deploy` from its own build environment.
+- **GitHub Actions:** run dependency installation, tests and production build as CI checks only. Do not add a Wrangler deploy job, Cloudflare API token secret, or Pages deployment workflow to this repository.
+- **Backend:** use GitHub Actions for build/test and a separate deployment integration for the selected Go hosting provider.
+- **Contracts:** validate OpenAPI and ensure generated/checked frontend client is current.
 
-The existing Pages-specific workflow must not deploy to the current Worker project. Remove or replace it as part of CI/CD foundation work.
+Do not run a second GitHub Actions deployment for the frontend. This repository currently keeps only `.github/workflows/ci.yml`; Cloudflare deployment runs independently through Cloudflare Workers Builds.

@@ -11,3 +11,5 @@
 @media(max-width:650px){.flow-banner{align-items:flex-start}.demo-pill{font-size:7px}.flow-stage-track{grid-template-columns:repeat(2,minmax(0,1fr))}.flow-stage p{margin-left:0}.flow-facts{grid-template-columns:1fr}.flow-primary,.flow-aside{padding:12px}.flow-actions .button{flex:1;justify-content:center}.trail-summary button{width:100%;justify-content:center}.flow-stage-top small{margin-left:auto}}
 
 .resource-create{display:flex;gap:7px;padding:10px 16px;border-bottom:1px solid #222c3f;background:#111827}.resource-create input{flex:1;min-width:0;height:31px;border:1px solid #303c53;background:#0c1421;border-radius:6px;padding:0 9px;color:#e7eaf2;font-size:10px;outline:0}.resource-create input:focus{border-color:#796bd0}@media(max-width:650px){.resource-create{flex-wrap:wrap}.resource-create input{flex-basis:100%}.resource-create button{flex:1;justify-content:center}}
+
+.inspector-description{margin:8px 0 13px;color:#8290a6;font-size:10px;line-height:1.6}
