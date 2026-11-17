@@ -44,7 +44,8 @@ function App() {
   const urlOrganization = urlHandle && account ? findOrganizationByHandle(account.organizations, urlHandle) : undefined;
   const selectedOrganization = urlOrganization ?? account?.organizations.find((item) => item.id === selectedOrganizationID);
   // Visiting an organization's URL also selects it, so the choice survives leaving /orgs/:org.
-  useEffect(() => { if (urlOrganization) setSelectedOrganizationID(urlOrganization.id); }, [urlOrganization?.id]);
+  const urlOrganizationID = urlOrganization?.id;
+  useEffect(() => { if (urlOrganizationID) setSelectedOrganizationID(urlOrganizationID); }, [urlOrganizationID]);
   // Links keep the handle form the visitor used (id or slug), so the open page's sidebar item stays current.
   const linkHandle = (urlOrganization && urlHandle) || (selectedOrganization ? organizationHandle(selectedOrganization) : CURRENT_ORGANIZATION_HANDLE);
 
@@ -84,6 +85,11 @@ function App() {
 
   const label = routeLabel(matches.at(-1)?.handle);
   const item = navigationItemFor(label);
+  // Organization pages are backed by the account API; the mock pages only simulate a refresh.
+  const refresh = () => {
+    if (urlHandle) void loadAccount();
+    else notify("Demo data refreshed.");
+  };
 
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization, selectOrganization, signOut }}>
@@ -92,11 +98,7 @@ function App() {
         <main className="main">
           <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} />
           <div className="content">
-            <PageHeader
-              label={label}
-              description={item?.description}
-              onRefresh={item ? () => urlHandle ? void loadAccount() : notify("Demo data refreshed.") : undefined}
-            />
+            <PageHeader label={label} description={item?.description} onRefresh={item ? refresh : undefined} />
             <Outlet />
             <footer>
               <span>AgentForge Prototype <b>v0.1.0</b></span>

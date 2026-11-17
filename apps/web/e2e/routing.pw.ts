@@ -172,6 +172,25 @@ test("signing out lands on / and the sidebar shows the signed-out state", async 
   await expect(page.locator(".sidebar .profile")).toContainText("Not signed in");
 });
 
+test("Refresh only simulates a refresh on mock pages and reloads the account on organization pages", async ({ page }) => {
+  let accountLoads = 0;
+  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/v1/me") accountLoads += 1; });
+  await installApiMocks(page);
+  await page.goto("/projects");
+  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
+  const loadsOnEntry = accountLoads;
+
+  await page.locator(".page-heading").getByRole("button", { name: "Refresh" }).click();
+  await expect(page.getByText("Demo data refreshed.")).toBeVisible();
+  expect(accountLoads).toBe(loadsOnEntry);
+
+  await changesetsLink(page).click();
+  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await page.locator(".page-heading").getByRole("button", { name: "Refresh" }).click();
+  await expect.poll(() => accountLoads).toBe(loadsOnEntry + 1);
+  await expect(page.getByText("Browser test baseline")).toBeVisible();
+});
+
 test("an unknown path renders the not-found state inside the shell", async ({ page }) => {
   await installApiMocks(page);
   for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo"]) {
