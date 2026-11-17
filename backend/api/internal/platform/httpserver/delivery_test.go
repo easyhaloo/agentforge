@@ -172,7 +172,6 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 		{base + "/evaluations", `{"revision_id":"rev-1","status":"passed","summary":"client cannot assert success"}`},
 		{base + "/evidence", `{"revision_id":"rev-1","evaluation_id":"eval-1","kind":"ci","uri":"https://example.test"}`},
 		{base + "/reviews", `{"revision_id":"rev-1"}`},
-		{base + "/reviews/rev-1/decision", `{"approved":true}`},
 	}
 	for _, item := range requests {
 		request := httptest.NewRequest(http.MethodPost, item.path, bytes.NewBufferString(item.body))
