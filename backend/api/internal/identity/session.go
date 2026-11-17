@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 const (
@@ -36,6 +37,28 @@ type CSRFValidator interface {
 type Credentials struct {
 	SessionToken string
 	CSRFToken    string
+}
+
+// SessionCookies returns host-only Secure cookies. The session credential is
+// HttpOnly; the CSRF value is intentionally readable by same-origin browser code.
+func SessionCookies(credentials Credentials, expiresAt time.Time) (*http.Cookie, *http.Cookie) {
+	return &http.Cookie{
+		Name: SessionCookieName, Value: credentials.SessionToken, Path: "/",
+		Expires: expiresAt.UTC(), Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	}, &http.Cookie{
+		Name: CSRFCookieName, Value: credentials.CSRFToken, Path: "/",
+		Expires: expiresAt.UTC(), Secure: true, HttpOnly: false, SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func ClearSessionCookies() (*http.Cookie, *http.Cookie) {
+	return &http.Cookie{
+		Name: SessionCookieName, Value: "", Path: "/", MaxAge: -1,
+		Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	}, &http.Cookie{
+		Name: CSRFCookieName, Value: "", Path: "/", MaxAge: -1,
+		Secure: true, HttpOnly: false, SameSite: http.SameSiteLaxMode,
+	}
 }
 
 func GenerateCredentials() (Credentials, error) {
