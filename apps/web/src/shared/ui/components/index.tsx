@@ -400,7 +400,7 @@ export interface DataTableProps<T> extends Omit<TableHTMLAttributes<HTMLTableEle
   data: T[];
   rowKey: keyof T | ((row: T) => string | number);
   loading?: boolean;
-  emptyText?: string;
+  emptyText?: ReactNode;
   pagination?: DataTablePagination;
   onPageChange?: (page: number, pageSize: number) => void;
   selectedRowKeys?: Array<string | number>;
