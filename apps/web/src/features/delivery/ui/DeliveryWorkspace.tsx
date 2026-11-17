@@ -1,4 +1,5 @@
 import { Play, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { Button, Input } from "../../../shared/ui";
 import type { RevisionId } from "../../../entities";
 import type { Change, Evaluation, EvaluationView, ReviewView } from "../model";
 import { EvaluationEvidence } from "./EvaluationEvidence";
@@ -29,19 +30,17 @@ export function DeliveryWorkspace(props: Props) {
       </div>
       <span className={"resource-status " + (change.status === "Merged" ? "flow-good" : "")}>{change.status}</span>
     </div>
-    <label className="flow-label">Change title
-      <input value={title} onChange={(event) => onTitleChange(event.target.value)} onBlur={onTitleCommit} />
-    </label>
+    <Input label="Change title" value={title} onChange={(event) => onTitleChange(event.target.value)} onBlur={onTitleCommit} />
     <div className="flow-facts">
       <div><span>Base branch</span><b>{change.base}</b></div>
       <div><span>Changed files</span><b>{change.files}</b></div>
       <div><span>Stack base</span><b>{stackBase}</b></div>
     </div>
     <div className="flow-actions">
-      <button className="button secondary compact" onClick={onCreateRevision}><Plus size={14} /> New revision</button>
-      <button className="button primary compact" onClick={onRunEvaluation}><Play size={14} /> Run Eval</button>
-      <button className="button secondary compact" onClick={onSelfHeal}><Sparkles size={14} /> Self-heal</button>
-      <button className="button secondary compact" onClick={onRestack}><RefreshCw size={14} /> Restack</button>
+      <Button variant="secondary" size="small" className="compact" onClick={onCreateRevision}><Plus size={14} /> New revision</Button>
+      <Button variant="primary" size="small" className="compact" onClick={onRunEvaluation}><Play size={14} /> Run Eval</Button>
+      <Button variant="secondary" size="small" className="compact" onClick={onSelfHeal}><Sparkles size={14} /> Self-heal</Button>
+      <Button variant="secondary" size="small" className="compact" onClick={onRestack}><RefreshCw size={14} /> Restack</Button>
     </div>
     <EvaluationEvidence evaluations={evaluationViews} evidenceCurrent={evidenceCurrent} />
     <ReviewDecision currentRevisionId={currentRevisionId} latestEvaluation={evaluations[0]} reviews={reviews} onDecide={onDecide} />
