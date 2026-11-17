@@ -26,7 +26,7 @@ The server applies pending embedded SQL migrations at startup.
 ## Health checks
 
 - `GET /healthz` reports process health.
-- `GET /readyz` reports database readiness.
+- `GET /readyz` reports database and identity readiness. It currently returns `503` until a production identity resolver is configured.
 
 ## Delivery API availability
 
