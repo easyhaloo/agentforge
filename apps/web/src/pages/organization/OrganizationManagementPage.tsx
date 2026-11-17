@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban, Check, X } from "lucide-react";
 import { APIError, organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
-import { Button, ConfirmDialog, Input, Select, Tabs } from "../../shared/ui";
+import { Button, ConfirmDialog, DataTable, Input, Select, Tabs } from "../../shared/ui";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 type Tab = "members" | "invitations" | "audit";
@@ -100,14 +100,27 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
     <div role="tabpanel" id="organization-admin-panel" aria-labelledby={`organization-admin-tab-${tab}`} tabIndex={0}>
     {loading ? <div className="org-loading">Loading organization data…</div> : tab==="members" ? <>
       <div className="org-panel-head"><div><h3>Organization members</h3><p>Role and status changes are enforced by the server.</p></div></div>
-      <div className="org-table-wrap"><table className="org-table"><thead><tr><th>MEMBER</th><th>ROLE</th><th>STATUS</th><th>JOINED</th><th>ACTIONS</th></tr></thead><tbody>
-        {members.map(member => {
-          const manageable = member.status!=="removed" && (organization.role==="owner" || member.role==="member" || member.role==="viewer");
-          const roleOptions = organization.role==="owner" ? ["admin","member","viewer"] : ["member","viewer"];
-          return <tr key={member.user_id}><td><b>{member.display_name}</b><small>{member.email || member.user_id}</small></td><td><Select aria-label={`Role for ${member.display_name}`} value={member.role} disabled={!manageable || busyID===member.user_id} onChange={e=>void updateMember(member,{role:e.target.value})} options={[...new Set([member.role,...roleOptions])].map(value=>({label:value,value}))}/></td><td><span className={statusClass(member.status)}>{member.status}</span></td><td>{dateTime(member.created_at)}</td><td><div className="org-actions">{manageable && member.status!=="removed" && <><Button variant="ghost" className="org-icon-action" title={member.status==="active"?"Suspend member":"Reactivate member"} disabled={busyID===member.user_id} onClick={()=>void updateMember(member,{status:member.status==="active"?"suspended":"active"})}>{member.status==="active"?<Ban size={14}/>:<Check size={14}/>}</Button><Button variant="ghost" className="org-icon-action danger" title="Remove member" disabled={busyID===member.user_id} onClick={()=>setMemberToRemove(member)}><X size={14}/></Button></>}</div></td></tr>;
-        })}
-        {!members.length && <tr><td colSpan={5} className="org-empty">No organization members found.</td></tr>}
-      </tbody></table></div>
+      <DataTable
+        className="org-table"
+        columns={[
+          { key: "display_name", title: "MEMBER", render: (_, member) => <><b>{member.display_name}</b><small>{member.email || member.user_id}</small></> },
+          { key: "role", title: "ROLE", render: (_, member) => {
+            const manageable = member.status !== "removed" && (organization.role === "owner" || member.role === "member" || member.role === "viewer");
+            const roleOptions = organization.role === "owner" ? ["admin", "member", "viewer"] : ["member", "viewer"];
+            return <Select aria-label={`Role for ${member.display_name}`} value={member.role} disabled={!manageable || busyID === member.user_id} onChange={(event) => void updateMember(member, { role: event.target.value })} options={[...new Set([member.role, ...roleOptions])].map((value) => ({ label: value, value }))} />;
+          } },
+          { key: "status", title: "STATUS", render: (_, member) => <span className={statusClass(member.status)}>{member.status}</span> },
+          { key: "created_at", title: "JOINED", render: (_, member) => dateTime(member.created_at) },
+          { key: "actions", title: "ACTIONS", render: (_, member) => {
+            const manageable = member.status !== "removed" && (organization.role === "owner" || member.role === "member" || member.role === "viewer");
+            return <div className="org-actions">{manageable && <><Button variant="ghost" className="org-icon-action" title={member.status === "active" ? "Suspend member" : "Reactivate member"} disabled={busyID === member.user_id} onClick={() => void updateMember(member, { status: member.status === "active" ? "suspended" : "active" })}>{member.status === "active" ? <Ban size={14}/> : <Check size={14}/>}</Button><Button variant="ghost" className="org-icon-action danger" title="Remove member" disabled={busyID === member.user_id} onClick={() => setMemberToRemove(member)}><X size={14}/></Button></>}</div>;
+          } },
+        ]}
+        data={members}
+        rowKey="user_id"
+        emptyText="No organization members found."
+        showColumnVisibility={false}
+      />
     </> : tab==="invitations" ? <>
       <div className="org-panel-head"><div><h3>Invitations</h3><p>Pending invitations expire after seven days and can only be redeemed once.</p></div></div>
       <form className="org-invite-form" onSubmit={createInvitation}>
@@ -115,10 +128,20 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
         <Select label="Role" value={role} onChange={e=>setRole(e.target.value)} options={[{label:"Member",value:"member"},{label:"Viewer",value:"viewer"},...(organization.role==="owner"?[{label:"Admin",value:"admin"}]:[])]}/>
         <Button variant="primary" className="button primary" type="submit" disabled={creating}><UserPlus size={14}/>{creating?"Creating…":"Create invitation"}</Button>
       </form>
-      <div className="org-table-wrap"><table className="org-table"><thead><tr><th>EMAIL</th><th>ROLE</th><th>STATUS</th><th>EXPIRES</th><th>ACTIONS</th></tr></thead><tbody>
-        {invitations.map(invitation=><tr key={invitation.id}><td><b>{invitation.email}</b></td><td>{invitation.role}</td><td><span className={statusClass(invitation.status)}>{invitation.status}</span></td><td>{dateTime(invitation.expires_at)}</td><td>{invitation.status==="pending"&&<Button variant="ghost" className="org-icon-action danger" title="Revoke invitation" disabled={busyID===invitation.id} onClick={()=>void revokeInvitation(invitation)}><X size={14}/></Button>}</td></tr>)}
-        {!invitations.length && <tr><td colSpan={5} className="org-empty">No invitations found.</td></tr>}
-      </tbody></table></div>
+      <DataTable
+        className="org-table"
+        columns={[
+          { key: "email", title: "EMAIL", render: (_, invitation) => <b>{invitation.email}</b> },
+          { key: "role", title: "ROLE", render: (_, invitation) => invitation.role },
+          { key: "status", title: "STATUS", render: (_, invitation) => <span className={statusClass(invitation.status)}>{invitation.status}</span> },
+          { key: "expires_at", title: "EXPIRES", render: (_, invitation) => dateTime(invitation.expires_at) },
+          { key: "actions", title: "ACTIONS", render: (_, invitation) => invitation.status === "pending" ? <Button variant="ghost" className="org-icon-action danger" title="Revoke invitation" disabled={busyID === invitation.id} onClick={() => void revokeInvitation(invitation)}><X size={14}/></Button> : null },
+        ]}
+        data={invitations}
+        rowKey="id"
+        emptyText="No invitations found."
+        showColumnVisibility={false}
+      />
     </> : <>
       <div className="org-panel-head"><div><h3>Membership audit history</h3><p>Newest membership and invitation events first.</p></div></div>
       <div className="org-audit-list">{events.map(event=><article key={event.id}><span className="org-audit-icon"><History size={14}/></span><div><b>{event.action.replaceAll("_"," ")}</b><p>Actor <code>{event.actor_user_id}</code> · Target <code>{event.target_user_id}</code></p><small>{event.before_role || "—"} / {event.before_status} → {event.after_role || event.before_role || "—"} / {event.after_status}</small></div><time>{dateTime(event.created_at)}</time></article>)}{!events.length&&<div className="org-empty">No audit events recorded yet.</div>}</div>
