@@ -10,7 +10,7 @@ import { CreateChangesetDialog } from "./components/CreateChangesetDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { UIShowcasePage } from "../pages/ui-showcase";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
-import { APIError, accountAPI, type AccountContext } from "../shared/api/identity";
+import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 
 function App() {
   const [active, setActive] = useState("Overview");
@@ -39,6 +39,20 @@ function App() {
   };
 
   useEffect(() => { void loadAccount(); }, []);
+
+  const signOut = async () => {
+    try {
+      await authAPI.logout();
+      setAccount(null);
+      setSelectedOrganizationID("");
+      setAccountState("signed-out");
+      setActive("Overview");
+      notify("You have signed out.");
+    } catch (cause) {
+      setAccountError(cause instanceof Error ? cause.message : "Unable to sign out");
+      setAccountState("unavailable");
+    }
+  };
 
   const notify = (message: string) => {
     setNotice(message);
@@ -69,7 +83,7 @@ function App() {
 
   return (
     <div className="shell">
-      <Sidebar active={active} onNavigate={setActive} account={account} selectedOrganizationID={selectedOrganizationID} onSelectOrganization={setSelectedOrganizationID} />
+      <Sidebar active={active} onNavigate={setActive} account={account} selectedOrganizationID={selectedOrganizationID} onSelectOrganization={setSelectedOrganizationID} onSignOut={() => void signOut()} />
       <main className="main">
         <Topbar active={active} onSearch={() => setCommandOpen(true)} onNotify={notify} />
         <div className="content">
