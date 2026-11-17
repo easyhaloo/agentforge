@@ -75,8 +75,8 @@ Implemented:
 - Local PostgreSQL Compose setup, OIDC configuration, and bootstrap documentation.
 
 Remaining:
-- Implement organization membership lifecycle: list members, invitations, role changes, suspension/removal, and audit attribution.
-- Centralize role and membership authorization policy outside HTTP handlers.
+- Implement organization membership invitations/acceptance and an authorized audit-history read API.
+- Centralize role and membership authorization policy outside HTTP handlers; current membership mutation transactions re-check actor role and enforce owner/admin boundaries.
 - Configure the production OIDC provider and registered callback URL through deployment secrets/environment; verify end-to-end login in the deployed environment.
 - Add cross-tenant authorization tests for every read/write path, callback-level rejection tests for unprovisioned identities, and session expiry/rotation tests.
 - Commit reproducible Go module checksums and add explicit migration upgrade tests.
