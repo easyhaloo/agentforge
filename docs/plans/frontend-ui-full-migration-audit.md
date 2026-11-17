@@ -55,7 +55,7 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 | B | 应用壳基础按钮和全局通知 | 已合并（PR #52、#53） |
 | C | Overview 重复实现清理 | 已合并（PR #54） |
 | D | 应用壳账户控件、Changesets、Organization 控件迁移 | PR #59 已提交，CI 通过，待合并 |
-| E | Modal、Drawer、ConfirmDialog、Popover 能力与测试 | PR #59 已补充静态契约测试及 Popover/ConfirmDialog 改进 |
+| E | Modal、Drawer、ConfirmDialog、Popover 能力与测试 | PR #59 已补充静态契约测试、Tabs 键盘导航单元测试及 Popover/ConfirmDialog 改进 |
 | F | 全仓原生控件/浏览器对话框扫描门禁 | PR #59 已加入自动化测试 |
 | G | 样式清理、业务交互回归和最终验收 | 进行中 |
 
@@ -92,6 +92,6 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 | 2026-11-17 | 全局通知统一 | 已合并（PR #53） |
 | 2026-11-17 | Overview 重复实现清理 | 已合并（PR #54） |
 | 2026-11-17 | Changesets、Organization、账户控件和组织选择迁移 | PR #59，CI 通过，待合并 |
-| 2026-11-17 | 共享 UI 契约测试、Popover 焦点/关闭改进、ConfirmDialog danger 变体、Tabs 键盘交互 | PR #59，CI 验证中，待合并 |
+| 2026-11-17 | 共享 UI 契约测试、Popover 焦点/关闭改进、ConfirmDialog danger 变体、Tabs 键盘交互 | PR #59，CI 通过（48 tests），待合并 |
 | 2026-11-17 | 全仓共享 UI 静态门禁 | PR #59，CI 通过，待合并 |
 | 待执行 | 浏览器级交互回归、CSS 清理和最终验收 | 进行中 |
