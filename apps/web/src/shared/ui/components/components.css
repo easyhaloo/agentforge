@@ -147,3 +147,8 @@
 
 .af-table tbody tr[tabindex="0"]{cursor:pointer}
 .af-table tbody tr[tabindex="0"]:focus-visible{outline:2px solid #8171ed;outline-offset:-2px}
+
+.af-tabs{display:flex;align-items:center;gap:6px;min-width:0}
+.af-tabs [role="tab"]{white-space:nowrap}
+.af-tabs [role="tab"]:focus-visible{outline:2px solid #a99cff;outline-offset:2px}
+@media(max-width:560px){.af-tabs{overflow-x:auto;max-width:100%}}
