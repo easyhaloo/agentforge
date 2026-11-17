@@ -161,7 +161,7 @@ export function SearchInput({
           if (event.key === "Enter") submitImmediately();
         }}
       />
-      {value && <button type="button" aria-label="Clear search" onClick={() => { onChange(""); submitImmediately(); }}>×</button>}
+      {value && <button type="button" aria-label="Clear search" onClick={() => { onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
     </div>
   );
 }
