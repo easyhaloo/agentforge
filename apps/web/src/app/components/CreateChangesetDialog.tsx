@@ -1,17 +1,44 @@
 import { useState, type FormEvent } from "react";
-import { Plus, Sparkles, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
-type Props = { open: boolean; onClose: () => void; onCreate: (title: string) => void };
+type Input = { title: string; repository: string };
+type Props = { open: boolean; onClose: () => void; onCreate: (input: Input) => Promise<boolean> };
 
 export function CreateChangesetDialog({ open, onClose, onCreate }: Props) {
   const [title, setTitle] = useState("");
+  const [repository, setRepository] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   if (!open) return null;
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const value = title.trim();
-    if (!value) return;
-    onCreate(value);
-    setTitle("");
+    const input = { title: title.trim(), repository: repository.trim() };
+    if (!input.title) { setError("A title is required."); return; }
+    if (!/^[^/\s]+\/[^/\s]+$/.test(input.repository)) { setError("Repository must use owner/name format."); return; }
+    setSubmitting(true);
+    setError("");
+    try {
+      if (await onCreate(input)) {
+        setTitle("");
+        setRepository("");
+        onClose();
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
-  return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><div className="modal"><div className="modal-head"><div><span className="eyebrow">NEW RESOURCE</span><h2>Create changeset</h2></div><button className="icon-button" onClick={onClose}><X size={18}/></button></div><form onSubmit={submit}><label>Title<input required value={title} onChange={event=>setTitle(event.target.value)} placeholder="Describe the change or goal"/></label><label>Project<select><option>agentforge-core</option><option>web-platform</option><option>event-service</option></select></label><label>Description<textarea placeholder="What should this change accomplish?"/></label><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" type="submit"><Plus size={15}/> Create resource</button></div></form><p className="mock-note"><Sparkles size={13}/> This creates a local demo record only. No Git or backend operation is performed.</p></div></div>;
+
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !submitting) onClose(); }}>
+    <div className="modal">
+      <div className="modal-head"><div><span className="eyebrow">PERSISTENT RESOURCE</span><h2>Create changeset</h2></div><button className="icon-button" onClick={onClose} disabled={submitting}><X size={18}/></button></div>
+      <form onSubmit={submit}>
+        <label>Title<input required value={title} onChange={event => setTitle(event.target.value)} placeholder="Describe the proposed change"/></label>
+        <label>Repository<input required value={repository} onChange={event => setRepository(event.target.value)} placeholder="owner/repository"/></label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose} disabled={submitting}>Cancel</button><button className="button primary" type="submit" disabled={submitting}><Plus size={15}/>{submitting ? "Creating…" : "Create changeset"}</button></div>
+      </form>
+      <p className="mock-note">This creates persistent Changeset metadata in the Go API. Git revision validation, evaluation, evidence, review and merge require their respective backend integrations.</p>
+    </div>
+  </div>;
 }
