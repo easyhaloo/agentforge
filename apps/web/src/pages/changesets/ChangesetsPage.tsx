@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Plus, RefreshCw, Search, GitCommitHorizontal, ArrowUpRight } from "lucide-react";
 import { changesetAPI, type StoredChangeset } from "../../shared/api/identity";
 import type { OrganizationSummary } from "../../shared/api/identity";
-import { Button, Input } from "../../shared/ui";
+import { Button, DataTable, Input } from "../../shared/ui";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 const dateTime = (value: string) => new Date(value).toLocaleString();
@@ -76,13 +76,23 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
     </form>}
     <div className="changesets-list card">
       <div className="changesets-list__head"><div><h3>Changesets</h3><p>Newest records first · scoped to {organization.name}</p></div><div className="changesets-search"><Search size={14}/><Input aria-label="Search changesets" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search ID, title or repository"/></div></div>
-      {loading ? <div className="org-loading">Loading changesets…</div> : <div className="org-table-wrap changesets-table-wrap"><table className="org-table changesets-table"><thead><tr><th>CHANGESET</th><th>REPOSITORY</th><th>STATUS</th><th>REVISION</th><th>UPDATED</th><th>VERSION</th></tr></thead><tbody>
-        {filtered.map((item) => {
-          const change = item.changeset; const status = statusOf(change);
-          return <tr key={change.id}><td><b>{change.title}</b><small className="mono">{change.id}</small></td><td>{change.repository}</td><td><span className={statusClass(status)}>{status}</span></td><td>{change.revisions.length ? change.revisions[change.revisions.length-1].ref : "—"}</td><td>{dateTime(item.updated_at)}</td><td><span className="mono">v{item.version}</span></td></tr>;
-        })}
-        {!filtered.length && <tr><td colSpan={6} className="org-empty">{items.length ? "No changesets match this search." : "No persisted changesets yet. Create one above to get started."}</td></tr>}
-      </tbody></table></div>}
+      {loading ? <div className="org-loading">Loading changesets…</div> : <div className="org-table-wrap changesets-table-wrap">
+        <DataTable
+          className="org-table changesets-table"
+          columns={[
+            { key: "title", title: "CHANGESET", render: (_, item) => <><b>{item.changeset.title}</b><small className="mono">{item.changeset.id}</small></> },
+            { key: "repository", title: "REPOSITORY", render: (_, item) => item.changeset.repository },
+            { key: "status", title: "STATUS", render: (_, item) => { const status = statusOf(item.changeset); return <span className={statusClass(status)}>{status}</span>; } },
+            { key: "revision", title: "REVISION", render: (_, item) => item.changeset.revisions.length ? item.changeset.revisions[item.changeset.revisions.length - 1].ref : "—" },
+            { key: "updated_at", title: "UPDATED", render: (_, item) => dateTime(item.updated_at) },
+            { key: "version", title: "VERSION", render: (_, item) => <span className="mono">v{item.version}</span> },
+          ]}
+          data={filtered}
+          rowKey={(item) => item.changeset.id}
+          emptyText={items.length ? "No changesets match this search." : "No persisted changesets yet. Create one above to get started."}
+          showColumnVisibility={false}
+        />
+      </div>}
       <div className="changesets-list__foot"><span>{filtered.length} of {items.length} changesets</span><span><ArrowUpRight size={12}/> Data from organization API</span></div>
     </div>
   </section>;
