@@ -626,6 +626,8 @@ func writeDeliveryError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err,delivery.ErrRevisionNotCurrent),errors.Is(err,delivery.ErrEvaluationRequired),errors.Is(err,delivery.ErrEvidenceRequired),errors.Is(err,delivery.ErrReviewRequired),errors.Is(err,delivery.ErrAlreadyMerged):
 		writeProblem(w,http.StatusConflict,"Delivery precondition failed",err.Error())
+	case errors.Is(err,delivery.ErrReviewForbidden):
+		writeProblem(w,http.StatusForbidden,"Review decision forbidden",err.Error())
 	case errors.Is(err,delivery.ErrInvalidInput):
 		writeProblem(w,http.StatusBadRequest,"Invalid delivery operation",err.Error())
 	default:
