@@ -179,8 +179,8 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 		addValidCSRFCookies(request)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusNotImplemented {
-			t.Fatalf("%s status=%d, want %d: %s", item.path, response.Code, http.StatusNotImplemented, response.Body.String())
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("%s status=%d, want %d: %s", item.path, response.Code, http.StatusServiceUnavailable, response.Body.String())
 		}
 	}
 	persisted, err := repository.Get(context.Background(), "org-a", "cs-existing")
