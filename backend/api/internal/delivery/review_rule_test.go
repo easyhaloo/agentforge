@@ -170,6 +170,20 @@ func TestAssignReviewSupersedesEveryPendingReviewOfTheCurrentRevision(t *testing
 	}
 }
 
+func TestAssignReviewWithADuplicateIDChangesNothing(t *testing.T) {
+	now := listFilterEpoch
+	c := listFilterReviewable(t)
+	listFilterMust(t, c.AssignReview("review-1", "rev-1", "bob", "author", "", now))
+	before := listFilterSnapshot(t, c)
+
+	if err := c.AssignReview("review-1", "rev-1", "carol", "author", "", now); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("error = %v, want ErrInvalidInput", err)
+	}
+	if after := listFilterSnapshot(t, c); !bytes.Equal(before, after) {
+		t.Fatalf("the pending review was superseded by an assignment that was refused:\n before %s\n after  %s", before, after)
+	}
+}
+
 func TestRejectedReviewStaysRejectedWhenAnotherIsAssigned(t *testing.T) {
 	now := listFilterEpoch
 	c := listFilterReviewable(t)
@@ -406,6 +420,9 @@ func (r *listFilterReviewRun) assignReview() string {
 		actor = "maintainer"
 	}
 	id := r.id("review")
+	if len(c.Reviews) > 0 && r.rng.IntN(30) == 0 {
+		id = c.Reviews[r.rng.IntN(len(c.Reviews))].ID // a duplicate id
+	}
 
 	var want error
 	switch {
@@ -417,6 +434,8 @@ func (r *listFilterReviewRun) assignReview() string {
 		want = ErrEvidenceRequired
 	case slices.ContainsFunc(c.Reviews, func(v Review) bool { return v.RevisionID == target && v.Status == ReviewApproved }):
 		want = ErrReviewAlreadyApproved
+	case slices.ContainsFunc(c.Reviews, func(v Review) bool { return v.ID == id }):
+		want = ErrInvalidInput
 	}
 	reviews, audit := slices.Clone(c.Reviews), slices.Clone(c.Audit)
 	err := c.AssignReview(id, target, reviewer, actor, "", listFilterEpoch)
@@ -597,4 +616,27 @@ func TestRandomizedReviewSequencesKeepTheStatusAndTheMergeGateInStep(t *testing.
 	}
 	t.Logf("%d sequences, %d steps; lifecycles %v; refused after approval %d, superseded %d, reassigned after rejection %d, decision refused as stale %d, approved after supersede %d",
 		sequences, stats.steps, stats.lifecycles, stats.refusedAfterApproval, stats.superseded, stats.reassignedAfterReject, stats.decideRefusedAsStale, stats.approvedAfterSupersede)
+
+	// The run must really visit the interesting states: each floor is about a tenth of what this
+	// seed produces, so a generator that stops reaching them fails here instead of passing vacuously.
+	for _, lifecycle := range []Lifecycle{LifecycleDraft, LifecycleEvaluationPending, LifecycleEvaluationFailed, LifecycleEvidenceRequired,
+		LifecycleReviewRequired, LifecycleInReview, LifecycleChangesRequested, LifecycleReadyToMerge} {
+		if got := stats.lifecycles[lifecycle]; got < 5000 {
+			t.Errorf("only %d steps ended in %s, want at least 5000", got, lifecycle)
+		}
+	}
+	for _, floor := range []struct {
+		name     string
+		got, min int
+	}{
+		{"assignments refused after an approval", stats.refusedAfterApproval, 1000},
+		{"assignments that superseded a pending review", stats.superseded, 1000},
+		{"assignments right after a rejection", stats.reassignedAfterReject, 500},
+		{"decisions refused on a superseded review", stats.decideRefusedAsStale, 300},
+		{"approvals on a revision with a superseded review", stats.approvedAfterSupersede, 400},
+	} {
+		if floor.got < floor.min {
+			t.Errorf("only %d %s, want at least %d", floor.got, floor.name, floor.min)
+		}
+	}
 }
