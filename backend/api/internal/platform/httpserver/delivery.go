@@ -51,6 +51,7 @@ type DeliveryDependencies struct {
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer
 	Catalog delivery.RepositoryCatalog
+	Locker delivery.ChangesetLocker
 }
 
 type storedChangesetResponse struct {
@@ -219,6 +220,7 @@ func (d DeliveryDependencies) getChangeset(w http.ResponseWriter, r *http.Reques
 
 func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true); if !ok { return }
+	unlock, locked := d.lockChangeset(w,r,principal.OrganizationID); if !locked { return }; defer unlock()
 	if d.Git == nil { writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted local Git provider before creating revisions"); return }
 	var input struct { Ref string `json:"ref"` }; if !decodeJSON(w,r,&input) { return }
 	stored, ok := d.load(w,r,principal.OrganizationID); if !ok { return }
@@ -232,6 +234,7 @@ func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request
 
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {
 	principal,ok:=d.principal(w,r,true);if !ok{return}
+	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
 	if d.Evaluator==nil || d.Git==nil { writeProblem(w,503,"Evaluation worker unavailable","A trusted evaluation adapter and Git provider are required");return }
 	if d.Evidence==nil { writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return }
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
@@ -262,6 +265,7 @@ func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Re
 
 func (d DeliveryDependencies) attachEvidence(w http.ResponseWriter, r *http.Request) {
 	principal,ok:=d.principal(w,r,true);if !ok{return}
+	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
 	if d.Evidence==nil {writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return}
 	var input struct { EvaluationID string `json:"evaluation_id"` };if !decodeJSON(w,r,&input){return}
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
@@ -278,6 +282,7 @@ func (d DeliveryDependencies) attachEvidence(w http.ResponseWriter, r *http.Requ
 
 func (d DeliveryDependencies) submitReview(w http.ResponseWriter, r *http.Request) {
 	principal,ok:=d.principal(w,r,true);if !ok{return}
+	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
 	if d.Reviewers==nil {writeProblem(w,503,"Review assignment unavailable","Organization membership verification is not configured");return}
 	var input struct { ReviewerID string `json:"reviewer_id"`; Comment string `json:"comment"` };if !decodeJSON(w,r,&input){return}
 	active,err:=d.Reviewers.IsActiveMember(r.Context(),principal.OrganizationID,input.ReviewerID)
@@ -293,6 +298,7 @@ func (d DeliveryDependencies) submitReview(w http.ResponseWriter, r *http.Reques
 
 func (d DeliveryDependencies) decideReview(w http.ResponseWriter, r *http.Request) {
 	principal,ok:=d.principal(w,r,true);if !ok{return}
+	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
 	var input struct { Approved bool `json:"approved"`; Comment string `json:"comment"` };if !decodeJSON(w,r,&input){return}
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
 	if err:=stored.Changeset.DecideReview(delivery.ID(r.PathValue("reviewID")),input.Approved,principal.UserID,input.Comment,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
@@ -302,6 +308,7 @@ func (d DeliveryDependencies) decideReview(w http.ResponseWriter, r *http.Reques
 
 func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Request) {
 	principal,ok:=d.principal(w,r,true);if !ok{return}
+	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
 	if d.Git==nil {writeProblem(w,503,"Git provider unavailable","A trusted Git provider is not configured");return}
 	var input struct { TargetRef string `json:"target_ref"` };if !decodeJSON(w,r,&input){return}
 	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
@@ -623,4 +630,13 @@ func writeRepositoryError(w http.ResponseWriter, err error) {
 	if errors.Is(err,delivery.ErrVersionConflict) {writeProblem(w,http.StatusConflict,"Changeset changed concurrently","Reload the changeset and retry the operation");return}
 	if errors.Is(err,delivery.ErrNotFound) {writeProblem(w,http.StatusNotFound,"Changeset not found","The changeset does not exist in this organization");return}
 	writeProblem(w,http.StatusInternalServerError,"Unable to persist delivery state","The changeset state could not be saved")
+}
+
+func (d DeliveryDependencies) lockChangeset(w http.ResponseWriter,r *http.Request,organizationID string)(func(),bool){
+	if d.Locker==nil{return func(){},true}
+	id:=strings.TrimSpace(r.PathValue("id"))
+	if id==""{writeProblem(w,http.StatusBadRequest,"Changeset ID required","A changeset identifier is required");return nil,false}
+	unlock,err:=d.Locker.LockChangeset(r.Context(),organizationID,id)
+	if err!=nil{writeProblem(w,http.StatusServiceUnavailable,"Changeset lock unavailable","The changeset could not be safely locked for mutation");return nil,false}
+	return unlock,true
 }
