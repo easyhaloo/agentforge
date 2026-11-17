@@ -86,7 +86,7 @@ test("Overview search, status filtering, selection and navigation work together"
 });
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
-  await page.getByRole("button", { name: "Eval", exact: true }).click();
+  await page.getByRole("button", { name: "Stacks", exact: true }).click();
   await expect(page.locator(".flow-primary h3")).toContainText("CS-2481");
   await page.getByRole("button", { name: "New revision" }).click();
   await expect(page.getByText("r4", { exact: true })).toBeVisible();
@@ -115,7 +115,7 @@ test("Resources supports search, status filtering, inspection and creation", asy
 test("Changesets loads organization records, searches and persists a new changeset", async ({ page }) => {
   await page.locator(".sidebar").getByRole("button", { name: /Changesets/ }).click();
   await expect(page.getByText("Browser test baseline")).toBeVisible();
-  await page.getByRole("textbox", { name: "Search changesets" }).fill("Browser test");
+  await page.getByPlaceholder("Search ID, title or repository").fill("Browser test");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByRole("textbox", { name: "Search changesets" }).fill("");
   await page.getByRole("textbox", { name: "Repository" }).fill("easyhaloo/agentforge");
