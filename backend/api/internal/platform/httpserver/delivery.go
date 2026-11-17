@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -20,12 +21,19 @@ type Principal = identity.Principal
 
 type PrincipalResolver = identity.PrincipalResolver
 
+type MembershipRepository interface {
+	ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error)
+	UpdateMembership(context.Context, string, string, string, *string, *string) (identity.OrganizationMember, error)
+	RemoveMembership(context.Context, string, string, string) error
+}
+
 type DeliveryDependencies struct {
 	Repository  delivery.Repository
 	Identity    identity.PrincipalResolver
 	CSRF        identity.CSRFValidator
 	AllowedOrigin string
 	OIDC          identity.OIDCHandler
+	Membership    MembershipRepository
 }
 
 type storedChangesetResponse struct {
@@ -55,6 +63,9 @@ type problemResponse struct {
 
 func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}", deps.getChangeset)
@@ -289,4 +300,87 @@ func writeProblem(w http.ResponseWriter, status int, title, detail string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(problemResponse{Type: "about:blank", Title: title, Status: status, Detail: detail})
+}
+
+
+type updateMemberRequest struct {
+	Role *string `json:"role,omitempty"`
+	Status *string `json:"status,omitempty"`
+}
+
+func (d DeliveryDependencies) membershipAdmin(w http.ResponseWriter, r *http.Request) (Principal, bool) {
+	principal, ok := d.principal(w, r, true)
+	if !ok { return Principal{}, false }
+	if principal.Role != "owner" && principal.Role != "admin" {
+		writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only organization owners and administrators can manage members")
+		return Principal{}, false
+	}
+	if d.Membership == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Membership management unavailable", "The organization membership repository is not configured")
+		return Principal{}, false
+	}
+	return principal, true
+}
+
+func (d DeliveryDependencies) listMembers(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.membershipAdmin(w, r)
+	if !ok { return }
+	limit, offset := 50, 0
+	var err error
+	if raw := r.URL.Query().Get("limit"); raw != "" { limit, err = strconv.Atoi(raw) }
+	if err == nil {
+		if raw := r.URL.Query().Get("offset"); raw != "" { offset, err = strconv.Atoi(raw) }
+	}
+	if err != nil || limit < 1 || limit > 100 || offset < 0 {
+		writeProblem(w, http.StatusBadRequest, "Invalid pagination", "limit must be 1-100 and offset must be zero or greater")
+		return
+	}
+	members, err := d.Membership.ListMembers(r.Context(), principal.OrganizationID, limit, offset)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to list members", "The organization membership query failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Items []identity.OrganizationMember `json:"items"`
+		Limit int `json:"limit"`
+		Offset int `json:"offset"`
+	}{Items: members, Limit: limit, Offset: offset})
+}
+
+func (d DeliveryDependencies) updateMember(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.membershipAdmin(w, r)
+	if !ok { return }
+	var input updateMemberRequest
+	if !decodeJSON(w, r, &input) { return }
+	if input.Role == nil && input.Status == nil {
+		writeProblem(w, http.StatusBadRequest, "Invalid membership update", "At least one of role or status is required")
+		return
+	}
+	member, err := d.Membership.UpdateMembership(r.Context(), principal.OrganizationID, principal.UserID, r.PathValue("userID"), input.Role, input.Status)
+	if err != nil { writeMembershipError(w, err); return }
+	writeJSON(w, http.StatusOK, member)
+}
+
+func (d DeliveryDependencies) removeMember(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.membershipAdmin(w, r)
+	if !ok { return }
+	if err := d.Membership.RemoveMembership(r.Context(), principal.OrganizationID, principal.UserID, r.PathValue("userID")); err != nil {
+		writeMembershipError(w, err); return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func writeMembershipError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, identity.ErrMembershipNotFound):
+		writeProblem(w, http.StatusNotFound, "Member not found", "No active membership exists for this user in the selected organization")
+	case errors.Is(err, identity.ErrMembershipForbidden):
+		writeProblem(w, http.StatusForbidden, "Membership operation forbidden", "Your organization role cannot perform this membership operation")
+	case errors.Is(err, identity.ErrLastActiveOwner):
+		writeProblem(w, http.StatusConflict, "Last owner protected", "An organization must retain at least one active owner")
+	case errors.Is(err, identity.ErrInvalidMembershipChange):
+		writeProblem(w, http.StatusBadRequest, "Invalid membership change", "The requested role or membership status is invalid or unchanged")
+	default:
+		writeProblem(w, http.StatusInternalServerError, "Membership update failed", "The organization membership change could not be completed")
+	}
 }
