@@ -36,8 +36,11 @@ func (m *memoryRepository) List(_ context.Context,limit,offset int)([]delivery.S
 	items:=make([]delivery.StoredChangeset,0,len(m.items)); for _,item:=range m.items{items=append(items,item)}
 	if offset>=len(items){return []delivery.StoredChangeset{},nil}; end:=offset+limit;if end>len(items){end=len(items)};return items[offset:end],nil
 }
-type fixedIdentity struct{}
-func (fixedIdentity) ResolveActor(*http.Request)(string,error){return "test-user",nil}
+type sequenceIdentity struct { actors []string; index int }
+func (s *sequenceIdentity) ResolveActor(*http.Request)(string,error) {
+	if s.index >= len(s.actors) { return "", errors.New("identity sequence exhausted") }
+	actor := s.actors[s.index]; s.index++; return actor, nil
+}
 
 func TestDeliveryAPIRequiresTrustedIdentityForWrites(t *testing.T) {
 	handler:=NewHandlerWithDependencies(DeliveryDependencies{Repository:newMemoryRepository()})
@@ -48,7 +51,7 @@ func TestDeliveryAPIRequiresTrustedIdentityForWrites(t *testing.T) {
 
 func TestDeliveryLifecyclePersistsRevisionBoundState(t *testing.T) {
 	repository:=newMemoryRepository()
-	handler:=NewHandlerWithDependencies(DeliveryDependencies{Repository:repository,Identity:fixedIdentity{}})
+	handler:=NewHandlerWithDependencies(DeliveryDependencies{Repository:repository,Identity:&sequenceIdentity{actors:[]string{"author","maintainer","maintainer","maintainer","reviewer","reviewer"}}})
 	call:=func(method,path,body string) *httptest.ResponseRecorder {
 		t.Helper(); request:=httptest.NewRequest(method,path,bytes.NewBufferString(body)); response:=httptest.NewRecorder();handler.ServeHTTP(response,request);return response
 	}
