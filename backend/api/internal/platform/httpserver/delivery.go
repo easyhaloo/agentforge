@@ -319,9 +319,15 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	for _,repository:=range repositories {if repository.Slug==stored.Changeset.Repository {allowedTarget=repository.DefaultBranch;break}}
 	if allowedTarget==""||input.TargetRef!=allowedTarget {writeProblem(w,422,"Invalid merge target","Changesets can only merge into the registered default branch");return}
 	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" {writeProblem(w,409,"Revision required","A resolved Git revision is required");return}
+	if err:=stored.Changeset.ValidateMerge();err!=nil {writeDeliveryError(w,err);return}
+	if d.Locker!=nil {
+		unlockRepository,lockErr:=d.Locker.LockChangeset(r.Context(),principal.OrganizationID,"repository:"+stored.Changeset.Repository)
+		if lockErr!=nil {writeProblem(w,503,"Repository merge lock unavailable","The repository could not be safely locked for merge");return}
+		defer unlockRepository()
+	}
+	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record merge","An identifier could not be generated");return}
 	merged,err:=d.Git.MergeRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,revision.CommitSHA,input.TargetRef)
 	if err!=nil {writeProblem(w,409,"Git merge rejected","The target branch could not be merged cleanly; no merge record was written");return}
-	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record merge","An identifier could not be generated");return}
 	if err=stored.Changeset.CompleteMerge(delivery.ID(id),principal.UserID,merged.TargetRef,merged.CommitSHA,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
 	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
 	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
