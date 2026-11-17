@@ -11,23 +11,34 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           httpserver.NewHandler(),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	if port == "" { port = "8080" }
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		logger.Error("DATABASE_URL is required")
+		os.Exit(1)
+	}
+	store, err := postgres.Open(ctx, databaseURL)
+	if err != nil {
+		logger.Error("database initialization failed", "error", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	server := &http.Server{
+		Addr: ":" + port,
+		Handler: httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store}),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	go func() {
 		logger.Info("starting API server", "port", port)

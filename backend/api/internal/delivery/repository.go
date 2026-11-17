@@ -2,8 +2,11 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+var ErrNotFound = errors.New("changeset not found")
 
 type StoredChangeset struct {
 	Changeset *Changeset

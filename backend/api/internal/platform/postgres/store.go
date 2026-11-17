@@ -120,6 +120,9 @@ func (s *Store) Get(ctx context.Context, id delivery.ID) (delivery.StoredChanges
 		SELECT state, version, created_at, updated_at
 		FROM delivery_changesets WHERE id = $1
 	`, string(id)).Scan(&state, &stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return delivery.StoredChangeset{}, delivery.ErrNotFound
+	}
 	if err != nil {
 		return delivery.StoredChangeset{}, fmt.Errorf("get changeset: %w", err)
 	}
