@@ -144,6 +144,7 @@ func upsertExternalIdentityTx(ctx context.Context, tx pgx.Tx, issuer, subject, e
 			UPDATE users
 			SET display_name = COALESCE(NULLIF($2, ''), display_name),
 			    email = COALESCE(NULLIF($3, ''), email),
+			    email_verified = CASE WHEN NULLIF($3, '') IS NOT NULL THEN TRUE ELSE email_verified END,
 			    updated_at = now()
 			WHERE id = $1
 		`, userID, displayName, email)
@@ -164,7 +165,7 @@ func upsertExternalIdentityTx(ctx context.Context, tx pgx.Tx, issuer, subject, e
 	if err != nil {
 		return "", err
 	}
-	if _, err := tx.Exec(ctx, "INSERT INTO users (id, display_name, email) VALUES ($1, $2, NULLIF($3, ''))", userID, displayName, email); err != nil {
+	if _, err := tx.Exec(ctx, "INSERT INTO users (id, display_name, email, email_verified) VALUES ($1, $2, NULLIF($3, ''), $4)", userID, displayName, email, email != ""); err != nil {
 		return "", fmt.Errorf("create local user: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "INSERT INTO external_identities (id, user_id, issuer, subject) VALUES ($1, $2, $3, $4)", identityID, userID, issuer, subject); err != nil {
