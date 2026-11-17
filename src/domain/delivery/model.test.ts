@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "./model";
+import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "./index";
 
 describe("revision-scoped delivery invariants", () => {
   const current = revisionKey("CS-2481", 4);

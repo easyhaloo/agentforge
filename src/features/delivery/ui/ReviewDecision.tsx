@@ -1,5 +1,5 @@
 import { CheckCircle2, GitPullRequest } from "lucide-react";
-import { canApproveRevision } from "../../../domain/delivery/model";
+import { canApproveRevision } from "../../../domain/delivery";
 import type { Evaluation, Review } from "../model";
 
 type Props = {

@@ -1,8 +1,6 @@
+import type { RevisionEvidence, RevisionReview } from "../../entities";
+
 export type GitCommit = { sha: string; repositoryId: string };
-export type Changeset = { id: string; repositoryId: string; title: string; status: string };
-export type Revision = { id: string; changesetId: string; number: number; baseCommitSha: string; headCommitSha: string };
-export type RevisionEvidence = { revisionId: string; status: "Passed" | "Failed"; id: string };
-export type RevisionReview = { revisionId: string; decision: "Pending" | "Approved" | "Changes requested"; id: string };
 
 export const revisionKey = (changesetId: string, revision: number): string => `${changesetId}@r${revision}`;
 
@@ -15,5 +13,7 @@ export function canApproveRevision(revisionId: string, evidence?: RevisionEviden
 }
 
 export function canMergeRevision(revisionId: string, evidence?: RevisionEvidence, review?: RevisionReview): boolean {
-  return canApproveRevision(revisionId, evidence) && review?.revisionId === revisionId && review.decision === "Approved";
+  return canApproveRevision(revisionId, evidence)
+    && review?.revisionId === revisionId
+    && review.decision === "Approved";
 }

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { usePersistentState } from "../../shared/hooks/usePersistentState";
-import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "../../domain/delivery/model";
+import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "../../domain/delivery";
 import { initialChange, initialEvaluations, initialReviews, stages, type Change, type Evaluation, type Review } from "./model";
 import { DeliveryFlowBanner } from "./ui/DeliveryFlowBanner";
 import { DeliveryStageTrack } from "./ui/DeliveryStageTrack";
