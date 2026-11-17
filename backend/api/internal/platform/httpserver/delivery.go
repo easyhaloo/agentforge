@@ -22,6 +22,10 @@ type Principal = identity.Principal
 
 type PrincipalResolver = identity.PrincipalResolver
 
+type AccountRepository interface {
+	CurrentAccount(context.Context, string) (identity.AccountContext, error)
+}
+
 type MembershipRepository interface {
 	ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error)
 	UpdateMembership(context.Context, string, string, string, *string, *string) (identity.OrganizationMember, error)
@@ -39,6 +43,7 @@ type DeliveryDependencies struct {
 	AllowedOrigin string
 	OIDC          identity.OIDCHandler
 	Membership    MembershipRepository
+	Account       AccountRepository
 }
 
 type storedChangesetResponse struct {
@@ -473,4 +478,27 @@ func writeInvitationError(w http.ResponseWriter,err error) {
 	default:
 		writeProblem(w,http.StatusInternalServerError,"Invitation operation failed","The organization invitation could not be processed")
 	}
+}
+
+
+func (d DeliveryDependencies) currentAccount(w http.ResponseWriter,r *http.Request) {
+	if d.Account==nil {
+		writeProblem(w,http.StatusServiceUnavailable,"Account context unavailable","The authenticated account repository is not configured")
+		return
+	}
+	cookie,err:=r.Cookie(identity.SessionCookieName)
+	if err!=nil || cookie.Value=="" {
+		writeProblem(w,http.StatusUnauthorized,"Authentication required","A valid application session is required")
+		return
+	}
+	account,err:=d.Account.CurrentAccount(r.Context(),cookie.Value)
+	if errors.Is(err,identity.ErrUnauthenticated) {
+		writeProblem(w,http.StatusUnauthorized,"Authentication required","A valid application session with active organization membership is required")
+		return
+	}
+	if err!=nil {
+		writeProblem(w,http.StatusServiceUnavailable,"Account context unavailable","The authenticated account and organization context could not be loaded")
+		return
+	}
+	writeJSON(w,http.StatusOK,account)
 }
