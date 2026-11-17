@@ -387,9 +387,12 @@ export function DataTable<T>({
     onSelectionChange?.(next, data.filter((row) => next.includes(getRowKey(row))));
   };
   const toggleAll = (checked: boolean) => {
-    const keys = checked ? data.map(getRowKey) : [];
+    const pageKeys = data.map(getRowKey);
+    const keys = checked
+      ? Array.from(new Set([...selected, ...pageKeys]))
+      : selected.filter((key) => !pageKeys.includes(key));
     if (selectedRowKeys === undefined) setInternalSelected(keys);
-    onSelectionChange?.(keys, checked ? data : []);
+    onSelectionChange?.(keys, data.filter((row) => keys.includes(getRowKey(row))));
   };
   const filteredData = useMemo(() => {
     if (filterMode === "server") return data;
