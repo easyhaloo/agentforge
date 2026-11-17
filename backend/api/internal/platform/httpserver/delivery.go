@@ -92,6 +92,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 }
 
 func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	if d.Repository == nil {
 		writeProblem(w, http.StatusServiceUnavailable, "Delivery storage unavailable", "The delivery repository is not configured")
 		return
@@ -131,6 +132,7 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 }
 
 func (d DeliveryDependencies) getChangeset(w http.ResponseWriter, r *http.Request) {
+	if _, ok := d.actor(w, r); !ok { return }
 	stored, ok := d.load(w, r); if !ok { return }
 	writeJSON(w, http.StatusOK, toChangesetResponse(stored))
 }
