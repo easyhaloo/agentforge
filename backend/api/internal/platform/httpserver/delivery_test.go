@@ -312,3 +312,38 @@ func TestOrganizationInvitationsAndAuditEndpoints(t *testing.T) {
 	handler.ServeHTTP(revokeResponse,revoke)
 	if revokeResponse.Code!=http.StatusNoContent { t.Fatalf("revoke status=%d body=%s",revokeResponse.Code,revokeResponse.Body.String()) }
 }
+
+
+type fakeAccountRepository struct {
+	account identity.AccountContext
+	token string
+}
+func (f *fakeAccountRepository) CurrentAccount(_ context.Context,token string) (identity.AccountContext,error) {
+	f.token=token
+	return f.account,nil
+}
+
+func TestCurrentAccountRequiresSessionAndReturnsOrganizationContext(t *testing.T) {
+	repository:=&fakeAccountRepository{account:identity.AccountContext{
+		UserID:"user-1",DisplayName:"Test User",Email:"test@example.test",
+		Organizations:[]identity.OrganizationSummary{{ID:"org-a",Name:"Organization A",Role:"owner"}},
+	}}
+	handler:=NewHandlerWithDependencies(DeliveryDependencies{Account:repository,AllowedOrigin:"https://app.example.test"})
+	unauthenticated:=httptest.NewRequest(http.MethodGet,"/api/v1/me",nil)
+	unauthenticatedResponse:=httptest.NewRecorder()
+	handler.ServeHTTP(unauthenticatedResponse,unauthenticated)
+	if unauthenticatedResponse.Code!=http.StatusUnauthorized { t.Fatalf("without session status=%d",unauthenticatedResponse.Code) }
+
+	request:=httptest.NewRequest(http.MethodGet,"/api/v1/me",nil)
+	request.AddCookie(&http.Cookie{Name:identity.SessionCookieName,Value:"session-token-with-enough-length-to-be-valid"})
+	response:=httptest.NewRecorder()
+	handler.ServeHTTP(response,request)
+	if response.Code!=http.StatusOK || repository.token!="session-token-with-enough-length-to-be-valid" {
+		t.Fatalf("current account status=%d token=%q body=%s",response.Code,repository.token,response.Body.String())
+	}
+	var account identity.AccountContext
+	if err:=json.Unmarshal(response.Body.Bytes(),&account); err!=nil { t.Fatal(err) }
+	if account.UserID!="user-1" || len(account.Organizations)!=1 || account.Organizations[0].ID!="org-a" {
+		t.Fatalf("account context=%#v",account)
+	}
+}
