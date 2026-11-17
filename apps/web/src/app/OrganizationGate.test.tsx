@@ -9,8 +9,7 @@ const demo: OrganizationSummary = { id: "org-demo", slug: "demo", name: "AgentFo
 const labs: OrganizationSummary = { id: "org-labs", slug: "Labs", name: "AgentForge Labs", role: "admin" };
 const account: AccountContext = { user_id: "user-owner", display_name: "Taylor Owner", organizations: [demo, labs] };
 const ready: AppAccount = {
-  account, accountState: "ready", accountError: "", reload: async () => {},
-  selectedOrganization: demo, selectOrganization: () => {}, signOut: async () => {},
+  account, accountState: "ready", accountError: "", reload: async () => {}, selectedOrganization: demo,
 };
 
 function render(state: Partial<AppAccount>, variant: "organization" | "changesets", handle = "demo"): string {
