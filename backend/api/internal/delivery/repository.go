@@ -2,7 +2,13 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+var (
+	ErrNotFound = errors.New("changeset not found")
+	ErrVersionConflict = errors.New("changeset version conflict")
 )
 
 type StoredChangeset struct {
