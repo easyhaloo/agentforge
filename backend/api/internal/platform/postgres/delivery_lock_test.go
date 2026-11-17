@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,9 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
-	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
-	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -29,15 +25,22 @@ func lockSuffix() string { return strconv.FormatInt(time.Now().UnixNano(), 10) }
 type lockFixture struct {
 	ctx   context.Context
 	store *Store
-	// application is the application_name of every connection of the store's pool, so server-side
+	// application is the application_name of every connection of both pools, so server-side
 	// counts ignore advisory locks held by unrelated sessions (a concurrent migration, for example).
 	application string
 }
 
-// lockOpenStore opens a Store with an explicit pool size. Every held changeset lock is a
-// session-level advisory lock that pins one pooled connection, so the tests must not depend on
-// the default pool size (the CPU count).
-func lockOpenStore(t *testing.T, maxConns int) *lockFixture {
+// lockOptions tunes one Store under test. Every held changeset lock pins one connection of the
+// lock pool and every waiter pins one too, so tests must not depend on the default pool sizes
+// (max(4, NumCPU) for queries, 16 for locks) unless the default is what they are about.
+type lockOptions struct {
+	queryPool   int               // pool_max_conns of the query pool; 0 keeps the pgxpool default
+	lockPool    int32             // lockPoolMaxConns while the store is open; 0 keeps the default
+	waitTimeout time.Duration     // lockWaitTimeout while the test runs; 0 keeps the default
+	dsn         map[string]string // further DSN parameters, for example pool_min_conns
+}
+
+func lockOpenStore(t *testing.T, options lockOptions) *lockFixture {
 	t.Helper()
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -49,12 +52,29 @@ func lockOpenStore(t *testing.T, maxConns int) *lockFixture {
 	}
 	application := "af_lock_" + lockSuffix()
 	query := parsed.Query()
-	query.Set("pool_max_conns", strconv.Itoa(maxConns))
 	query.Set("application_name", application)
+	if options.queryPool > 0 {
+		query.Set("pool_max_conns", strconv.Itoa(options.queryPool))
+	}
+	for key, value := range options.dsn {
+		query.Set(key, value)
+	}
 	parsed.RawQuery = query.Encode()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
+
+	// lockPoolMaxConns is read when the Store opens and lockWaitTimeout on every LockChangeset
+	// call. Both are restored after the store is closed (cleanups run last in, first out).
+	previousLockPool, previousWait := lockPoolMaxConns, lockWaitTimeout
+	t.Cleanup(func() { lockPoolMaxConns, lockWaitTimeout = previousLockPool, previousWait })
+	if options.lockPool > 0 {
+		lockPoolMaxConns = options.lockPool
+	}
+	if options.waitTimeout > 0 {
+		lockWaitTimeout = options.waitTimeout
+	}
+
 	store, err := Open(ctx, parsed.String())
 	if err != nil {
 		t.Fatal(err)
@@ -67,11 +87,14 @@ func lockOpenStore(t *testing.T, maxConns int) *lockFixture {
 		select {
 		case <-closed:
 		case <-time.After(10 * time.Second):
-			t.Errorf("store.Close is blocked: %d connections are still acquired (a lock connection leaked)", store.pool.Stat().AcquiredConns())
+			t.Errorf("store.Close is blocked: %d query connections and %d lock connections are still acquired (a connection leaked)",
+				store.pool.Stat().AcquiredConns(), store.lockPool.Stat().AcquiredConns())
 		}
 	})
-	if got := store.pool.Config().MaxConns; got != int32(maxConns) {
-		t.Fatalf("pool_max_conns was not applied: MaxConns=%d, want %d", got, maxConns)
+	if options.queryPool > 0 {
+		if got := store.pool.Config().MaxConns; got != int32(options.queryPool) {
+			t.Fatalf("pool_max_conns was not applied: MaxConns=%d, want %d", got, options.queryPool)
+		}
 	}
 	return &lockFixture{ctx: ctx, store: store, application: application}
 }
@@ -104,11 +127,11 @@ func (f *lockFixture) wantCounts(t *testing.T, when string, wantGranted, wantWai
 	}
 }
 
-// wantIdle fails unless every connection went back to the pool and the server holds no lock.
+// wantIdle fails unless every lock connection went back to its pool and the server holds no lock.
 func (f *lockFixture) wantIdle(t *testing.T, when string) {
 	t.Helper()
-	lockEventually(t, 2*time.Second, when+": a pooled connection is still acquired", func() bool {
-		return f.store.pool.Stat().AcquiredConns() == 0
+	lockEventually(t, 2*time.Second, when+": a lock connection is still acquired", func() bool {
+		return f.store.lockPool.Stat().AcquiredConns() == 0
 	})
 	f.wantCounts(t, when, 0, 0)
 }
@@ -151,7 +174,7 @@ func lockWithTimeout(ctx context.Context, store *Store, organizationID, changese
 }
 
 func TestChangesetLockLocksAndUnlocksOrdinaryIdentifiers(t *testing.T) {
-	fx := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, lockOptions{queryPool: 4})
 	suffix := lockSuffix()
 	unlock, err := fx.store.LockChangeset(fx.ctx, "lock-org-"+suffix, "lock-changeset-"+suffix)
 	if err != nil {
@@ -160,7 +183,7 @@ func TestChangesetLockLocksAndUnlocksOrdinaryIdentifiers(t *testing.T) {
 	release := lockOnce(unlock)
 	defer release()
 	fx.wantCounts(t, "while locked", 1, 0)
-	if acquired := fx.store.pool.Stat().AcquiredConns(); acquired != 1 {
+	if acquired := fx.store.lockPool.Stat().AcquiredConns(); acquired != 1 {
 		t.Fatalf("while locked: AcquiredConns=%d, want 1 (the lock pins one pooled connection)", acquired)
 	}
 
@@ -171,7 +194,7 @@ func TestChangesetLockLocksAndUnlocksOrdinaryIdentifiers(t *testing.T) {
 }
 
 func TestChangesetLockExcludesTheSameChangesetUntilReleased(t *testing.T) {
-	fx := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, lockOptions{queryPool: 4})
 	suffix := lockSuffix()
 	organizationID, changesetID := "lock-org-"+suffix, "lock-changeset-"+suffix
 	first, err := fx.store.LockChangeset(fx.ctx, organizationID, changesetID)
@@ -213,7 +236,8 @@ func TestChangesetLockExcludesTheSameChangesetUntilReleased(t *testing.T) {
 }
 
 func TestChangesetLockKeepsDistinctChangesetsIndependent(t *testing.T) {
-	fx := lockOpenStore(t, 16)
+	// Ten locks are held at once, so the pool that serves them must have at least ten connections.
+	fx := lockOpenStore(t, lockOptions{queryPool: 16})
 	prefix := "lock-" + lockSuffix() + "-"
 	// Every pair is a different (organization, changeset) and must be lockable at the same
 	// time. Several are the classic collisions of a naive key: delimiter shifting, no
@@ -252,7 +276,7 @@ func TestChangesetLockKeepsDistinctChangesetsIndependent(t *testing.T) {
 }
 
 func TestChangesetLockHandlesUnicodeLongAndHostileIdentifiers(t *testing.T) {
-	fx := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, lockOptions{queryPool: 4})
 	prefix := "lock-" + lockSuffix() + "-"
 	cases := []struct{ name, organizationID, changesetID string }{
 		{"Unicode", prefix + "组织-é", "变更集-ß-🙂"},
@@ -294,7 +318,7 @@ func TestChangesetLockHandlesUnicodeLongAndHostileIdentifiers(t *testing.T) {
 }
 
 func TestChangesetLockCancelledWaiterFailsCleanlyAndNeverAcquires(t *testing.T) {
-	fx := lockOpenStore(t, 4)
+	fx := lockOpenStore(t, lockOptions{queryPool: 4})
 	suffix := lockSuffix()
 	organizationID, changesetID := "lock-org-"+suffix, "lock-changeset-"+suffix
 
@@ -343,7 +367,7 @@ func TestChangesetLockCancelledWaiterFailsCleanlyAndNeverAcquires(t *testing.T) 
 		return granted == 1 && waiting == 0
 	})
 	lockEventually(t, 5*time.Second, "the cancelled waiter's connection was not released", func() bool {
-		return fx.store.pool.Stat().AcquiredConns() == 1
+		return fx.store.lockPool.Stat().AcquiredConns() == 1
 	})
 
 	releaseHolder()
@@ -359,19 +383,6 @@ func TestChangesetLockCancelledWaiterFailsCleanlyAndNeverAcquires(t *testing.T) 
 	}
 }
 
-const lockHTTPOrigin = "https://app.example.test"
-
-// lockFakeGit resolves every ref to fixed commits; the lock tests do not run Git.
-type lockFakeGit struct{}
-
-func (lockFakeGit) ResolveRevision(_ context.Context, _, _, ref string) (delivery.GitRevision, error) {
-	return delivery.GitRevision{Ref: ref, CommitSHA: strings.Repeat("a", 40), ParentSHA: strings.Repeat("b", 40)}, nil
-}
-
-func (lockFakeGit) MergeRevision(context.Context, string, string, string, string) (delivery.GitMerge, error) {
-	return delivery.GitMerge{}, errors.New("the lock tests do not merge")
-}
-
 type lockChangesetBody struct {
 	Changeset struct {
 		ID        string `json:"id"`
@@ -383,80 +394,39 @@ type lockChangesetBody struct {
 }
 
 func TestChangesetLockWorksThroughTheRealHTTPStack(t *testing.T) {
-	fx := lockOpenStore(t, 8)
+	fx := lockOpenStore(t, lockOptions{queryPool: 8})
 	ctx, store := fx.ctx, fx.store
-	suffix := lockSuffix()
-	organizationID, userID, repository := "lock-http-org-"+suffix, "lock-http-user-"+suffix, "team/lock-"+suffix
-	t.Cleanup(func() {
-		cleanup, stop := context.WithTimeout(context.Background(), 10*time.Second)
-		defer stop()
-		// Organizations first: their cascade removes repositories and changesets before the user.
-		_, _ = store.pool.Exec(cleanup, "DELETE FROM organizations WHERE id = $1", organizationID)
-		_, _ = store.pool.Exec(cleanup, "DELETE FROM users WHERE id = $1", userID)
-	})
-	if _, err := store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $1)", organizationID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.pool.Exec(ctx, "INSERT INTO users (id, display_name) VALUES ($1, $1)", userID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.pool.Exec(ctx, "INSERT INTO organization_memberships (organization_id, user_id, role, status) VALUES ($1, $2, 'owner', 'active')", organizationID, userID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.RegisterRepository(ctx, delivery.RepositoryMetadata{OrganizationID: organizationID, Slug: repository, DefaultBranch: "main", CreatedBy: userID}); err != nil {
-		t.Fatal(err)
-	}
-	credentials, err := identity.GenerateCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.CreateSession(ctx, userID, credentials.SessionToken, credentials.CSRFToken, time.Now().Add(time.Hour)); err != nil {
-		t.Fatal(err)
-	}
+	repository := "team/lock-" + lockSuffix()
+	h := newLockHTTP(t, fx, 0, repository)
 
-	handler := httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
-		Repository: store, Identity: store, CSRF: store, Account: store, Catalog: store,
-		Git: lockFakeGit{}, Locker: store, AllowedOrigin: lockHTTPOrigin,
-	})
-	call := func(method, path, body string) *httptest.ResponseRecorder {
-		request := httptest.NewRequest(method, path, strings.NewReader(body))
-		request.AddCookie(&http.Cookie{Name: identity.SessionCookieName, Value: credentials.SessionToken})
-		request.AddCookie(&http.Cookie{Name: identity.CSRFCookieName, Value: credentials.CSRFToken})
-		request.Header.Set(identity.CSRFHeaderName, credentials.CSRFToken)
-		request.Header.Set("Origin", lockHTTPOrigin)
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
-
-	created := call(http.MethodPost, "/api/v1/organizations/"+organizationID+"/changesets", `{"repository":"`+repository+`","title":"Lock regression"}`)
+	created := h.do(ctx, http.MethodPost, h.changesetsPath(), `{"repository":"`+repository+`","title":"Lock regression"}`)
 	var changeset lockChangesetBody
 	if created.Code != http.StatusCreated || json.Unmarshal(created.Body.Bytes(), &changeset) != nil || changeset.Changeset.ID == "" {
 		t.Fatalf("create changeset: status=%d body=%s", created.Code, created.Body.String())
 	}
 	changesetID := changeset.Changeset.ID
-	revisionsPath := "/api/v1/organizations/" + organizationID + "/changesets/" + changesetID + "/revisions"
+	revisionsPath := h.revisionsPath(changesetID)
 
 	// Creating a changeset takes no lock; every later mutation does.
-	response := call(http.MethodPost, revisionsPath, `{"ref":"main"}`)
+	response := h.do(ctx, http.MethodPost, revisionsPath, `{"ref":"main"}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("add revision with the real lock: status=%d body=%s (503 \"Changeset lock unavailable\" is the reported bug)", response.Code, response.Body.String())
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &changeset); err != nil || len(changeset.Changeset.Revisions) != 1 || changeset.Changeset.Revisions[0].CommitSHA != strings.Repeat("a", 40) {
+	if err := json.Unmarshal(response.Body.Bytes(), &changeset); err != nil || len(changeset.Changeset.Revisions) != 1 || changeset.Changeset.Revisions[0].CommitSHA != lockCommit {
 		t.Fatalf("revision response = %s (err=%v), want exactly one revision resolved by the Git provider", response.Body.String(), err)
 	}
 	fx.wantIdle(t, "after the request")
 
 	// The request contends on the same key as a direct caller: while the changeset is locked
 	// the request waits, and it completes once the lock is released.
-	held, err := store.LockChangeset(ctx, organizationID, changesetID)
+	held, err := store.LockChangeset(ctx, h.organizationID, changesetID)
 	if err != nil {
 		t.Fatalf("direct lock of the changeset: %v", err)
 	}
 	releaseHeld := lockOnce(held)
 	defer releaseHeld()
 	finished := make(chan *httptest.ResponseRecorder, 1)
-	go func() { finished <- call(http.MethodPost, revisionsPath, `{"ref":"main"}`) }()
+	go func() { finished <- h.do(ctx, http.MethodPost, revisionsPath, `{"ref":"main"}`) }()
 	lockEventually(t, 3*time.Second, "the request never queued on the changeset lock", func() bool {
 		_, waiting := fx.counts(t)
 		return waiting == 1

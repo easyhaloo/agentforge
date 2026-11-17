@@ -18,6 +18,10 @@ func changesetLockKey(organizationID, changesetID string) string {
 	return hex.EncodeToString([]byte(organizationID)) + ":" + hex.EncodeToString([]byte(changesetID))
 }
 
+// Stubs: declared for the tests, not used yet.
+var lockPoolMaxConns int32 = 16
+var lockWaitTimeout = 10 * time.Second
+
 func (s *Store) LockChangeset(ctx context.Context,organizationID,changesetID string)(func(),error) {
 	if organizationID==""||changesetID=="" {return nil,errors.New("organization and changeset identifiers are required")}
 	connection,err:=s.pool.Acquire(ctx);if err!=nil{return nil,err}

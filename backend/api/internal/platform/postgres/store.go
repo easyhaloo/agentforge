@@ -23,6 +23,8 @@ var ErrVersionConflict = delivery.ErrVersionConflict
 
 type Store struct {
 	pool *pgxpool.Pool
+	// lockPool is a stub that aliases the query pool until the dedicated lock pool exists.
+	lockPool *pgxpool.Pool
 }
 
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
@@ -37,7 +39,7 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
-	store := &Store{pool: pool}
+	store := &Store{pool: pool, lockPool: pool}
 	if err := store.Migrate(ctx); err != nil {
 		pool.Close()
 		return nil, err
