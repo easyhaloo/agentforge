@@ -45,14 +45,13 @@ Implemented and merged:
 Remaining:
 - Generate and commit a reproducible npm lockfile.
 - Verify Cloudflare Workers Builds against the actual production project settings; Wrangler dry-run is not a production deployment.
-- Add local development environment examples and complete API configuration validation.
 
 Acceptance: frontend behavior is preserved; web, API and contract CI checks pass; Worker packaging is valid; no Pages deploy workflow, duplicate production deploy path or committed secrets.
 
 ## Phase 2 — Backend platform and persistence
 
 Priority: P1  
-Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24) · [PR #26](https://github.com/easyhaloo/agentforge/pull/26)  
+Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24) · [PR #26](https://github.com/easyhaloo/agentforge/pull/26) · [PR #28](https://github.com/easyhaloo/agentforge/pull/28)  
 Status: **In progress** — persistence and tenant-scope foundations are merged; production identity is not implemented.
 
 Implemented:
@@ -63,14 +62,18 @@ Implemented:
 - Organization-scoped Changeset repository methods and SQL predicates.
 - Organization-scoped API routes requiring a trusted `PrincipalResolver`.
 - Role checks at the HTTP boundary; unknown roles and viewer writes are denied.
-- Database + identity-aware readiness. The production server intentionally remains `not_ready` until an identity resolver is configured.
+- Database + identity-aware readiness. The production server intentionally remains `not_ready` until an OIDC-backed identity resolver is configured.
+- Opaque 256-bit session and CSRF credentials; only SHA-256 token hashes are persisted.
+- PostgreSQL session creation, expiry, revocation, CSRF binding, and organization-scoped principal resolution.
+- Host-only Secure session/CSRF cookie definitions (`HttpOnly` session cookie), exact-origin credentialed CORS, and session-bound CSRF enforcement for state-changing API requests.
+- `APP_ORIGIN` validation; HTTPS is required outside loopback development.
 - Local PostgreSQL Compose setup and API startup documentation.
 
 Remaining:
-- Implement OIDC Authorization Code + PKCE, state/nonce validation, session creation, rotation, expiry, logout and revocation.
-- Implement user/external identity persistence and organization membership lookup.
+- Implement OIDC Authorization Code + PKCE, discovery/JWKS validation, state/nonce replay protection, login/callback/logout endpoints, and session rotation.
+- Implement user/external identity upsert and organization membership lookup in the authentication flow.
 - Add a safe operator-controlled first-owner/bootstrap path.
-- Implement CSRF validation and exact-origin CORS for cookie-authenticated writes.
+- Wire OIDC configuration into the production server and only report Ready after provider discovery and session identity are available.
 - Add cross-tenant authorization tests for every read/write path and session lifecycle tests.
 - Add committed Go module checksums and migration upgrade tests.
 
