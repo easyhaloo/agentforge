@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban, Check, X } from "lucide-react";
 import { APIError, organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
-import { Button, Input, Select } from "../../shared/ui";
+import { Button, ConfirmDialog, Input, Select } from "../../shared/ui";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 type Tab = "members" | "invitations" | "audit";
@@ -21,6 +21,7 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedInvitation | null>(null);
   const [busyID, setBusyID] = useState("");
+  const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null);
 
   const canAdmin = organization.role === "owner" || organization.role === "admin";
   const load = useCallback(async () => {
@@ -48,7 +49,6 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
     finally { setBusyID(""); }
   };
   const removeMember = async (member: OrganizationMember) => {
-    if (!window.confirm(`Remove ${member.display_name} from this organization?`)) return;
     setBusyID(member.user_id); setError("");
     try { await organizationAPI.removeMember(organization.id, member.user_id); await load(); onNotify("Member removed."); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Member removal failed"); }
@@ -96,7 +96,7 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
         {members.map(member => {
           const manageable = member.status!=="removed" && (organization.role==="owner" || member.role==="member" || member.role==="viewer");
           const roleOptions = organization.role==="owner" ? ["admin","member","viewer"] : ["member","viewer"];
-          return <tr key={member.user_id}><td><b>{member.display_name}</b><small>{member.email || member.user_id}</small></td><td><Select aria-label={`Role for ${member.display_name}`} value={member.role} disabled={!manageable || busyID===member.user_id} onChange={e=>void updateMember(member,{role:e.target.value})} options={[...new Set([member.role,...roleOptions])].map(value=>({label:value,value}))}/></td><td><span className={statusClass(member.status)}>{member.status}</span></td><td>{dateTime(member.created_at)}</td><td><div className="org-actions">{manageable && member.status!=="removed" && <><Button variant="ghost" className="org-icon-action" title={member.status==="active"?"Suspend member":"Reactivate member"} disabled={busyID===member.user_id} onClick={()=>void updateMember(member,{status:member.status==="active"?"suspended":"active"})}>{member.status==="active"?<Ban size={14}/>:<Check size={14}/>}</Button><Button variant="ghost" className="org-icon-action danger" title="Remove member" disabled={busyID===member.user_id} onClick={()=>void removeMember(member)}><X size={14}/></Button></>}</div></td></tr>;
+          return <tr key={member.user_id}><td><b>{member.display_name}</b><small>{member.email || member.user_id}</small></td><td><Select aria-label={`Role for ${member.display_name}`} value={member.role} disabled={!manageable || busyID===member.user_id} onChange={e=>void updateMember(member,{role:e.target.value})} options={[...new Set([member.role,...roleOptions])].map(value=>({label:value,value}))}/></td><td><span className={statusClass(member.status)}>{member.status}</span></td><td>{dateTime(member.created_at)}</td><td><div className="org-actions">{manageable && member.status!=="removed" && <><Button variant="ghost" className="org-icon-action" title={member.status==="active"?"Suspend member":"Reactivate member"} disabled={busyID===member.user_id} onClick={()=>void updateMember(member,{status:member.status==="active"?"suspended":"active"})}>{member.status==="active"?<Ban size={14}/>:<Check size={14}/>}</Button><Button variant="ghost" className="org-icon-action danger" title="Remove member" disabled={busyID===member.user_id} onClick={()=>setMemberToRemove(member)}><X size={14}/></Button></>}</div></td></tr>;
         })}
         {!members.length && <tr><td colSpan={5} className="org-empty">No organization members found.</td></tr>}
       </tbody></table></div>
@@ -115,5 +115,14 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
       <div className="org-panel-head"><div><h3>Membership audit history</h3><p>Newest membership and invitation events first.</p></div></div>
       <div className="org-audit-list">{events.map(event=><article key={event.id}><span className="org-audit-icon"><History size={14}/></span><div><b>{event.action.replaceAll("_"," ")}</b><p>Actor <code>{event.actor_user_id}</code> · Target <code>{event.target_user_id}</code></p><small>{event.before_role || "—"} / {event.before_status} → {event.after_role || event.before_role || "—"} / {event.after_status}</small></div><time>{dateTime(event.created_at)}</time></article>)}{!events.length&&<div className="org-empty">No audit events recorded yet.</div>}</div>
     </>}
+    <ConfirmDialog
+      open={Boolean(memberToRemove)}
+      title="Remove organization member?"
+      description={memberToRemove ? `Remove ${memberToRemove.display_name} from this organization? This action cannot be undone.` : "This action cannot be undone."}
+      confirmText="Remove member"
+      danger
+      onCancel={() => setMemberToRemove(null)}
+      onConfirm={async () => { if (!memberToRemove) return; await removeMember(memberToRemove); setMemberToRemove(null); }}
+    />
   </section>;
 }
