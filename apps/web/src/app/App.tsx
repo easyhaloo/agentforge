@@ -8,6 +8,7 @@ import { PageHeader } from "./components/PageHeader";
 import { Toast } from "./components/Toast";
 import { CreateChangesetDialog } from "./components/CreateChangesetDialog";
 import { CommandPalette } from "./components/CommandPalette";
+import { UIShowcasePage } from "../pages/ui-showcase";
 
 function App() {
   const [active, setActive] = useState("Overview");
@@ -52,7 +53,9 @@ function App() {
           <PageHeader
             active={active}
             onRefresh={() => notify("Demo data refreshed.")}
-            onCreate={active === "Overview" ? () => setShowCreate(true) : undefined}
+            onCreate={active === "UI Components" ? (
+            <UIShowcasePage />
+          ) : active === "Overview" ? () => setShowCreate(true) : undefined}
           />
           {active === "Overview" ? (
             <OverviewPage onNavigate={setActive} onNotify={notify} created={created} />
