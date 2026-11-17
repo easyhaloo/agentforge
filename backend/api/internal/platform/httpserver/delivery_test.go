@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -186,4 +185,3 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 }
 
 var _ delivery.Repository = (*memoryRepository)(nil)
-var _ = errors.Is
