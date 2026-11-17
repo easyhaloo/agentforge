@@ -2,18 +2,16 @@
 
 ## Goal
 
-Evolve the current React prototype into a working Agent-native Source Control & Verified Change Platform using the accepted Monorepo + Go modular monolith architecture.
-
-This plan is execution-oriented. Work is delivered in small, reviewable increments; each phase has explicit exit criteria. Do not start later business modules before the foundation and contract are stable.
+Evolve the React prototype into an Agent-native Source Control & Verified Change Platform using a monorepo and Go modular-monolith backend.
 
 ## Current baseline
 
-- Existing application: root-level React 19 + TypeScript + Vite frontend.
+- Frontend: React 19 + TypeScript + Vite in the `apps/web` npm workspace.
 - Existing behavior: seeded fixtures and browser LocalStorage.
-- No Go backend, API server, PostgreSQL schema, or execution worker has been implemented in the repository baseline inspected for this plan.
-- Cloudflare project in use is a Worker with a `workers.dev` route, not a Pages project.
-- Existing `.github/workflows/deploy.yml` targets Cloudflare Pages and is inconsistent with the current Worker deployment. It must be corrected or removed before enabling competing production deploy paths.
-- Existing `.github/workflows/ci.yml` runs frontend tests/build.
+- Backend: initial Go HTTP API under `backend/api`; no business modules or PostgreSQL schema yet.
+- API contract: initial health/readiness OpenAPI contract at `contracts/openapi/openapi.yaml`.
+- Cloudflare project: Worker with a `workers.dev` route, not Pages.
+- Root `wrangler.jsonc` points Worker Static Assets to `apps/web/dist`; Cloudflare Workers Builds must retain repository root as build root.
 
 ## Delivery rules
 
@@ -22,148 +20,71 @@ This plan is execution-oriented. Work is delivered in small, reviewable incremen
 3. Run relevant tests and builds; report only observed results.
 4. Do not introduce empty packages or speculative infrastructure.
 5. Do not implement all modules at once.
-6. OpenAPI changes are reviewed as product/API changes, not incidental generated output.
-7. Each phase should be a small PR or coherent commit series with clear acceptance criteria.
-8. Production deployments are independent: Cloudflare Workers for frontend, Go service for backend.
+6. Review OpenAPI changes as API contract changes.
+7. Deliver small, reviewable PRs.
+8. Deploy frontend and backend independently.
 
-## Phase 0 — Architecture documentation and decision baseline
+## Phase 0 — Architecture baseline
 
-Status: **Completed** — architecture overview, ADRs, roadmap and deployment architecture are committed.
-
-Deliverables:
-- Architecture overview.
-- Accepted ADRs.
-- This implementation plan.
-- Deployment guide corrected to match Workers Static Assets.
-
-Exit criteria:
-- Product terms and boundaries documented.
-- Module responsibilities and dependency rules documented.
-- Hosting model accurately describes current Cloudflare Worker and future Go backend.
-- Plan and acceptance criteria committed.
+Status: **Completed**.
 
 ## Phase 1 — Monorepo foundation
 
 Priority: P0
+Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5) · [PR #19](https://github.com/easyhaloo/agentforge/pull/19)
+Status: **Integration validation** — implementation is on `phase-1-foundation-reconciled`; it is not merged to `main`.
 
-Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5)
+Implemented in this integration branch:
+- Initialized the Go HTTP API with `/healthz`, `/readyz`, structured logs and graceful shutdown.
+- Added endpoint tests and the initial health/readiness OpenAPI contract.
+- Moved the React/Vite application into `apps/web` and introduced root npm workspace scripts.
+- Retained the latest `main` resource-record models, resource workspace behavior, and Worker entrypoint while relocating the frontend.
+- Configured Wrangler Worker Static Assets to serve `apps/web/dist`.
+- Added path-aware CI for frontend tests/build and Worker dry-run, Go tests/build, and OpenAPI lint.
 
-Status: **In progress**. Initial inventory and tracking issue are established; implementation is gated on the current frontend CI baseline.
+Remaining:
+- Confirm all new CI jobs pass on this branch.
+- Generate and commit a reproducible npm lockfile.
+- Verify the Cloudflare Workers Builds integration against the actual production project settings; a Wrangler dry-run is not a production deployment.
+- Add local development environment examples and complete API configuration validation.
 
-Scope:
-- Move the existing Vite app to `apps/web` without changing behavior.
-- Add root workspace scripts and lockfile strategy; keep frontend independently installable/buildable.
-- Initialize `backend/api` with Go module, minimal HTTP server, configuration, structured logging, health/readiness endpoints and graceful shutdown.
-- Add `contracts/openapi/openapi.yaml` with initial health and API metadata contract.
-- Add local development instructions and environment examples without secrets.
-- Add path-aware GitHub Actions CI for frontend, backend and contracts.
-- Correct/remove the obsolete Pages deployment workflow. Keep exactly one frontend production deployment path: Cloudflare Workers Builds or a deliberately configured GitHub Actions Wrangler deployment, never both.
-
-Acceptance criteria:
-- Frontend behavior is unchanged; frontend tests and production build pass from its new location.
-- Go server builds and tests; health endpoint returns success.
-- OpenAPI validates.
-- CI runs appropriate checks for frontend/backend/contracts and passes on PR.
-- Cloudflare production deployment remains valid and no Pages command targets the Worker.
-- No credentials are committed.
-
-Out of scope:
-- Authentication implementation.
-- Business CRUD modules.
-- PostgreSQL business schema.
-- Agent execution.
+Acceptance: frontend behavior is preserved; web, API and contract CI checks pass; Worker packaging is valid; no Pages deploy workflow, duplicate production deploy path or committed secrets.
 
 ## Phase 2 — Backend platform and persistence
 
-Priority: P1
-
-Scope:
-- PostgreSQL connection lifecycle and migration tooling.
-- Request IDs, structured logs, config validation and consistent Problem Details errors.
-- Authentication principal and authorization middleware foundation.
+- PostgreSQL lifecycle and migrations.
+- Request IDs, config validation, Problem Details errors and authorization middleware.
 - Transaction management and module ownership conventions.
-- Local development composition for Go + PostgreSQL.
 
-Acceptance criteria:
-- Database migrations apply cleanly to an empty database.
-- API starts and shuts down gracefully.
-- Health and readiness distinguish process health from database readiness.
-- Unauthorized requests are rejected consistently.
-- Integration tests cover database and middleware behavior.
+Acceptance: migrations apply cleanly; readiness reflects dependencies; middleware and database integration tests pass.
 
 ## Phase 3 — Core delivery domain
 
-Priority: P1
+Implement repository metadata, Changeset, Revision, Evaluation, Revision-bound Evidence, Revision-bound Review, Merge and append-oriented Trail.
 
-Implement in dependency order:
-1. Repository metadata and provider connection boundary.
-2. Changeset lifecycle.
-3. Revision lifecycle and commit association.
-4. Evaluation records and Revision-bound Evidence.
-5. Review decisions bound to exact Revision.
-6. Merge preconditions and operation records.
-7. Append-oriented Trail events.
-
-Acceptance criteria:
-- A complete Changeset → Revision → Evaluation → Evidence → Review → Merge → Trail workflow can be executed through APIs.
-- New Revision makes older evidence/review inapplicable to current revision.
-- Merge revalidates authorization, current revision, evidence, review and repository state.
-- Domain invariants have unit tests; persistence and API behavior have integration tests.
+Acceptance: complete delivery workflow through APIs; stale evidence/review cannot authorize a newer Revision; merge revalidates all preconditions.
 
 ## Phase 4 — Frontend API migration
 
-Priority: P1
+- Add typed API client from OpenAPI.
+- Replace fixtures and LocalStorage business persistence incrementally.
+- Add loading/error/retry states and SSE progress subscriptions.
 
-Scope:
-- Add typed API client based on OpenAPI.
-- Replace Overview and delivery fixtures with API queries incrementally.
-- Replace LocalStorage business persistence with server mutations.
-- Add loading, empty, error and retry states.
-- Add SSE progress subscriptions for long-running operations.
-
-Acceptance criteria:
-- Main delivery flow uses backend as source of truth.
-- Refreshing or using another browser preserves server-backed business state.
-- Frontend does not make authoritative approval/merge decisions.
-- Contract/client checks pass.
+Acceptance: backend is source of truth for delivery; state survives refresh and cross-browser use.
 
 ## Phase 5 — Execution subsystem
 
-Priority: P2
-
-Scope:
 - Durable execution records and scheduler.
-- Isolated worker process and per-task workspace.
-- Git operations, evaluation/test execution and artifact capture.
-- Cancellation, timeout, retries, logs and event publication.
-- Agent integrations through a bounded adapter interface.
+- Isolated worker and per-task workspace.
+- Git/evaluation execution, artifacts, cancellation, timeout and retry.
+- Bounded Agent adapter interface.
 
-Acceptance criteria:
-- Tasks survive API process restart.
-- Worker execution is isolated from API process.
-- Timeout/cancel/retry behavior is tested.
-- Evidence links to exact Revision and immutable artifacts.
-- Credentials are scoped and never exposed to browser clients.
+Acceptance: tasks survive API restarts; worker is isolated; execution lifecycle and immutable evidence are tested.
 
 ## Phase 6 — Production hardening
 
-Priority: P2
+- Independent backend deployment and rollback.
+- PostgreSQL backup/restore and object storage controls.
+- Metrics, logs, traces, audit events, security controls and runbooks.
 
-Scope:
-- Independent Go backend deployment and rollback.
-- Managed PostgreSQL backups and restore drill.
-- Object storage lifecycle and access control.
-- Observability: metrics, logs, traces and audit events.
-- Rate limits, security headers, CORS, secret rotation and operational runbooks.
-- End-to-end production smoke tests.
-
-Acceptance criteria:
-- Frontend and backend deploy independently.
-- Database restore is demonstrated.
-- Health/readiness and alerting are operational.
-- Security and permission tests pass.
-- Production workflow is documented and repeatable.
-
-## Immediate next task
-
-Start Phase 1 with a repository inventory and baseline checks. Before moving files, capture the current frontend test/build results and inspect all root-relative references, Vite configuration, GitHub workflows and deployment configuration. Then perform the smallest migration that preserves the current Cloudflare Worker build contract.
+Acceptance: independent releases, demonstrated restore, operational health/alerting and production smoke tests.
