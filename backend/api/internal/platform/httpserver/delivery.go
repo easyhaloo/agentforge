@@ -136,49 +136,20 @@ func (d DeliveryDependencies) getChangeset(w http.ResponseWriter, r *http.Reques
 }
 
 func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request) {
-	actor, ok := d.actor(w, r); if !ok { return }
-	var input addRevisionRequest; if !decodeJSON(w, r, &input) { return }
-	d.mutate(w, r, actor, func(c *delivery.Changeset, now time.Time) error {
-		id, err := newID(); if err != nil { return err }
-		return c.AddRevision(delivery.ID(id), strings.TrimSpace(input.Ref), actor, now)
-	})
+	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "addRevision requires a configured, trusted execution or review adapter")
 }
-
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {
-	actor, ok := d.actor(w, r); if !ok { return }
-	var input recordEvaluationRequest; if !decodeJSON(w, r, &input) { return }
-	d.mutate(w, r, actor, func(c *delivery.Changeset, now time.Time) error {
-		id, err := newID(); if err != nil { return err }
-		return c.RecordEvaluation(delivery.ID(id), input.RevisionID, input.Status, input.Summary, actor, now)
-	})
+	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "recordEvaluation requires a configured, trusted execution or review adapter")
 }
-
 func (d DeliveryDependencies) attachEvidence(w http.ResponseWriter, r *http.Request) {
-	actor, ok := d.actor(w, r); if !ok { return }
-	var input attachEvidenceRequest; if !decodeJSON(w, r, &input) { return }
-	d.mutate(w, r, actor, func(c *delivery.Changeset, now time.Time) error {
-		id, err := newID(); if err != nil { return err }
-		return c.AttachEvidence(delivery.ID(id), input.RevisionID, input.EvaluationID, input.Kind, input.URI, actor, now)
-	})
+	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "attachEvidence requires a configured, trusted execution or review adapter")
 }
-
 func (d DeliveryDependencies) submitReview(w http.ResponseWriter, r *http.Request) {
-	actor, ok := d.actor(w, r); if !ok { return }
-	var input submitReviewRequest; if !decodeJSON(w, r, &input) { return }
-	d.mutate(w, r, actor, func(c *delivery.Changeset, now time.Time) error {
-		id, err := newID(); if err != nil { return err }
-		return c.SubmitReview(delivery.ID(id), input.RevisionID, actor, input.Comment, now)
-	})
+	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "submitReview requires a configured, trusted execution or review adapter")
 }
-
 func (d DeliveryDependencies) decideReview(w http.ResponseWriter, r *http.Request) {
-	actor, ok := d.actor(w, r); if !ok { return }
-	var input decideReviewRequest; if !decodeJSON(w, r, &input) { return }
-	d.mutate(w, r, actor, func(c *delivery.Changeset, now time.Time) error {
-		return c.DecideReview(delivery.ID(r.PathValue("reviewID")), input.Approved, actor, input.Comment, now)
-	})
+	writeProblem(w, http.StatusNotImplemented, "Delivery adapter unavailable", "decideReview requires a configured, trusted execution or review adapter")
 }
-
 func (d DeliveryDependencies) mutate(w http.ResponseWriter, r *http.Request, actor string, operation func(*delivery.Changeset, time.Time) error) {
 	stored, ok := d.load(w, r); if !ok { return }
 	now := time.Now().UTC()
