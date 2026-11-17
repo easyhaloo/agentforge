@@ -463,7 +463,7 @@ func writeInvitationError(w http.ResponseWriter,err error) {
 	case errors.Is(err,identity.ErrInvitationNotFound):
 		writeProblem(w,http.StatusNotFound,"Invitation not found","The invitation is expired, revoked, accepted, or does not belong to this organization")
 	case errors.Is(err,identity.ErrInvitationAlreadyMember):
-		writeProblem(w,http.Status409Conflict,"Already a member","This verified email already belongs to an active or suspended organization member")
+		writeProblem(w,http.StatusConflict,"Already a member","This verified email already belongs to an active or suspended organization member")
 	case errors.Is(err,identity.ErrInvitationPending):
 		writeProblem(w,http.StatusConflict,"Invitation already pending","A pending invitation already exists for this email in this organization")
 	case errors.Is(err,identity.ErrMembershipForbidden):
