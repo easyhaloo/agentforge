@@ -158,3 +158,9 @@
   background: #a38cff;
   border-radius: 50%;
 }
+
+/* Organization tables now render through the shared DataTable primitive. */
+.org-admin .af-table-wrap{overflow:auto;border:1px solid #242e42;border-radius:9px;background:#101725}
+
+/* Shared DataTable wrappers inherit the surrounding page table surface. */
+.org-table-wrap .af-table-wrap,.table-wrap .af-table-wrap{border:0;border-radius:0;background:transparent}

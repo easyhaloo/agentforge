@@ -60,6 +60,7 @@ import {
 
 ## Advanced components
 
+- `Tabs` is a controlled tab list. Pass stable `items` with `key/label`, the active `value`, `onChange` and an accessible `ariaLabel`. It provides roving tab stops and ArrowLeft/ArrowRight/Home/End keyboard navigation. Pair it with a tab panel whose `aria-labelledby` points to the active tab ID (`<id>-tab-<key>`) and whose ID matches the Tabs `id` plus `-panel`.
 - `AsyncSelect` accepts a `loadOptions(keyword, signal)` function. It debounces requests and aborts the previous request when the keyword changes or the menu closes. Keep `loadOptions` referentially stable (for example, define it outside the component or wrap it in `useCallback`).
 - `Drawer` provides a side panel with Escape and backdrop dismissal.
 - `ConfirmDialog` is a confirmation-oriented wrapper around `Modal`; asynchronous confirmation inherits the modal loading and error behavior.
@@ -74,7 +75,7 @@ Select **UI Components** in the sidebar to inspect and interact with the shared 
 
 - Date inputs use the browser-native date picker; visual details vary by browser/OS.
 - DataTable supports filtering, column visibility, bulk actions and accessible row activation. Virtualization is intentionally deferred until performance measurements justify it.
-- Popover currently closes through its trigger; outside-click dismissal and richer keyboard navigation are follow-up work.
+- Popover dismisses on outside pointer interaction and Escape, restores focus to its trigger on Escape, and exposes an accessible dialog relationship. Tab follows the natural focus order; full menu-style arrow-key navigation is intentionally not implied.
 
 ## Extended form controls
 
