@@ -20,16 +20,16 @@ paths:
   /readyz:
     get:
       operationId: getReadiness
-      summary: Report API and storage readiness
+      summary: Report API, storage, and identity readiness
       security: []
       responses:
         "200":
-          description: API and configured storage are ready
+          description: API, database, and identity dependencies are ready
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
         "503":
-          description: Storage is unavailable
+          description: A required database or identity dependency is unavailable
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
