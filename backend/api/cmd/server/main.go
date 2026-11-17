@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/config"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
@@ -33,9 +34,33 @@ func main() {
 	}
 	defer store.Close()
 
+	var oidcHandler identity.OIDCHandler
+	var principalResolver identity.PrincipalResolver
+	if configuration.OIDC != nil {
+		oidcContext, cancel := context.WithTimeout(ctx, 10*time.Second)
+		authenticator, authErr := identity.NewOIDCAuthenticator(oidcContext, identity.OIDCConfig{
+			IssuerURL: configuration.OIDC.IssuerURL,
+			ClientID: configuration.OIDC.ClientID,
+			ClientSecret: configuration.OIDC.ClientSecret,
+			RedirectURL: configuration.OIDC.RedirectURL,
+			SessionTTL: configuration.SessionTTL,
+			AppOrigin: configuration.AppOrigin,
+		}, store)
+		cancel()
+		if authErr != nil {
+			logger.Error("OIDC provider initialization failed; protected routes remain unavailable", "error", authErr)
+		} else {
+			oidcHandler = authenticator
+			principalResolver = store
+		}
+	}
+
 	server := &http.Server{
 		Addr:              ":" + configuration.Port,
-		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{Repository: store, CSRF: store, AllowedOrigin: configuration.AppOrigin}),
+		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+			Repository: store, Identity: principalResolver, CSRF: store,
+			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
