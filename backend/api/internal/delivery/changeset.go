@@ -84,6 +84,7 @@ type AuditEvent struct {
 
 type Changeset struct {
 	ID          ID          `json:"id"`
+	CreatedBy   string      `json:"created_by"`
 	Repository  string      `json:"repository"`
 	Title       string      `json:"title"`
 	Revisions   []Revision  `json:"revisions"`
@@ -98,7 +99,7 @@ func NewChangeset(id ID, repository, title, actor string, now time.Time) (*Chang
 	if id == "" || repository == "" || title == "" || actor == "" {
 		return nil, ErrInvalidInput
 	}
-	c := &Changeset{ID: id, Repository: repository, Title: title}
+	c := &Changeset{ID: id, CreatedBy: actor, Repository: repository, Title: title}
 	c.record(actor, "changeset.created", id, "succeeded", now)
 	return c, nil
 }
@@ -168,7 +169,7 @@ func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, a
 }
 
 func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error {
-	if c == nil || id == "" || reviewer == "" {
+	if c == nil || id == "" || reviewer == "" || reviewer == c.CreatedBy {
 		return ErrInvalidInput
 	}
 	if err := c.requireCurrent(revisionID); err != nil {
