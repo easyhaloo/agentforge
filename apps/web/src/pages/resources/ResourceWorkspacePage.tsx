@@ -3,7 +3,7 @@ import { usePersistentState } from "../../shared/hooks/usePersistentState";
 import { buildResourceCsv } from "./data/resourceExport";
 import { configs } from "./data/resourceConfigs";
 import { createResourceDraft, resolvePageAction } from "./data/resourceDemoService";
-import { normalizeResourceRecords, toResourceRow, type ResourceRecord, type ResourceRow } from "./data/resourceRecords";
+import { normalizeResourceRecords, toResourceRow, type ResourceRecord } from "./data/resourceRecords";
 import { ResourceListPanel } from "./ui/ResourceListPanel";
 import { ResourceInspector } from "./ui/ResourceInspector";
 
