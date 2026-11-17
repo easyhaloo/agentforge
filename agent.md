@@ -73,7 +73,7 @@ The Overview page now lives in `pages/overview`. Existing `features/delivery` an
 - Do not create global `components/`, `utils/`, `helpers/` or `common/` dumping grounds.
 - Use PascalCase for React component files and exports; kebab-case for ordinary TypeScript modules and directories; use `useXxx.ts` for hooks; use `*.test.ts(x)` for tests.
 - Internal module files should be imported through their owning module's public entry point when crossing module boundaries. Same-module relative imports are acceptable.
-- Enforce dependency direction: `app -> pages/features/entities/shared`, `pages -> features/entities/shared/domain`, `features -> entities/shared/domain`, `entities -> shared/domain`; `shared` and `domain` must not depend on app/page/feature UI. Avoid feature-to-feature imports and circular dependencies.
+- Enforce dependency direction: `app -> pages/features/entities/shared`, `pages -> features/entities/shared/domain`, `features -> entities/shared/domain`, and `domain -> entities` (type-level domain vocabulary only). Entity models are foundational and must not depend on feature, page, app or React code. Avoid feature-to-feature imports and circular dependencies.
 
 
 
@@ -88,16 +88,25 @@ Current implemented structure:
         overview/                  Overview page, page sections, view model and fixtures
       features/
         delivery/                  Changeset delivery workflow
+          hooks/                   React state and persistence adapter
+          ui/                      Delivery workflow presentation components
+          workflow.ts              Pure feature-level workflow operations
         resources/                 Resource workspaces and resource configuration
+          data/                    Resource fixtures and page configuration
+          ui/                      Resource list and inspector components
+      entities/
+        changeset/                 Changeset identity and core type
+        revision/                  Revision identity and core type
+        evidence/                  Revision-scoped evaluation evidence
+        review/                    Revision-scoped review decision
       domain/
-        delivery/                  Framework-independent delivery rules and types
+        delivery/                  Framework-independent delivery invariants and tests
       shared/
-        hooks/                     Reusable React hooks
-      styles/                      Global styles and design tokens
+        hooks/                     Reusable React hooks and persistence
+      styles/                      Global tokens, resets and application styling
       main.tsx                     React bootstrap
 
 This is an intentionally incremental structure. Do not move every existing feature in one pass. For a new or substantially changed screen, decide whether its code belongs to a route-level `pages` module or a user-intent `features` module. A page may compose feature workflows and entity views; it should not become a generic feature bucket.
-
 A module may contain only the subfolders it actually needs. Common optional responsibilities include `ui/`, `model/`, `api/`, `data/` and a public `index.ts`. Do not create empty folders pre-emptively. Add a subfolder when it provides a real ownership boundary.
 
 ### Layer responsibilities
@@ -134,14 +143,17 @@ A module may contain only the subfolders it actually needs. Common optional resp
 
 Allowed direction:
 
-    app -> features -> domain
-    app -> shared
-    features -> shared
-    features -> domain
+    app -> pages/features/entities/shared
+    pages -> features/entities/shared/domain
+    features -> entities/shared/domain
+    domain -> entities (type-level domain vocabulary only)
+
+Entity models are foundational and must not depend on feature, page, app or React code. Domain rules may consume entity types but remain framework-independent.
 
 Disallowed:
-- domain importing app, features, React or browser-specific modules
-- shared importing feature modules
+- domain importing app, pages, features, React or browser-specific modules
+- entities importing app, pages, features or React
+- shared importing business modules
 - domain importing shared UI or React hooks
 - circular dependencies between features
 - feature modules reaching into another feature's private implementation
