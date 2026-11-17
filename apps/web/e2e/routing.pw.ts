@@ -191,9 +191,10 @@ test("Refresh only simulates a refresh on mock pages and reloads the account on 
   await expect(page.getByText("Browser test baseline")).toBeVisible();
 });
 
-test("an unknown path renders the not-found state inside the shell", async ({ page }) => {
+test("an unknown path renders the not-found state inside the shell and highlights no sidebar item", async ({ page }) => {
   await installApiMocks(page);
-  for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo"]) {
+  // The last three sit below a real page: a prefix match would keep that page's sidebar item highlighted.
+  for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo", "/projects/extra", "/dev/ui/x", "/orgs/demo/changesets/x"]) {
     await page.goto(path);
     await expect(pageHeading(page)).toHaveText("Page not found");
     await expect(page.getByText(`Nothing is served at ${path}.`)).toBeVisible();
@@ -204,6 +205,14 @@ test("an unknown path renders the not-found state inside the shell", async ({ pa
   await page.getByRole("link", { name: "Go to Overview" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(pageHeading(page)).toHaveText("Overview");
+});
+
+test("a trailing slash is canonicalized, so the page and its highlighted sidebar item agree", async ({ page }) => {
+  await installApiMocks(page);
+  await page.goto("/projects/?q=1#top");
+  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
+  expect(pathOf(page)).toBe("/projects?q=1#top");
 });
 
 test("Ctrl+K opens the command palette and selecting a page navigates by URL", async ({ page }) => {
