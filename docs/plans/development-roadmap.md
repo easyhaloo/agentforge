@@ -8,8 +8,8 @@ Evolve the React prototype into an Agent-native Source Control & Verified Change
 
 - Frontend: React 19 + TypeScript + Vite in the `apps/web` npm workspace.
 - Existing behavior: seeded fixtures and browser LocalStorage.
-- Backend: initial Go HTTP API under `backend/api`; no business modules or PostgreSQL schema yet.
-- API contract: initial health/readiness OpenAPI contract at `contracts/openapi/openapi.yaml`.
+- Backend: Go modular-monolith API with PostgreSQL migrations, tenant-scoped Changeset persistence, OIDC identity boundary, and operator bootstrap tooling.
+- API contract: versioned REST/OpenAPI contract at `contracts/openapi/openapi.yaml`.
 - Cloudflare project: Worker with a `workers.dev` route, not Pages.
 - Root `wrangler.jsonc` points Worker Static Assets to `apps/web/dist`; Cloudflare Workers Builds must retain repository root as build root.
 
@@ -51,8 +51,8 @@ Acceptance: frontend behavior is preserved; web, API and contract CI checks pass
 ## Phase 2 — Backend platform and persistence
 
 Priority: P1  
-Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24) · [PR #26](https://github.com/easyhaloo/agentforge/pull/26) · [PR #28](https://github.com/easyhaloo/agentforge/pull/28)  
-Status: **In progress** — persistence and tenant-scope foundations are merged; production identity is not implemented.
+Tracking: [PR #21](https://github.com/easyhaloo/agentforge/pull/21) · [PR #24](https://github.com/easyhaloo/agentforge/pull/24) · [PR #26](https://github.com/easyhaloo/agentforge/pull/26) · [PR #28](https://github.com/easyhaloo/agentforge/pull/28) · [PR #31](https://github.com/easyhaloo/agentforge/pull/31) · [PR #32](https://github.com/easyhaloo/agentforge/pull/32)  
+Status: **In progress** — persistence, session security, OIDC login, and first-owner bootstrap are merged; organization lifecycle and production provider configuration remain.
 
 Implemented:
 - PostgreSQL schema for organizations, users, external identities, memberships, sessions, and organization-owned Changesets.
@@ -62,20 +62,23 @@ Implemented:
 - Organization-scoped Changeset repository methods and SQL predicates.
 - Organization-scoped API routes requiring a trusted `PrincipalResolver`.
 - Role checks at the HTTP boundary; unknown roles and viewer writes are denied.
-- Database + identity-aware readiness. The production server intentionally remains `not_ready` until an OIDC-backed identity resolver is configured.
+- Database + identity-aware readiness. The server reports `not_ready` until OIDC configuration is complete and provider discovery succeeds.
 - Opaque 256-bit session and CSRF credentials; only SHA-256 token hashes are persisted.
 - PostgreSQL session creation, expiry, revocation, CSRF binding, and organization-scoped principal resolution.
 - Host-only Secure session/CSRF cookie definitions (`HttpOnly` session cookie), exact-origin credentialed CORS, and session-bound CSRF enforcement for state-changing API requests.
 - `APP_ORIGIN` validation; HTTPS is required outside loopback development.
-- Local PostgreSQL Compose setup and API startup documentation.
+- OIDC Authorization Code + PKCE with provider discovery/JWKS validation, state/nonce/PKCE, one-time authorization transactions, ID-token validation, and session rotation.
+- External identity upsert by immutable `(issuer, subject)`; unverified email is never used as an identity key.
+- OIDC login, callback, and CSRF-protected logout routes.
+- Operator-only, transactionally serialized first-owner bootstrap CLI; first login never silently grants organization membership.
+- Local PostgreSQL Compose setup, OIDC configuration, and bootstrap documentation.
 
 Remaining:
-- Implement OIDC Authorization Code + PKCE, discovery/JWKS validation, state/nonce replay protection, login/callback/logout endpoints, and session rotation.
-- Implement user/external identity upsert and organization membership lookup in the authentication flow.
-- Add a safe operator-controlled first-owner/bootstrap path.
-- Wire OIDC configuration into the production server and only report Ready after provider discovery and session identity are available.
-- Add cross-tenant authorization tests for every read/write path and session lifecycle tests.
-- Add committed Go module checksums and migration upgrade tests.
+- Implement organization membership lifecycle: list members, invitations, role changes, suspension/removal, and audit attribution.
+- Centralize role and membership authorization policy outside HTTP handlers.
+- Configure the production OIDC provider and registered callback URL through deployment secrets/environment; verify end-to-end login in the deployed environment.
+- Add cross-tenant authorization tests for every read/write path and session expiry/rotation tests.
+- Commit reproducible Go module checksums and add explicit migration upgrade tests.
 
 Acceptance: unauthenticated requests are rejected; every organization route is backed by a verified active membership; SQL remains tenant-scoped; readiness reflects PostgreSQL and identity dependencies; security and integration tests pass.
 
