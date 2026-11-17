@@ -1,9 +1,9 @@
-import type { Changeset, ChangesetStatus, GitCommitSha, RevisionEvidence, RevisionId, RevisionReview } from "../../entities";
+import type { Changeset, ChangesetId, ChangesetStatus, GitCommitSha, RevisionEvidence, RevisionId, RevisionReview } from "../../entities";
 import { revisionId } from "../../entities";
 
 export type GitCommit = { sha: GitCommitSha; repositoryId: string };
 
-export const revisionKey = (changesetId: string, revision: number): RevisionId =>
+export const revisionKey = (changesetId: ChangesetId, revision: number): RevisionId =>
   revisionId(`${changesetId}@r${revision}`);
 
 export function canEditChangeset(status: ChangesetStatus): boolean {

@@ -1,10 +1,5 @@
-import {
-  canCreateRevision,
-  reviewId,
-  revisionKey,
-} from "../../../domain/delivery";
-import { type Revision, type RevisionId } from "../../../entities";
-import { reviewId as createReviewId } from "../../../entities";
+import { canCreateRevision, revisionKey } from "../../../domain/delivery";
+import { reviewId, type Revision } from "../../../entities";
 import type { Change, Review } from "../model";
 
 export function resolveCurrentRevision(change: Change, revisions: Revision[]): Revision {
@@ -37,7 +32,7 @@ export function createNextRevision(
     createdAt: "Just now",
   };
   const nextReview: Review = {
-    id: createReviewId("REV-" + (891 + number)),
+    id: reviewId("REV-" + (891 + number)),
     revision: number,
     revisionId: revision.id,
     decision: "Pending",

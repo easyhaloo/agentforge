@@ -1,5 +1,5 @@
-import { canRunEvaluation, evidenceId, revisionKey } from "../../../domain/delivery";
-import type { Revision } from "../../../entities";
+import { canRunEvaluation, revisionKey } from "../../../domain/delivery";
+import { evidenceId, type Revision } from "../../../entities";
 import type { Change, Evaluation } from "../model";
 
 export function createEvaluation(
