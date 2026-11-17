@@ -16,14 +16,17 @@ import (
 // handleIdentity models the production resolver: it maps the organization handle in the
 // URL (an id or a slug) to the canonical organization id of one of the caller's own
 // memberships, and treats every other handle exactly like an unknown organization.
-type handleIdentity struct{ canonical map[string]string }
+type handleIdentity struct {
+	canonical map[string]string
+	slug      string
+}
 
 func (h handleIdentity) ResolvePrincipal(_ *http.Request, handle string) (Principal, error) {
 	id, ok := h.canonical[handle]
 	if !ok {
 		return Principal{}, identity.ErrUnauthenticated
 	}
-	return Principal{UserID: "test-user", OrganizationID: id, Role: "member"}, nil
+	return Principal{UserID: "test-user", OrganizationID: id, OrganizationSlug: h.slug, Role: "member"}, nil
 }
 
 func newHandleHandler(repository *memoryRepository, resolver identity.PrincipalResolver) http.Handler {
@@ -32,7 +35,7 @@ func newHandleHandler(repository *memoryRepository, resolver identity.PrincipalR
 
 func TestOrganizationHandleResolvesToCanonicalOrganization(t *testing.T) {
 	repository := newMemoryRepository()
-	handler := newHandleHandler(repository, handleIdentity{canonical: map[string]string{"acme": "org-0123", "org-0123": "org-0123"}})
+	handler := newHandleHandler(repository, handleIdentity{canonical: map[string]string{"acme": "org-0123", "org-0123": "org-0123"}, slug: "acme"})
 
 	create := httptest.NewRequest(http.MethodPost, "/api/v1/organizations/acme/changesets", bytes.NewBufferString(`{"repository":"org/repo","title":"Created through the slug"}`))
 	addValidCSRFCookies(create)
