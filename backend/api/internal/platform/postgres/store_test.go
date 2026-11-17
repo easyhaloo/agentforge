@@ -111,6 +111,6 @@ func TestPostgresStorePersistsWithOrganizationIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	if migrationCount != 5 {
-		t.Fatalf("migration count = %d, want 3", migrationCount)
+		t.Fatalf("migration count = %d, want 5", migrationCount)
 	}
 }
