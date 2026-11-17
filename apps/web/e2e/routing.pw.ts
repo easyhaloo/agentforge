@@ -3,6 +3,8 @@ import { demoOrganization, installApiMocks, labsOrganization } from "./support/a
 
 const pageHeading = (page: Page) => page.getByRole("main").locator(".page-heading h1");
 const sidebarLink = (page: Page, name: string) => page.locator(".sidebar").getByRole("link", { name, exact: true });
+// The Changesets item carries a count badge inside the link, so match it by prefix.
+const changesetsLink = (page: Page) => page.locator(".sidebar").getByRole("link", { name: /^Changesets/ });
 const selectedOrganizationName = (page: Page) => page.locator(".sidebar .org-switch__select b");
 const pathOf = (page: Page) => { const { pathname, search, hash } = new URL(page.url()); return pathname + search + hash; };
 
@@ -16,7 +18,7 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await expect(pageHeading(page)).toHaveText("Projects");
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
   await expect(page.locator(".sidebar [aria-current='page']")).toHaveCount(1);
-  await expect(page.getByText("PRJ-014", { exact: true })).toBeVisible();
+  await expect(page.getByRole("table").getByText("Core Platform", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(pageHeading(page)).toHaveText("Projects");
@@ -25,8 +27,8 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await sidebarLink(page, "Repositories").click();
   await expect(page).toHaveURL(/\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
-  await expect(page.getByText("REP-101", { exact: true })).toBeVisible();
-  await expect(page.getByText("PRJ-014", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("table").getByText("web-platform", { exact: true })).toBeVisible();
+  await expect(page.getByRole("table").getByText("Core Platform", { exact: true })).toHaveCount(0);
   await sidebarLink(page, "Memory").click();
   await expect(page).toHaveURL(/\/memory$/);
   await expect(pageHeading(page)).toHaveText("Memory");
@@ -76,7 +78,7 @@ for (const [kind, handle] of [["slug", "demo"], ["id", "org-demo"]] as const) {
     await listed;
     await expect(pageHeading(page)).toHaveText("Changesets");
     await expect(page.getByText("Browser test baseline")).toBeVisible();
-    await expect(sidebarLink(page, "Changesets").first()).toHaveAttribute("aria-current", "page");
+    await expect(changesetsLink(page)).toHaveAttribute("aria-current", "page");
     expect(pathOf(page)).toBe(`/orgs/${handle}/changesets`);
   });
 }
@@ -150,12 +152,12 @@ test("switching organization keeps the sub-path and the choice survives leaving 
   await sidebarLink(page, "Projects").click();
   await expect(pageHeading(page)).toHaveText("Projects");
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
-  await expect(sidebarLink(page, "Changesets")).toHaveAttribute("href", "/orgs/labs/changesets");
+  await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/labs/changesets");
 
   await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-demo");
   await expect(page).toHaveURL(/\/projects$/);
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
-  await expect(sidebarLink(page, "Changesets")).toHaveAttribute("href", "/orgs/demo/changesets");
+  await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/demo/changesets");
 });
 
 test("signing out lands on / and the sidebar shows the signed-out state", async ({ page }) => {

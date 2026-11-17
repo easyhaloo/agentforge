@@ -44,3 +44,13 @@ export const navigationGroups = [...new Set(navigationItems.map((item) => item.g
 export function itemHref(item: NavigationItem, handle: string): string {
   return "orgPath" in item ? item.orgPath(handle) : item.path;
 }
+
+/** Every leaf route in app/routes.tsx declares `handle: { label }`; the root layout reads it with useMatches(). */
+export type RouteHandle = { label: string };
+
+export function routeLabel(handle: unknown): string {
+  return typeof handle === "object" && handle !== null && "label" in handle && typeof handle.label === "string" ? handle.label : "";
+}
+
+/** The item for the page being shown; pages that are not in the sidebar (not found) have none. */
+export const navigationItemFor = (label: string) => navigationItems.find((item) => item.label === label);
