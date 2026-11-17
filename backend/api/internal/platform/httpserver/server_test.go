@@ -62,12 +62,33 @@ func TestReadinessRequiresDatabaseAndIdentity(t *testing.T) {
 
 func TestOIDCRoutesFailClosedWhenProviderIsNotConfigured(t *testing.T) {
 	handler := NewHandler()
-	for _, path := range []string{"/auth/oidc/login", "/auth/oidc/callback"} {
+	for _, path := range []string{"/auth/oidc/login", "/auth/oidc/callback", "/auth/invitations/accept"} {
 		request := httptest.NewRequest(http.MethodGet, path, nil)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusServiceUnavailable {
 			t.Fatalf("%s status=%d, want 503", path, response.Code)
 		}
+	}
+}
+
+
+type fakeOIDCHandler struct { accepted bool }
+func (f *fakeOIDCHandler) Login(http.ResponseWriter,*http.Request) {}
+func (f *fakeOIDCHandler) Callback(http.ResponseWriter,*http.Request) {}
+func (f *fakeOIDCHandler) Logout(http.ResponseWriter,*http.Request) {}
+func (f *fakeOIDCHandler) AcceptInvitation(w http.ResponseWriter,r *http.Request) {
+	f.accepted=true
+	http.Redirect(w,r,"/auth/oidc/login",http.StatusSeeOther)
+}
+
+func TestInvitationAcceptanceRouteDelegatesToOIDC(t *testing.T) {
+	oidc:=&fakeOIDCHandler{}
+	handler:=NewHandlerWithDependencies(DeliveryDependencies{OIDC:oidc,AllowedOrigin:"https://app.example.test"})
+	request:=httptest.NewRequest(http.MethodGet,"/auth/invitations/accept?token=opaque-invitation-token",nil)
+	response:=httptest.NewRecorder()
+	handler.ServeHTTP(response,request)
+	if response.Code!=http.StatusSeeOther || !oidc.accepted {
+		t.Fatalf("invitation acceptance status=%d accepted=%v",response.Code,oidc.accepted)
 	}
 }

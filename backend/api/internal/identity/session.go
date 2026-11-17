@@ -34,6 +34,7 @@ type OIDCHandler interface {
 	Login(http.ResponseWriter, *http.Request)
 	Callback(http.ResponseWriter, *http.Request)
 	Logout(http.ResponseWriter, *http.Request)
+	AcceptInvitation(http.ResponseWriter, *http.Request)
 }
 
 type CSRFValidator interface {

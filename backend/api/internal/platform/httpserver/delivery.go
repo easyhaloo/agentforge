@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,10 @@ type MembershipRepository interface {
 	ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error)
 	UpdateMembership(context.Context, string, string, string, *string, *string) (identity.OrganizationMember, error)
 	RemoveMembership(context.Context, string, string, string) error
+	CreateInvitation(context.Context, string, string, string, string, string, time.Time) (identity.OrganizationInvitation, error)
+	ListInvitations(context.Context, string, int, int) ([]identity.OrganizationInvitation, error)
+	RevokeInvitation(context.Context, string, string, string) error
+	ListMembershipAudit(context.Context, string, int, int) ([]identity.MembershipAuditEvent, error)
 }
 
 type DeliveryDependencies struct {
@@ -66,6 +71,10 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/invitations", deps.listInvitations)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/invitations", deps.createInvitation)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}", deps.getChangeset)
@@ -382,5 +391,86 @@ func writeMembershipError(w http.ResponseWriter, err error) {
 		writeProblem(w, http.StatusBadRequest, "Invalid membership change", "The requested role or membership status is invalid or unchanged")
 	default:
 		writeProblem(w, http.StatusInternalServerError, "Membership update failed", "The organization membership change could not be completed")
+	}
+}
+
+
+type createInvitationRequest struct {
+	Email string `json:"email"`
+	Role string `json:"role"`
+}
+
+func (d DeliveryDependencies) invitationPage(w http.ResponseWriter, r *http.Request) (Principal, int, int, bool) {
+	principal, ok := d.membershipAdmin(w, r)
+	if !ok { return Principal{},0,0,false }
+	limit,offset:=50,0
+	var err error
+	if raw:=r.URL.Query().Get("limit"); raw!="" { limit,err=strconv.Atoi(raw) }
+	if err==nil { if raw:=r.URL.Query().Get("offset"); raw!="" { offset,err=strconv.Atoi(raw) } }
+	if err!=nil || limit<1 || limit>100 || offset<0 {
+		writeProblem(w,http.StatusBadRequest,"Invalid pagination","limit must be 1-100 and offset must be zero or greater")
+		return Principal{},0,0,false
+	}
+	return principal,limit,offset,true
+}
+
+func (d DeliveryDependencies) listInvitations(w http.ResponseWriter,r *http.Request) {
+	principal,limit,offset,ok:=d.invitationPage(w,r); if !ok { return }
+	items,err:=d.Membership.ListInvitations(r.Context(),principal.OrganizationID,limit,offset)
+	if err!=nil { writeProblem(w,http.StatusInternalServerError,"Unable to list invitations","The organization invitation query failed"); return }
+	writeJSON(w,http.StatusOK,struct {
+		Items []identity.OrganizationInvitation `json:"items"`
+		Limit int `json:"limit"`
+		Offset int `json:"offset"`
+	}{items,limit,offset})
+}
+
+func (d DeliveryDependencies) createInvitation(w http.ResponseWriter,r *http.Request) {
+	principal,ok:=d.membershipAdmin(w,r); if !ok { return }
+	var input createInvitationRequest
+	if !decodeJSON(w,r,&input) { return }
+	token,err:=identity.GenerateToken()
+	if err!=nil { writeProblem(w,http.StatusInternalServerError,"Unable to create invitation","A secure invitation token could not be generated"); return }
+	expiresAt:=time.Now().UTC().Add(7*24*time.Hour)
+	invitation,err:=d.Membership.CreateInvitation(r.Context(),principal.OrganizationID,principal.UserID,input.Email,input.Role,identity.HashToken(token),expiresAt)
+	if err!=nil { writeInvitationError(w,err); return }
+	writeJSON(w,http.StatusCreated,struct {
+		Invitation identity.OrganizationInvitation `json:"invitation"`
+		InvitationURL string `json:"invitation_url"`
+		Token string `json:"token"`
+	}{invitation,strings.TrimRight(d.AllowedOrigin,"/")+"/auth/invitations/accept?token="+url.QueryEscape(token),token})
+}
+
+func (d DeliveryDependencies) revokeInvitation(w http.ResponseWriter,r *http.Request) {
+	principal,ok:=d.membershipAdmin(w,r); if !ok { return }
+	if err:=d.Membership.RevokeInvitation(r.Context(),principal.OrganizationID,principal.UserID,r.PathValue("invitationID")); err!=nil { writeInvitationError(w,err); return }
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (d DeliveryDependencies) listMembershipAudit(w http.ResponseWriter,r *http.Request) {
+	principal,limit,offset,ok:=d.invitationPage(w,r); if !ok { return }
+	events,err:=d.Membership.ListMembershipAudit(r.Context(),principal.OrganizationID,limit,offset)
+	if err!=nil { writeProblem(w,http.StatusInternalServerError,"Unable to load membership audit","The organization audit query failed"); return }
+	writeJSON(w,http.StatusOK,struct {
+		Items []identity.MembershipAuditEvent `json:"items"`
+		Limit int `json:"limit"`
+		Offset int `json:"offset"`
+	}{events,limit,offset})
+}
+
+func writeInvitationError(w http.ResponseWriter,err error) {
+	switch {
+	case errors.Is(err,identity.ErrInvitationNotFound):
+		writeProblem(w,http.StatusNotFound,"Invitation not found","The invitation is expired, revoked, accepted, or does not belong to this organization")
+	case errors.Is(err,identity.ErrInvitationAlreadyMember):
+		writeProblem(w,http.StatusConflict,"Already a member","This verified email already belongs to an active or suspended organization member")
+	case errors.Is(err,identity.ErrInvitationPending):
+		writeProblem(w,http.StatusConflict,"Invitation already pending","A pending invitation already exists for this email in this organization")
+	case errors.Is(err,identity.ErrMembershipForbidden):
+		writeProblem(w,http.StatusForbidden,"Invitation operation forbidden","Your organization role cannot perform this invitation operation")
+	case errors.Is(err,identity.ErrInvalidInvitation):
+		writeProblem(w,http.StatusBadRequest,"Invalid invitation","Provide a valid email and an allowed organization role")
+	default:
+		writeProblem(w,http.StatusInternalServerError,"Invitation operation failed","The organization invitation could not be processed")
 	}
 }

@@ -70,12 +70,14 @@ Implemented:
 - OIDC Authorization Code + PKCE with provider discovery/JWKS validation, state/nonce/PKCE, one-time authorization transactions, ID-token validation, and session rotation.
 - External identity upsert by immutable `(issuer, subject)`; unverified email is never used as an identity key.
 - OIDC login, callback, and CSRF-protected logout routes.
-- OIDC callback verifies that the local user has an active membership in an active organization before issuing a session; arbitrary first logins cannot create authenticated application sessions.
+- OIDC callback verifies active membership or consumes a pending single-use invitation whose email matches the provider-verified email before issuing a session; arbitrary first logins cannot create authenticated application sessions.
+- Organization invitations are tenant-scoped, expire after seven days, persist only token hashes, support listing/revocation, and are consumed atomically during verified OIDC callback.
+- Organization Owners/Admins can read paginated membership audit history; invitation acceptance is recorded with actor/target attribution.
 - Operator-only, transactionally serialized first-owner bootstrap CLI; first login never silently grants organization membership.
 - Local PostgreSQL Compose setup, OIDC configuration, and bootstrap documentation.
 
 Remaining:
-- Implement organization membership invitations/acceptance and an authorized audit-history read API.
+- Add an approved transactional email provider/queue for invitation delivery; current API returns the one-time invitation URL to the authorized administrator.
 - Centralize role and membership authorization policy outside HTTP handlers; current membership mutation transactions re-check actor role and enforce owner/admin boundaries.
 - Configure the production OIDC provider and registered callback URL through deployment secrets/environment; verify end-to-end login in the deployed environment.
 - Add cross-tenant authorization tests for every read/write path, callback-level rejection tests for unprovisioned identities, and session expiry/rotation tests.

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.4.0
+  version: 0.5.0
   description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
 servers:
   - url: /
@@ -41,6 +41,22 @@ paths:
       responses:
         "302":
           description: Redirect to the configured OpenID Provider
+        "503": { $ref: "#/components/responses/Problem" }
+  /auth/invitations/accept:
+    get:
+      operationId: beginOrganizationInvitationAcceptance
+      summary: Bind a one-time invitation token to the browser and begin OIDC login
+      description: The invitation is not consumed until the OIDC callback validates a signed ID token with a verified email matching the invitation.
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, minLength: 40, maxLength: 128 }
+      responses:
+        "303":
+          description: Redirect to the configured OIDC login route
+        "400": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /auth/oidc/callback:
     get:
@@ -144,6 +160,95 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/invitations:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listOrganizationInvitations
+      summary: List organization invitations
+      description: Restricted to active organization owners and administrators. Token values are never returned.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Invitation page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationInvitationPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createOrganizationInvitation
+      summary: Create a seven-day, single-use organization invitation
+      description: The raw token and invitation URL are returned only once. Only verified OIDC email claims can redeem the token. Administrators may invite members and viewers, while owners may also invite administrators.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOrganizationInvitation" }
+      responses:
+        "201":
+          description: Invitation created; protect the returned URL as a secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedOrganizationInvitation" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/invitations/{invitationID}:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: invitationID
+        required: true
+        schema: { type: string }
+    delete:
+      operationId: revokeOrganizationInvitation
+      summary: Revoke a pending invitation
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204": { description: Invitation revoked }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/membership-audit:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listOrganizationMembershipAudit
+      summary: Read organization membership audit history
+      description: Restricted to active organization owners and administrators. Events are returned newest first.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Membership audit page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MembershipAuditPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets:
     parameters:
       - in: path
@@ -438,6 +543,62 @@ components:
       properties:
         role: { type: string, enum: [owner, admin, member, viewer] }
         status: { type: string, enum: [active, suspended] }
+    CreateOrganizationInvitation:
+      type: object
+      additionalProperties: false
+      required: [email, role]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        role: { type: string, enum: [admin, member, viewer] }
+    CreatedOrganizationInvitation:
+      type: object
+      required: [invitation, invitation_url, token]
+      properties:
+        invitation: { $ref: "#/components/schemas/OrganizationInvitation" }
+        invitation_url: { type: string, format: uri }
+        token: { type: string, minLength: 40, maxLength: 128 }
+    OrganizationInvitation:
+      type: object
+      required: [id, email, role, status, invited_by, expires_at, created_at]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [admin, member, viewer] }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        invited_by: { type: string }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    OrganizationInvitationPage:
+      type: object
+      required: [items, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationInvitation" }
+        limit: { type: integer }
+        offset: { type: integer }
+    MembershipAuditEvent:
+      type: object
+      required: [id, actor_user_id, target_user_id, action, before_role, before_status, after_status, created_at]
+      properties:
+        id: { type: string }
+        actor_user_id: { type: string }
+        target_user_id: { type: string }
+        action: { type: string, enum: [role_changed, suspended, reactivated, removed, invite_accepted] }
+        before_role: { type: string }
+        after_role: { type: [string, "null"] }
+        before_status: { type: string }
+        after_status: { type: string }
+        created_at: { type: string, format: date-time }
+    MembershipAuditPage:
+      type: object
+      required: [items, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/MembershipAuditEvent" }
+        limit: { type: integer }
+        offset: { type: integer }
     Health:
       type: object
       required: [status]

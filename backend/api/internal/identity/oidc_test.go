@@ -32,6 +32,7 @@ func (r *oidcTestRepository) CreateSession(context.Context, string, string, stri
 	return "session-1", nil
 }
 func (r *oidcTestRepository) RevokeSession(context.Context, string) error { return nil }
+func (r *oidcTestRepository) AcceptInvitation(context.Context, string, string, string) (string, error) { return "org-1", nil }
 
 func TestOIDCLoginStartsPKCEFlowAndPersistsHashedState(t *testing.T) {
 	var issuer string
