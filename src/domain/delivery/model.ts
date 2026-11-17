@@ -1,8 +1,10 @@
-import type { Changeset, ChangesetStatus, RevisionEvidence, RevisionReview } from "../../entities";
+import type { Changeset, ChangesetStatus, GitCommitSha, RevisionEvidence, RevisionId, RevisionReview } from "../../entities";
+import { revisionId } from "../../entities";
 
-export type GitCommit = { sha: string; repositoryId: string };
+export type GitCommit = { sha: GitCommitSha; repositoryId: string };
 
-export const revisionKey = (changesetId: string, revision: number): string => `${changesetId}@r${revision}`;
+export const revisionKey = (changesetId: string, revision: number): RevisionId =>
+  revisionId(`${changesetId}@r${revision}`);
 
 export function canEditChangeset(status: ChangesetStatus): boolean {
   return status !== "Merged";
@@ -16,21 +18,21 @@ export function canRunEvaluation(changeset: Pick<Changeset, "status">): boolean 
   return canEditChangeset(changeset.status);
 }
 
-export function isEvidenceCurrent(revisionId: string, evidence?: RevisionEvidence): boolean {
+export function isEvidenceCurrent(revisionId: RevisionId, evidence?: RevisionEvidence): boolean {
   return evidence?.revisionId === revisionId;
 }
 
-export function isReviewCurrent(revisionId: string, review?: RevisionReview): boolean {
+export function isReviewCurrent(revisionId: RevisionId, review?: RevisionReview): boolean {
   return review?.revisionId === revisionId;
 }
 
-export function canApproveRevision(revisionId: string, evidence?: RevisionEvidence): boolean {
+export function canApproveRevision(revisionId: RevisionId, evidence?: RevisionEvidence): boolean {
   return isEvidenceCurrent(revisionId, evidence) && evidence?.status === "Passed";
 }
 
 export function canMergeRevision(
   changeset: Pick<Changeset, "status">,
-  revisionId: string,
+  revisionId: RevisionId,
   evidence?: RevisionEvidence,
   review?: RevisionReview,
 ): boolean {

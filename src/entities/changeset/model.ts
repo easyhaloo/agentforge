@@ -1,3 +1,5 @@
+import type { ChangesetId } from "../identity";
+
 export type ChangesetStatus =
   | "Draft"
   | "Evaluating"
@@ -7,7 +9,7 @@ export type ChangesetStatus =
   | "Merged";
 
 export type Changeset = {
-  id: string;
+  id: ChangesetId;
   repositoryId: string;
   title: string;
   status: ChangesetStatus;

@@ -1,8 +1,10 @@
+import type { ChangesetId, GitCommitSha, RevisionId } from "../identity";
+
 export type Revision = {
-  id: string;
-  changesetId: string;
+  id: RevisionId;
+  changesetId: ChangesetId;
   number: number;
-  baseCommitSha: string | null;
-  headCommitSha: string | null;
+  baseCommitSha: GitCommitSha | null;
+  headCommitSha: GitCommitSha | null;
   createdAt: string;
 };

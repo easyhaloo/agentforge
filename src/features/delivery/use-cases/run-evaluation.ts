@@ -1,4 +1,4 @@
-import { canRunEvaluation, revisionKey } from "../../../domain/delivery";
+import { canRunEvaluation, evidenceId, revisionKey } from "../../../domain/delivery";
 import type { Revision } from "../../../entities";
 import type { Change, Evaluation } from "../model";
 
@@ -16,7 +16,7 @@ export function createEvaluation(
   }
 
   return {
-    id: "EVL-" + (5510 + evaluations.length),
+    id: evidenceId("EVL-" + (5510 + evaluations.length)),
     revision: revision.number,
     revisionId: revision.id,
     status,

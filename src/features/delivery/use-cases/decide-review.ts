@@ -1,4 +1,5 @@
 import { canApproveRevision, revisionKey } from "../../../domain/delivery";
+import { reviewId } from "../../../entities";
 import type { Revision } from "../../../entities";
 import type { Change, Evaluation, Review } from "../model";
 
@@ -17,7 +18,7 @@ export function createReviewDecision(
   }
 
   return {
-    id: "REV-" + (892 + reviews.length),
+    id: reviewId("REV-" + (892 + reviews.length)),
     revision: revision.number,
     revisionId: revision.id,
     decision,

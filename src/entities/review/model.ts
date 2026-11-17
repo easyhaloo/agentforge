@@ -1,8 +1,10 @@
+import type { ReviewId, RevisionId } from "../identity";
+
 export type ReviewDecision = "Pending" | "Approved" | "Changes requested";
 
 export type RevisionReview = {
-  id: string;
-  revisionId: string;
+  id: ReviewId;
+  revisionId: RevisionId;
   decision: ReviewDecision;
   reviewer: string;
 };
