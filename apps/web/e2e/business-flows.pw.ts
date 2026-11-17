@@ -73,7 +73,7 @@ test.beforeEach(async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/e2e-app-harness.html");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.locator(".sidebar").getByText("AgentForge Demo", { exact: true })).toBeVisible();
+  await expect(page.locator(".sidebar .org-switch")).toContainText("AgentForge Demo");
 });
 
 test("Overview search, status filtering, selection and navigation work together", async ({ page }) => {
