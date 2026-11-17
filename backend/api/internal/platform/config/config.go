@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -29,6 +30,10 @@ func load(port, databaseURL string) (Config, error) {
 	databaseURL = strings.TrimSpace(databaseURL)
 	if databaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL is required")
+	}
+	parsedURL, err := url.Parse(databaseURL)
+	if err != nil || (parsedURL.Scheme != "postgres" && parsedURL.Scheme != "postgresql") || parsedURL.Host == "" {
+		return Config{}, errors.New("DATABASE_URL must be a valid PostgreSQL URL")
 	}
 	return Config{Port: port, DatabaseURL: databaseURL}, nil
 }
