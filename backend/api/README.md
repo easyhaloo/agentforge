@@ -44,6 +44,35 @@ The delivery control plane exposes an organization-scoped lifecycle:
 6. **Merge** — The server revalidates current passing evaluation, active evidence, and approved review, then performs a no-fast-forward Git merge and persists the actual merge commit SHA.
 7. **Audit and verification** — Each domain transition is appended to the changeset audit trail; PostgreSQL optimistic versions prevent stale state updates, and API/integration tests exercise the complete lifecycle.
 
+### Changeset status and list filters
+
+Every stored-changeset response (create, get, list and each mutation) carries a server-derived `status` beside `version`. The UI displays it and never derives it (ADR-003). Only the **current** revision is judged: evaluations, evidence and reviews of older revisions never count.
+
+| `status` | Meaning |
+| --- | --- |
+| `draft` | No revision yet |
+| `evaluation_pending` | The current revision has no evaluation yet |
+| `evaluation_failed` | The latest evaluation of the current revision failed |
+| `evidence_required` | The latest evaluation passed but no evidence is active |
+| `review_required` | Evidence is active but no review is assigned |
+| `in_review` | The latest review of the current revision is pending |
+| `changes_requested` | The latest review of the current revision rejected the changes |
+| `ready_to_merge` | The latest review of the current revision is approved |
+| `merged` | A merge has been recorded |
+
+`status` is for display and filtering. `POST .../merge` revalidates the merge gate itself and stays the authority on whether a merge is allowed.
+
+`GET /api/v1/organizations/{organizationID}/changesets` accepts these optional filters, combined with AND:
+
+- `repository` — exact repository match.
+- `status` — one value from the table above; any other value is a `400` problem response.
+- `reviewer` — a user id, or `me` for the authenticated user. Matches changesets whose current revision has a review assigned to that user, whatever its decision. Add `status=in_review` for a pending review queue.
+- `q` — case-insensitive substring of the changeset id, title, repository or creator; at most 200 characters, otherwise a `400` problem response.
+
+`limit` (1-100, default 20) and `offset` apply after filtering, and `total` in the response is the number of matches before paging. Results are ordered by `updated_at` descending, then by id. Filtering never crosses organizations.
+
+Current limitation: the PostgreSQL store pushes only `repository` into SQL, then loads that organization's matching changesets and filters and pages them in Go, so a list request costs O(changesets per organization). Denormalizing the status and the current reviewers into indexed columns is the upgrade path.
+
 ### Local Git provider layout
 
 The current provider is a local Git adapter (the provider interface is intentionally independent of Git hosting vendor APIs). An operator provisions repositories using this layout:
