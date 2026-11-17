@@ -25,9 +25,9 @@ describe("shared UI adoption", () => {
         violations.push(`${relative(sourceRoot, file)} uses a native browser dialog instead of shared UI`);
       }
       if (/role=["']dialog["']|modal-backdrop/.test(source)) {
-        violations.push(`${relative(sourceRoot, file)} implements a dialog outside shared UI`);
+        violations.push(`${relative(sourceRoot, file)} implements a dialog or tab list outside shared UI`);
       }
-      for (const match of source.matchAll(/<(button|input|select|textarea)\b/g)) {
+      for (const match of source.matchAll(/<(button|input|select|textarea|table)\b/g)) {
         const line = source.slice(0, match.index).split("\n").length;
         violations.push(`${relative(sourceRoot, file)}:${line} uses native <${match[1]}> instead of shared UI`);
       }
