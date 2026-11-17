@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DeliveryFlow } from "../features/delivery";
-import { ResourceWorkspace } from "../features/resources";
+import { ResourceWorkspacePage } from "../pages/resources";
 import { OverviewPage, type CreatedChangeset } from "../pages/overview";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
@@ -59,7 +59,7 @@ function App() {
           ) : ["Changesets", "Eval", "Review", "Trails", "Stacks", "Self-healing"].includes(active) ? (
             <DeliveryFlow page={active} onNotify={notify} />
           ) : (
-            <ResourceWorkspace key={active} page={active} onNotify={notify} />
+            <ResourceWorkspacePage key={active} page={active} onNotify={notify} />
           )}
           <footer>
             <span>AgentForge Prototype <b>v0.1.0</b></span>

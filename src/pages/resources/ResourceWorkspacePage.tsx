@@ -6,7 +6,7 @@ import { ResourceInspector } from "./ui/ResourceInspector";
 
 type Props = { page: string; onNotify: (message: string) => void };
 
-export function ResourceWorkspace({ page, onNotify }: Props) {
+export function ResourceWorkspacePage({ page, onNotify }: Props) {
   const config = configs[page] ?? configs.Changesets;
   const [selected, setSelected] = useState(config.items[0]?.id ?? "");
   const [items, setItems] = usePersistentState<Item[]>("agentforge:resources:" + page, config.items);
