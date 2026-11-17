@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowRight, CircleDot, Search } from "lucide-react";
 import { itemHref, navigationItems, type NavigationItem } from "../navigation";
 import { useAppAccount } from "../account-context";
+import { useNavigateTo } from "../useNavigateTo";
 import { CURRENT_ORGANIZATION_HANDLE, organizationHandle } from "../../shared/routing";
 import { Button, Input, Modal } from "../../shared/ui";
 
@@ -10,7 +10,7 @@ type Props = { open: boolean; onClose: () => void };
 
 export function CommandPalette({ open, onClose }: Props) {
   const [query, setQuery] = useState("");
-  const navigateTo = useNavigate();
+  const navigateTo = useNavigateTo();
   const { selectedOrganization } = useAppAccount();
   const handle = selectedOrganization ? organizationHandle(selectedOrganization) : CURRENT_ORGANIZATION_HANDLE;
   const pages = navigationItems.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));

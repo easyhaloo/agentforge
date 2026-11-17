@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { AppAccountContext, type AccountState } from "./account-context";
@@ -8,13 +8,14 @@ import { Topbar } from "./components/Topbar";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
 import { navigationItemFor, routeLabel } from "./navigation";
+import { useNavigateTo } from "./useNavigateTo";
 import { useNotify } from "./useNotify";
 
 /** Root layout: loads the account once and renders the shell around the page the URL selects. */
 function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const notify = useNotify();
-  const navigate = useNavigate();
+  const navigateTo = useNavigateTo();
   const { pathname, search, hash } = useLocation();
   const { org: urlHandle } = useParams();
   const matches = useMatches();
@@ -52,7 +53,7 @@ function App() {
   const selectOrganization = (organizationID: string) => {
     setSelectedOrganizationID(organizationID);
     const next = account?.organizations.find((item) => item.id === organizationID);
-    if (next && urlHandle) navigate(withOrganizationHandle(pathname, organizationHandle(next)));
+    if (next && urlHandle) navigateTo(withOrganizationHandle(pathname, organizationHandle(next)));
   };
 
   const signOut = async () => {
@@ -61,7 +62,7 @@ function App() {
       setAccount(null);
       setSelectedOrganizationID("");
       setAccountState("signed-out");
-      navigate(flatPaths.overview);
+      navigateTo(flatPaths.overview);
       notify("You have signed out.");
     } catch (cause) {
       setAccountError(cause instanceof Error ? cause.message : "Unable to sign out");
