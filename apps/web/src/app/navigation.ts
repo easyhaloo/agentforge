@@ -1,11 +1,11 @@
-import { Activity, ArrowDownUp, Boxes, BrainCircuit, CheckCircle2, Code2, GitBranch, GitCommitHorizontal, GitPullRequest, LayoutDashboard, LockKeyhole, PanelsTopLeft, Settings, ShieldCheck, Terminal, Workflow, Zap } from "lucide-react";
+import { Activity, ArrowDownUp, Boxes, BrainCircuit, CheckCircle2, Code2, GitBranch, GitCommitHorizontal, GitPullRequest, LayoutDashboard, LockKeyhole, PanelsTopLeft, Settings, ShieldCheck, Terminal, Workflow, Zap, Users } from "lucide-react";
 
 export const groups = [
   { label: "WORKSPACE", items: [["Overview", LayoutDashboard], ["Projects", Boxes], ["Repositories", Code2], ["Changesets", GitCommitHorizontal], ["Workspaces", Terminal]] },
   { label: "COORDINATION", items: [["Trails", Workflow], ["Stacks", GitBranch], ["Review", GitPullRequest], ["Eval", CheckCircle2], ["Self-healing", Activity]] },
   { label: "INTELLIGENCE", items: [["Memory", BrainCircuit], ["CI / CD", Zap]] },
   { label: "DEVELOPER", items: [["UI Components", PanelsTopLeft]] },
-  { label: "CONTROL PLANE", items: [["Security", ShieldCheck], ["Governance", LockKeyhole], ["Cost & Usage", ArrowDownUp], ["Settings", Settings]] }
+  { label: "CONTROL PLANE", items: [["Organization", Users], ["Security", ShieldCheck], ["Governance", LockKeyhole], ["Cost & Usage", ArrowDownUp], ["Settings", Settings]] }
 ] as const;
 export const descriptions: Record<string,string> = {
   Overview:"A live map of changes, verification and delivery across your engineering system.",
@@ -20,6 +20,7 @@ export const descriptions: Record<string,string> = {
   "Self-healing":"Bounded repair loops that produce new revisions and re-run validation.",
   Memory:"Reusable engineering knowledge linked to sessions, code and decisions.",
   "CI / CD":"Pipelines, checks and release orchestration.",
+  Organization:"Manage organization members, invitations, roles and access history.",
   Security:"Identity, secrets, supply-chain and runtime boundaries.",
   Governance:"Policies, approvals and organization-wide controls.",
   "Cost & Usage":"Understand agent, model and compute consumption.",
