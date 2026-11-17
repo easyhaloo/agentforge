@@ -16,6 +16,8 @@ type memoryRepository struct {
 	items map[string]delivery.StoredChangeset
 }
 
+func (m *memoryRepository) Ping(context.Context) error { return nil }
+
 func newMemoryRepository() *memoryRepository {
 	return &memoryRepository{items: make(map[string]delivery.StoredChangeset)}
 }
