@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	ErrMembershipNotFound = errors.New("organization membership not found")
-	ErrMembershipForbidden = errors.New("membership operation forbidden")
-	ErrLastActiveOwner = errors.New("organization must retain at least one active owner")
-	ErrInvalidMembershipChange = errors.New("invalid membership change")
+	ErrMembershipNotFound = identity.ErrMembershipNotFound
+	ErrMembershipForbidden = identity.ErrMembershipForbidden
+	ErrLastActiveOwner = identity.ErrLastActiveOwner
+	ErrInvalidMembershipChange = identity.ErrInvalidMembershipChange
 )
 
 
