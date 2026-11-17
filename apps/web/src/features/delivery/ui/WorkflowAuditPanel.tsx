@@ -1,4 +1,5 @@
 import { Activity, GitCommitHorizontal, ShieldCheck, Sparkles } from "lucide-react";
+import { Empty } from "../../../shared/ui";
 
 type Props = { events: string[] };
 
@@ -9,9 +10,10 @@ export function WorkflowAuditPanel({ events }: Props) {
       <Activity size={16} />
     </div>
     <div className="event-timeline">
-      {events.map((event, index) => <div className="timeline-event" key={event + index}>
-        <span className="timeline-dot" /><div><b>{event}</b><small>{index === 0 ? "Just now" : (index * 4) + " min ago"}</small></div>
-      </div>)}
+      {events.length === 0 ? <Empty title="No workflow events" description="Changes to this changeset will appear here." /> :
+        events.map((event, index) => <div className="timeline-event" key={event + index}>
+          <span className="timeline-dot" /><div><b>{event}</b><small>{index === 0 ? "Just now" : (index * 4) + " min ago"}</small></div>
+        </div>)}
     </div>
     <div className="flow-invariant"><ShieldCheck size={15} /><div><b>Merge gate</b><p>Merge requires a passing evaluation for the exact current revision and an approval for that same revision.</p></div></div>
     <div className="flow-invariant"><GitCommitHorizontal size={15} /><div><b>Evidence invalidation</b><p>Creating a new revision makes prior evaluation evidence and review decisions stale.</p></div></div>
