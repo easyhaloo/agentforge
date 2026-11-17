@@ -77,3 +77,51 @@ func TestCompleteChangesetLifecycleThroughHTTP(t *testing.T) {
 	if stored.Changeset.Revisions[0].CommitSHA!="commit-feature" {t.Fatal("immutable Git commit SHA was not persisted")}
 	if stored.UpdatedAt.Before(time.Now().Add(-time.Minute)) {t.Fatal("changeset update timestamp was not advanced")}
 }
+
+type mismatchedLifecycleEvaluator struct{}
+func (mismatchedLifecycleEvaluator) Evaluate(_ context.Context, job delivery.EvaluationJob) (delivery.EvaluationResult, error) {
+	return delivery.EvaluationResult{
+		JobID: job.ID, OrganizationID: job.OrganizationID, ChangesetID: job.ChangesetID,
+		RevisionID: job.RevisionID, BaseSHA: job.BaseSHA, RevisionSHA: "different-commit",
+		Passed: true, Summary: "untrusted result",
+	}, nil
+}
+
+func TestEvaluationRejectsResultForDifferentRevision(t *testing.T) {
+	repository := newMemoryRepository()
+	catalog := &lifecycleCatalog{}
+	deps := DeliveryDependencies{
+		Repository: repository, Catalog: catalog,
+		Identity: namedIdentity{user: "author-1", role: "owner"},
+		CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test",
+		Git: lifecycleGit{}, Evaluator: mismatchedLifecycleEvaluator{},
+		Evidence: lifecycleEvidence{}, Reviewers: lifecycleReviewers{}, Locker: lifecycleLocker{},
+	}
+	handler := NewHandlerWithDependencies(deps)
+	call := func(method, path, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+		if method != http.MethodGet { addValidCSRFCookies(request) }
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	base := "/api/v1/organizations/org-a"
+	if response := call(http.MethodPost, base+"/repositories", `{"slug":"team/repo","default_branch":"main"}`); response.Code != http.StatusCreated {
+		t.Fatalf("register repository: %d %s", response.Code, response.Body.String())
+	}
+	response := call(http.MethodPost, base+"/changesets", `{"repository":"team/repo","title":"Reject mismatched worker result"}`)
+	if response.Code != http.StatusCreated { t.Fatalf("create changeset: %d %s", response.Code, response.Body.String()) }
+	var stored storedChangesetResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &stored); err != nil { t.Fatal(err) }
+	changePath := base + "/changesets/" + string(stored.Changeset.ID)
+	if response = call(http.MethodPost, changePath+"/revisions", `{"ref":"feature"}`); response.Code != http.StatusOK {
+		t.Fatalf("add revision: %d %s", response.Code, response.Body.String())
+	}
+	if response = call(http.MethodPost, changePath+"/evaluations", `{}`); response.Code != http.StatusBadGateway {
+		t.Fatalf("mismatched evaluation result status=%d body=%s, want 502", response.Code, response.Body.String())
+	}
+	response = call(http.MethodGet, changePath, "")
+	if response.Code != http.StatusOK { t.Fatalf("load changeset: %d %s", response.Code, response.Body.String()) }
+	if err := json.Unmarshal(response.Body.Bytes(), &stored); err != nil { t.Fatal(err) }
+	if len(stored.Changeset.Evaluations) != 0 { t.Fatalf("untrusted evaluation was persisted: %#v", stored.Changeset.Evaluations) }
+}
