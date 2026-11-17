@@ -1,7 +1,7 @@
 # AgentForge 前端共享 UI 全量迁移审计与验收基线
 
-> 状态：全量控件迁移已进入验收阶段；PR #59 待合并  
-> 当前主分支基线：`ab9b3358f396bc822f00f3ce875ce7a2b656cca9`  
+> 状态：业务页面共享 UI 迁移已合并；进入 CSS 清理与最终验收
+> 当前主分支基线：`0d05609f66f1ca018ed9d35c4476c1df15f8d054`  
 > 审计日期：2026-11-17  
 > 范围：`apps/web/src`
 
@@ -15,7 +15,7 @@
 
 ## 2. 当前仓库盘点
 
-PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src` 包含 86 个文件：
+当前 `main` 基线 `0d05609f66f1ca018ed9d35c4476c1df15f8d054` 的 `apps/web/src` 包含 86 个文件：
 
 - 33 个 TSX、49 个 TS、3 个 CSS、1 个 Markdown 文件。
 - 其中 28 个产品/应用页面 TSX 位于 `shared/ui` 之外；共享 UI 组件和共享 UI 测试另行统计。
@@ -25,13 +25,13 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 
 | 区域 | 文件范围 | 当前结果 | 仍需验收 |
 |---|---|---|---|
-| 应用壳与导航 | `app/App.tsx`、`PageHeader`、`Sidebar`、`Topbar` | PR #52 已迁移通用按钮；PR #53 已统一通知；PR #59 补齐账户 Retry、组织选择和最新账户操作 | 组织切换、登出、快捷键和导航回归 |
+| 应用壳与导航 | `app/App.tsx`、`PageHeader`、`Sidebar`、`Topbar` | PR #52 已迁移通用按钮；PR #53 已统一通知；PR #59 已补齐账户 Retry、组织选择和最新账户操作 | 组织切换、登出、快捷键和导航回归 |
 | 应用弹层 | `CommandPalette.tsx`、`CreateChangesetDialog.tsx` | 已使用共享 Modal、Input、Button | 焦点、ESC、遮罩和导航回归 |
 | Overview | `pages/overview/ui/*` | 页面级原生交互控件扫描无命中；旧重复 Overview 实现已由 PR #54 删除 | 搜索、筛选、空态和数据展示回归 |
 | Delivery | `features/delivery/*` | 页面级原生交互控件扫描无命中；主要操作使用共享 UI | 工作流状态、审批、合并和证据状态回归 |
 | Resources | `pages/resources/*` | 页面级原生交互控件扫描无命中；列表、Inspector 使用共享 UI | 筛选、导出、本地持久化和详情交互回归 |
-| Changesets | `pages/changesets/ChangesetsPage.tsx` | PR #59 迁移创建、搜索、刷新及输入控件 | 表单校验、搜索和 API 状态回归 |
-| Organization | `pages/organization/OrganizationManagementPage.tsx` | PR #59 迁移成员/邀请操作、角色选择及表单；成员移除改用 ConfirmDialog；成员/邀请表格改用 DataTable，管理页标签切换改用共享 Tabs | 角色权限、邀请、撤销、成员移除和错误态回归 |
+| Changesets | `pages/changesets/ChangesetsPage.tsx` | PR #59 已迁移创建、搜索、刷新及输入控件 | 表单校验、搜索和 API 状态回归 |
+| Organization | `pages/organization/OrganizationManagementPage.tsx` | PR #59 已迁移成员/邀请操作、角色选择及表单；成员移除改用 ConfirmDialog；成员/邀请表格改用 DataTable，管理页标签切换改用共享 Tabs | 角色权限、邀请、撤销、成员移除和错误态回归 |
 | UI Showcase | `pages/ui-showcase/index.tsx` | 共享组件演示入口 | 对照真实业务用法检查组件 API |
 | 共享 UI | `shared/ui/components/*`、`shared/ui/theme/*` | 已补充基础组件渲染契约测试；Tabs 提供方向键/Home/End 键盘切换；Organization 表格迁移 DataTable；Popover 增加外部点击关闭、Escape 和焦点返回；ConfirmDialog 危险操作使用 danger 按钮 | 浏览器级焦点、键盘、遮罩和交互测试 |
 | 样式系统 | `styles/index.css`、`shared/ui/components/components.css`、`shared/ui/theme/theme.css` | 页面控件已复用共享组件；保留业务布局/视觉类 | 清理确认无引用的历史规则，不破坏登录链接和业务布局 |
@@ -54,9 +54,9 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 | A | 审计基线、矩阵、例外和验收规则 | 已合并（PR #51） |
 | B | 应用壳基础按钮和全局通知 | 已合并（PR #52、#53） |
 | C | Overview 重复实现清理 | 已合并（PR #54） |
-| D | 应用壳账户控件、Changesets、Organization 控件迁移 | PR #59 已提交，CI 通过，待合并 |
-| E | Modal、Drawer、ConfirmDialog、Popover 能力与测试 | PR #59 已补充静态契约测试、Tabs 键盘导航单元测试及 Popover/ConfirmDialog 改进 |
-| F | 全仓原生控件/浏览器对话框扫描门禁 | PR #59 已加入自动化测试 |
+| D | 应用壳账户控件、Changesets、Organization 控件迁移 | 已合并（PR #59） |
+| E | Modal、Drawer、ConfirmDialog、Popover 能力与测试 | 已合并（PR #59）：静态契约测试、Tabs 键盘导航单元测试及 Popover/ConfirmDialog 改进 |
+| F | 全仓原生控件/浏览器对话框扫描门禁 | 已合并（PR #59） |
 | G | 样式清理、业务交互回归和最终验收 | 进行中 |
 
 ## 6. 验收门槛
@@ -68,7 +68,7 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 - [x] 共享 UI 基础控件、Tabs、Modal、Drawer、ConfirmDialog、Popover、DataTable、反馈和通知已有渲染契约测试。
 - [x] Popover 支持外部点击关闭、Escape 关闭和 Escape 后焦点返回；ConfirmDialog 危险操作使用 danger 样式。
 - [x] 最新 PR #59 的 `npm test`、`npm run build` 和 GitHub `ci-gate` 均通过。
-- [ ] PR #59 合并到 main。
+- [x] PR #59 已合并到 main。
 - [ ] 真实浏览器中验证 Modal/Drawer/Popover 的焦点、键盘、遮罩和移动端行为。
 - [ ] 完成 Overview、Delivery、Resources、Changesets、Organization 的业务回归。
 - [ ] 基于引用扫描清理历史 CSS；保留登录链接及业务布局所需样式。
@@ -91,7 +91,9 @@ PR #59 当前 head `f49a997d6468efc89cfc67becda9cc31de4f8f69` 的 `apps/web/src`
 | 2026-11-17 | 应用壳按钮迁移 | 已合并（PR #52） |
 | 2026-11-17 | 全局通知统一 | 已合并（PR #53） |
 | 2026-11-17 | Overview 重复实现清理 | 已合并（PR #54） |
-| 2026-11-17 | Changesets、Organization、账户控件和组织选择迁移 | PR #59，CI 通过，待合并 |
-| 2026-11-17 | 共享 UI 契约测试、Popover 焦点/关闭改进、ConfirmDialog danger 变体、Tabs 键盘交互 | PR #59，CI 通过（48 tests），待合并 |
-| 2026-11-17 | 全仓共享 UI 静态门禁 | PR #59，CI 通过，待合并 |
-| 待执行 | 浏览器级交互回归、CSS 清理和最终验收 | 进行中 |
+| 2026-11-17 | Changesets、Organization、账户控件和组织选择迁移 | 已合并（PR #59，GitHub Actions run #212 全部通过） |
+| 2026-11-17 | 共享 UI 契约测试、Popover 焦点/关闭改进、ConfirmDialog danger 变体、Tabs 键盘交互 | 已合并（PR #59，48 tests、build、ci-gate 全部通过） |
+| 2026-11-17 | 全仓共享 UI 静态门禁 | 已合并（PR #59） |
+| 2026-11-17 | PR #59 全量控件迁移、组件能力和静态门禁 | 已合并；48 tests、build、ci-gate 通过 |
+| 2026-11-17 | 清理已弃用 Modal/CommandPalette/Toast 样式 | 本 PR |
+| 待执行 | 浏览器级交互回归和最终验收 | 进行中 |
