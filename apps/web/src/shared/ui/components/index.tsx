@@ -275,7 +275,7 @@ export function DataTable<T>({
           {loading ? <tr><td colSpan={columns.length} className="af-table__state">Loading…</td></tr> :
             data.length === 0 ? <tr><td colSpan={columns.length} className="af-table__state">{emptyText}</td></tr> :
               data.map((row, index) => <tr key={getRowKey(row)}>{columns.map((column) => {
-                const value = (row as Record<string, unknown>)[String(column.key)];
+                const value = (row as unknown as Record<string, unknown>)[String(column.key)];
                 return <td key={String(column.key)}>{column.render ? column.render(value, row, index) : String(value ?? "—")}</td>;
               })}</tr>)}
         </tbody>
