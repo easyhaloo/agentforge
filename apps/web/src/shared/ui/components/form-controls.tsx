@@ -107,7 +107,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
   const generatedId = useId();
   const fieldId = id ?? props.name ?? generatedId;
   return (
-    <div className="af-choice-field">
+    <div className={`af-choice-field ${className}`.trim()}>
       <label className="af-choice" htmlFor={fieldId}>
         <input {...props} ref={ref} id={fieldId} type="checkbox" aria-invalid={Boolean(error) || undefined} />
         <span>{label}</span>
