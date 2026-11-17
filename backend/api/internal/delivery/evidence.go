@@ -16,6 +16,7 @@ func NewLocalEvidenceStore(root string) (*LocalEvidenceStore,error) {
 	if strings.TrimSpace(root)=="" { return nil,ErrProviderUnavailable }
 	absolute,err:=filepath.Abs(root); if err!=nil{return nil,err}
 	if err=os.MkdirAll(absolute,0700);err!=nil{return nil,err}
+	absolute,err=filepath.EvalSymlinks(absolute);if err!=nil{return nil,err}
 	return &LocalEvidenceStore{Root:absolute},nil
 }
 
