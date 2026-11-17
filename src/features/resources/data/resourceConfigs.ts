@@ -1,12 +1,8 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { usePersistentState } from "./usePersistentState";
-import { Activity, ArrowRight, Check, CircleAlert, Clock3, GitBranch, GitCommitHorizontal, ShieldCheck, Sparkles, Workflow, X } from "lucide-react";
-
-type Item = { id: string; name: string; detail: string; status: string; updated: string; owner: string };
+export type Item = { id: string; name: string; detail: string; status: string; updated: string; owner: string };
 type PageConfig = { intro: string; stats: [string,string,string][]; columns: string[]; items: Item[]; action: string; detailTitle: string; signals: string[] };
 
 const make = (rows: [string,string,string,string,string,string][]): Item[] => rows.map(([id,name,detail,status,updated,owner])=>({id,name,detail,status,updated,owner}));
-const configs: Record<string,PageConfig> = {
+export const configs: Record<string,PageConfig> = {
   Projects:{intro:"Delivery boundaries that group repositories, teams and change activity.",stats:[["Active projects","12","Across 4 teams"],["Repositories","38","3 archived"],["Open changes","64","18 need review"]],columns:["PROJECT","REPOSITORIES","STATUS","UPDATED"],items:make([["PRJ-014","Core Platform","8 repositories · Runtime & APIs","Active","4 min ago","Platform"],["PRJ-012","Developer Experience","6 repositories · CLI & SDK","Active","26 min ago","DevEx"],["PRJ-009","Commerce","11 repositories · Billing & orders","At risk","1 hr ago","Commerce"],["PRJ-004","Legacy Services","13 repositories · Maintenance","Paused","Yesterday","Infra"]]),action:"Create project",detailTitle:"Project overview",signals:["Repository ownership and boundaries","Open changes and delivery health","Team membership and permissions"]},
   Repositories:{intro:"Git-compatible repositories connected to the canonical object graph.",stats:[["Repositories","38","Across 12 projects"],["Objects indexed","2.4M","+8.2% this week"],["Default branch","main","Protected"]],columns:["REPOSITORY","PROJECT","DEFAULT BRANCH","HEALTH"],items:make([["REP-101","web-platform","Project Core Platform · TypeScript","Healthy","2 min ago","Platform"],["REP-098","agentforge-core","Project Developer Experience · Go","Healthy","18 min ago","DevEx"],["REP-087","billing-api","Project Commerce · Python","Indexing","42 min ago","Commerce"],["REP-061","legacy-gateway","Project Legacy Services · Java","Degraded","Yesterday","Infra"]]),action:"Connect repository",detailTitle:"Repository graph",signals:["Canonical refs and object graph","Branches, tags and commit history","Indexing and synchronization health"]},
   Changesets:{intro:"Revisioned, reviewable units of change. Changeset identity is not a Git commit SHA.",stats:[["Open changesets","28","8 ready for review"],["Evidence current","96.4%","+2.1% this week"],["Median lead time","3.2h","-18% this month"]],columns:["CHANGESET","REVISION","PROJECT","STATUS"],items:make([["CS-2481","Refactor auth token lifecycle","r3 · web-platform","Ready for review","4 min ago","Mina"],["CS-2479","Add retry policy to webhook worker","r2 · event-service","Evaluating","18 min ago","Agent 04"],["CS-2476","Improve repository graph indexing","r5 · agentforge-core","Changes requested","1 hr ago","Alex"],["CS-2472","Update billing usage aggregation","r1 · billing-api","Merged","3 hr ago","Sam"]]),action:"Create changeset",detailTitle:"Revision details",signals:["Revision lineage and parent revision","Files, hunks and linked Git commits","Evaluation evidence and review decisions"]},
@@ -23,42 +19,3 @@ const configs: Record<string,PageConfig> = {
   "Cost & Usage":{intro:"Understand model, agent and compute consumption by task and project.",stats:[["Credits this month","68.2k","68% of budget"],["Model spend","$1,842","-6% vs last month"],["Compute hours","412h","+12%"]],columns:["USAGE","PROJECT","RESOURCE","COST"],items:make([["USE-882","Auth token refactor","Agent 04 · 18.2k tokens","$18.42","4 min ago","Platform"],["USE-878","Graph indexing","Eval workers · 6.4h","$12.80","1 hr ago","Core"],["USE-870","Webhook reliability","Model inference · 42 calls","$8.16","3 hr ago","Eventing"],["USE-861","CLI update flow","Workspace runtime · 2.1h","$4.20","Yesterday","DevEx"]]),action:"Export usage",detailTitle:"Usage breakdown",signals:["Cost by model, task and project","Token, runtime and storage dimensions","Budgets, attribution and forecast"]},
   Settings:{intro:"Configure workspace identity, integrations and developer experience.",stats:[["Members","8","2 pending invites"],["Connected integrations","4","All operational"],["API tokens","6","1 expires soon"]],columns:["SETTING","DESCRIPTION","SCOPE","STATE"],items:make([["SET-001","Workspace profile","Name, avatar and defaults","Workspace","Configured","Owner"],["SET-002","Git providers","GitHub connection and permissions","Integration","Connected","Owner"],["SET-003","Model providers","Keys, routing and model defaults","AI runtime","Connected","Owner"],["SET-004","Notifications","Review, trail and policy events","Personal","Configured","You"]]),action:"Edit settings",detailTitle:"Configuration",signals:["Workspace and member preferences","Integration health and permissions","API tokens and audit history"]}
 };
-
-export function ResourceWorkspace({page,onNotify}:{page:string;onNotify:(message:string)=>void}) {
-  const config=configs[page] ?? configs.Changesets;
-  const [selected,setSelected]=useState(config.items[0]?.id ?? "");
-  const [items,setItems]=usePersistentState<Item[]>(`agentforge:resources:${page}`,config.items);
-  const [query,setQuery]=useState("");
-  const [tab,setTab]=useState("All");
-  const [activity,setActivity]=useState<string[]>([]);
-  const [showCreate,setShowCreate]=useState(false);
-  const [newName,setNewName]=useState("");
-  const filtered=useMemo(()=>items.filter(item=>(tab==="All"||item.status===tab)&&[item.id,item.name,item.detail,item.owner].join(" ").toLowerCase().includes(query.toLowerCase())),[items,query,tab]);
-  const current=items.find(item=>item.id===selected);
-  const record=(message:string)=>{setActivity(prev=>[message,...prev].slice(0,4));onNotify(message);};
-  const doAction=()=>record(`${config.action} · demo action recorded locally`);
-  const createItem=(event:FormEvent<HTMLFormElement>)=>{
-    event.preventDefault();
-    const id=`${page.toUpperCase().replace(/[^A-Z]/g,"").slice(0,3)}-${String(Date.now()).slice(-5)}`;
-    const item:Item={id,name:newName.trim(),detail:`Created in ${page} · local demo record`,status:"Draft",updated:"Just now",owner:"You"};
-    setItems(prev=>[item,...prev]);setSelected(id);setNewName("");setShowCreate(false);record(`${id} created locally`);
-  };
-  return <div className="resource-workspace">
-    <div className="resource-stats">{config.stats.map(([label,value,caption])=><div className="card resource-stat" key={label}><span>{label}</span><strong>{value}</strong><small>{caption}</small></div>)}</div>
-    <div className="resource-layout">
-      <section className="card resource-list">
-        <div className="resource-head"><div><h3>{page} workspace</h3><p>{config.intro}</p></div><button className="button primary compact" onClick={()=>page==="Cost & Usage"?doAction():setShowCreate(true)}><Sparkles size={14}/>{config.action}</button></div>
-        {showCreate&&<form className="resource-create" onSubmit={createItem}><input autoFocus required value={newName} onChange={e=>setNewName(e.target.value)} placeholder={`Name this ${page.toLowerCase().replace(/s$/,"")}...`}/><button className="button primary compact" type="submit">Create</button><button className="button secondary compact" type="button" onClick={()=>setShowCreate(false)}>Cancel</button></form>}
-        <div className="resource-filters"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={`Search ${page.toLowerCase()}...`}/><div className="resource-tabs">{["All",...Array.from(new Set(items.map(i=>i.status)))].slice(0,4).map(t=><button className={tab===t?"chosen":""} key={t} onClick={()=>setTab(t)}>{t}</button>)}</div></div>
-        <div className="resource-table-wrap"><table><thead><tr>{["ID","RESOURCE","OWNER","STATUS"].map(col=><th key={col}>{col}</th>)}</tr></thead><tbody>{filtered.map(item=><tr key={item.id} className={selected===item.id?"selected-row":""} onClick={()=>setSelected(item.id)}><td><span className="mono">{item.id}</span></td><td><b>{item.name}</b><small className="cell-detail">{item.detail}</small></td><td>{item.owner}</td><td><span className="resource-status">{item.status}</span></td></tr>)}</tbody></table>{filtered.length===0&&<div className="empty">No matching resources.</div>}</div>
-        <div className="resource-foot"><span>Showing {filtered.length} of {items.length} demo resources</span><span>Prototype data <i className="live-dot"/></span></div>
-      </section>
-      <aside className="card resource-detail">
-        <div className="resource-detail-top"><span className="eyebrow">INSPECTOR</span><button className="icon-button" onClick={()=>setSelected("")}><X size={15}/></button></div>
-        {current?<><div className="resource-detail-icon"><GitCommitHorizontal size={20}/></div><h3>{current.name}</h3><div className="resource-id">{current.id}</div><span className="resource-status detail-status">{current.status}</span><div className="detail-meta"><div><span>Owner</span><b>{current.owner}</b></div><div><span>Last updated</span><b>{current.updated}</b></div></div><div className="detail-divider"/><h4>{config.detailTitle}</h4>{config.signals.map((signal,i)=><div className="signal-row" key={signal}><span>{i+1}</span>{signal}<ArrowRight size={13}/></div>)}<button className="button secondary detail-action" onClick={doAction}>Open {page.toLowerCase()} details <ArrowRight size={14}/></button></>:<div className="empty">Select a resource to inspect its details.</div>}
-        {activity.length>0&&<div className="local-activity"><h4><Activity size={13}/> Local activity</h4>{activity.map((a,i)=><p key={i}><Check size={12}/>{a}</p>)}</div>}
-        <div className="prototype-callout"><ShieldCheck size={14}/><span>Demo environment. Actions update local UI state only; no remote operation is performed.</span></div>
-      </aside>
-    </div>
-  </div>;
-}

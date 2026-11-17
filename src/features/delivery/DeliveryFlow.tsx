@@ -1,21 +1,9 @@
 import { useMemo } from "react";
-import { usePersistentState } from "./usePersistentState";
-import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "./domain/model";
+import { usePersistentState } from "../../shared/hooks/usePersistentState";
+import { canApproveRevision, canMergeRevision, isEvidenceCurrent, revisionKey } from "../../domain/delivery/model";
 import { Activity, ArrowDown, ArrowRight, Check, CheckCircle2, CircleAlert, GitBranch, GitCommitHorizontal, GitPullRequest, Play, Plus, RefreshCw, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 
-type Evaluation = { id: string; revision: number; revisionId: string; status: "Passed" | "Failed"; checks: number; createdAt: string };
-type Review = { id: string; revision: number; revisionId: string; decision: "Pending" | "Approved" | "Changes requested"; reviewer: string };
-type Change = { id: string; title: string; revision: number; base: string; status: "Draft" | "Evaluating" | "Ready for review" | "Changes requested" | "Approved" | "Merged"; files: number; };
-const initialChange: Change = { id:"CS-2481", title:"Refactor auth token lifecycle", revision:3, base:"main", status:"Draft", files:12 };
-const initialEvaluations: Evaluation[] = [{id:"EVL-5509",revision:3,revisionId:"CS-2481@r3",status:"Passed",checks:38,createdAt:"Today, 10:42"}];
-const initialReviews: Review[] = [{id:"REV-891",revision:3,revisionId:"CS-2481@r3",decision:"Pending",reviewer:"Mina"}];
-
-const stages = [
-  {id:"Changesets",label:"Changeset",desc:"Revisioned change"},
-  {id:"Eval",label:"Eval",desc:"Verification evidence"},
-  {id:"Review",label:"Review",desc:"Human decision"},
-  {id:"Trails",label:"Trail",desc:"Delivery outcome"}
-];
+import { initialChange, initialEvaluations, initialReviews, stages, type Change, type Evaluation, type Review } from "./model";
 
 export function DeliveryFlow({page,onNotify}:{page:string;onNotify:(message:string)=>void}) {
   const [change,setChange]=usePersistentState<Change>("agentforge:delivery:change",initialChange);

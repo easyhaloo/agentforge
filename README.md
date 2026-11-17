@@ -1,43 +1,47 @@
 # AgentForge
 
-**Agent-native Source Control & Verified Change Platform** — responsive interactive frontend prototype.
+**Agent-native Source Control & Verified Change Platform** — React + TypeScript frontend prototype.
 
-## Stack
-- React 19 + TypeScript + Vite
-- Lucide React
-- Revision-scoped delivery invariants
-- Browser-local persistence for demo workflows and resource creation
+## Development
 
-## Run locally
 ```bash
 npm install
 npm run dev
-```
-
-## Validate
-```bash
 npm test
 npm run build
-npm run preview
 ```
 
-## Product areas
-Overview, Projects, Repositories, Changesets, Workspaces, Trails, Stacks, Review, Eval, Self-healing, Memory, CI/CD, Security, Governance, Cost & Usage, Settings.
+## Frontend architecture
 
-## Frontend interactions
-- Navigate all 16 product areas from the sidebar or command palette (⌘K / Ctrl+K).
-- Create and inspect local resources; search and filter resource lists.
-- Run the Changeset → Eval → Review → Trail workflow with revision-scoped evidence.
-- Create revisions, restack a demo stack, simulate self-healing and inspect the audit timeline.
-- Persist demo changes in browser local storage across reloads.
-- Responsive desktop, tablet and mobile layouts.
+```text
+src/
+  app/                    # Application composition, navigation and shell state
+  features/
+    delivery/              # Changeset → Eval → Review → Trail workflow
+    resources/             # Resource workspaces and per-resource configuration
+  domain/delivery/         # Framework-independent revision and merge invariants
+  shared/hooks/            # Reusable React hooks
+  styles/                  # Global design system and application styles
+  main.tsx                 # React bootstrap
+```
 
-## Domain rules
-- Changeset IDs are stable; revision IDs identify an individual changeset revision.
-- Git commit SHAs, changeset IDs and revision IDs are separate concepts.
-- Evaluation evidence and review decisions are bound to a specific revision.
-- A new revision makes earlier evidence and approvals stale.
-- Merge requires passing evidence and approval for the exact current revision.
+### Dependency direction
 
-## Explicit limitations
-This is a frontend-only prototype using seeded mock data and browser local storage. It does not perform real Git operations, create remote branches or commits, execute agent sessions, run remote CI, send review notifications, enforce organization security policies, or persist data to a backend. Demo actions are local simulations only.
+- app composes features and owns cross-feature navigation.
+- features own their UI, feature state and presentation.
+- domain contains pure business rules and does not import React.
+- shared contains reusable infrastructure and UI-independent utilities.
+- features may depend on domain and shared; domain must not depend on features or app.
+
+### React conventions
+
+- Organize by feature ownership, not only by file type.
+- Keep fixture/configuration data separate from feature rendering.
+- Put reusable stateful behavior in custom hooks.
+- Test domain invariants as pure functions.
+- Isolate browser persistence behind a hook for later API replacement.
+- Avoid global state libraries until server-state and cache needs justify them.
+
+## Prototype boundaries
+
+Seeded mock data and browser local storage only. No real Git operations, remote CI, Agent Runtime sessions, review notifications, merge operations or backend persistence.

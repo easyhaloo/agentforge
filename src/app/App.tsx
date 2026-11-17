@@ -1,32 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ResourceWorkspace } from "./ResourceWorkspace";
-import { DeliveryFlow } from "./DeliveryFlow";
+import { ResourceWorkspace } from "../features/resources/ResourceWorkspace";
+import { DeliveryFlow } from "../features/delivery/DeliveryFlow";
 import { Activity, Archive, ArrowDownUp, ArrowRight, Bell, BookOpen, Boxes, BrainCircuit, CheckCircle2, ChevronDown, CircleDot, Clock3, Code2, Command, GitBranch, GitCommitHorizontal, GitPullRequest, LayoutDashboard, LockKeyhole, Plus, Search, Settings, ShieldCheck, Sparkles, Terminal, Workflow, X, Zap } from "lucide-react";
 
-const groups = [
-  { label: "WORKSPACE", items: [["Overview", LayoutDashboard], ["Projects", Boxes], ["Repositories", Code2], ["Changesets", GitCommitHorizontal], ["Workspaces", Terminal]] },
-  { label: "COORDINATION", items: [["Trails", Workflow], ["Stacks", GitBranch], ["Review", GitPullRequest], ["Eval", CheckCircle2], ["Self-healing", Activity]] },
-  { label: "INTELLIGENCE", items: [["Memory", BrainCircuit], ["CI / CD", Zap]] },
-  { label: "CONTROL PLANE", items: [["Security", ShieldCheck], ["Governance", LockKeyhole], ["Cost & Usage", ArrowDownUp], ["Settings", Settings]] }
-] as const;
-const descriptions: Record<string,string> = {
-  Overview:"A live map of changes, verification and delivery across your engineering system.",
-  Projects:"Organize repositories, teams and delivery boundaries.",
-  Repositories:"Git-compatible repositories backed by a canonical object graph.",
-  Changesets:"Reviewable, revisioned units of change — distinct from Git commits.",
-  Workspaces:"Isolated environments for agents and human contributors.",
-  Trails:"Cross-repository delivery goals with traceable evidence.",
-  Stacks:"Compose dependent changesets into a navigable change graph.",
-  Review:"Human decisions grounded in revision-specific evidence.",
-  Eval:"Evaluate changes against quality, policy and product expectations.",
-  "Self-healing":"Bounded repair loops that produce new revisions and re-run validation.",
-  Memory:"Reusable engineering knowledge linked to sessions, code and decisions.",
-  "CI / CD":"Pipelines, checks and release orchestration.",
-  Security:"Identity, secrets, supply-chain and runtime boundaries.",
-  Governance:"Policies, approvals and organization-wide controls.",
-  "Cost & Usage":"Understand agent, model and compute consumption.",
-  Settings:"Configure your organization and developer experience."
-};
+import { groups, descriptions } from "./navigation";
+
 const seedRows = [
   ["CS-2481","Refactor auth token lifecycle","web-platform","Ready for review","4m ago"],
   ["CS-2479","Add retry policy to webhook worker","event-service","Evaluating","18m ago"],
