@@ -10,6 +10,7 @@ import {
   Modal,
   Popover,
   Select,
+  Tabs,
 } from "./index";
 import { Checkbox, RadioGroup, Switch, TextArea } from "./form-controls";
 import { Alert, Empty, Loading, Skeleton, NotificationProvider } from "./feedback";
@@ -73,6 +74,23 @@ describe("shared UI primitives", () => {
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("More");
+  });
+
+  it("renders accessible shared tabs with roving tab stops", () => {
+    const html = renderToStaticMarkup(
+      <Tabs
+        id="settings"
+        value="members"
+        onChange={() => undefined}
+        ariaLabel="Settings"
+        items={[{ key: "members", label: "Members" }, { key: "invitations", label: "Invitations" }]}
+      />,
+    );
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('aria-label="Settings"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('aria-controls="settings-panel"');
+    expect(html).toContain('tabindex="-1"');
   });
 
   it("renders data tables with stable row keys and column headers", () => {
