@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-var ErrNotFound = errors.New("changeset not found")
+var (
+	ErrNotFound = errors.New("changeset not found")
+	ErrVersionConflict = errors.New("changeset version conflict")
+)
 
 type StoredChangeset struct {
 	Changeset *Changeset
