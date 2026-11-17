@@ -32,9 +32,9 @@ Status: **Completed**.
 
 Priority: P0
 Tracking: [Issue #5](https://github.com/easyhaloo/agentforge/issues/5) · [PR #19](https://github.com/easyhaloo/agentforge/pull/19)
-Status: **Integration validation** — implementation is on `phase-1-foundation-reconciled`; it is not merged to `main`.
+Status: **Foundation merged** in [PR #19](https://github.com/easyhaloo/agentforge/pull/19).
 
-Implemented in this integration branch:
+Implemented and merged:
 - Initialized the Go HTTP API with `/healthz`, `/readyz`, structured logs and graceful shutdown.
 - Added endpoint tests and the initial health/readiness OpenAPI contract.
 - Moved the React/Vite application into `apps/web` and introduced root npm workspace scripts.
@@ -43,9 +43,8 @@ Implemented in this integration branch:
 - Added path-aware CI for frontend tests/build and Worker dry-run, Go tests/build, and OpenAPI lint.
 
 Remaining:
-- Confirm all new CI jobs pass on this branch.
 - Generate and commit a reproducible npm lockfile.
-- Verify the Cloudflare Workers Builds integration against the actual production project settings; a Wrangler dry-run is not a production deployment.
+- Verify Cloudflare Workers Builds against the actual production project settings; Wrangler dry-run is not a production deployment.
 - Add local development environment examples and complete API configuration validation.
 
 Acceptance: frontend behavior is preserved; web, API and contract CI checks pass; Worker packaging is valid; no Pages deploy workflow, duplicate production deploy path or committed secrets.
