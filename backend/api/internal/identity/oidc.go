@@ -20,6 +20,7 @@ const (
 	oidcStateCookieName   = "__Host-agentforge_oidc_state"
 	oidcNonceCookieName   = "__Host-agentforge_oidc_nonce"
 	oidcPKCECookieName    = "__Host-agentforge_oidc_pkce"
+	invitationCookieName = "__Host-agentforge_invitation"
 	oidcTransactionTTL    = 10 * time.Minute
 )
 
@@ -39,6 +40,7 @@ type OIDCRepository interface {
 	HasActiveMembership(context.Context, string) (bool, error)
 	CreateSession(context.Context, string, string, string, time.Time) (string, error)
 	RevokeSession(context.Context, string) error
+	AcceptInvitation(context.Context, string, string, string) (string, error)
 }
 
 type OIDCAuthenticator struct {
@@ -72,6 +74,20 @@ func NewOIDCAuthenticator(ctx context.Context, configuration OIDCConfig, reposit
 		},
 		verifier: provider.Verifier(&oidc.Config{ClientID: configuration.ClientID}),
 	}, nil
+}
+
+func (a *OIDCAuthenticator) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if len(token) < 40 || len(token) > 128 {
+		writeAuthProblem(w, http.StatusBadRequest, "Invalid invitation link", "The invitation token is missing or malformed")
+		return
+	}
+	expiresAt := time.Now().UTC().Add(30 * time.Minute)
+	http.SetCookie(w, &http.Cookie{Name: invitationCookieName, Value: token, Path: "/", Expires: expiresAt,
+		MaxAge: 1800, Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	http.Redirect(w, r, "/auth/oidc/login", http.StatusSeeOther)
 }
 
 func (a *OIDCAuthenticator) Login(w http.ResponseWriter, r *http.Request) {
@@ -174,19 +190,35 @@ func (a *OIDCAuthenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		writeAuthProblem(w, http.StatusServiceUnavailable, "Identity persistence unavailable", "The verified identity could not be saved")
 		return
 	}
-	// A verified external identity is not, by itself, an AgentForge account
-	// authorization. Only provisioned active organization members may receive
-	// an application session; first-owner provisioning stays operator-controlled.
-	activeMembership, err := a.repository.HasActiveMembership(r.Context(), userID)
-	if err != nil {
-		clearOIDCCookies(w)
-		writeAuthProblem(w, http.StatusServiceUnavailable, "Membership lookup unavailable", "Organization access could not be verified")
-		return
-	}
-	if !activeMembership {
-		clearOIDCCookies(w)
-		writeAuthProblem(w, http.StatusForbidden, "Organization access required", "This identity is not an active member of an AgentForge organization. Ask an organization owner to provision access.")
-		return
+	// A pending invitation is accepted only against the email claim that the
+	// OIDC provider explicitly marked as verified. The token is single-use in
+	// PostgreSQL and is never accepted from an unverified profile.
+	invitationCookie, invitationErr := r.Cookie(invitationCookieName)
+	if invitationErr == nil && invitationCookie.Value != "" {
+		if !claims.EmailVerified || email == "" {
+			clearOIDCCookies(w)
+			writeAuthProblem(w, http.StatusForbidden, "Verified email required", "The identity provider must verify the invited email address")
+			return
+		}
+		if _, err := a.repository.AcceptInvitation(r.Context(), HashToken(invitationCookie.Value), email, userID); err != nil {
+			clearOIDCCookies(w)
+			writeAuthProblem(w, http.StatusForbidden, "Invitation unavailable", "The invitation is invalid, expired, revoked, already used, or addressed to a different verified email")
+			return
+		}
+	} else {
+		// A verified external identity is not, by itself, an AgentForge account
+		// authorization. First-owner provisioning stays operator-controlled.
+		activeMembership, err := a.repository.HasActiveMembership(r.Context(), userID)
+		if err != nil {
+			clearOIDCCookies(w)
+			writeAuthProblem(w, http.StatusServiceUnavailable, "Membership lookup unavailable", "Organization access could not be verified")
+			return
+		}
+		if !activeMembership {
+			clearOIDCCookies(w)
+			writeAuthProblem(w, http.StatusForbidden, "Organization access required", "This identity is not an active member of an AgentForge organization. Ask an organization owner to provision access.")
+			return
+		}
 	}
 
 	credentials, err := GenerateCredentials()
@@ -239,7 +271,7 @@ func setOIDCCookie(w http.ResponseWriter, name, value string, expiresAt time.Tim
 }
 
 func clearOIDCCookies(w http.ResponseWriter) {
-	for _, name := range []string{oidcStateCookieName, oidcNonceCookieName, oidcPKCECookieName} {
+	for _, name := range []string{oidcStateCookieName, oidcNonceCookieName, oidcPKCECookieName, invitationCookieName} {
 		http.SetCookie(w, &http.Cookie{
 			Name: name, Value: "", Path: "/", MaxAge: -1, Secure: true,
 			HttpOnly: true, SameSite: http.SameSiteLaxMode,
