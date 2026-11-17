@@ -654,6 +654,8 @@ func writeDeliveryError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err,delivery.ErrRevisionNotCurrent),errors.Is(err,delivery.ErrEvaluationRequired),errors.Is(err,delivery.ErrEvidenceRequired),errors.Is(err,delivery.ErrReviewRequired),errors.Is(err,delivery.ErrAlreadyMerged):
 		writeProblem(w,http.StatusConflict,"Delivery precondition failed",err.Error())
+	case errors.Is(err,delivery.ErrReviewAlreadyApproved):
+		writeProblem(w,http.StatusConflict,"Review already approved","The current revision already has an approved review. Add a new revision to request another review.")
 	case errors.Is(err,delivery.ErrReviewForbidden):
 		writeProblem(w,http.StatusForbidden,"Review decision forbidden",err.Error())
 	case errors.Is(err,delivery.ErrInvalidInput):
