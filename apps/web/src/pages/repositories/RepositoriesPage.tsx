@@ -10,7 +10,7 @@ import {
   type RepositoryPreviewEntry,
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
-import { Button, DataTable, Input } from "../../shared/ui";
+import { Button, DataTable, Input, Select } from "../../shared/ui";
 import { RepositoryReadme } from "./RepositoryReadme";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -210,7 +210,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     {selectedRepository && <section className="card" aria-label="Repository preview" style={{ marginTop: 16, padding: 16 }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div><h2 style={{ margin: 0 }}>Repository preview</h2><p style={{ margin: "4px 0 0" }}>{selectedRepository} · read-only, no clone required</p></div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>Ref <select aria-label="Repository branch or tag" value={selectedRef || defaultBranchName} onChange={event => { setSelectedRef(event.target.value); setPreviewCommit(""); setDirectory(""); setSelectedFile(null); setComparePatch(""); }}><optgroup label="Branches">{repositoryRefs.filter(ref => ref.kind === "branch").map(ref => <option key={ref.name} value={ref.name}>{ref.name}</option>)}</optgroup><optgroup label="Tags">{repositoryRefs.filter(ref => ref.kind === "tag").map(ref => <option key={ref.name} value={ref.name}>{ref.name}</option>)}</optgroup></select></label>
+        <Select label="Ref" aria-label="Repository branch or tag" controlSize="small" value={selectedRef || defaultBranchName} onChange={event => { setSelectedRef(event.target.value); setPreviewCommit(""); setDirectory(""); setSelectedFile(null); setComparePatch(""); }} options={[...repositoryRefs.filter(ref => ref.kind === "branch").map(ref => ({ value: ref.name, label: `Branch · ${ref.name}` })), ...repositoryRefs.filter(ref => ref.kind === "tag").map(ref => ({ value: ref.name, label: `Tag · ${ref.name}` }))]} />
         <Button className="button secondary" onClick={() => void copyPermalink()} disabled={!previewCommit}>Copy permalink</Button>
         <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> Close</Button>
       </header>
