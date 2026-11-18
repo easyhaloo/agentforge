@@ -5,7 +5,9 @@ import { Button, Select } from "../../shared/ui";
 
 import { ParameterField, parseValue, displayValue } from "./ParameterField";
 
-export function RunPanel({ org, pipeline, canStart }: { org: string; pipeline: Pipeline; canStart: boolean }) {
+import { MergeQueuePanel } from "./MergeQueuePanel";
+
+export function RunPanel({ org, pipeline, canStart, canPromote }: { org: string; pipeline: Pipeline; canStart: boolean; canPromote: boolean }) {
   const { t } = useTranslation("pipelines");
   const [versions, setVersions] = useState<Version[]>([]);
   const [number, setNumber] = useState(pipeline.version);
@@ -21,12 +23,15 @@ export function RunPanel({ org, pipeline, canStart }: { org: string; pipeline: P
     catch (e) { setError(e instanceof Error ? e.message : t("loadError")); }
     finally { setBusy(false); }
   }
+  function inputs() {
+      const inputs: Record<string, unknown> = Object.create(null);
+      for (const p of params) if (p.override && Object.hasOwn(values, p.name) && values[p.name] !== "") inputs[p.name] = parseValue(p.type, values[p.name]);
+      return inputs;
+  }
   async function start() {
     setBusy(true); setError("");
     try {
-      const inputs: Record<string, unknown> = Object.create(null);
-      for (const p of params) if (p.override && Object.hasOwn(values, p.name) && values[p.name] !== "") inputs[p.name] = parseValue(p.type, values[p.name]);
-      setRun(await pipelines.start(org, pipeline.id, number, inputs));
+      setRun(await pipelines.start(org, pipeline.id, number, inputs()));
     } catch (e) { setError(e instanceof Error ? e.message : t("startError")); }
     finally { setBusy(false); }
   }
@@ -41,6 +46,7 @@ export function RunPanel({ org, pipeline, canStart }: { org: string; pipeline: P
           value={Object.hasOwn(values, p.name) ? values[p.name] : displayValue(p.default)} change={value => setValues({ ...values, [p.name]: value })} />)}
         {canStart && <Button type="submit" variant="primary">{t("start")}</Button>}
       </fieldset></form>
+      <MergeQueuePanel org={org} pipeline={pipeline.id} version={number} canStart={canStart} canPromote={canPromote} inputs={inputs} />
     </>}
     {error && <p role="alert">{error}</p>}
     {run && <p role="status">{t("run", {id:run.id, version:run.version, status:t(run.status, run.status)})}</p>}

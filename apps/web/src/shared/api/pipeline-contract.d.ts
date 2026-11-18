@@ -4,6 +4,66 @@
  */
 
 export interface paths {
+    "/api/v1/organizations/{organizationID}/merge-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        /** List active entries in promotion order */
+        get: operations["listMergeQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                entry: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove an entry and invalidate its successors */
+        post: operations["cancelMergeQueueEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/merge-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admit one pinned source to the default branch queue */
+        post: operations["enqueueMergeCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/hooks/github/{hook}": {
         parameters: {
             query?: never;
@@ -270,9 +330,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        QueueEntry: {
+            id: number;
+            repository: string;
+            target: string;
+            source: string;
+            sourceSHA: string;
+            /** @enum {string} */
+            status: "queued" | "building" | "ready";
+            runId?: string;
+            candidateSHA?: string;
+        };
         Run: {
             id: string;
             integration?: components["schemas"]["MergePreview"] & {
+                queueEntry?: number;
                 repository: string;
                 /** @enum {string} */
                 strategy: "merge-commit" | "ff-only";
@@ -329,6 +401,20 @@ export interface components {
             status: number;
             detail?: string;
         };
+        PinnedRef: {
+            ref: string;
+            sha: string;
+        };
+        MergePreview: {
+            /** @enum {string} */
+            status: "clean" | "conflict" | "non_fast_forward";
+            target: components["schemas"]["PinnedRef"];
+            sources: components["schemas"]["PinnedRef"][];
+            candidateSHA?: string;
+            treeSHA?: string;
+            conflictAt?: number;
+            conflictPaths?: string[];
+        };
         "workflow.schema": {
             /** @constant */
             apiVersion: "agentforge.dev/v1";
@@ -356,20 +442,6 @@ export interface components {
                 }[];
             }[];
         };
-        PinnedRef: {
-            ref: string;
-            sha: string;
-        };
-        MergePreview: {
-            /** @enum {string} */
-            status: "clean" | "conflict" | "non_fast_forward";
-            target: components["schemas"]["PinnedRef"];
-            sources: components["schemas"]["PinnedRef"][];
-            candidateSHA?: string;
-            treeSHA?: string;
-            conflictAt?: number;
-            conflictPaths?: string[];
-        };
     };
     responses: {
         /** @description RFC 9457 problem response */
@@ -389,6 +461,107 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listMergeQueue: {
+        parameters: {
+            query: {
+                repository: string;
+                target: string;
+            };
+            header?: never;
+            path: {
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current train */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["QueueEntry"][];
+                    };
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    cancelMergeQueueEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                entry: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    enqueueMergeCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    repository: string;
+                    target: string;
+                    sources: string[];
+                    /** @constant */
+                    strategy?: "merge-commit";
+                    inputs?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Queue entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueEntry"];
+                };
+            };
+            /** @description Conflict or duplicate entry */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergePreview"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
     triggerPipelineWebhook: {
         parameters: {
             query?: never;

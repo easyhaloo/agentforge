@@ -90,3 +90,30 @@ test("a template opens in the editor and malformed dependencies leave the JSON i
   await expect(page.getByRole("alert")).toContainText("Fix the workflow JSON");
   await expect(editor).toHaveValue(invalid);
 });
+
+test("queue promotion is offered only for the ready head", async ({ page }) => {
+  await installApiMocks(page);
+  const definition = { apiVersion: "agentforge/v1", name: "checks", stages: [], parameters: [] };
+  const pipeline = { id: "checks", name: "checks", status: "published", version: 1, revision: 2, definition };
+  await page.route("**/api/v1/organizations/org-demo/pipelines**", route => {
+    const path = new URL(route.request().url()).pathname;
+    const json = path.endsWith("/versions") ? { items: [{ number: 1, checksum: "abc", definition }] }
+      : path.endsWith("/checks") ? pipeline : { items: [pipeline] };
+    return route.fulfill({ json });
+  });
+  const entries = ["first", "second"].map((source, i) => ({ id: i + 1, repository: "team/repo", target: "main", source, sourceSHA: String(i).repeat(40), status: "ready", runId: source, candidateSHA: String(i + 1).repeat(40) }));
+  await page.route("**/org-demo/merge-queue?*", route => route.fulfill({ json: { items: entries } }));
+  await page.route("**/pipeline-runs/first/promote", route => {
+    expect(route.request().postDataJSON()).toEqual({candidateSHA: entries[0].candidateSHA});
+    entries.splice(0); return route.fulfill({ json: { promotedSHA: "1".repeat(40) } });
+  });
+  await page.goto("/orgs/demo/pipelines");
+  await page.getByRole("combobox", { name: "Workflow", exact: true }).selectOption("checks");
+  await page.getByRole("button", { name: "View published versions" }).click();
+  await page.getByText("Merge queue", { exact: true }).click();
+  await page.getByLabel("Registered repository").fill("team/repo");
+  await page.getByRole("button", { name: "Refresh queue" }).click();
+  await expect(page.getByRole("button", { name: "Promote candidate" })).toHaveCount(1);
+  await page.getByRole("listitem").filter({ hasText: "first" }).getByRole("button", { name: "Promote candidate" }).click();
+  await expect(page.getByText("The queue is empty.")).toBeVisible();
+});

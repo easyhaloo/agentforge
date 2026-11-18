@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 )
@@ -57,6 +58,11 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 		} else if !decodeJSON(w, r, &input) {
 			return
 		}
+		queueRequest := strings.HasSuffix(r.Pattern, "/merge-queue")
+		if queueRequest && (len(input.Sources) != 1 || (input.Strategy != "" && input.Strategy != "merge-commit")) {
+			writeQueueError(w, execution.ErrInputs)
+			return
+		}
 		repos, err := d.Catalog.ListRepositories(r.Context(), user.OrganizationID)
 		if err != nil {
 			writeProblem(w, 503, "Catalog unavailable", "Could not read registered repositories")
@@ -90,6 +96,20 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 		result, err := simulate(r.Context(), user.OrganizationID, input.Repository, input.MergeRequest)
 		switch {
 		case err == nil && version != 0 && result.Status == "clean":
+			if queueRequest {
+				queue, ok := d.Runs.(execution.QueueStore)
+				if !ok {
+					writeProblem(w, 503, "Queue unavailable", "Durable storage is required")
+					return
+				}
+				entry, err := queue.Enqueue(r.Context(), user.OrganizationID, r.PathValue("id"), version, user.UserID, inputs, execution.Integration{Repository: input.Repository, Strategy: input.Strategy, MergePreview: result})
+				if err != nil {
+					writeQueueError(w, err)
+					return
+				}
+				writeJSON(w, 201, entry)
+				return
+			}
 			run, runErr := d.Runs.CreateIntegrationRun(r.Context(), user.OrganizationID, r.PathValue("id"), version, user.UserID, inputs, execution.Integration{Repository: input.Repository, Strategy: input.Strategy, MergePreview: result})
 			switch {
 			case runErr == nil:
@@ -115,6 +135,9 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 			writeProblem(w, 503, "Git preview unavailable", "Check the repository, Git version and execution limits")
 		}
 	}
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/merge-queue", handler)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/merge-queue", d.queueRequest)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel", d.queueRequest)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/pipeline-runs/{run}/promote", d.promoteIntegration)
 	mux.HandleFunc("POST "+base, handler)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/integration-runs", handler)
@@ -159,4 +182,56 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 	default:
 		writeProblem(w, 503, "Promotion unavailable", "Could not complete the promotion")
 	}
+}
+
+func writeQueueError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, execution.ErrTriggerDenied):
+		writeProblem(w, 403, "Queue admission denied", "An active organization membership is required")
+	case errors.Is(err, pipeline.ErrMissing):
+		writeProblem(w, 404, "Entry unavailable", "Check the queue entry or published workflow version")
+	case errors.Is(err, pipeline.ErrConflict):
+		writeProblem(w, 409, "Queue changed", "Reload the queue before retrying")
+	case errors.Is(err, execution.ErrInputs):
+		writeProblem(w, 422, "Invalid entry", "Provide one source, the registered default branch and valid workflow inputs")
+	case errors.Is(err, execution.ErrQuota):
+		writeProblem(w, 429, "Queue capacity reached", "Wait for an entry to leave the queue")
+	default:
+		writeProblem(w, 503, "Queue unavailable", "Queue storage could not complete the request")
+	}
+}
+func (d DeliveryDependencies) queueRequest(w http.ResponseWriter, r *http.Request) {
+	user, ok := d.principal(w, r, r.Method == http.MethodPost)
+	if !ok {
+		return
+	}
+	queue, ok := d.Runs.(execution.QueueStore)
+	if !ok {
+		writeProblem(w, 503, "Queue unavailable", "Durable storage is required")
+		return
+	}
+	if r.Method == http.MethodGet {
+		repo, target := r.URL.Query().Get("repository"), r.URL.Query().Get("target")
+		if repo == "" || target == "" {
+			writeProblem(w, 400, "Repository and target required", "Choose a repository and target branch")
+			return
+		}
+		entries, err := queue.ListQueue(r.Context(), user.OrganizationID, repo, target)
+		if err != nil {
+			writeQueueError(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"items": entries})
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("entry"), 10, 64)
+	if err != nil || id < 1 {
+		writeProblem(w, 400, "Invalid entry", "Provide a numeric entry ID")
+		return
+	}
+	if err = queue.CancelQueueEntry(r.Context(), user.OrganizationID, id, user.UserID); err != nil {
+		writeQueueError(w, err)
+		return
+	}
+	w.WriteHeader(204)
 }

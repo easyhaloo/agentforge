@@ -95,7 +95,7 @@ export function PipelinesPage({ organization }: { organization: OrganizationSumm
         confirm({ title: t("confirmArchive", {name:selected.name}), run: () => void apply(() => pipelines.transition(org, selected, "archive")) });
       }}>{t("archive")}</Button>}
     </div>
-    {selected && selected.version > 0 && <RunPanel key={`${selected.id}:${selected.version}`} org={org} pipeline={selected} canStart={canEdit} />}
+    {selected && selected.version > 0 && <RunPanel key={`${selected.id}:${selected.version}`} org={org} pipeline={selected} canStart={canEdit} canPromote={canPublish} />}
     <ConfirmDialog open={Boolean(confirmation)} title={confirmation?.title} description={dirty ? t("editsLost") : t("versionsRemain")}
       onCancel={() => confirm(null)} onConfirm={() => { confirmation?.run(); confirm(null); }} />
   </section>;
