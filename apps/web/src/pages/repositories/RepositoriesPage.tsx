@@ -5,7 +5,8 @@ import {
   repositoryPreviewAPI,
   type OrganizationSummary,
   type RepositoryMetadata,
-  type RepositoryCommit,\n  type RepositoryPreviewBlob,
+  type RepositoryCommit,
+  type RepositoryPreviewBlob,
   type RepositoryPreviewEntry,
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
