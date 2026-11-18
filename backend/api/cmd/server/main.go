@@ -39,12 +39,12 @@ func main() {
 	var principalResolver identity.PrincipalResolver
 	if configuration.OIDC != nil {
 		authenticator, authErr := identity.NewOIDCAuthenticator(ctx, identity.OIDCConfig{
-			IssuerURL: configuration.OIDC.IssuerURL,
-			ClientID: configuration.OIDC.ClientID,
+			IssuerURL:    configuration.OIDC.IssuerURL,
+			ClientID:     configuration.OIDC.ClientID,
 			ClientSecret: configuration.OIDC.ClientSecret,
-			RedirectURL: configuration.OIDC.RedirectURL,
-			SessionTTL: configuration.SessionTTL,
-			AppOrigin: configuration.AppOrigin,
+			RedirectURL:  configuration.OIDC.RedirectURL,
+			SessionTTL:   configuration.SessionTTL,
+			AppOrigin:    configuration.AppOrigin,
 		}, store)
 		if authErr != nil {
 			logger.Error("OIDC provider initialization failed; protected routes remain unavailable", "error", authErr)
@@ -53,7 +53,6 @@ func main() {
 			principalResolver = store
 		}
 	}
-
 
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -71,40 +70,59 @@ func main() {
 	}()
 
 	var gitProvider delivery.GitProvider
+	var integrationGit delivery.IntegrationGitProvider
 	var evaluator delivery.Evaluator
 	var evidenceStore delivery.EvidenceStore
 	if configuration.GitRepositoryRoot != "" {
 		provider, providerErr := delivery.NewLocalGitProvider(configuration.GitRepositoryRoot, 2*time.Minute)
-		if providerErr != nil { logger.Error("Git provider initialization failed; revision and merge operations remain unavailable", "error", providerErr) } else {
+		if providerErr != nil {
+			logger.Error("Git provider initialization failed; revision and merge operations remain unavailable", "error", providerErr)
+		} else {
 			gitProvider = provider
-			go func() {
-				ticker := time.NewTicker(time.Second)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-ctx.Done():
-						return
-					case <-ticker.C:
-						if err := store.AdvanceQueue(ctx, provider); err != nil && ctx.Err() == nil {
-							logger.Error("merge queue reconciliation failed", "error", err)
-						}
+			integrationGit = provider
+			evaluator = delivery.GitDiffEvaluator{Git: provider}
+			if configuration.EvaluationDockerImage != "" {
+				evaluator = delivery.DockerEvaluator{Git: provider, Image: configuration.EvaluationDockerImage, Command: configuration.EvaluationCommand, Timeout: 10 * time.Minute}
+			}
+		}
+	}
+	if bindingsFile := os.Getenv("GIT_REMOTE_BINDINGS_FILE"); bindingsFile != "" {
+		integrationGit, err = delivery.LoadIntegrationGit(bindingsFile, configuration.GitRepositoryRoot, 2*time.Minute)
+		if err != nil {
+			logger.Error("invalid remote integration Git bindings", "error", err)
+			os.Exit(1)
+		}
+	}
+	if integrationGit != nil {
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := store.AdvanceQueue(ctx, integrationGit); err != nil && ctx.Err() == nil {
+						logger.Error("merge queue reconciliation failed", "error", err)
 					}
 				}
-			}()
-			evaluator = delivery.GitDiffEvaluator{Git: provider}
-			if configuration.EvaluationDockerImage != "" { evaluator = delivery.DockerEvaluator{Git: provider, Image: configuration.EvaluationDockerImage, Command: configuration.EvaluationCommand, Timeout: 10*time.Minute} }
-		}
+			}
+		}()
 	}
 	if configuration.EvidenceRoot != "" {
 		evidence, evidenceErr := delivery.NewLocalEvidenceStore(configuration.EvidenceRoot)
-		if evidenceErr != nil { logger.Error("evidence storage initialization failed; evidence and merge operations remain unavailable", "error", evidenceErr) } else { evidenceStore = evidence }
+		if evidenceErr != nil {
+			logger.Error("evidence storage initialization failed; evidence and merge operations remain unavailable", "error", evidenceErr)
+		} else {
+			evidenceStore = evidence
+		}
 	}
 
 	server := &http.Server{
-		Addr:              ":" + configuration.Port,
-		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+		Addr: ":" + configuration.Port,
+		Handler: httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 			Repository: store, Identity: principalResolver, CSRF: store, Membership: store, Account: store,
-			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store,
+			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, IntegrationGit: integrationGit, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

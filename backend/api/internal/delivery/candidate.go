@@ -67,6 +67,34 @@ func (p *LocalGitProvider) CandidateCommits(ctx context.Context, org, repository
 
 var promotionID = regexp.MustCompile(`^[a-z0-9-]{1,64}$`)
 
+func promotionRef(runID string) string { return "refs/agentforge/promotions/" + runID }
+
+// HasPromotion distinguishes a missing receipt from an unreadable or mismatched one.
+func (p *LocalGitProvider) HasPromotion(ctx context.Context, org, repository, runID, sha string) (bool, error) {
+	if !promotionID.MatchString(runID) || !objectID.MatchString(sha) {
+		return false, ErrRepositoryInvalid
+	}
+	path, err := p.repositoryPath(ctx, org, repository)
+	if err != nil {
+		return false, err
+	}
+	ref := promotionRef(runID)
+	// Verify absence using the same ref backend as promotion. This works on Git
+	// 2.38, including packed refs, and fails closed on a broken or unreadable ref.
+	verifyAbsent := fmt.Sprintf("verify %s %s\n", ref, strings.Repeat("0", len(sha)))
+	if _, err := previewGitInput(ctx, path, strings.NewReader(verifyAbsent), "update-ref", "--no-deref", "--stdin"); err == nil {
+		return false, nil
+	}
+	out, err := previewGit(ctx, path, "show-ref", "--verify", "--hash", ref)
+	if err != nil {
+		return false, ErrProviderUnavailable
+	}
+	if strings.TrimSpace(string(out)) != sha {
+		return false, ErrRepositoryInvalid
+	}
+	return true, nil
+}
+
 // PromoteCandidate advances an operator-managed bare target using Git's atomic old-OID check.
 func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository, runID string, preview MergePreview) error {
 	base, sha, branch := preview.Target.SHA, preview.CandidateSHA, "refs/heads/"+preview.Target.Ref
@@ -91,7 +119,7 @@ func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository
 	if _, err := previewGit(ctx, path, "merge-base", "--is-ancestor", base, sha); err != nil {
 		return ErrRepositoryInvalid
 	}
-	receipt := "refs/agentforge/promotions/" + runID
+	receipt := promotionRef(runID)
 	transaction := fmt.Sprintf("start\nupdate %s %s %s\ncreate %s %s\nprepare\ncommit\n", branch, sha, base, receipt, sha)
 	if _, err := previewGitInput(ctx, path, strings.NewReader(transaction), "update-ref", "--no-deref", "--stdin"); err != nil {
 		// Both refs committed or neither did, including when the process lost its reply.

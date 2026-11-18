@@ -17,6 +17,20 @@ import (
 func (s *Store) PromoteIntegration(ctx context.Context, org, id, actor, sha string, git execution.PromotionProvider) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	receipts, ok := git.(execution.PromotionReceipts)
+	if !ok {
+		return delivery.ErrProviderUnavailable
+	}
+	err := s.promoteIntegration(ctx, org, id, actor, sha, git, receipts, true)
+	if errors.Is(err, errPromotionIntentRecorded) {
+		return s.promoteIntegration(ctx, org, id, actor, sha, git, receipts, false)
+	}
+	return err
+}
+
+var errPromotionIntentRecorded = errors.New("promotion intent recorded")
+
+func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha string, git execution.PromotionProvider, receipts execution.PromotionReceipts, canRecordIntent bool) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -45,14 +59,45 @@ func (s *Store) PromoteIntegration(ctx context.Context, org, id, actor, sha stri
 	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM integration_promotions WHERE run_id=$1)`, id).Scan(&promoted); err != nil || promoted {
 		return err
 	}
+	recorded, err := receipts.HasPromotion(ctx, org, candidate.Repository, id, sha)
+	if err != nil {
+		return err
+	}
 	var first int64
 	var currentRun string
 	err = tx.QueryRow(ctx, `SELECT id,coalesce(run_id::text,'') FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND `+activeQueue+` ORDER BY id LIMIT 1`, org, candidate.Repository, candidate.Target.Ref).Scan(&first, &currentRun)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if first != candidate.QueueEntry || (first != 0 && currentRun != id) {
+	if (!recorded || candidate.QueueEntry != 0) && (first != candidate.QueueEntry || (first != 0 && currentRun != id)) {
 		return pipeline.ErrConflict
+	}
+	// The intent survives a failed final COMMIT. Only its owner may perform the Git
+	// update, and the target lock prevents replacing the intent once a receipt exists.
+	var intentActor string
+	err = tx.QueryRow(ctx, `SELECT actor FROM pipeline_run_events WHERE run_id=$1 AND kind='promotion_requested' ORDER BY seq DESC LIMIT 1`, id).Scan(&intentActor)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if recorded {
+		if intentActor == "" {
+			return pipeline.ErrConflict
+		}
+		if err := runEvent(ctx, tx, id, "promotion_reconciled", "", actor); err != nil {
+			return err
+		}
+		actor = intentActor
+	} else if intentActor != actor {
+		if !canRecordIntent {
+			return pipeline.ErrConflict
+		}
+		if err := runEvent(ctx, tx, id, "promotion_requested", "", actor); err != nil {
+			return err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		return errPromotionIntentRecorded
 	}
 	commits, err := git.CandidateCommits(ctx, org, candidate.Repository, candidate.MergePreview)
 	if err != nil {
@@ -98,8 +143,10 @@ func (s *Store) PromoteIntegration(ctx context.Context, org, id, actor, sha stri
 			return err
 		}
 	}
-	if err = git.PromoteCandidate(ctx, org, candidate.Repository, id, candidate.MergePreview); err != nil {
-		return err
+	if !recorded {
+		if err = git.PromoteCandidate(ctx, org, candidate.Repository, id, candidate.MergePreview); err != nil {
+			return err
+		}
 	}
 	return tx.Commit(ctx)
 }

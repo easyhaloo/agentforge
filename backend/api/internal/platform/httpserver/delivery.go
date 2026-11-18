@@ -50,6 +50,7 @@ type DeliveryDependencies struct {
 	Membership    MembershipRepository
 	Account       AccountRepository
 	Git delivery.GitProvider
+	IntegrationGit delivery.IntegrationGitProvider
 	Evaluator delivery.Evaluator
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer

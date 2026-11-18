@@ -44,9 +44,14 @@ func previewGit(ctx context.Context, dir string, args ...string) ([]byte, error)
 	return previewGitInput(ctx, dir, nil, args...)
 }
 func previewGitInput(ctx context.Context, dir string, stdin io.Reader, args ...string) ([]byte, error) {
+	return isolatedGit(ctx, dir, stdin, nil, args...)
+}
+
+func isolatedGit(ctx context.Context, dir string, stdin io.Reader, env []string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir, "-c", "core.hooksPath=/dev/null", "-c", "protocol.allow=never"}, args...)...)
 	cmd.Stdin = stdin
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "LC_ALL=C", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1", "GIT_ATTR_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_AUTHOR_NAME=AgentForge", "GIT_COMMITTER_NAME=AgentForge", "GIT_AUTHOR_EMAIL=ci@agentforge.invalid", "GIT_COMMITTER_EMAIL=ci@agentforge.invalid", "GIT_AUTHOR_DATE=2000-01-01T00:00:00Z", "GIT_COMMITTER_DATE=2000-01-01T00:00:00Z"}
+	cmd.Env = append(cmd.Env, env...)
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -106,6 +111,25 @@ func (p *LocalGitProvider) merge(ctx context.Context, org, repository string, in
 	if _, err = previewGit(ctx, temp, "-c", "protocol.file.allow=always", "clone", "--bare", "--local", "--shared", "--no-tags", "--template=", "--", path, "."); err != nil {
 		return result, ErrPreviewUnavailable
 	}
+	result, err = simulateMerge(ctx, temp, input)
+	if err != nil || result.Status != "clean" {
+		return result, err
+	}
+	if retain {
+		ref := candidateRef(result.CandidateSHA)
+		if _, err := previewGit(ctx, temp, "update-ref", ref, result.CandidateSHA); err != nil {
+			return result, ErrPreviewUnavailable
+		}
+		if _, err := previewGit(ctx, path, "-c", "protocol.file.allow=always", "fetch", "--no-tags", "--no-write-fetch-head", "--no-auto-maintenance", "--", temp, ref+":"+ref); err != nil {
+			return result, ErrPreviewUnavailable
+		}
+	}
+	return result, nil
+}
+
+func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergePreview, error) {
+	var result MergePreview
+	var err error
 	pin := func(ref string) (PinnedRef, error) {
 		if ref == "" || len(ref) > 255 {
 			return PinnedRef{}, ErrRepositoryInvalid
@@ -196,15 +220,6 @@ func (p *LocalGitProvider) merge(ctx context.Context, org, repository string, in
 			return result, ErrPreviewUnavailable
 		}
 		result.TreeSHA = tree
-	}
-	if retain {
-		ref := candidateRef(current)
-		if _, err := previewGit(ctx, temp, "update-ref", ref, current); err != nil {
-			return result, ErrPreviewUnavailable
-		}
-		if _, err := previewGit(ctx, path, "-c", "protocol.file.allow=always", "fetch", "--no-tags", "--no-write-fetch-head", "--no-auto-maintenance", "--", temp, ref+":"+ref); err != nil {
-			return result, ErrPreviewUnavailable
-		}
 	}
 	result.Status = "clean"
 	result.CandidateSHA = current
