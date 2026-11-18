@@ -12,7 +12,8 @@ function collectPageComponents(directory: string): string[] {
       if (relative(sourceRoot, path).split(sep)[0] === "shared") return [];
       return collectPageComponents(path);
     }
-    return path.endsWith(".tsx") ? [path] : [];
+    // Exclude test files - they use native elements in mocks
+    return path.endsWith(".tsx") && !path.endsWith(".test.tsx") ? [path] : [];
   });
 }
 

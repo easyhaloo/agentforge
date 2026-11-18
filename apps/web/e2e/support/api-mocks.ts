@@ -69,6 +69,82 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
   ];
   let created = 0;
 
+  // Track authentication state dynamically - changes after login/register
+  let isAuthenticated = !signedOut;
+  let currentUser = isAuthenticated
+    ? { user_id: "user-owner", display_name: "Taylor Owner", email: "owner@example.test", organizations }
+    : null;
+
+  // Mock /auth/* endpoints (local auth)
+  await page.route("**/auth/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const method = request.method();
+
+    // Helper to return JSON responses
+    const json = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+
+    // POST /auth/local/login
+    if (path === "/auth/local/login" && method === "POST") {
+      const body = request.postDataJSON() as { email: string; password: string };
+
+      // Success scenario
+      if (body.email === "test@example.com" && body.password === "password123") {
+        const user = {
+          user_id: "user-test-123",
+          email: body.email,
+          display_name: "Test User"
+        };
+        // Update authentication state after successful login
+        isAuthenticated = true;
+        currentUser = { ...user, organizations };
+        return json(user, 200);
+      }
+
+      // Failure scenario - invalid credentials
+      return json({
+        type: "about:blank",
+        title: "Unauthorized",
+        status: 401,
+        detail: "Invalid email or password"
+      }, 401);
+    }
+
+    // POST /auth/local/register
+    if (path === "/auth/local/register" && method === "POST") {
+      const body = request.postDataJSON() as {
+        email: string;
+        password: string;
+        display_name: string
+      };
+
+      // Email already exists scenario
+      if (body.email === "existing@example.com") {
+        return json({
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "This email is already registered"
+        }, 409);
+      }
+
+      // Success registration scenario
+      const user = {
+        user_id: "user-new-" + Date.now(),
+        email: body.email,
+        display_name: body.display_name
+      };
+      // Update authentication state after successful registration
+      isAuthenticated = true;
+      currentUser = { ...user, organizations };
+      return json(user, 201);
+    }
+
+    return json({ title: "Unexpected test API request", detail: method + " " + path }, 404);
+  });
+
+  // Mock /api/v1/* endpoints
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -78,8 +154,8 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       status, contentType: "application/json", body: JSON.stringify(body),
     });
     if (path === "/api/v1/me" && method === "GET") {
-      if (signedOut) return json({ title: "Unauthorized", detail: "Authentication required" }, 401);
-      return json({ user_id: "user-owner", display_name: "Taylor Owner", email: "owner@example.test", organizations });
+      if (!isAuthenticated || !currentUser) return json({ title: "Unauthorized", detail: "Authentication required" }, 401);
+      return json(currentUser);
     }
     if (path === "/api/v1/auth/logout" && method === "POST") {
       return route.fulfill({ status: 204 });
@@ -200,6 +276,58 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       const item = storedChangeset(`CS-E2E-NEW-${created}`, body.title, body.repository);
       changesets = [item, ...changesets];
       return json(item, 201);
+    }
+    if (path === "/api/v1/auth/local/login" && method === "POST") {
+      const body = request.postDataJSON() as { email: string; password: string };
+
+      // Success scenario
+      if (body.email === "test@example.com" && body.password === "password123") {
+        const user = {
+          user_id: "user-test",
+          email: "test@example.com",
+          display_name: "Test User"
+        };
+        // Update authentication state after successful login
+        isAuthenticated = true;
+        currentUser = { ...user, organizations };
+        return json(user, 200);
+      }
+
+      // Failure scenario
+      return json({
+        type: "about:blank",
+        title: "Unauthorized",
+        status: 401,
+        detail: "Invalid email or password"
+      }, 401);
+    }
+    if (path === "/api/v1/auth/local/register" && method === "POST") {
+      const body = request.postDataJSON() as {
+        email: string;
+        password: string;
+        display_name: string
+      };
+
+      // Email already exists scenario
+      if (body.email === "existing@example.com") {
+        return json({
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "This email is already registered"
+        }, 409);
+      }
+
+      // Success registration scenario
+      const user = {
+        user_id: "user-new-" + Date.now(),
+        email: body.email,
+        display_name: body.display_name
+      };
+      // Update authentication state after successful registration
+      isAuthenticated = true;
+      currentUser = { ...user, organizations };
+      return json(user, 201);
     }
     return json({ title: "Unexpected test API request", detail: method + " " + path }, 404);
   });

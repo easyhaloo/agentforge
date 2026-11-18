@@ -25,4 +25,8 @@ export default defineConfig({
       "/auth": { target: apiProxyTarget },
     },
   },
+  test: {
+    environment: "happy-dom",
+    globals: true,
+  },
 });

@@ -52,8 +52,24 @@ export const organizationAPI = {
   audit: (organizationID: string) => request<Page<MembershipAuditEvent>>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/membership-audit?limit=100&offset=0`),
 };
 
+export type LocalLoginResponse = {
+  user_id: string;
+  email: string;
+  display_name: string;
+};
+
+export type RegisterResponse = {
+  user_id: string;
+  email: string;
+  display_name: string;
+};
+
 export const authAPI = {
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
+  localLogin: (email: string, password: string) =>
+    request<LocalLoginResponse>("/auth/local/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  registerUser: (email: string, password: string, display_name: string) =>
+    request<RegisterResponse>("/auth/local/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }),
 };
 
 /** The server owns the changeset lifecycle status (ADR-003); the browser only displays it. */
