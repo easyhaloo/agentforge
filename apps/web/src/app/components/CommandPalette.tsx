@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { ArrowRight, CircleDot, Search } from "lucide-react";
-import { groups } from "../navigation";
+import { itemHref, navigationItems, type NavigationItem } from "../navigation";
+import { useAppAccount } from "../account-context";
+import { useNavigateTo } from "../useNavigateTo";
+import { CURRENT_ORGANIZATION_HANDLE, organizationHandle } from "../../shared/routing";
 import { Button, Input, Modal } from "../../shared/ui";
 
-type Props = { open: boolean; onClose: () => void; onNavigate: (page: string) => void };
+type Props = { open: boolean; onClose: () => void };
 
-export function CommandPalette({ open, onClose, onNavigate }: Props) {
+export function CommandPalette({ open, onClose }: Props) {
   const [query, setQuery] = useState("");
-  const pages = groups
-    .flatMap((group) => group.items.map(([name]) => String(name)))
-    .filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
+  const navigateTo = useNavigateTo();
+  const { selectedOrganization } = useAppAccount();
+  const handle = selectedOrganization ? organizationHandle(selectedOrganization) : CURRENT_ORGANIZATION_HANDLE;
+  const pages = navigationItems.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));
 
-  const navigate = (page: string) => {
-    onNavigate(page);
+  const navigate = (item: NavigationItem) => {
+    navigateTo(itemHref(item, handle));
     setQuery("");
     onClose();
   };
@@ -39,13 +43,13 @@ export function CommandPalette({ open, onClose, onNavigate }: Props) {
         <div className="command-palette__results" role="list" aria-label="Matching pages">
           {pages.length ? pages.map((page) => (
             <Button
-              key={page}
+              key={page.label}
               variant="ghost"
               className="command-palette__item"
               onClick={() => navigate(page)}
             >
               <CircleDot size={15} aria-hidden="true" />
-              <span>{page}</span>
+              <span>{page.label}</span>
               <ArrowRight size={14} aria-hidden="true" />
             </Button>
           )) : <p className="command-palette__empty" role="status">No matching pages</p>}

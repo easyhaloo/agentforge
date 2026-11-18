@@ -7,12 +7,11 @@ import { RecentChangesets } from "./RecentChangesets";
 import { SelectedChangesetPanel } from "./SelectedChangesetPanel";
 
 type Props = {
-  onNavigate: (page: string) => void;
   onNotify: (message: string) => void;
   created: CreatedChangeset[];
 };
 
-export function OverviewPage({ onNavigate, onNotify, created }: Props) {
+export function OverviewPage({ onNotify, created }: Props) {
   const [selectedId, setSelectedId] = useState("CS-2481");
 
   return (
@@ -20,11 +19,10 @@ export function OverviewPage({ onNavigate, onNotify, created }: Props) {
       <OverviewMetrics />
       <div className="dashboard-grid">
         <ChangeVelocityChart />
-        <ActivityFeed onNavigate={onNavigate} />
+        <ActivityFeed />
       </div>
       <RecentChangesets
         created={created}
-        onNavigate={onNavigate}
         onNotify={onNotify}
         onSelect={setSelectedId}
         selectedId={selectedId}

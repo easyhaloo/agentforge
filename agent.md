@@ -31,7 +31,14 @@ Use the existing stack unless a task explicitly approves a migration:
 - TypeScript 5 with strict mode
 - Vite 6
 - Vitest 3
-- React Router is installed; do not introduce routing changes unless required by the task.
+- React Router (`react-router-dom`, data router) owns navigation state; it lives in the URL, not in `useState`. Routing rules (decided in ADR-008):
+  - `app/routes.tsx` is the single route table and the only place that declares routes (`main.tsx` mounts it with `createBrowserRouter`). Changing a URL or adding a page means updating `app/routes.tsx`, `app/navigation.ts`, the route tests and ADR-008 together.
+  - Pages backed by the real API are organization-scoped: `/orgs/:org/changesets`, `/orgs/:org/trails`, `/orgs/:org/review`, `/orgs/:org/eval` and `/orgs/:org/settings` (Organization). `:org` is an organization handle: its `slug`, or its `id` (an exact `id` match wins; slugs match case-insensitively). The literal handle `current` is a client-side alias for the selected organization; once the account is known it is replaced (history `replace`) by that organization's own handle, keeping query and hash.
+  - Mock and fixture pages stay flat so they remain browsable without a session: `/` (Overview), `/projects`, `/repositories`, `/workspaces`, `/stacks`, `/self-healing`, `/memory`, `/pipelines`, `/security`, `/governance`, `/usage`, `/settings` and `/dev/ui`. Move a page under `/orgs/:org` only when a real backend capability replaces its mock data. Any other path renders the not-found state inside the shell.
+  - `/api/*` and `/auth/*` are backend paths on the same origin and are never client routes. The SSO entry stays a plain `<a href="/auth/oidc/login">` (full-page navigation).
+  - Pages must not import `app`: they build links only through `shared/routing` (`orgPath`, `flatPaths`, `CURRENT_ORGANIZATION_HANDLE`) instead of hard-coding path strings. The sidebar and command palette are built from `app/navigation.ts`. The page title, eyebrow and breadcrumb come from the matched route's `handle.label` in `app/routes.tsx` (read with `useMatches()`); only the page description comes from `navigation.ts`. `app/routes.test.ts` enforces that every navigation item has its own route whose `handle.label` equals the item's label.
+  - Sidebar items are `NavLink`s with `end`, so an unknown path below a page (`/projects/extra`) highlights nothing; drop `end` for an item only when its section gets nested routes. The router serves `/projects/` like `/projects` and matches static segments case-insensitively, so the app removes a trailing slash and writes `/orgs/` in lowercase when it rewrites a handle.
+  - Pages sit under the layout route that carries the `errorElement` (the root route has its own fallback), so a page that throws replaces only the page area and the shell stays. Error messages and stacks are logged to the console and never rendered to users; `app/routes.test.ts` checks that every navigation page and the not-found route are under such a boundary.
 - Lucide React for icons
 - Recharts for charts where appropriate
 
@@ -85,6 +92,7 @@ Current implemented structure:
     src/
       app/                         Application shell, navigation and composition
         components/                Shell-owned UI components
+        routes.tsx                 The route table: the only place that declares routes
       pages/
         overview/                  Overview page, page sections, view model and fixtures
         resources/                 Resource workspace page composition, page config and sections
@@ -106,6 +114,7 @@ Current implemented structure:
         delivery/                  Framework-independent delivery invariants and tests
       shared/
         hooks/                     Reusable React hooks and persistence
+        routing/                   Pure URL path builders and organization-handle resolution
       styles/                      Global tokens, resets and application styling
       main.tsx                     React bootstrap
 

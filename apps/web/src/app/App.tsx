@@ -1,23 +1,26 @@
 import { useEffect, useState } from "react";
-import { DeliveryFlow } from "../features/delivery";
-import { ResourceWorkspacePage } from "../pages/resources";
-import { OverviewPage } from "../pages/overview";
+import { Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
+import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
+import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
-import { UIShowcasePage } from "../pages/ui-showcase";
-import { Button, useNotification } from "../shared/ui";
-import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
-import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
-import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
+import { navigationItemFor, routeLabel } from "./navigation";
+import { useNavigateTo } from "./useNavigateTo";
+import { useNotify } from "./useNotify";
 
+/** Root layout: loads the account once and renders the shell around the page the URL selects. */
 function App() {
-  const [active, setActive] = useState("Overview");
   const [commandOpen, setCommandOpen] = useState(false);
-  const { notify: showNotification } = useNotification();
+  const notify = useNotify();
+  const navigateTo = useNavigateTo();
+  const { pathname, search, hash } = useLocation();
+  const { org: urlHandle } = useParams();
+  const matches = useMatches();
   const [account, setAccount] = useState<AccountContext | null>(null);
-  const [accountState, setAccountState] = useState<"loading" | "ready" | "signed-out" | "unavailable">("loading");
+  const [accountState, setAccountState] = useState<AccountState>("loading");
   const [accountError, setAccountError] = useState("");
   const [selectedOrganizationID, setSelectedOrganizationID] = useState("");
 
@@ -38,22 +41,33 @@ function App() {
 
   useEffect(() => { void loadAccount(); }, []);
 
+  // Inside /orgs/:org the URL decides which organization is selected; elsewhere the last selection does.
+  const urlOrganization = urlHandle && account ? findOrganizationByHandle(account.organizations, urlHandle) : undefined;
+  const selectedOrganization = urlOrganization ?? account?.organizations.find((item) => item.id === selectedOrganizationID);
+  // Visiting an organization's URL also selects it, so the choice survives leaving /orgs/:org.
+  const urlOrganizationID = urlOrganization?.id;
+  useEffect(() => { if (urlOrganizationID) setSelectedOrganizationID(urlOrganizationID); }, [urlOrganizationID]);
+  // Links keep the handle form the visitor used (id or slug), so the open page's sidebar item stays current.
+  const linkHandle = (urlOrganization && urlHandle) || (selectedOrganization ? organizationHandle(selectedOrganization) : CURRENT_ORGANIZATION_HANDLE);
+
+  const selectOrganization = (organizationID: string) => {
+    setSelectedOrganizationID(organizationID);
+    const next = account?.organizations.find((item) => item.id === organizationID);
+    if (next && urlHandle) navigateTo(withOrganizationHandle(pathname, organizationHandle(next)));
+  };
+
   const signOut = async () => {
     try {
       await authAPI.logout();
       setAccount(null);
       setSelectedOrganizationID("");
       setAccountState("signed-out");
-      setActive("Overview");
+      navigateTo(flatPaths.overview);
       notify("You have signed out.");
     } catch (cause) {
       setAccountError(cause instanceof Error ? cause.message : "Unable to sign out");
       setAccountState("unavailable");
     }
-  };
-
-  const notify = (message: string) => {
-    showNotification({ status: "success", message, duration: 2600 });
   };
 
   useEffect(() => {
@@ -70,37 +84,36 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // The router serves /projects/ like /projects, but the sidebar highlights only the exact path (NavLink `end`), so
+  // trailing slashes are removed (history `replace`, query and hash kept) before a page is shown.
+  const trailingSlash = pathname.length > 1 && pathname.endsWith("/");
+
+  const label = routeLabel(matches.at(-1)?.handle);
+  const item = navigationItemFor(label);
+  // Organization pages are backed by the account API; the mock pages only simulate a refresh.
+  const refresh = () => {
+    if (urlHandle) void loadAccount();
+    else notify("Demo data refreshed.");
+  };
+
   return (
-    <div className="shell">
-      <Sidebar active={active} onNavigate={setActive} account={account} selectedOrganizationID={selectedOrganizationID} onSelectOrganization={setSelectedOrganizationID} onSignOut={() => void signOut()} />
-      <main className="main">
-        <Topbar active={active} onSearch={() => setCommandOpen(true)} onNotify={notify} />
-        <div className="content">
-          <PageHeader
-            active={active}
-            onRefresh={() => ["Organization", "Changesets", "Eval", "Review", "Trails"].includes(active) ? void loadAccount() : notify("Demo data refreshed.")}
-          />
-          {active === "UI Components" ? (
-            <UIShowcasePage />
-          ) : active === "Organization" ? (
-            accountState === "loading" ? <section className="card org-auth-state">Loading authenticated account and organizations…</section> : accountState === "signed-out" ? <section className="card org-auth-state"><h2>Sign in to manage your organization</h2><p>Organization settings require an authenticated AgentForge session.</p><a className="button primary" href="/auth/oidc/login">Continue with SSO</a><Button className="button secondary" onClick={() => void loadAccount()}>Retry</Button></section> : accountState === "unavailable" ? <section className="card org-auth-state"><h2>Organization service unavailable</h2><p>{accountError}</p><Button className="button secondary" onClick={() => void loadAccount()}>Retry</Button></section> : account?.organizations.find((organization) => organization.id === selectedOrganizationID) ? <OrganizationManagementPage key={selectedOrganizationID} organization={account.organizations.find((organization) => organization.id === selectedOrganizationID)!} onNotify={notify} /> : <section className="card org-auth-state"><h2>No active organization</h2><p>This account has no active organization membership. Ask an organization owner for an invitation.</p></section>
-          ) : ["Changesets", "Eval", "Review", "Trails"].includes(active) ? (
-            accountState === "loading" ? <section className="card org-auth-state">Loading authenticated account and organizations…</section> : accountState === "signed-out" ? <section className="card org-auth-state"><h2>Sign in to view changesets</h2><p>Changesets are scoped to an authenticated organization.</p><a className="button primary" href="/auth/oidc/login">Continue with SSO</a></section> : accountState === "unavailable" ? <section className="card org-auth-state"><h2>Changeset service unavailable</h2><p>{accountError}</p><Button className="button secondary" onClick={() => void loadAccount()}>Retry</Button></section> : account?.organizations.find((organization) => organization.id === selectedOrganizationID) ? <ChangesetsPage key={selectedOrganizationID} organization={account.organizations.find((organization) => organization.id === selectedOrganizationID)!} accountUserID={account.user_id} onNotify={notify} /> : <section className="card org-auth-state"><h2>No active organization</h2><p>This account has no active organization membership.</p></section>
-          ) : active === "Overview" ? (
-            <OverviewPage onNavigate={setActive} onNotify={notify} created={[]} />
-          ) : ["Stacks", "Self-healing"].includes(active) ? (
-            <DeliveryFlow page={active} onNotify={notify} />
-          ) : (
-            <ResourceWorkspacePage key={active} page={active} onNotify={notify} />
-          )}
-          <footer>
-            <span>AgentForge Prototype <b>v0.1.0</b></span>
-            <span><i className="live-dot" /> All systems operational <span className="footer-sep">·</span> Mock environment</span>
-          </footer>
-        </div>
-      </main>
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={setActive} />
-    </div>
+    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
+      <div className="shell">
+        <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} onSignOut={() => void signOut()} />
+        <main className="main">
+          <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} />
+          <div className="content">
+            <PageHeader label={label} description={item?.description} onRefresh={item ? refresh : undefined} />
+            {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
+            <footer>
+              <span>AgentForge Prototype <b>v0.1.0</b></span>
+              <span><i className="live-dot" /> All systems operational <span className="footer-sep">·</span> Mock environment</span>
+            </footer>
+          </div>
+        </main>
+        <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      </div>
+    </AppAccountContext.Provider>
   );
 }
 

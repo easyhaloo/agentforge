@@ -65,6 +65,8 @@ test("tabs support arrow-key navigation and update the selected tab", async ({ p
 });
 
 test("command palette filters destinations and navigates on selection", async ({ page }) => {
+  const location = page.getByTestId("navigation-result");
+  await expect(location).toHaveText("Location: /harness");
   await page.getByRole("button", { name: "Open command palette" }).click();
   const dialog = page.getByRole("dialog", { name: "Jump to a page" });
   await expect(dialog).toBeVisible();
@@ -74,5 +76,12 @@ test("command palette filters destinations and navigates on selection", async ({
   await expect(result).toBeVisible();
   await result.click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId("navigation-result")).not.toHaveText("No navigation yet");
+  await expect(location).toHaveText("Location: /");
+
+  // Outside the application shell there is no selected organization, so organization pages use the `current` alias.
+  await page.getByRole("button", { name: "Open command palette" }).click();
+  await search.fill("Changesets");
+  await dialog.getByRole("button", { name: /Changesets/ }).click();
+  await expect(dialog).toBeHidden();
+  await expect(location).toHaveText("Location: /orgs/current/changesets");
 });

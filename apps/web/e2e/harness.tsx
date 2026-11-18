@@ -1,10 +1,16 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { Button, Drawer, Modal, Popover, Tabs } from "../src/shared/ui";
 import { CommandPalette } from "../src/app/components/CommandPalette";
 import "../src/styles/index.css";
 import "../src/shared/ui/theme/theme.css";
 import "../src/shared/ui/components/components.css";
+
+function NavigationProbe() {
+  const { pathname } = useLocation();
+  return <p data-testid="navigation-result">Location: {pathname}</p>;
+}
 
 function SharedUIHarness() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -41,15 +47,15 @@ function SharedUIHarness() {
         ]}
       />
       <p data-testid="active-tab">Active tab: {tab}</p>
-      <CommandPalette
-        open={commandOpen}
-        onClose={() => setCommandOpen(false)}
-        onNavigate={(page) => { document.querySelector("[data-testid='navigation-result']")!.textContent = page; }}
-      />
-      <p data-testid="navigation-result">No navigation yet</p>
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <NavigationProbe />
       <button type="button" tabIndex={-1} data-testid="outside-focus-target">Outside focus target</button>
     </main>
   );
 }
 
-createRoot(document.getElementById("root")!).render(<SharedUIHarness />);
+createRoot(document.getElementById("root")!).render(
+  <MemoryRouter initialEntries={["/harness"]}>
+    <SharedUIHarness />
+  </MemoryRouter>,
+);

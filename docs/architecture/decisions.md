@@ -63,3 +63,42 @@
   - Cloudflare Worker deployment must use static assets configuration, not Pages deployment commands.
   - Backend health, secrets, database and rollback are managed independently.
   - Browser API base URL is public configuration only; secrets never enter the frontend bundle.
+
+## ADR-008: Scoped URL routing
+
+- Status: Accepted
+- Decision: Navigation state lives in the URL. The web app uses a React Router data router with one route table, `apps/web/src/app/routes.tsx`, as the only place that declares routes. Pages backed by the real API are organization-scoped under `/orgs/:org/...`. Mock and fixture pages stay flat, so they remain browsable without a session, and move under `/orgs/:org` only when a real backend capability replaces them.
+  - `:org` is an organization handle: the organization's `slug`, or its `id`. Resolution mirrors the server: an exact `id` match wins, otherwise the slug matches case-insensitively; no match means "not found". The literal handle `current` is a client-side alias for the selected organization. Once the account is known the client replaces it (history `replace`, query string and hash preserved) with the organization's own handle, so a shared URL does not contain `current`.
+  - The client builds handles as `slug || id`: frontend and backend deploy independently, so it falls back to `id` while the API does not return `slug`. `current` is reserved for the alias, so an organization whose slug is `current` is addressed by its `id`.
+  - `/api/*` and `/auth/*` are backend paths on the same origin (reverse proxy) and are never client routes. The SSO entry is a plain `<a href="/auth/oidc/login">`.
+  - Any other path renders a not-found state inside the shell. Pages build links only through `shared/routing`.
+
+| Sidebar label | Path | Page |
+|---|---|---|
+| Overview | `/` | Overview (mock) |
+| Projects | `/projects` | Resource workspace (mock) |
+| Repositories | `/repositories` | Resource workspace (mock) |
+| Workspaces | `/workspaces` | Resource workspace (mock) |
+| Stacks | `/stacks` | Delivery flow (mock) |
+| Self-healing | `/self-healing` | Delivery flow (mock) |
+| Memory | `/memory` | Resource workspace (mock) |
+| CI / CD | `/pipelines` | Resource workspace (mock) |
+| Security | `/security` | Resource workspace (mock) |
+| Governance | `/governance` | Resource workspace (mock) |
+| Cost & Usage | `/usage` | Resource workspace (mock) |
+| Settings | `/settings` | Resource workspace (mock) |
+| UI Components | `/dev/ui` | UI showcase |
+| Changesets | `/orgs/:org/changesets` | Changeset workspace (live API) |
+| Trails | `/orgs/:org/trails` | Changeset workspace (alias) |
+| Review | `/orgs/:org/review` | Changeset workspace (alias) |
+| Eval | `/orgs/:org/eval` | Changeset workspace (alias) |
+| Organization | `/orgs/:org/settings` | Organization management (live API) |
+| (anything else) | `*` | Not found, inside the shell |
+
+- Consequences:
+  - Every page is linkable, and refresh, Back and Forward work. Humans and agents can construct URLs the way they do for GitHub or GitLab views.
+  - The Cloudflare Worker already serves `index.html` for unknown paths (`not_found_handling: single-page-application`), so deep links need no server change. `/api/*` and `/auth/*` must reach the backend, not the asset fallback.
+  - Trails, Review and Eval are aliases of the changeset workspace until they get their own pages.
+  - A mock page that graduates to a real capability changes URL, from flat to organization-scoped.
+  - Adding or changing a URL means updating `app/routes.tsx`, `app/navigation.ts`, the route table tests and this ADR together.
+  - Browser tests run against the real entry and deep links instead of a separate harness page.

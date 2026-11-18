@@ -1,12 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { CURRENT_ORGANIZATION_HANDLE, orgPath } from "../../../shared/routing";
 import { Button } from "../../../shared/ui";
 import { overviewActivity } from "../data/overviewData";
 
-type Props = {
-  onNavigate: (page: string) => void;
-};
-
-export function ActivityFeed({ onNavigate }: Props) {
+export function ActivityFeed() {
+  const navigate = useNavigate();
   return (
     <section className="card panel activity-panel">
       <div className="panel-head">
@@ -14,7 +13,7 @@ export function ActivityFeed({ onNavigate }: Props) {
           <h3>Activity stream</h3>
           <p>Latest events across your workspace</p>
         </div>
-        <Button variant="ghost" size="small" onClick={() => onNavigate("Trails")}>
+        <Button variant="ghost" size="small" onClick={() => navigate(orgPath(CURRENT_ORGANIZATION_HANDLE, "trails"))}>
           View all <ArrowRight size={14} />
         </Button>
       </div>

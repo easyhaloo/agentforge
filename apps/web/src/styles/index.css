@@ -106,6 +106,7 @@
   font-size: 12px;
   font-weight: 400;
   margin: 2px 0;
+  text-decoration: none;
 }
 .sidebar .af-button.nav-item:hover { background: #171f30; color: #e7e9f2; }
 .sidebar .af-button.nav-item.active { background: #272343; color: #c9c0ff; }
@@ -123,6 +124,7 @@
   border-radius: 0;
   background: transparent;
   text-align: left;
+  text-decoration: none;
 }
 .top-actions .af-button.searchbox {
   height: 34px;

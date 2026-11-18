@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight, ChevronDown, Code2 } from "lucide-react";
+import { CURRENT_ORGANIZATION_HANDLE, orgPath } from "../../../shared/routing";
 import { Button, DataTable, Empty, Input, Select } from "../../../shared/ui";
 import { recentChangesetSeeds } from "../data/overviewData";
 import type { CreatedChangeset, OverviewChangesetRow } from "../model/types";
 
 type Props = {
   created: CreatedChangeset[];
-  onNavigate: (page: string) => void;
   onNotify: (message: string) => void;
   onSelect: (changesetId: string) => void;
   selectedId: string;
@@ -22,7 +23,8 @@ function statusClass(status: string): string {
   return "warning";
 }
 
-export function RecentChangesets({ created, onNavigate, onNotify, onSelect, selectedId }: Props) {
+export function RecentChangesets({ created, onNotify, onSelect, selectedId }: Props) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const rows = useMemo<OverviewChangesetRow[]>(() => [
@@ -46,7 +48,7 @@ export function RecentChangesets({ created, onNavigate, onNotify, onSelect, sele
           <h3>Recent changesets</h3>
           <p>Track the latest work moving through verification.</p>
         </div>
-        <Button variant="ghost" size="small" onClick={() => onNavigate("Changesets")}>
+        <Button variant="ghost" size="small" onClick={() => navigate(orgPath(CURRENT_ORGANIZATION_HANDLE, "changesets"))}>
           View all <ArrowRight size={14} />
         </Button>
       </div>
