@@ -48,7 +48,7 @@ test("the list asks the server for one page at a time", async ({ page }) => {
   await expect(page.getByRole("cell").getByText("Browser test baseline")).toHaveCount(0);
   expect(searches.at(-1)).toContain("limit=1");
   expect(searches.at(-1)).toContain("offset=1");
-  await expect(page.getByText("2 items")).toBeVisible();
+  await expect(page.getByText("3 items")).toBeVisible();
 });
 
 test("a page the server sends no row for says the filters matched nothing", async ({ page }) => {

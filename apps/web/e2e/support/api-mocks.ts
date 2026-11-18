@@ -4,10 +4,42 @@ export const now = "2026-11-17T09:00:00.000Z";
 export const demoOrganization = { id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "owner" };
 export const labsOrganization = { id: "org-labs", slug: "labs", name: "AgentForge Labs", role: "admin" };
 
-export const storedChangeset = (id: string, title: string, repository = "easyhaloo/agentforge", status = "draft") => ({
+type MockChangeset = {
+  changeset: {
+    id: string;
+    created_by: string;
+    repository: string;
+    title: string;
+    revisions: Array<Record<string, unknown>>;
+    evaluations: Array<Record<string, unknown>>;
+    evidence: Array<Record<string, unknown>>;
+    reviews: Array<Record<string, unknown>>;
+    merge?: Record<string, unknown>;
+    audit: Array<Record<string, unknown>>;
+  };
+  status: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export const storedChangeset = (id: string, title: string, repository = "easyhaloo/agentforge", status = "draft"): MockChangeset => ({
   changeset: {
     id, created_by: "user-owner", repository, title, revisions: [], evaluations: [],
     evidence: [], reviews: [], audit: [],
+  },
+  status, version: 1, created_at: now, updated_at: now,
+});
+
+/** A changeset the server already carried through part of its lifecycle. */
+const reviewedChangeset = (id: string, title: string, status: string, reviewStatus = "pending"): MockChangeset => ({
+  changeset: {
+    id, created_by: "user-owner", repository: "easyhaloo/agentforge", title,
+    revisions: [{ id: "rev-1", ref: "main", commit_sha: "sha-main", created_at: now }],
+    evaluations: [{ id: "eval-1", revision_id: "rev-1", status: "passed", summary: "Trusted evaluation passed.", created_at: now }],
+    evidence: [{ id: "ev-1", revision_id: "rev-1", evaluation_id: "eval-1", kind: "report", uri: "artifact://report", sha256: "abc123", status: "active", created_at: now }],
+    reviews: [{ id: "rev-review-1", revision_id: "rev-1", reviewer: "user-owner", status: reviewStatus, comment: "Please review", created_at: now }],
+    audit: [],
   },
   status, version: 1, created_at: now, updated_at: now,
 });
@@ -26,10 +58,12 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     role: "member", status: "active", created_at: now, updated_at: now,
   }];
   let invitations: Array<Record<string, unknown>> = [];
-  let changesets = [
-    storedChangeset("CS-E2E-01", "Browser test baseline", "easyhaloo/agentforge", "in_review"),
+  let changesets: MockChangeset[] = [
+    reviewedChangeset("CS-E2E-01", "Browser test baseline", "in_review"),
     storedChangeset("CS-E2E-03", "Unrelated change", "other/repository", "draft"),
+    reviewedChangeset("CS-E2E-04", "Approved change", "ready_to_merge", "approved"),
   ];
+  let created = 0;
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -72,18 +106,57 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     if (path.endsWith("/membership-audit") && method === "GET") {
       return json({ items: [], limit: 100, offset: 0 });
     }
-    if (path.includes("/changesets/") && method === "GET") {
-      const id = path.slice(path.lastIndexOf("/") + 1);
+    if (path.includes("/changesets/")) {
+      // The server owns the lifecycle: every mutation moves the changeset and answers with its new state.
+      const [, tail = ""] = path.split("/changesets/");
+      const [id = "", ...rest] = tail.split("/");
       const found = changesets.find((item) => item.changeset.id === id);
       if (!found) return json({ title: "Changeset not found", detail: "The changeset does not exist in this organization" }, 404);
-      return json(found);
+      if (method === "GET" && rest.length === 0) return json(found);
+      if (method === "POST" && rest.join("/") === "revisions") {
+        const body = request.postDataJSON() as { ref: string };
+        found.changeset.revisions.push({ id: `rev-${found.changeset.revisions.length + 1}`, ref: body.ref, commit_sha: `sha-${body.ref}`, created_at: now });
+        found.changeset.reviews = found.changeset.reviews.map((entry) => ({ ...entry, status: "stale" }));
+        found.status = "evaluation_pending";
+        return json(found);
+      }
+      if (method === "POST" && rest.join("/") === "evaluations") {
+        const revisionID = found.changeset.revisions.at(-1)?.id ?? "";
+        const evaluation = { id: `eval-${found.changeset.evaluations.length + 1}`, revision_id: revisionID, status: "passed", summary: "Trusted evaluation passed.", created_at: now };
+        found.changeset.evaluations.push(evaluation);
+        found.changeset.evidence.push({ id: `ev-${found.changeset.evidence.length + 1}`, revision_id: revisionID, evaluation_id: evaluation.id, kind: "report", uri: "artifact://report", sha256: "abc123", status: "active", created_at: now });
+        found.status = "review_required";
+        return json(found);
+      }
+      if (method === "POST" && rest.join("/") === "reviews") {
+        const body = request.postDataJSON() as { reviewer_id: string; comment: string };
+        found.changeset.reviews.push({ id: `rev-review-${found.changeset.reviews.length + 1}`, revision_id: found.changeset.revisions.at(-1)?.id ?? "", reviewer: body.reviewer_id, status: "pending", comment: body.comment, created_at: now });
+        found.status = "in_review";
+        return json(found);
+      }
+      if (method === "POST" && rest[0] === "reviews" && rest[2] === "decision") {
+        const body = request.postDataJSON() as { approved: boolean; comment: string };
+        const review = found.changeset.reviews.find((entry) => entry.id === rest[1]);
+        if (review) {
+          review.status = body.approved ? "approved" : "rejected";
+          review.comment = body.comment;
+        }
+        found.status = body.approved ? "ready_to_merge" : "changes_requested";
+        return json(found);
+      }
+      if (method === "POST" && rest.join("/") === "merge") {
+        const body = request.postDataJSON() as { target_ref: string };
+        found.changeset.merge = { id: "merge-1", revision_id: found.changeset.revisions.at(-1)?.id ?? "", actor: "user-owner", target_ref: body.target_ref, commit_sha: "sha-merge", created_at: now };
+        found.status = "merged";
+        return json(found);
+      }
     }
     if (path.endsWith("/changesets") && method === "GET") {
       // The server owns the filters and the status: the mock answers with the matching rows and their total.
       const q = (url.searchParams.get("q") ?? "").toLowerCase();
       const repository = url.searchParams.get("repository") ?? "";
       const status = url.searchParams.get("status") ?? "";
-      const reviewer = url.searchParams.get("reviewer") ?? "";
+      const reviewer = (url.searchParams.get("reviewer") ?? "").replace(/^me$/, "user-owner");
       const limit = Number(url.searchParams.get("limit") ?? 20);
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const matched = changesets.filter((item) => {
@@ -98,9 +171,10 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     }
     if (path.endsWith("/changesets") && method === "POST") {
       const body = request.postDataJSON() as { repository: string; title: string };
-      const created = storedChangeset("CS-E2E-02", body.title, body.repository);
-      changesets = [created, ...changesets];
-      return json(created, 201);
+      created += 1;
+      const item = storedChangeset(`CS-E2E-NEW-${created}`, body.title, body.repository);
+      changesets = [item, ...changesets];
+      return json(item, 201);
     }
     return json({ title: "Unexpected test API request", detail: method + " " + path }, 404);
   });

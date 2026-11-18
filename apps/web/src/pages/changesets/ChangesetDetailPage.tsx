@@ -107,7 +107,7 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
         <div className="changeset-workflow">
           <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.addRevision(organization.id, changeset.id, revisionRef), "Git revision resolved and persisted."); setRevisionRef(""); }}>
             <div><label><GitBranch size={14}/> Resolve Git ref</label><Input required value={revisionRef} onChange={event => setRevisionRef(event.target.value)} placeholder="branch, tag or commit SHA"/></div>
-            <Button className="button secondary" disabled={busy || !canAddRevision}>Add revision</Button>
+            <Button className="button secondary" type="submit" disabled={busy || !canAddRevision}>Add revision</Button>
           </form>
           <div><label><GitBranch size={14}/> Revisions</label><p>{changeset.revisions.length ? changeset.revisions.map(entry => `${entry.ref} · ${entry.commit_sha}`).join(", ") : "No revision yet."}</p><span className="org-role">{revision ? "The current revision" : "Resolve a Git ref to start"}</span></div>
         </div>
@@ -122,7 +122,7 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
         <div className="changeset-workflow">
           <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.assignReview(organization.id, changeset.id, reviewerID, reviewComment), "Review assigned to an active organization member."); setReviewerID(""); setReviewComment(""); }}>
             <div><label><ShieldCheck size={14}/> Assign review (active member ID)</label><Input required value={reviewerID} onChange={event => setReviewerID(event.target.value)} placeholder="reviewer user ID"/><Input value={reviewComment} onChange={event => setReviewComment(event.target.value)} placeholder="Review context (optional)"/></div>
-            <Button className="button secondary" disabled={busy || !canAssignReview}>Assign review</Button>
+            <Button className="button secondary" type="submit" disabled={busy || !canAssignReview}>Assign review</Button>
           </form>
           {review && <div><label><ShieldCheck size={14}/> Review decision</label><p>Assigned to {review.reviewer} · {review.status}{review.comment ? " · " + review.comment : ""}</p>{review.reviewer === accountUserID && review.status === "pending" && <div className="org-actions"><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, true, decisionComment), "Review approved.")}>Approve</Button><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, false, decisionComment), "Changes requested.")}>Request changes</Button></div>}<Input value={decisionComment} onChange={event => setDecisionComment(event.target.value)} placeholder="Decision comment"/></div>}
         </div>
@@ -131,7 +131,7 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
         <div className="changeset-workflow">
           <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.merge(organization.id, changeset.id, targetRef), "Git merge completed and persisted."); }}>
             <div><label><GitMerge size={14}/> Merge target</label><Input required value={targetRef} onChange={event => setTargetRef(event.target.value)} placeholder="main"/></div>
-            <Button className="button primary" disabled={busy || !canMerge}>Merge changeset</Button>
+            <Button className="button primary" type="submit" disabled={busy || !canMerge}>Merge changeset</Button>
           </form>
         </div>
         {changeset.merge && <div className="changeset-merge-result"><CheckCircle2 size={15}/> Merged as <code>{changeset.merge.commit_sha}</code> into {changeset.merge.target_ref}</div>}
