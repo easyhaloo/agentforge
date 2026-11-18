@@ -22,4 +22,8 @@ describe("resource page configuration", () => {
     expect(configs["Cost & Usage"].actionMode).toBe("export");
     expect(configs.Settings.actionMode).toBe("none");
   });
+
+  it("has no mock repositories page: the capability is backed by the API", () => {
+    expect(configs.Repositories).toBeUndefined();
+  });
 });
