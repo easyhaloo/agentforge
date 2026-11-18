@@ -65,7 +65,7 @@ func TestLocalGitProviderCreatesImmutableWorkspaceRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	gitTest(t, repository, "init", "-b", "main")
-	if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte("base\\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte("base\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	gitTest(t, repository, "add", "README.md")
@@ -78,8 +78,8 @@ func TestLocalGitProviderCreatesImmutableWorkspaceRevision(t *testing.T) {
 	}
 	revision, err := provider.CreateWorkspaceRevision(context.Background(), "org-a", "team/repo", base,
 		"changeset123", "revision123", "user-123", []WorkspaceRevisionFile{
-			{Path: "README.md", Content: []byte("updated\\n")},
-			{Path: "src/main.go", Content: []byte("package main\\n")},
+			{Path: "README.md", Content: []byte("updated\n")},
+			{Path: "src/main.go", Content: []byte("package main\n")},
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestLocalGitProviderCreatesImmutableWorkspaceRevision(t *testing.T) {
 }
 
 func TestWorkspaceRevisionRejectsUnsafePathsAndBounds(t *testing.T) {
-	for _, path := range []string{"../outside", ".git/config", "src/.git/config", "/absolute", "a\\\\b"} {
+	for _, path := range []string{"../outside", ".git/config", "src/.git/config", "/absolute", "a\\b"} {
 		if validWorkspaceRevisionPath(path) {
 			t.Errorf("validWorkspaceRevisionPath(%q) = true, want false", path)
 		}
