@@ -197,6 +197,11 @@ export const workspaceAPI = {
   },
   diff: (organizationID: string, workspaceID: string) =>
     request<WorkspaceDiff>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/diff`),
+  createChangeset: (organizationID: string, workspaceID: string, title: string) =>
+    request<{ changeset: StoredChangeset; workspace_id: string; base_commit_sha: string; revision_commit_sha: string }>(
+      `/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/changesets`,
+      { method: "POST", body: JSON.stringify({ title }) },
+    ),
   readFile: (organizationID: string, workspaceID: string, path: string) =>
     request<WorkspaceFile>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/files?${new URLSearchParams({ path }).toString()}`),
   writeFile: (organizationID: string, workspaceID: string, path: string, content: string, expectedVersion: number) =>
