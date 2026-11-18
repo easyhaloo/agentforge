@@ -12,12 +12,17 @@ import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { useNotify } from "./useNotify";
 import { LoginPage } from "../pages/login";
+import { RegisterPage } from "../pages/register/RegisterPage";
 
 // Thin adapters between the route table and the pages: they supply what a page needs from the
 // shell (notifications, the organization resolved by the gate) so the pages keep their props.
 
 export function LoginRoute() {
   return <LoginPage />;
+}
+
+export function RegisterRoute() {
+  return <RegisterPage />;
 }
 
 export function SettingsRoute() {

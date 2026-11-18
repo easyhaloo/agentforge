@@ -98,6 +98,21 @@
   outline-offset: 2px;
 }
 
+.auth-link {
+  margin: 0 0 24px;
+  font-size: 13px;
+  color: #8995aa;
+}
+
+.auth-link a {
+  color: #539bf5;
+  text-decoration: none;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
+}
+
 .login-divider {
   display: flex;
   align-items: center;
@@ -114,6 +129,19 @@
   flex: 1;
   height: 1px;
   background: #242e42;
+}
+
+.sso-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sso-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .trust-message {

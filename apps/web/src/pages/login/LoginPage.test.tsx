@@ -4,15 +4,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { LoginPage } from "./LoginPage";
+import type { SSOProvider } from "../../shared/api/providers";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
+// Mock providers API
+const mockGetEnabledProviders = vi.fn();
+vi.mock("../../shared/api/providers", () => ({
+  getEnabledProviders: () => mockGetEnabledProviders(),
+}));
+
 // Mock i18next
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, options?: { defaultValue?: string }) => {
       const translations: Record<string, string> = {
         "title": "AgentForge",
         "tagline": "Agent-native Source Control & Verified Change Platform",
@@ -20,16 +27,21 @@ vi.mock("react-i18next", () => ({
         "password": "Password",
         "signInButton": "Sign in",
         "orDivider": "or",
+        "orSignInWith": "or sign in with",
         "ssoButton": "Continue with SSO",
         "trustMessage": "Secure authentication via OpenID Connect",
         "loading": "Signing in...",
+        "providers.oidc": "SSO",
+        "providers.github": "GitHub",
+        "providers.google": "Google",
+        "providers.apple": "Apple",
         "error.invalidCredentials": "Invalid email or password.",
         "error.networkError": "Network error. Please check your connection and try again.",
         "error.generic": "An error occurred. Please try again.",
         "error.emptyEmail": "Email is required.",
         "error.emptyPassword": "Password is required.",
       };
-      return translations[key] || key;
+      return translations[key] || options?.defaultValue || key;
     },
   }),
 }));
@@ -54,6 +66,15 @@ describe("LoginPage", () => {
       ok: false,
       status: 401,
     });
+    // Default: return single OIDC provider
+    mockGetEnabledProviders.mockResolvedValue([
+      {
+        id: "oidc",
+        name: "SSO",
+        loginUrl: "/auth/oidc/login",
+        enabled: true,
+      },
+    ] as SSOProvider[]);
   });
 
   it("renders product name and tagline", async () => {
@@ -76,15 +97,15 @@ describe("LoginPage", () => {
   it("renders SSO login link with correct href", async () => {
     renderLoginPage();
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: "Continue with SSO" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "SSO" })).toBeInTheDocument();
     });
-    expect(screen.getByRole("link", { name: "Continue with SSO" })).toHaveAttribute("href", "/auth/oidc/login");
+    expect(screen.getByRole("link", { name: "SSO" })).toHaveAttribute("href", "/auth/oidc/login");
   });
 
-  it("shows or divider between local and SSO login", async () => {
+  it("shows or divider between local and SSO login when providers exist", async () => {
     renderLoginPage();
     await waitFor(() => {
-      expect(screen.getByText("or")).toBeInTheDocument();
+      expect(screen.getByText("or sign in with")).toBeInTheDocument();
     });
   });
 
@@ -106,6 +127,153 @@ describe("LoginPage", () => {
     renderLoginPage();
     await waitFor(() => {
       expect(screen.getByText("AF")).toBeInTheDocument();
+    });
+  });
+
+  describe("Dynamic SSO Provider Rendering", () => {
+    it("does not show SSO section when no providers are available", async () => {
+      mockGetEnabledProviders.mockResolvedValue([]);
+      renderLoginPage();
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Email address")).toBeInTheDocument();
+      });
+
+      // Wait for provider loading to complete
+      await waitFor(() => {
+        expect(mockGetEnabledProviders).toHaveBeenCalled();
+      });
+
+      // Should not show divider or SSO section
+      expect(screen.queryByText("or sign in with")).not.toBeInTheDocument();
+    });
+
+    it("renders single SSO provider", async () => {
+      mockGetEnabledProviders.mockResolvedValue([
+        {
+          id: "oidc",
+          name: "SSO",
+          loginUrl: "/auth/oidc/login",
+          enabled: true,
+        },
+      ] as SSOProvider[]);
+
+      renderLoginPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: "SSO" })).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("link", { name: "SSO" })).toHaveAttribute("href", "/auth/oidc/login");
+      expect(screen.getByText("or sign in with")).toBeInTheDocument();
+    });
+
+    it("renders multiple SSO providers", async () => {
+      mockGetEnabledProviders.mockResolvedValue([
+        {
+          id: "github",
+          name: "GitHub",
+          loginUrl: "/auth/oidc/login?provider=github",
+          enabled: true,
+        },
+        {
+          id: "google",
+          name: "Google",
+          loginUrl: "/auth/oidc/login?provider=google",
+          enabled: true,
+        },
+        {
+          id: "apple",
+          name: "Apple",
+          loginUrl: "/auth/oidc/login?provider=apple",
+          enabled: true,
+        },
+      ] as SSOProvider[]);
+
+      renderLoginPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "/auth/oidc/login?provider=github");
+      expect(screen.getByRole("link", { name: "Google" })).toHaveAttribute("href", "/auth/oidc/login?provider=google");
+      expect(screen.getByRole("link", { name: "Apple" })).toHaveAttribute("href", "/auth/oidc/login?provider=apple");
+      expect(screen.getByText("or sign in with")).toBeInTheDocument();
+    });
+
+    it("handles provider API failure gracefully", async () => {
+      mockGetEnabledProviders.mockRejectedValue(new Error("Provider API failed"));
+
+      renderLoginPage();
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Email address")).toBeInTheDocument();
+      });
+
+      // Wait for provider loading to complete
+      await waitFor(() => {
+        expect(mockGetEnabledProviders).toHaveBeenCalled();
+      });
+
+      // Should not show SSO section when API fails
+      expect(screen.queryByText("or sign in with")).not.toBeInTheDocument();
+    });
+
+    it("does not show SSO section while loading providers", async () => {
+      let resolveProviders: (value: SSOProvider[]) => void;
+      const providersPromise = new Promise<SSOProvider[]>((resolve) => {
+        resolveProviders = resolve;
+      });
+
+      mockGetEnabledProviders.mockReturnValue(providersPromise);
+
+      renderLoginPage();
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Email address")).toBeInTheDocument();
+      });
+
+      // SSO section should not be visible while loading
+      expect(screen.queryByText("or sign in with")).not.toBeInTheDocument();
+
+      // Resolve with providers
+      resolveProviders!([
+        {
+          id: "oidc",
+          name: "SSO",
+          loginUrl: "/auth/oidc/login",
+          enabled: true,
+        },
+      ]);
+
+      // Now SSO section should appear
+      await waitFor(() => {
+        expect(screen.getByText("or sign in with")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("link", { name: "SSO" })).toBeInTheDocument();
+    });
+
+    it("renders GitHub provider with correct icon", async () => {
+      mockGetEnabledProviders.mockResolvedValue([
+        {
+          id: "github",
+          name: "GitHub",
+          loginUrl: "/auth/oidc/login?provider=github",
+          enabled: true,
+        },
+      ] as SSOProvider[]);
+
+      renderLoginPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument();
+      });
+
+      const githubLink = screen.getByRole("link", { name: "GitHub" });
+      expect(githubLink).toHaveAttribute("href", "/auth/oidc/login?provider=github");
+      // Check that SVG icon exists
+      expect(githubLink.querySelector("svg")).toBeInTheDocument();
     });
   });
 

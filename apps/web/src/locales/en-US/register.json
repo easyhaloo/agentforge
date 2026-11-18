@@ -1,0 +1,30 @@
+{
+  "title": "Create your account",
+  "tagline": "Join AgentForge and start collaborating",
+  "email": "Email address",
+  "password": "Password",
+  "confirmPassword": "Confirm password",
+  "displayName": "Display name",
+  "createButton": "Create account",
+  "hasAccount": "Already have an account?",
+  "signInLink": "Sign in",
+  "orDivider": "or sign up with",
+  "ssoButton": "Continue with SSO",
+  "trustMessage": "Secure authentication via OpenID Connect",
+  "passwordStrength": {
+    "weak": "Weak",
+    "medium": "Medium",
+    "strong": "Strong"
+  },
+  "errors": {
+    "emailRequired": "Email is required.",
+    "emailInvalid": "Invalid email format.",
+    "passwordRequired": "Password is required.",
+    "passwordWeak": "Password must be at least 8 characters long.",
+    "passwordMismatch": "Passwords don't match.",
+    "nameRequired": "Display name is required.",
+    "emailExists": "This email is already registered.",
+    "networkError": "Registration failed. Please check your connection and try again.",
+    "generic": "Registration failed. Please try again."
+  }
+}
