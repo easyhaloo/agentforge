@@ -29,3 +29,14 @@ test("the flat repositories page is gone", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });
+
+
+test("repository preview browses a pinned commit and compares history", async ({ page }) => {
+  await page.goto("/orgs/demo/repositories");
+  await page.getByRole("cell").getByText("easyhaloo/agentforge").click();
+  await expect(page.getByText(/Pinned commit:/)).toContainText("aaaaaaaaaaaa");
+  await expect(page.getByRole("button", { name: "README.md" })).toBeVisible();
+  await page.getByRole("button", { name: "Compare to current" }).click();
+  await expect(page.getByRole("heading", { name: "Commit comparison" })).toBeVisible();
+  await expect(page.getByText(/diff --git a\/README.md/)).toBeVisible();
+});
