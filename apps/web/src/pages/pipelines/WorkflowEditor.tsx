@@ -33,7 +33,7 @@ const strings = (x: unknown): x is string[] => Array.isArray(x) && x.every(i => 
 export function editable(d: Definition) {
   return d?.apiVersion === "agentforge.dev/v1" && typeof d.name === "string" && Array.isArray(d.stages) && d.stages.every(s =>
     typeof s?.id === "string" && (s.dependsOn == null || strings(s.dependsOn)) && Array.isArray(s.jobs) && s.jobs.every(j =>
-      typeof j?.id === "string" && Array.isArray(j.steps) && j.steps.every(p => typeof p?.id === "string" && capabilities.some(c => c.value === p.uses)))) &&
+      typeof j?.id === "string" && Array.isArray(j.steps) && j.steps.every(p => typeof p?.id === "string" && (p.secretParams === undefined || strings(p.secretParams)) && capabilities.some(c => c.value === p.uses)))) &&
     (d.parameters === undefined || (Array.isArray(d.parameters) && d.parameters.every(p => typeof p?.name === "string" && parameterTypes.includes(p.type) &&
       (p.choices === undefined || strings(p.choices)) && (p.default === undefined || ["number", "string", "boolean"].includes(typeof p.default) || strings(p.default)))));
 }
@@ -51,7 +51,15 @@ export function WorkflowEditor({ definition, update }: { definition: Definition;
   return <div className="workflow-editor">
     <Input label={t("workflowName")} value={definition.name} onChange={e => change(d => { d.name = e.target.value; })} />
     {(definition.parameters ?? []).map((p, index) => {
-      const set = (patch: Partial<typeof p>) => change(d => Object.assign(d.parameters![index], patch));
+      const updateBindings = (d: Definition, name?: string) => {
+        for (const stage of d.stages) for (const job of stage.jobs) for (const step of job.steps) {
+          if (step.secretParams) step.secretParams = step.secretParams.flatMap(ref => ref !== p.name ? [ref] : name ? [name] : []);
+        }
+      };
+      const set = (patch: Partial<typeof p>) => change(d => {
+        Object.assign(d.parameters![index], patch);
+        if (p.type === "secretRef" && (patch.name !== undefined || patch.type !== undefined)) updateBindings(d, patch.name);
+      });
       return <fieldset key={index}><legend>{t("parameter", { name: p.name })}</legend>
         <Input label={t("parameterName")} value={p.name} onChange={e => set({ name: e.target.value })} />
         <Select label={t("parameterType")} value={p.type} options={parameterTypes.map(type => ({ value: type, label: type }))}
@@ -60,7 +68,7 @@ export function WorkflowEditor({ definition, update }: { definition: Definition;
         <ParameterField parameter={p} label={t("default")} value={displayValue(p.default)} change={value => set({ default: parseValue(p.type, value) })} />
         <Checkbox label={t("required")} checked={!!p.required} onChange={e => set({ required: e.target.checked })} />
         <Checkbox label={t("override")} checked={!!p.override} onChange={e => set({ override: e.target.checked })} />
-        <Button onClick={() => change(d => { d.parameters!.splice(index, 1); })}>{t("removeParameter")}</Button>
+        <Button onClick={() => change(d => { d.parameters!.splice(index, 1); updateBindings(d); })}>{t("removeParameter")}</Button>
       </fieldset>;
     })}
     <Button disabled={(definition.parameters?.length ?? 0) >= 64} onClick={() => change(d => {
@@ -86,7 +94,14 @@ export function WorkflowEditor({ definition, update }: { definition: Definition;
         <Input label={t("jobID")} value={job.id} onChange={e => change(d => { d.stages[si].jobs[ji].id = e.target.value; })} />
         <ol>{job.steps.map((step, pi) => <li key={pi}>
           <Input label={t("stepID")} value={step.id} onChange={e => change(d => { d.stages[si].jobs[ji].steps[pi].id = e.target.value; })} />
-          <Select label={t("capability", {id:step.id})} options={capabilities.map(c => ({ ...c, label: t(c.label) }))} value={step.uses} onChange={e => change(d => { d.stages[si].jobs[ji].steps[pi].uses = e.target.value as Capability; })} />
+          <Select label={t("capability", {id:step.id})} options={capabilities.map(c => ({ ...c, label: t(c.label) }))} value={step.uses} onChange={e => change(d => { const current = d.stages[si].jobs[ji].steps[pi];
+            current.uses = e.target.value as Capability;
+            if (current.uses !== "container/check@v1") delete current.secretParams; })} />
+          {step.uses === "container/check@v1" && definition.parameters?.filter(p => p.type === "secretRef").map((p, i) =>
+            <Checkbox key={i} label={t("bindSecret", { name: p.name })} checked={step.secretParams?.includes(p.name) ?? false}
+              onChange={e => change(d => { const current = d.stages[si].jobs[ji].steps[pi];
+                current.secretParams = e.target.checked ? [...(current.secretParams ?? []), p.name] : current.secretParams?.filter(name => name !== p.name);
+              })} />)}
           <Button disabled={pi === 0} onClick={() => change(d => {
             const steps = d.stages[si].jobs[ji].steps;
             [steps[pi - 1], steps[pi]] = [steps[pi], steps[pi - 1]];

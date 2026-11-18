@@ -30,12 +30,15 @@ type Store interface {
 }
 
 type Task struct {
-	RunID      string
-	StepID     string
-	WorkerID   string
-	Attempt    int
-	Capability string
-	Deadline   time.Time
+	OrganizationID string
+	PipelineID     string
+	SecretRefs     map[string]string
+	RunID          string
+	StepID         string
+	WorkerID       string
+	Attempt        int
+	Capability     string
+	Deadline       time.Time
 }
 
 var ErrLease = errors.New("task lease lost")

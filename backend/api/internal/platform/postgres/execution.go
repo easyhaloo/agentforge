@@ -84,7 +84,17 @@ func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor
 		for _, job := range stage.Jobs {
 			jobs = append(jobs, []any{run.ID, stage.ID, job.ID})
 			for i, step := range job.Steps {
-				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses})
+				refs := map[string]string{}
+				for _, name := range step.SecretParams {
+					if raw := snapshot[name]; raw != nil {
+						var ref string
+						if err := json.Unmarshal(raw, &ref); err != nil {
+							return empty, err
+						}
+						refs[name] = ref
+					}
+				}
+				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses, refs})
 			}
 		}
 	}
@@ -92,7 +102,7 @@ func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor
 		table   string
 		columns []string
 		rows    [][]any
-	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability"}, steps}} {
+	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability", "secret_refs"}, steps}} {
 		if _, err = tx.CopyFrom(ctx, pgx.Identifier{group.table}, group.columns, pgx.CopyFromRows(group.rows)); err != nil {
 			return empty, err
 		}

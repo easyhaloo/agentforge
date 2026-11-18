@@ -60,3 +60,23 @@ func TestTypedInputs(t *testing.T) {
 		})
 	}
 }
+
+func TestStepSecretBindings(t *testing.T) {
+	d := example()
+	d.Parameters = []Parameter{{Name: "api", Type: "secretRef"}, {Name: "plain", Type: "string"}}
+	step := &d.Stages[0].Jobs[0].Steps[0]
+	step.SecretParams = []string{"api"}
+	if d.Validate() == nil {
+		t.Fatal("bound secret to approval")
+	}
+	step.Uses = ContainerCheck
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, refs := range [][]string{{"plain"}, {"absent"}, {"api", "api"}} {
+		step.SecretParams = refs
+		if d.Validate() == nil {
+			t.Fatal("accepted invalid secret binding")
+		}
+	}
+}
