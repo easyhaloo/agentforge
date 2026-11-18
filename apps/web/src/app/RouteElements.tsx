@@ -57,7 +57,13 @@ export function RepositoriesRoute() {
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
 }
 
-export function WebIDERoute() {\n  const { organization } = useOutletContext<OrganizationOutletContext>();\n  const notify = useNotify();\n  return <WebIDEPage key={`${organization.id}:${window.location.pathname}`} organization={organization} onNotify={notify} />;\n}\n\nexport function OrganizationRoute() {
+export function WebIDERoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <WebIDEPage key={`${organization.id}:${window.location.pathname}`} organization={organization} onNotify={notify} />;
+}
+
+export function OrganizationRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <OrganizationManagementPage key={organization.id} organization={organization} onNotify={notify} />;
