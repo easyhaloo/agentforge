@@ -254,9 +254,9 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         {fileHistory.length > 0 && <section aria-label="File history"><h3>File history</h3><ul>{fileHistory.map(commit => <li key={commit.sha}>
           <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); setFileHistory([]); }}>{commit.subject || "(no subject)"}</Button> <code>{commit.sha.slice(0, 12)}</code>
         </li>)}</ul></section>}
-        {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360 }}><table><tbody>{blameLines.map(line => <tr key={line.line}>
-          <td><code>{line.line}</code></td><td><code>{line.commit_sha.slice(0, 8)}</code></td><td>{line.author}</td><td><code>{line.content}</code></td>
-        </tr>)}</tbody></table></div></section>}
+        {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360, display: "grid", gap: 4 }}>{blameLines.map(line => <div key={line.line} style={{ display: "grid", gridTemplateColumns: "42px 88px minmax(100px, 180px) 1fr", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border-subtle, #ddd)" }}>
+          <code>{line.line}</code><code>{line.commit_sha.slice(0, 8)}</code><span>{line.author}</span><code style={{ overflowWrap: "anywhere" }}>{line.content}</code>
+        </div>)}</div></section>}
         {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <pre style={{ overflow: "auto", maxHeight: 640, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre", tabSize: 2 }}><code>{selectedFile.content}</code></pre>}
       </div>}
     </section>}
