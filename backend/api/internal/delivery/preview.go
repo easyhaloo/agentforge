@@ -233,10 +233,12 @@ func (p *LocalGitProvider) Blame(ctx context.Context, organizationID, repository
 	result := make([]RepositoryBlameLine, 0, endLine-startLine+1)
 	for i := 0; i < len(lines); {
 		header := strings.Fields(lines[i])
-		if len(header) < 3 || !validGitObjectID(header[0]) { return nil, ErrRepositoryInvalid }
+		if len(header) < 3 { return nil, ErrRepositoryInvalid }
+		blamedSHA := strings.TrimPrefix(header[0], "^")
+		if !validGitObjectID(blamedSHA) { return nil, ErrRepositoryInvalid }
 		lineNumber, parseErr := strconv.Atoi(header[2])
 		if parseErr != nil { return nil, ErrRepositoryInvalid }
-		item := RepositoryBlameLine{Line:lineNumber, CommitSHA:header[0]}
+		item := RepositoryBlameLine{Line:lineNumber, CommitSHA:blamedSHA}
 		i++
 		for i < len(lines) && !strings.HasPrefix(lines[i], "\t") {
 			key, value, ok := strings.Cut(lines[i], " ")
