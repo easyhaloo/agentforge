@@ -103,7 +103,8 @@ Implemented in this delivery:
 - Changeset audit events record each lifecycle transition; complete authenticated API workflow tests cover registration through merge and negative gate/authorization cases.
 
 Known adapter boundary:
-- The first provider is operator-provisioned local Git storage, not a remote GitHub/GitLab API integration.
+- The existing local Git adapter is an early internal storage implementation, not a complete AgentForge Git Hosting Engine. Smart HTTP clone/fetch/push, transport authentication, receive hooks, durable post-receive events and repository browsing remain separate deliverables.
+- AgentForge is the authoritative Git hosting platform; GitHub/GitLab Provider or synchronization layers are explicitly out of scope.
 - Without the optional Docker evaluator configuration, the default evaluator checks Git diff integrity only; it does not claim to run the repository's complete test suite.
 - The lifecycle API is synchronous; durable background job scheduling, cancellation and streamed execution events remain Phase 5 work.
 
