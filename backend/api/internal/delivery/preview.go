@@ -137,8 +137,8 @@ func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repo
 	if limit < 1 || limit > 100 { return nil, ErrPreviewPathInvalid }
 	repoPath, err := p.repositoryPath(organizationID, repository)
 	if err != nil { return nil, err }
-	format := "%H%x00%P%x00%an%x00%aI%x00%s%x00"
-	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--")
+	format := "%H%x00%P%x00%an%x00%aI%x00%s"
+	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--")
 	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
 	if err != nil { return nil, ErrRepositoryInvalid }
 	fields := bytes.Split(output, []byte{0})
