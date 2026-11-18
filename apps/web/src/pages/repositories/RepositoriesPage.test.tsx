@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRepositoryFileSize } from "./RepositoriesPage";
+import { formatRepositoryFileSize } from "./repositoryFileUtils";
 
 describe("formatRepositoryFileSize", () => {
   it("formats byte, kilobyte, and megabyte sizes", () => {
