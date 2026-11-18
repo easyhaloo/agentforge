@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 test("the organization has its own repositories page", async ({ page }) => {
   await page.goto("/orgs/demo/repositories");
 
-  await expect(page.getByRole("heading", { name: "Repositories" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repositories", exact: true })).toBeVisible();
   await expect(page.getByRole("cell").getByText("easyhaloo/agentforge")).toBeVisible();
 });
 
