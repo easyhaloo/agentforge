@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/artifact"
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,7 +24,8 @@ var migrations embed.FS
 var ErrVersionConflict = delivery.ErrVersionConflict
 
 type Store struct {
-	pool *pgxpool.Pool
+	objects *artifact.Storage
+	pool    *pgxpool.Pool
 	// lockPool serves only changeset advisory locks (LockChangeset) and never shares a connection with pool.
 	lockPool *pgxpool.Pool
 }
@@ -31,6 +33,10 @@ type Store struct {
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("database URL is required")
+	}
+	objects, err := artifact.FromEnv(ctx)
+	if err != nil {
+		return nil, err
 	}
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
@@ -54,7 +60,7 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("create postgres lock pool: %w", err)
 	}
-	store := &Store{pool: pool, lockPool: lockPool}
+	store := &Store{pool: pool, lockPool: lockPool, objects: objects}
 	if err := store.Migrate(ctx); err != nil {
 		store.Close()
 		return nil, err

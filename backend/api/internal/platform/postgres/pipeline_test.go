@@ -198,9 +198,13 @@ func TestWorkerLeaseAndApprovalOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	runnerTokens := map[string]string{}
 	claim := func(worker, id string) *execution.Task {
 		t.Helper()
-		task, e := s.ClaimTask(ctx, worker)
+		if runnerTokens[worker] == "" {
+			runnerTokens[worker] = registerTestRunner(t, s, "org", pipeline.Approval)
+		}
+		task, e := s.ClaimTask(ctx, runnerTokens[worker])
 		if e != nil || (id == "") != (task == nil) || task != nil && task.StepID != id {
 			t.Fatalf("claim %s: %+v, %v", id, task, e)
 		}

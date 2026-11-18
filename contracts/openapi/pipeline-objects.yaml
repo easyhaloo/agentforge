@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info: {title: Pipeline object API, version: 1.0.0}
+paths:
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/objects:
+    parameters:
+      - {$ref: '#/components/parameters/Organization'}
+      - {$ref: '#/components/parameters/Run'}
+    get:
+      security: [{sessionCookie: []}]
+      summary: List pipeline object manifests
+      operationId: listPipelineObjects
+      parameters:
+        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 0}}
+      responses:
+        '200':
+          description: Up to 100 immutable manifests in ascending ID order, including expired objects.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Record'}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/objects/{object}:
+    parameters:
+      - {$ref: '#/components/parameters/Organization'}
+      - {$ref: '#/components/parameters/Run'}
+      - {name: object, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    get:
+      security: [{sessionCookie: []}]
+      summary: Download a verified pipeline object
+      operationId: downloadPipelineObject
+      responses:
+        '200':
+          description: Verified file attachment.
+          headers:
+            X-Artifact-SHA256: {schema: {$ref: '#/components/schemas/Digest'}}
+          content:
+            application/octet-stream: {schema: {type: string, format: binary}}
+        '410': {description: Payload expired. Its manifest remains available.}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+components:
+  securitySchemes:
+    sessionCookie: {$ref: './openapi.yaml#/components/securitySchemes/sessionCookie'}
+  parameters:
+    Organization: {name: organizationID, in: path, required: true, schema: {type: string}}
+    Run: {name: run, in: path, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    Digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+    Record:
+      type: object
+      required: [id, provenance, sha256, size, createdAt, expiresAt]
+      properties:
+        id: {type: integer, format: int64}
+        sha256: {$ref: '#/components/schemas/Digest'}
+        size: {type: integer, minimum: 0}
+        createdAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        purgedAt: {type: string, format: date-time}
+        provenance:
+          type: object
+          required: [organization, pipeline, version, workflowSha256, run, step, attempt, worker, kind, name]
+          properties:
+            organization: {type: string}
+            pipeline: {type: string}
+            version: {type: integer, minimum: 1}
+            workflowSha256: {$ref: '#/components/schemas/Digest'}
+            run: {type: string, format: uuid}
+            step: {type: string}
+            attempt: {type: integer, minimum: 1}
+            worker: {type: string}
+            sourceSha: {type: string}
+            kind: {type: string, enum: [artifact, log]}
+            name: {type: string, enum: [result.json, stdout.txt, artifact.bin]}

@@ -4,9 +4,8 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -29,24 +28,37 @@ var pinnedImage = regexp.MustCompile(`^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	image := os.Getenv("PIPELINE_CHECK_IMAGE")
-	if !pinnedImage.MatchString(image) {
-		slog.Error("configure PIPELINE_CHECK_IMAGE with a repository and SHA-256 digest")
-		os.Exit(1)
-	}
 	store, err := postgres.Open(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
 		slog.Error("worker database initialization failed")
 		os.Exit(1)
 	}
 	defer store.Close()
-	var id [16]byte
-	rand.Read(id[:])
-	worker := "worker-" + hex.EncodeToString(id[:])
+	token := os.Getenv("PIPELINE_RUNNER_TOKEN")
+	if len(os.Args) > 1 {
+		if err := manageRunner(ctx, store, os.Args[1:], token); err != nil {
+			slog.Error("runner administration failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+	image := os.Getenv("PIPELINE_CHECK_IMAGE")
+	if !pinnedImage.MatchString(image) {
+		slog.Error("configure PIPELINE_CHECK_IMAGE with a repository and SHA-256 digest")
+		os.Exit(1)
+	}
+	if token == "" {
+		slog.Error("configure PIPELINE_RUNNER_TOKEN with a registered credential")
+		os.Exit(1)
+	}
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for ctx.Err() == nil {
-		task, err := store.ClaimTask(ctx, worker)
+		task, err := store.ClaimTask(ctx, token)
+		if errors.Is(err, postgres.ErrRunnerDenied) {
+			slog.Error("runner credential invalid or revoked")
+			os.Exit(1)
+		}
 		if err != nil {
 			slog.Error("claim failed", "error", err)
 		} else if task != nil {
@@ -59,6 +71,33 @@ func main() {
 		case <-ticker.C:
 		}
 	}
+}
+
+// Administration runs on a trusted operator host with database access.
+func manageRunner(ctx context.Context, s *postgres.Store, args []string, token string) error {
+	if len(args) >= 3 {
+		switch args[0] {
+		case "register":
+			id, err := s.RegisterRunner(ctx, args[1], token, args[2:])
+			if err == nil {
+				fmt.Println(id)
+			}
+			return err
+		case "revoke":
+			if len(args) == 3 {
+				return s.RevokeRunner(ctx, args[1], args[2])
+			}
+		case "quota":
+			if len(args) == 3 {
+				slots, err := strconv.Atoi(args[2])
+				if err != nil || slots < 0 {
+					return errors.New("quota requires a nonnegative slot count")
+				}
+				return s.SetRunnerQuota(ctx, args[1], slots)
+			}
+		}
+	}
+	return errors.New("usage: pipeline-worker register ORG CAPABILITY... | revoke ORG RUNNER_ID | quota ORG SLOTS")
 }
 
 // Capture a bounded prefix while continuing to drain stdout.
