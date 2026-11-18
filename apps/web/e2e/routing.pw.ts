@@ -133,6 +133,14 @@ test("an unknown organization handle shows No active organization and names the 
   }
 });
 
+test("an organization whose own slug is the reserved current alias is addressed by its id", async ({ page }) => {
+  const reserved = { id: "org-reserved", slug: "current", name: "Reserved Org", role: "owner" };
+  await installApiMocks(page, { organizations: [reserved] });
+  await page.goto("/orgs/current/changesets");
+  await expect(page.getByText("scoped to Reserved Org")).toBeVisible();
+  expect(pathOf(page)).toBe("/orgs/org-reserved/changesets");
+});
+
 test("signed out, organization pages ask for SSO while flat pages still render", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
   await page.goto("/orgs/x/changesets");

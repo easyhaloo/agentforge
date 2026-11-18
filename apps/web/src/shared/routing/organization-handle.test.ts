@@ -16,6 +16,11 @@ describe("organizationHandle", () => {
     expect(organizationHandle(org("org-demo", ""))).toBe("org-demo");
     expect(organizationHandle(legacyOrg)).toBe("org-legacy");
   });
+
+  it("never returns the reserved current alias, so such an organization is addressed by its id", () => {
+    expect(organizationHandle(org("org-demo", "current"))).toBe("org-demo");
+    expect(organizationHandle(org("org-demo", "Current"))).toBe("org-demo");
+  });
 });
 
 describe("findOrganizationByHandle", () => {
