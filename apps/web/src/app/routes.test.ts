@@ -59,6 +59,14 @@ describe("route table", () => {
     expect(leaf?.route.handle).toEqual({ label: "Changeset" });
   });
 
+  it("serves every part of a changeset as its own route", () => {
+    for (const tab of ["revisions", "evaluation", "review", "merge"]) {
+      const leaf = leafOf(`/orgs/demo/changesets/CS-1/${tab}`);
+      expect(leaf?.params, tab).toMatchObject({ org: "demo", id: "CS-1" });
+      expect(leaf?.route.handle, tab).toEqual({ label: "Changeset" });
+    }
+  });
+
   it("sends every other path to the catch-all, including backend paths and partial organization paths", () => {
     for (const pathname of ["/nope", "/orgs", "/orgs/x", "/orgs/x/", "/orgs/x/nope", "/orgs/x/changesets/extra/other", "/projects/extra", "/dev", "/api/v1/me", "/auth/oidc/login"]) {
       const leaf = leafOf(pathname);

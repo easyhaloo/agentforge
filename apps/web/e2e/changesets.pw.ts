@@ -66,3 +66,15 @@ test("a changeset has its own detail page", async ({ page }) => {
   // The list is not rendered next to it.
   await expect(page.getByRole("cell")).toHaveCount(0);
 });
+
+test("every part of a changeset is a route with its own panel", async ({ page }) => {
+  const tabs = page.getByRole("navigation", { name: "Changeset sections" });
+
+  await page.goto("/orgs/demo/changesets/CS-E2E-01/review");
+  await expect(tabs.getByRole("link", { name: "Review" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("Assign review")).toBeVisible();
+
+  await page.goto("/orgs/demo/changesets/CS-E2E-01/merge");
+  await expect(tabs.getByRole("link", { name: "Merge" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("Merge target")).toBeVisible();
+});
