@@ -177,6 +177,8 @@ export type Workspace = {
 };
 export type WorkspaceTreeEntry = { name: string; path: string; kind: string; source: "base" | "workspace"; version?: number };
 export type WorkspaceFile = { workspace_id: string; path: string; content: string; sha256: string; version: number; source: "base" | "workspace" };
+export type WorkspaceDiffEntry = { path: string; status: "added" | "modified"; base_blob_sha?: string; workspace_sha256: string; version: number };
+export type WorkspaceDiff = { workspace_id: string; base_commit_sha: string; items: WorkspaceDiffEntry[]; total: number };
 export const workspaceAPI = {
   create: (organizationID: string, repository: string, baseRef = "") => {
     const [owner, name] = repository.split("/");
@@ -193,6 +195,8 @@ export const workspaceAPI = {
       `/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/tree?${query.toString()}`,
     );
   },
+  diff: (organizationID: string, workspaceID: string) =>
+    request<WorkspaceDiff>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/diff`),
   readFile: (organizationID: string, workspaceID: string, path: string) =>
     request<WorkspaceFile>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/files?${new URLSearchParams({ path }).toString()}`),
   writeFile: (organizationID: string, workspaceID: string, path: string, content: string, expectedVersion: number) =>
