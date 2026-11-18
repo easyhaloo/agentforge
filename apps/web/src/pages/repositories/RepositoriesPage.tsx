@@ -51,6 +51,8 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [defaultBranchName, setDefaultBranchName] = useState("");
   const [rootReadme, setRootReadme] = useState<RepositoryPreviewBlob | null>(null);
   const [readmeError, setReadmeError] = useState("");
+  const [entryQuery, setEntryQuery] = useState("");
+  const [entrySort, setEntrySort] = useState<EntrySort>("name");
   const canRegister = organization.role === "owner" || organization.role === "admin";\n  const visibleEntries = useMemo(() => {\n    const query = entryQuery.trim().toLocaleLowerCase();\n    return [...(tree?.items ?? [])]\n      .filter(entry => !query || entry.name.toLocaleLowerCase().includes(query) || entry.path.toLocaleLowerCase().includes(query))\n      .sort((left, right) => {\n        if (left.kind === "tree" && right.kind !== "tree") return -1;\n        if (right.kind === "tree" && left.kind !== "tree") return 1;\n        if (entrySort === "size" && left.size !== undefined && right.size !== undefined && left.size !== right.size) return right.size - left.size;\n        return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" });\n      });\n  }, [tree, entryQuery, entrySort]);
 
   useEffect(() => {
