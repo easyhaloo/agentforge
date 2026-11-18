@@ -1,7 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router-dom";
+import { I18nextProvider } from "react-i18next";
 import { routes } from "../src/app/routes";
 import { NotificationProvider, UIThemeProvider } from "../src/shared/ui";
+import i18n from "../src/locales";
 import "../src/styles/index.css";
 import "../src/shared/ui/theme/theme.css";
 import "../src/shared/ui/components/components.css";
@@ -29,9 +31,11 @@ const router = appFails
   : createMemoryRouter(withExplodingPage(routes), { initialEntries: ["/explode"] });
 
 createRoot(document.getElementById("root")!).render(
-  <UIThemeProvider>
-    <NotificationProvider>
-      <RouterProvider router={router} />
-    </NotificationProvider>
-  </UIThemeProvider>,
+  <I18nextProvider i18n={i18n}>
+    <UIThemeProvider>
+      <NotificationProvider>
+        <RouterProvider router={router} />
+      </NotificationProvider>
+    </UIThemeProvider>
+  </I18nextProvider>,
 );
