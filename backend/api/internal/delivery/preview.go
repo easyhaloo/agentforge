@@ -243,7 +243,8 @@ func (p *LocalGitProvider) Blame(ctx context.Context, organizationID, repository
 			if ok {
 				switch key {
 				case "author": item.Author = value
-				case "author-time": item.AuthoredAt = value
+				case "author-time":
+					if seconds, parseErr := strconv.ParseInt(value, 10, 64); parseErr == nil { item.AuthoredAt = time.Unix(seconds, 0).UTC().Format(time.RFC3339) }
 				case "summary": item.Summary = value
 				}
 			}
