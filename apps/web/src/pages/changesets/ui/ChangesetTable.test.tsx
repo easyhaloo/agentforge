@@ -12,9 +12,16 @@ const stored = (id: string, title: string, status: StoredChangeset["status"] = "
   status, version: 1, created_at: "2026-11-17T09:00:00.000Z", updated_at: "2026-11-17T09:00:00.000Z",
 });
 
-const renderTable = (items: StoredChangeset[]) => renderToStaticMarkup(
+const renderTable = (items: StoredChangeset[], paging: { total?: number; page?: number; pageSize?: number } = {}) => renderToStaticMarkup(
   <MemoryRouter initialEntries={["/orgs/demo/changesets"]}>
-    <ChangesetTable items={items} total={items.length} page={1} pageSize={20} onPageChange={() => {}} onOpen={() => {}} />
+    <ChangesetTable
+      items={items}
+      total={paging.total ?? items.length}
+      page={paging.page ?? 1}
+      pageSize={paging.pageSize ?? 20}
+      onPageChange={() => {}}
+      onOpen={() => {}}
+    />
   </MemoryRouter>,
 );
 
@@ -40,5 +47,14 @@ describe("changeset list table", () => {
 
     expect(html).toContain('<span class="status muted">Draft</span>');
     expect(html).not.toContain("Merged");
+  });
+
+  it("pages on the server: the total of the response drives the page count", () => {
+    const html = renderTable([stored("CS-1", "One row of many")], { total: 45, page: 1, pageSize: 20 });
+
+    expect(html).toContain("45 items");
+    expect(html).toContain(">2</button>");
+    expect(html).toContain(">3</button>");
+    expect(html).not.toContain(">4</button>");
   });
 });
