@@ -93,6 +93,7 @@ func (d DeliveryDependencies) readWorkspaceFile(w http.ResponseWriter, r *http.R
 	filePath := r.URL.Query().Get("path")
 	if !workspace.ValidPath(filePath) { writeProblem(w, http.StatusBadRequest, "Invalid file path", "A safe relative file path is required"); return }
 	if overlay, err := d.Workspaces.GetWorkspaceFile(r.Context(), principal.OrganizationID, item.ID, filePath); err == nil {
+		if !utf8.Valid(overlay.Content) { writeProblem(w, http.StatusUnsupportedMediaType, "Binary preview unavailable", "Binary workspace files cannot be opened in the text editor"); return }
 		writeJSON(w, http.StatusOK, map[string]any{"workspace_id": item.ID, "path": filePath, "content": string(overlay.Content), "sha256": overlay.SHA256, "version": overlay.Version, "source": "workspace"})
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -102,12 +103,14 @@ func (d DeliveryDependencies) readWorkspaceFile(w http.ResponseWriter, r *http.R
 	content, blobSHA, err := d.Preview.ReadBlob(r.Context(), principal.OrganizationID, item.Repository, item.BaseCommitSHA, filePath, workspace.MaxFileBytes)
 	if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "File too large", "The file exceeds the 2 MiB workspace editor limit"); return }
 	if err != nil { writeProblem(w, http.StatusNotFound, "File not found", "The file does not exist at the workspace base commit"); return }
+	if !utf8.Valid(content) { writeProblem(w, http.StatusUnsupportedMediaType, "Binary preview unavailable", "Binary repository files cannot be opened in the text editor"); return }
 	writeJSON(w, http.StatusOK, map[string]any{"workspace_id": item.ID, "path": filePath, "content": string(content), "sha256": blobSHA, "version": int64(0), "source": "base"})
 }
 
 func (d DeliveryDependencies) writeWorkspaceFile(w http.ResponseWriter, r *http.Request) {
 	item, principal, ok := d.getWorkspace(w, r)
 	if !ok { return }
+	if item.Status != workspace.StatusActive || !item.ExpiresAt.After(time.Now()) { writeProblem(w, http.StatusGone, "Workspace unavailable", "Closed or expired workspaces cannot be edited"); return }
 	if principal.Role == "viewer" { writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Viewers cannot edit workspace files"); return }
 	var input writeWorkspaceFileRequest
 	if !decodeWorkspaceJSON(w, r, &input) { return }
