@@ -21,7 +21,7 @@ type DockerEvaluator struct {
 
 func (e DockerEvaluator) Evaluate(ctx context.Context,job EvaluationJob)(EvaluationResult,error) {
 	if e.Git==nil||strings.TrimSpace(e.Image)==""||strings.TrimSpace(e.Command)=="" {return EvaluationResult{},ErrProviderUnavailable}
-	path,err:=e.Git.repositoryPath(job.OrganizationID,job.Repository);if err!=nil{return EvaluationResult{},err}
+	path,err:=e.Git.repositoryPath(ctx,job.OrganizationID,job.Repository);if err!=nil{return EvaluationResult{},err}
 	timeout:=e.Timeout;if timeout<=0{timeout=10*time.Minute}
 	runCtx,cancel:=context.WithTimeout(ctx,timeout);defer cancel()
 	args:=[]string{

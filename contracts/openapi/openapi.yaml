@@ -6,6 +6,10 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/organizations/{organizationID}/merge-preview:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-preview
+  /api/v1/organizations/{organizationID}/merge-preview/capabilities:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-preview~1capabilities
   /hooks/github/{hook}:
     $ref: ./pipelines.yaml#/paths/~1hooks~1github~1{hook}
   /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/runs:
