@@ -6,6 +6,8 @@ info:
 servers:
   - url: /
 paths:
+  /hooks/github/{hook}:
+    $ref: ./pipelines.yaml#/paths/~1hooks~1github~1{hook}
   /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/runs:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1runs
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}:
@@ -947,6 +949,8 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
+    webhookSignature:
+      $ref: ./pipelines.yaml#/components/securitySchemes/webhookSignature
     sessionCookie:
       type: apiKey
       in: cookie
