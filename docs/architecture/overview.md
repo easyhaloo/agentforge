@@ -12,9 +12,12 @@
 - Backend hosting: an independently deployed Go service.
 - Execution: isolated workers/workspaces; never run untrusted repository code inside an API request handler.
 
-This document describes the approved target architecture. It does not claim that the Go backend, database, or execution workers already exist.
+This document describes the approved target architecture. It does not claim that the Go backend, database, Git Smart HTTP transport, or execution workers already exist.
 
 ## 1. Product boundary
+
+AgentForge is an independent Git hosting platform, on the same product category level as GitHub and GitLab. AgentForge owns Git repository storage, refs, transport, authentication, authorization and browsing. GitHub/GitLab are not upstream sources or provider dependencies for core repository operations. See [ADR-009](decisions.md#adr-009-native-git-hosting) and [Native Git Hosting Architecture](native-git-hosting.md).
+
 
 AgentForge is an **Agent-native Source Control & Verified Change Platform**. It coordinates changes and verifies delivery; it is not itself an Agent Runtime and must not be reduced to an AI-themed Git hosting interface.
 
@@ -70,7 +73,7 @@ Browser
                                ├── Application use cases
                                ├── Domain modules
                                ├── PostgreSQL
-                               ├── Git provider adapters
+                               ├── Native Git Hosting Engine
                                └── Execution scheduler
                                       │
                                       ▼
@@ -92,7 +95,11 @@ Suggested business modules:
 | --- | --- |
 | identity | Authentication, principals, credentials and authorization context |
 | organization | Organizations and memberships |
-| repository | Repository metadata and Git provider connections |
+| repository | Native AgentForge repository metadata, lifecycle and access policy |
+| git | Bare repository lifecycle, safe Git command boundary, refs and object access |
+| gittransport | Git Smart HTTP protocol gateway and bounded process execution |
+| gitpolicy | Push rules, branch protection and repository quotas |
+| git-events | Durable post-receive events, idempotent consumers and reconciliation |
 | changeset | Changeset lifecycle and invariants |
 | revision | Revision identity, ancestry and commit association |
 | evaluation | Evaluation lifecycle and result aggregation |
@@ -174,7 +181,7 @@ Do not introduce GraphQL or gRPC in the initial implementation without a demonst
 
 PostgreSQL is the initial system of record for business state and durable execution metadata.
 
-Object storage is used for larger artifacts such as logs, test reports and evidence files; relational records store metadata and immutable references.
+Object storage is used for larger artifacts such as logs, test reports and evidence files, and later Git LFS payloads; relational records store metadata and immutable references. Native Git objects and refs live in AgentForge-managed bare repositories, not PostgreSQL.
 
 Do not introduce Redis or a separate message broker until concrete concurrency, throughput, or coordination requirements justify the operational cost. The first durable scheduler can use PostgreSQL-backed records and transactional claiming if that is sufficient.
 
@@ -222,23 +229,3 @@ The current Cloudflare project is a **Worker**, not a Pages project. Its build m
 - A generalized plugin framework before real integration boundaries exist.
 - Full Agent Runtime implementation inside the API process.
 - Big-bang frontend rewrite or domain redesign.
-
-## 13. CI/CD workflow platform (proposed)
-
-The product CI/CD platform is distinct from GitHub Actions used to validate this repository. Its target architecture, product journeys and delivery plan are specified in:
-
-- [CI/CD architecture](cicd-architecture.md)
-- [CI/CD product design](../product/cicd-product-design.md)
-- [CI/CD development plan](../plans/cicd-development-plan.md)
-
-The platform will provide versioned custom workflows, typed parameters, durable isolated execution, Git conflict detection, ordered multi-branch integration candidates, candidate builds and safe promotion. It will be implemented inside the Go modular monolith with explicit `pipeline`, `execution` and `integration` ownership, extending existing repository/SCM and Changeset lifecycle interfaces rather than duplicating them.
-
-Key invariants:
-- Pipeline versions and run inputs are immutable snapshots.
-- Every integration source ref is resolved and pinned to a full commit SHA.
-- A successful Git merge simulation is not equivalent to a successful application build.
-- Candidate promotion rechecks the target base SHA, current authorization, review and quality gates; a moved target invalidates the candidate.
-- Untrusted code runs only in isolated, resource-bounded workers.
-- PostgreSQL remains the initial system of record and durable scheduler; add brokers or workflow infrastructure only when measured requirements justify them.
-
-These are target decisions, not claims that the CI/CD product capabilities are already implemented.
