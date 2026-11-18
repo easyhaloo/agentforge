@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline`
+const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook`
 
 func scanRun(row pgx.Row) (execution.Run, error) {
 	var r execution.Run
-	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline)
+	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = pipeline.ErrMissing
 	}
@@ -25,6 +25,12 @@ func (s *Store) GetRun(ctx context.Context, org, id string) (execution.Run, erro
 	return scanRun(s.pool.QueryRow(ctx, `SELECT `+runColumns+` FROM pipeline_runs WHERE organization_id=$1 AND id::text=$2`, org, id))
 }
 func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage) (execution.Run, error) {
+	return s.createRun(ctx, org, id, number, actor, inputs, nil)
+}
+func (s *Store) TriggerRun(ctx context.Context, org, id string, number int, actor string, hook execution.Webhook) (execution.Run, error) {
+	return s.createRun(ctx, org, id, number, actor, nil, &hook)
+}
+func (s *Store) createRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage, hook *execution.Webhook) (execution.Run, error) {
 	var empty execution.Run
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -34,6 +40,26 @@ func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor
 	// Serialize admission within the tenant so concurrent requests cannot exceed its quota.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(9071,hashtext($1))`, org); err != nil {
 		return empty, err
+	}
+	if hook != nil {
+		var allowed bool
+		err = tx.QueryRow(ctx, `SELECT true FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id WHERE m.organization_id=$1 AND m.user_id=$2 AND m.status='active' AND o.status='active' AND m.role IN ('member','owner','admin') FOR SHARE OF m,o`, org, actor).Scan(&allowed)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return empty, execution.ErrTriggerDenied
+		}
+		if err != nil {
+			return empty, err
+		}
+		prior, err := scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM pipeline_runs WHERE organization_id=$1 AND webhook->>'hook'=$2 AND (webhook->>'delivery'=$3 OR webhook->>'digest'=$4)`, org, hook.Hook, hook.Delivery, hook.Digest))
+		if err == nil {
+			if prior.Webhook.Digest != hook.Digest {
+				return empty, pipeline.ErrConflict
+			}
+			return prior, nil
+		}
+		if !errors.Is(err, pipeline.ErrMissing) {
+			return empty, err
+		}
 	}
 	var def pipeline.Definition
 	var archived bool
@@ -67,7 +93,7 @@ func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor
 	if active >= 16 {
 		return empty, execution.ErrQuota
 	}
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs) VALUES($1,$2,$3,$4,$5) RETURNING `+runColumns, org, id, number, actor, snapshot))
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+runColumns, org, id, number, actor, snapshot, hook))
 	if err != nil {
 		return empty, err
 	}
@@ -84,7 +110,17 @@ func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor
 		for _, job := range stage.Jobs {
 			jobs = append(jobs, []any{run.ID, stage.ID, job.ID})
 			for i, step := range job.Steps {
-				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses})
+				refs := map[string]string{}
+				for _, name := range step.SecretParams {
+					if raw := snapshot[name]; raw != nil {
+						var ref string
+						if err := json.Unmarshal(raw, &ref); err != nil {
+							return empty, err
+						}
+						refs[name] = ref
+					}
+				}
+				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses, refs})
 			}
 		}
 	}
@@ -92,7 +128,7 @@ func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor
 		table   string
 		columns []string
 		rows    [][]any
-	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability"}, steps}} {
+	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability", "secret_refs"}, steps}} {
 		if _, err = tx.CopyFrom(ctx, pgx.Identifier{group.table}, group.columns, pgx.CopyFromRows(group.rows)); err != nil {
 			return empty, err
 		}
