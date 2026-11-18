@@ -147,3 +147,54 @@ func (s *Store) ListWorkspaceFiles(ctx context.Context, organizationID, workspac
 }
 
 var _ workspace.Repository = (*Store)(nil)
+
+func (s *Store) ListWorkspaceFileContents(ctx context.Context, organizationID, workspaceID string) ([]workspace.File, error) {
+	if strings.TrimSpace(organizationID) == "" || strings.TrimSpace(workspaceID) == "" {
+		return nil, workspace.ErrInvalidInput
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, fmt.Errorf("begin workspace snapshot: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var count int
+	var totalBytes int64
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*), COALESCE(sum(octet_length(content)), 0)
+		FROM delivery_workspace_files
+		WHERE organization_id=$1 AND workspace_id=$2
+	`, organizationID, workspaceID).Scan(&count, &totalBytes); err != nil {
+		return nil, fmt.Errorf("measure workspace snapshot: %w", err)
+	}
+	if count > workspace.MaxWorkspaceFiles || totalBytes > workspace.MaxWorkspaceBytes {
+		return nil, workspace.ErrTooLarge
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT workspace_id, path, content, sha256, version, updated_by, updated_at
+		FROM delivery_workspace_files
+		WHERE organization_id=$1 AND workspace_id=$2
+		ORDER BY path COLLATE "C" ASC
+	`, organizationID, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("read workspace snapshot: %w", err)
+	}
+	items := make([]workspace.File, 0, count)
+	for rows.Next() {
+		var item workspace.File
+		if err := rows.Scan(&item.WorkspaceID, &item.Path, &item.Content, &item.SHA256, &item.Version, &item.UpdatedBy, &item.UpdatedAt); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan workspace snapshot: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("iterate workspace snapshot: %w", err)
+	}
+	rows.Close()
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit workspace snapshot: %w", err)
+	}
+	return items, nil
+}
+
