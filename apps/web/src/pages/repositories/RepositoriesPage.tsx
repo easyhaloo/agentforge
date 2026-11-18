@@ -12,6 +12,7 @@ import {
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
 import { Button, DataTable, Input, Select } from "../../shared/ui";
+import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -45,6 +46,8 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [repositoryRefs, setRepositoryRefs] = useState<RepositoryPreviewRef[]>([]);
   const [selectedRef, setSelectedRef] = useState("");
   const [defaultBranchName, setDefaultBranchName] = useState("");
+  const [rootReadme, setRootReadme] = useState<RepositoryPreviewBlob | null>(null);
+  const [readmeError, setReadmeError] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
 
   useEffect(() => {
@@ -123,6 +126,17 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       .catch(cause => { if (active) setHistoryError(cause instanceof Error ? cause.message : "Unable to load commit history"); });
     return () => { active = false; };
   }, [organization.id, selectedRepository, previewCommit]);
+
+  useEffect(() => {
+    if (!tree || tree.path || selectedFile) { setRootReadme(null); setReadmeError(""); return; }
+    const readme = tree.items.find(entry => entry.kind === "file" && /^readme(?:\.md|\.markdown)?$/i.test(entry.name));
+    if (!readme) { setRootReadme(null); return; }
+    let active = true;
+    void repositoryPreviewAPI.blob(organization.id, selectedRepository, readme.path, previewCommit)
+      .then(result => { if (active) setRootReadme(result); })
+      .catch(cause => { if (active) setReadmeError(cause instanceof Error ? cause.message : "Unable to load README"); });
+    return () => { active = false; };
+  }, [organization.id, selectedRepository, previewCommit, tree, selectedFile]);
 
   const inspectFile = async (kind: "history" | "blame") => {
     if (!selectedRepository || !selectedFile) return;
@@ -245,7 +259,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       {!previewLoading && tree && !selectedFile && <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0" }}>
           <Button className="button secondary" disabled={!directory} onClick={() => setDirectory(directory.split("/").slice(0, -1).join("/"))}><ChevronLeft size={14}/> Parent</Button>
-          <code>/{tree.path}</code>
+          <nav className="repository-breadcrumb" aria-label="Repository path"><Button className="button link" onClick={() => { setDirectory(""); setSelectedFile(null); }}>root</Button>{tree.path.split("/").filter(Boolean).map((part, index, parts) => <span key={`${part}-${index}`}> / <Button className="button link" onClick={() => { setDirectory(parts.slice(0, index + 1).join("/")); setSelectedFile(null); }}>{part}</Button></span>)}</nav>
         </div>
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {tree.items.map(entry => <li key={entry.path} style={{ borderTop: "1px solid var(--border-subtle, #ddd)", padding: "8px 4px" }}>
@@ -257,6 +271,8 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           </li>)}
           {tree.items.length === 0 && <li className="changeset-hint">This directory is empty.</li>}
         </ul>
+        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content}/></section>}
+        {readmeError && !tree.path && <p className="changeset-hint" role="status">{readmeError}</p>}
       </div>}
       {selectedFile && <div style={{ marginTop: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -276,7 +292,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360, display: "grid", gap: 4 }}>{blameLines.map(line => <div key={line.line} style={{ display: "grid", gridTemplateColumns: "42px 88px minmax(100px, 180px) 1fr", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border-subtle, #ddd)" }}>
           <code>{line.line}</code><code>{line.commit_sha.slice(0, 8)}</code><span>{line.author}</span><code style={{ overflowWrap: "anywhere" }}>{line.content}</code>
         </div>)}</div></section>}
-        {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <pre style={{ overflow: "auto", maxHeight: 640, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre", tabSize: 2 }}><code>{selectedFile.content}</code></pre>}
+        {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
       </div>}
     </section>}
   </section>;
