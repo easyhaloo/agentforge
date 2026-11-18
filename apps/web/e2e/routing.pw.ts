@@ -54,7 +54,7 @@ const flatPages = [
   ["/security", "Security"],
   ["/governance", "Governance"],
   ["/usage", "Cost & Usage"],
-  ["/settings", "Settings"],
+  // /settings is excluded - it redirects to /settings/profile
   ["/dev/ui", "UI Components"],
 ] as const;
 

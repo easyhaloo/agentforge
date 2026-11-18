@@ -41,6 +41,8 @@ apps/web/src/
 
 Navigation state lives in the URL (React Router). `app/routes.tsx` is the single route table: mock pages are flat (`/projects`, `/stacks`, `/dev/ui`, ...), and pages backed by the real API are organization-scoped (`/orgs/:org/changesets`, `/orgs/:org/settings`, ...), where `:org` is the organization's slug or id and `current` means the selected organization. See ADR-008 in `docs/architecture/decisions.md`.
 
-## Prototype boundaries
+## Implementation boundaries
 
-Seeded mock data and browser LocalStorage remain in the frontend prototype. Real Git operations, remote CI, Agent Runtime sessions, review notifications, merge operations and backend persistence are not implemented yet.
+The Go API already provides organization-scoped repository registration, local Git ref resolution and merge operations, plus the persisted Changeset, Evaluation, Evidence and Review lifecycle. These capabilities require an operator-provisioned local Git repository root and configured PostgreSQL/evidence dependencies; see [the API guide](backend/api/README.md).
+
+Some flat resource workspaces still use seeded mock data and browser LocalStorage. Durable remote CI execution, Agent Runtime sessions, hosted preview environments, Repository Preview rich inspection (history/diff/blame), WebIDE workspaces and the extension platform are separate delivery phases and must not be inferred from the existing repository catalog or Changeset APIs.

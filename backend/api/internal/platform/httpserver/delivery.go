@@ -54,6 +54,7 @@ type DeliveryDependencies struct {
 	Reviewers ReviewerAuthorizer
 	Pipelines pipeline.Store
 	Catalog delivery.RepositoryCatalog
+	Preview delivery.RepositoryPreviewReader
 	Locker delivery.ChangesetLocker
 }
 
@@ -95,6 +96,12 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob", deps.readRepositoryBlob)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history", deps.listRepositoryHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/compare", deps.compareRepositoryCommits)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/file-history", deps.listRepositoryFileHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blame", deps.blameRepositoryFile)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories", deps.registerRepository)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)

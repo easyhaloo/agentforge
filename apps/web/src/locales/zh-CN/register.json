@@ -1,0 +1,30 @@
+{
+  "title": "创建账户",
+  "tagline": "加入 AgentForge 开始协作",
+  "email": "邮箱地址",
+  "password": "密码",
+  "confirmPassword": "确认密码",
+  "displayName": "显示名称",
+  "createButton": "创建账户",
+  "hasAccount": "已有账户？",
+  "signInLink": "登录",
+  "orDivider": "或使用以下方式注册",
+  "ssoButton": "使用 SSO 注册",
+  "trustMessage": "通过 OpenID Connect 安全认证",
+  "passwordStrength": {
+    "weak": "弱",
+    "medium": "中",
+    "strong": "强"
+  },
+  "errors": {
+    "emailRequired": "请输入邮箱。",
+    "emailInvalid": "邮箱格式无效。",
+    "passwordRequired": "请输入密码。",
+    "passwordWeak": "密码长度至少为 8 个字符。",
+    "passwordMismatch": "两次输入的密码不一致。",
+    "nameRequired": "请输入显示名称。",
+    "emailExists": "该邮箱已被注册。",
+    "networkError": "注册失败，请检查网络连接后重试。",
+    "generic": "注册失败，请重试。"
+  }
+}
