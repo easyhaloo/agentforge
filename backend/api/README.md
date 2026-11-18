@@ -96,3 +96,13 @@ go run ./cmd/bootstrap-owner
 ```
 
 The command creates the organization if needed, maps the issuer/subject to a local user, and assigns the `owner` role in one transaction. It serializes concurrent attempts and refuses to proceed if the organization already has an owner or is suspended. Re-running bootstrap is not a role-escalation or recovery mechanism; existing organizations must use a separately authorized membership-management workflow.
+
+### Organization slugs
+
+Organizations get a unique, human-readable slug besides their opaque `id`, so clients and agents can build readable paths such as `/api/v1/organizations/acme/changesets`.
+
+- **Resolution.** Every `/api/v1/organizations/{organizationID}/...` path accepts the organization slug or id. Slugs match case-insensitively; ids match exactly. The handle is resolved only among the caller's own active memberships, so the slug of an organization the caller cannot access gets the same `401` as an unknown handle; so does a malformed handle (containing a NUL byte, not valid UTF-8, or longer than 256 bytes). A handle that equals another organization's id wins over that organization's slug. Storage and handlers always use the canonical id.
+- **`GET /api/v1/me`** returns each organization's `slug`. Organizations created by direct SQL without a slug use their id as handle, and `/me` reports that id as the slug; such an id can contain characters a slug cannot (capitals, `_`, `.`), so every organization always has a handle.
+- **Format.** 1-39 characters from `a-z`, `0-9` and `-`, starting and ending with a letter or digit. `current` is reserved (clients use it as an alias for the selected organization) and is never assigned.
+- **Backfill.** Migration `007_organization_slug.sql` derives slugs for existing organizations from their names (lowercase, other characters become `-`, `-2`, `-3`, ... on collisions, oldest organization first). The API has no way to rename a slug yet.
+- **Bootstrap.** Set the optional `BOOTSTRAP_ORGANIZATION_SLUG`; otherwise the slug is derived from `BOOTSTRAP_ORGANIZATION_NAME`. An invalid or reserved slug aborts the bootstrap with an error. When the organization is created, so does a slug that is already used or that equals another organization's id, or an id that equals another organization's slug, ignoring case. An existing organization is never modified and keeps its slug.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (s *Store) CreateOIDCAuthTransaction(ctx context.Context, stateHash, nonceHash string, expiresAt time.Time) error {
@@ -47,6 +48,7 @@ func (s *Store) ConsumeOIDCAuthTransaction(ctx context.Context, stateHash string
 
 var ErrOwnerAlreadyExists = errors.New("organization already has an owner")
 var ErrOrganizationInactive = errors.New("organization is not active")
+var ErrOrganizationSlugConflict = errors.New("organization slug conflicts with another organization")
 
 func (s *Store) UpsertExternalIdentity(ctx context.Context, issuer, subject, email, displayName string) (string, error) {
 	if err := validateExternalIdentity(issuer, subject, email, displayName); err != nil {
@@ -68,14 +70,21 @@ func (s *Store) UpsertExternalIdentity(ctx context.Context, issuer, subject, ema
 	return userID, nil
 }
 
-func (s *Store) BootstrapFirstOwner(ctx context.Context, issuer, subject, organizationID, organizationName string) (string, error) {
+// BootstrapFirstOwner creates the organization with organizationSlug if needed
+// and makes the external identity its first owner. An organization that already
+// exists is never modified: its name and slug (even NULL) are left as they are.
+func (s *Store) BootstrapFirstOwner(ctx context.Context, issuer, subject, organizationID, organizationName, organizationSlug string) (string, error) {
 	if err := validateExternalIdentity(issuer, subject, "", ""); err != nil {
 		return "", err
 	}
 	organizationID = strings.TrimSpace(organizationID)
 	organizationName = strings.TrimSpace(organizationName)
+	organizationSlug = strings.TrimSpace(organizationSlug)
 	if organizationID == "" || organizationName == "" || len(organizationID) > 128 || len(organizationName) > 256 {
 		return "", errors.New("organization ID and name are required and must be within supported lengths")
+	}
+	if err := identity.ValidateOrganizationSlug(organizationSlug); err != nil {
+		return "", err
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -87,8 +96,36 @@ func (s *Store) BootstrapFirstOwner(ctx context.Context, issuer, subject, organi
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", organizationID); err != nil {
 		return "", fmt.Errorf("lock organization bootstrap: %w", err)
 	}
-	if _, err := tx.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING", organizationID, organizationName); err != nil {
+	// Creations are serialized so the id/slug cross-check below cannot race another bootstrap.
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", "agentforge:organization-handles"); err != nil {
+		return "", fmt.Errorf("lock organization handles: %w", err)
+	}
+	created, err := tx.Exec(ctx, "INSERT INTO organizations (id, name, slug) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING", organizationID, organizationName, organizationSlug)
+	var pgError *pgconn.PgError
+	if errors.As(err, &pgError) && pgError.Code == "23505" && pgError.ConstraintName == "organizations_slug_key" {
+		return "", fmt.Errorf("%w: slug %q is already in use", ErrOrganizationSlugConflict, organizationSlug)
+	}
+	if err != nil {
 		return "", fmt.Errorf("create bootstrap organization: %w", err)
+	}
+	if created.RowsAffected() == 1 {
+		// A handle must resolve to one organization. Resolution matches ids exactly but
+		// slugs ignoring ASCII case, so the new slug must not equal another organization's
+		// id, and the new id must not equal another organization's slug, ignoring ASCII
+		// case (otherwise "Beta" would open one organization and "beta" another).
+		var conflict bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM organizations
+				WHERE id <> $1
+				  AND (translate(id, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') = $2 OR slug = $3)
+			)
+		`, organizationID, organizationSlug, foldASCIICase(organizationID)).Scan(&conflict); err != nil {
+			return "", fmt.Errorf("check organization handle conflicts: %w", err)
+		}
+		if conflict {
+			return "", fmt.Errorf("%w: slug %q and id %q must not match another organization's id or slug, ignoring case", ErrOrganizationSlugConflict, organizationSlug, organizationID)
+		}
 	}
 	var organizationStatus string
 	if err := tx.QueryRow(ctx, "SELECT status FROM organizations WHERE id = $1", organizationID).Scan(&organizationStatus); err != nil {

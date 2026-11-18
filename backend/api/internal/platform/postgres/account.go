@@ -18,7 +18,7 @@ func (s *Store) CurrentAccount(ctx context.Context, sessionToken string) (identi
 		identity.HashToken(sessionToken)).Scan(&account.UserID,&account.DisplayName,&account.Email)
 	if errors.Is(err,pgx.ErrNoRows) { return identity.AccountContext{},identity.ErrUnauthenticated }
 	if err!=nil { return identity.AccountContext{},fmt.Errorf("load authenticated account: %w",err) }
-	rows,err:=s.pool.Query(ctx,`SELECT o.id,o.name,m.role
+	rows,err:=s.pool.Query(ctx,`SELECT o.id,COALESCE(o.slug,o.id),o.name,m.role
 		FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id
 		WHERE m.user_id=$1 AND m.status='active' AND o.status='active'
 		ORDER BY o.name,o.id`,account.UserID)
@@ -27,7 +27,7 @@ func (s *Store) CurrentAccount(ctx context.Context, sessionToken string) (identi
 	account.Organizations=make([]identity.OrganizationSummary,0)
 	for rows.Next() {
 		var organization identity.OrganizationSummary
-		if err:=rows.Scan(&organization.ID,&organization.Name,&organization.Role); err!=nil {
+		if err:=rows.Scan(&organization.ID,&organization.Slug,&organization.Name,&organization.Role); err!=nil {
 			return identity.AccountContext{},fmt.Errorf("scan account organization: %w",err)
 		}
 		account.Organizations=append(account.Organizations,organization)

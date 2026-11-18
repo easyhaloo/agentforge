@@ -9,31 +9,55 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) ResolvePrincipal(request *http.Request, organizationID string) (identity.Principal, error) {
+// maxOrganizationHandleBytes bounds the path segment that reaches SQL; ids are
+// at most 128 bytes and slugs at most 39.
+const maxOrganizationHandleBytes = 256
+
+// validOrganizationHandle reports whether handle can be an organization id or
+// slug at all. PostgreSQL raises SQLSTATE 22021 for NUL bytes and invalid UTF-8,
+// which the HTTP layer would report as 503 instead of the 401 that every other
+// unresolvable handle gets.
+func validOrganizationHandle(handle string) bool {
+	return strings.TrimSpace(handle) != "" && len(handle) <= maxOrganizationHandleBytes &&
+		utf8.ValidString(handle) && !strings.Contains(handle, "\x00")
+}
+
+// ResolvePrincipal resolves the organization handle from a request path, which
+// is either an organization id or slug, among the caller's own active
+// memberships only. A handle that is malformed, unknown, or that belongs to an
+// organization the caller cannot access yields the same ErrUnauthenticated.
+// Principal.OrganizationID is always the canonical id, never the slug, and
+// Principal.OrganizationSlug is the organization's handle: its slug, or its id
+// when it has none. If one organization matches by id and another by slug, the
+// id match wins.
+func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle string) (identity.Principal, error) {
 	cookie, err := request.Cookie(identity.SessionCookieName)
-	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || strings.TrimSpace(organizationID) == "" {
+	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || !validOrganizationHandle(organizationHandle) {
 		return identity.Principal{}, identity.ErrUnauthenticated
 	}
 
 	var principal identity.Principal
 	err = s.pool.QueryRow(request.Context(), `
-		SELECT s.user_id, m.organization_id, m.role
+		SELECT s.user_id, m.organization_id, COALESCE(o.slug, o.id), m.role
 		FROM sessions AS s
 		JOIN organization_memberships AS m ON m.user_id = s.user_id
 		JOIN organizations AS o ON o.id = m.organization_id
 		WHERE s.token_hash = $1
 		  AND s.expires_at > now()
 		  AND s.revoked_at IS NULL
-		  AND m.organization_id = $2
+		  AND (m.organization_id = $2 OR o.slug = $3)
 		  AND m.status = 'active'
 		  AND o.status = 'active'
-	`, identity.HashToken(cookie.Value), organizationID).Scan(
-		&principal.UserID, &principal.OrganizationID, &principal.Role,
+		ORDER BY (m.organization_id = $2) DESC
+		LIMIT 1
+	`, identity.HashToken(cookie.Value), organizationHandle, foldASCIICase(organizationHandle)).Scan(
+		&principal.UserID, &principal.OrganizationID, &principal.OrganizationSlug, &principal.Role,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Principal{}, identity.ErrUnauthenticated
@@ -120,6 +144,17 @@ func (s *Store) RevokeSession(ctx context.Context, sessionToken string) error {
 		return identity.ErrUnauthenticated
 	}
 	return nil
+}
+
+// foldASCIICase lowercases only A-Z so slug matching does not depend on Unicode
+// case rules or the database locale (stored slugs are lowercase ASCII).
+func foldASCIICase(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + 'a' - 'A'
+		}
+		return r
+	}, value)
 }
 
 func newSessionID() (string, error) {

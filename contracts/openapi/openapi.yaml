@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: AgentForge API
   version: 0.7.0
-  description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider.
+  description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider. Every `/organizations/{organizationID}` path accepts the organization slug or id.
 servers:
   - url: /
 paths:
@@ -691,9 +691,12 @@ components:
         offset: { type: integer }
     OrganizationSummary:
       type: object
-      required: [id, name, role]
+      required: [id, slug, name, role]
       properties:
         id: { type: string }
+        slug:
+          type: string
+          description: Organization handle, usable in place of the organization id in any `/organizations/{organizationID}` path. Stored slugs are unique and match `^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$`; `current` is reserved and never assigned. An organization created without a slug (for example by direct SQL) reports its id, which may not match that pattern.
         name: { type: string }
         role: { type: string, enum: [owner, admin, member, viewer] }
     AccountContext:

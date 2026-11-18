@@ -21,11 +21,15 @@ const (
 var ErrUnauthenticated = errors.New("unauthenticated")
 
 type Principal struct {
-	UserID         string
-	OrganizationID string
-	Role           string
+	UserID           string
+	OrganizationID   string
+	OrganizationSlug string
+	Role             string
 }
 
+// PrincipalResolver maps a request and the organization handle from its path
+// (an organization id or slug) to the caller's Principal. Principal.OrganizationID
+// is always the canonical organization id.
 type PrincipalResolver interface {
 	ResolvePrincipal(*http.Request, string) (Principal, error)
 }

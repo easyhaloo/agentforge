@@ -1,0 +1,212 @@
+package postgres
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+	"github.com/jackc/pgx/v5"
+)
+
+const slugBootstrapIssuer = "https://bootstrap-slug-issuer.example.test"
+
+// slugOrganizationRow returns an organization's name and slug (nil when NULL).
+func slugOrganizationRow(t *testing.T, ctx context.Context, store *Store, id string) (name string, slug *string, exists bool) {
+	t.Helper()
+	err := store.pool.QueryRow(ctx, "SELECT name, slug FROM organizations WHERE id = $1", id).Scan(&name, &slug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil, false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return name, slug, true
+}
+
+func TestBootstrapFirstOwnerSetsOrganizationSlug(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	derivedName := "Derived Org " + suffix
+	// id "" means "bootstrap-<label>-<suffix>".
+	cases := []struct{ label, id, name, slug, want string }{
+		{"explicit", "", "Explicit Org", "explicit-" + suffix, "explicit-" + suffix},
+		// The operator CLI derives the slug from the name when none is configured.
+		{"derived", "", derivedName, identity.Slugify(derivedName), "derived-org-" + suffix},
+		// An organization's own id may differ from its own slug only by case.
+		{"own-id-in-capitals", "Own-Capitals-" + suffix, "Own Capitals", "own-capitals-" + suffix, "own-capitals-" + suffix},
+		// A capitalised id is fine as long as no other organization has a case variant of its handle.
+		{"capitalised-id", "Capitalised-" + suffix, "Capitalised", "capitalised-handle-" + suffix, "capitalised-handle-" + suffix},
+	}
+	for _, tc := range cases {
+		t.Run(tc.label, func(t *testing.T) {
+			organizationID := tc.id
+			if organizationID == "" {
+				organizationID = "bootstrap-" + tc.label + "-" + suffix
+			}
+			userID, err := store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, "owner-"+tc.label+"-"+suffix, organizationID, tc.name, tc.slug)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, slug, exists := slugOrganizationRow(t, ctx, store, organizationID); !exists || slug == nil || *slug != tc.want {
+				t.Fatalf("stored slug = %v (exists=%v), want %q", slug, exists, tc.want)
+			}
+			// Both handles work end to end and resolve to the same canonical id.
+			request, _ := slugNewSession(t, ctx, store, userID)
+			for _, handle := range []string{tc.want, organizationID} {
+				principal, err := store.ResolvePrincipal(request, handle)
+				if err != nil || principal.OrganizationID != organizationID || principal.OrganizationSlug != tc.want || principal.Role != "owner" {
+					t.Fatalf("ResolvePrincipal(%q) = %#v, %v; want organization %q slug %q role owner", handle, principal, err, organizationID, tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestBootstrapFirstOwnerRejectsInvalidReservedOrConflictingSlug(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	takenSlug, otherOrganizationID := "taken-"+suffix, "idholder-"+suffix
+	slugInsertOrganization(t, ctx, store, "bootstrap-slug-holder-"+suffix, takenSlug, "active")
+	slugInsertOrganization(t, ctx, store, otherOrganizationID, "", "active")
+	// Handles match ids exactly but slugs ignoring case, so "Beta" opening one organization
+	// while "beta" opens another must not be creatable, in either direction.
+	capitalisedID, lowerSlugHolder := "Beta-"+suffix, "caseholder-"+suffix
+	slugInsertOrganization(t, ctx, store, capitalisedID, "", "active")
+	slugInsertOrganization(t, ctx, store, "bootstrap-case-holder-"+suffix, lowerSlugHolder, "active")
+
+	assertRejected := func(label, organizationID, slug string, want error) {
+		t.Helper()
+		subject := "reject-" + label + "-" + suffix
+		if _, err := store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, subject, organizationID, "Rejected Org", slug); !errors.Is(err, want) {
+			t.Errorf("%s: organization %q slug %q: error = %v, want %v", label, organizationID, slug, err, want)
+		}
+		// Nothing is committed: no organization and no user for the subject.
+		if _, _, exists := slugOrganizationRow(t, ctx, store, organizationID); exists {
+			t.Errorf("%s: organization %q was created despite the error", label, organizationID)
+		}
+		var identities int
+		if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM external_identities WHERE issuer = $1 AND subject = $2", slugBootstrapIssuer, subject).Scan(&identities); err != nil {
+			t.Fatal(err)
+		}
+		if identities != 0 {
+			t.Errorf("%s: %d external identities were created despite the error", label, identities)
+		}
+	}
+
+	invalid := map[string]string{
+		"reserved":        "current",
+		"uppercase":       "Upper-" + suffix,
+		"leading-hyphen":  "-lead",
+		"trailing-hyphen": "trail-",
+		"underscore":      "a_b",
+		"too-long":        strings.Repeat("a", 40),
+		"empty":           "",
+		"blank":           "   ",
+	}
+	for label, slug := range invalid {
+		assertRejected("invalid-"+label, "bootstrap-invalid-"+label+"-"+suffix, slug, identity.ErrInvalidOrganizationSlug)
+	}
+	assertRejected("slug-in-use", "bootstrap-new-slug-"+suffix, takenSlug, ErrOrganizationSlugConflict)
+	assertRejected("slug-is-another-id", "bootstrap-new-id-"+suffix, otherOrganizationID, ErrOrganizationSlugConflict)
+	assertRejected("id-is-another-slug", takenSlug, "fresh-"+suffix, ErrOrganizationSlugConflict)
+	// New slug versus an existing id that differs only by case.
+	assertRejected("slug-is-another-id-ignoring-case", "bootstrap-new-slug-case-"+suffix, "beta-"+suffix, ErrOrganizationSlugConflict)
+	// New id versus an existing slug that differs only by case.
+	assertRejected("id-is-another-slug-ignoring-case", "CaseHolder-"+suffix, "fresh-case-"+suffix, ErrOrganizationSlugConflict)
+
+	// An organization may use its own id as its slug.
+	sameID := "same-" + suffix
+	if _, err := store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, "owner-same-"+suffix, sameID, "Same", sameID); err != nil {
+		t.Fatalf("slug equal to the organization's own id: %v", err)
+	}
+}
+
+func TestBootstrapFirstOwnerNeverOverwritesAnExistingOrganization(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	cases := []struct {
+		label, organizationSlug, passedSlug string // organizationSlug "" stores NULL
+	}{
+		{"has-slug", "old-" + suffix, "new-" + suffix},
+		// Re-running with the slug the organization already has must not conflict with itself.
+		{"own-slug", "own-" + suffix, "own-" + suffix},
+		{"null-slug", "", "fill-" + suffix},
+	}
+	for _, tc := range cases {
+		t.Run(tc.label, func(t *testing.T) {
+			organizationID := "bootstrap-existing-" + tc.label + "-" + suffix
+			slugInsertOrganization(t, ctx, store, organizationID, tc.organizationSlug, "active")
+			if _, err := store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, "owner-"+tc.label+"-"+suffix, organizationID, "Renamed", tc.passedSlug); err != nil {
+				t.Fatal(err)
+			}
+			name, slug, _ := slugOrganizationRow(t, ctx, store, organizationID)
+			if name != organizationID {
+				t.Errorf("organization name = %q, want it unchanged (%q)", name, organizationID)
+			}
+			got := "<NULL>"
+			if slug != nil {
+				got = *slug
+			}
+			want := tc.organizationSlug
+			if want == "" {
+				want = "<NULL>"
+			}
+			if got != want {
+				t.Errorf("slug = %s, want it unchanged (%s)", got, want)
+			}
+		})
+	}
+}
+
+func TestBootstrapFirstOwnerSerializesCrossedOrganizationHandles(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	// Two concurrent bootstraps whose handles cross: the first organization's slug
+	// is the second organization's id. Exactly one may win, whatever the interleaving.
+	for round := 0; round < 25; round++ {
+		firstID, secondID := fmt.Sprintf("xa-%d-%s", round, suffix), fmt.Sprintf("xb-%d-%s", round, suffix)
+		calls := []struct{ id, slug string }{
+			{firstID, secondID},
+			{secondID, fmt.Sprintf("xs-%d-%s", round, suffix)},
+		}
+		errs := make([]error, len(calls))
+		start := make(chan struct{})
+		var wait sync.WaitGroup
+		for index, call := range calls {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				<-start
+				_, errs[index] = store.BootstrapFirstOwner(ctx, slugBootstrapIssuer, fmt.Sprintf("cross-%d-%d-%s", round, index, suffix), call.id, "Crossed", call.slug)
+			}()
+		}
+		close(start)
+		wait.Wait()
+
+		failures := 0
+		for _, err := range errs {
+			if err != nil {
+				failures++
+				if !errors.Is(err, ErrOrganizationSlugConflict) {
+					t.Fatalf("round %d: unexpected error %v", round, err)
+				}
+			}
+		}
+		if failures != 1 {
+			t.Fatalf("round %d: %d bootstraps failed (%v), want exactly one conflict", round, failures, errs)
+		}
+		var crossed int
+		if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM organizations a JOIN organizations b ON a.slug = b.id AND a.id <> b.id WHERE a.id = ANY($1)", []string{firstID, secondID}).Scan(&crossed); err != nil {
+			t.Fatal(err)
+		}
+		if crossed != 0 {
+			t.Fatalf("round %d: an organization's slug equals another organization's id", round)
+		}
+	}
+}
