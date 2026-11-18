@@ -23,6 +23,7 @@ func NewHandler() http.Handler {
 func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/me", deps.currentAccount)
+	mux.HandleFunc("POST /hooks/github/{hook}", deps.githubPipelineHook)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeHealth(w, http.StatusOK, "ok")
 	})

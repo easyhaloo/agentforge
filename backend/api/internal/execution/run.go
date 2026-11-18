@@ -11,7 +11,19 @@ import (
 var ErrInputs = errors.New("invalid run inputs")
 var ErrQuota = errors.New("active run quota reached")
 
+type Webhook struct {
+	Hook         string `json:"hook"`
+	Delivery     string `json:"delivery"`
+	Digest       string `json:"digest"`
+	RepositoryID int64  `json:"repositoryId"`
+	Event        string `json:"event"`
+	SHA          string `json:"sha"`
+}
+
+var ErrTriggerDenied = errors.New("webhook trigger denied")
+
 type Run struct {
+	Webhook    *Webhook                   `json:"webhook,omitempty"`
 	ID         string                     `json:"id"`
 	PipelineID string                     `json:"pipelineId"`
 	Version    int                        `json:"version"`
@@ -23,6 +35,7 @@ type Run struct {
 }
 
 type Store interface {
+	TriggerRun(context.Context, string, string, int, string, Webhook) (Run, error)
 	CreateRun(context.Context, string, string, int, string, map[string]json.RawMessage) (Run, error)
 	GetRun(context.Context, string, string) (Run, error)
 	Events(context.Context, string, string, int64) ([]Event, error)

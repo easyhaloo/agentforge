@@ -3,6 +3,25 @@ info:
   title: Pipeline API
   version: 1.0.0
 paths:
+  /hooks/github/{hook}:
+    post:
+      operationId: triggerPipelineWebhook
+      summary: Queue the pinned workflow for a signed GitHub event
+      security:
+      - webhookSignature: []
+      parameters:
+      - {in: path, name: hook, required: true, schema: {type: string}}
+      - {in: header, name: X-GitHub-Delivery, required: true, schema: {type: string}}
+      - {in: header, name: X-GitHub-Event, required: true, schema: {type: string, enum: [push, pull_request]}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '202': {description: Enqueued or previously accepted}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
   /api/v1/organizations/{organizationID}/pipelines:
     parameters:
     - in: path
@@ -467,6 +486,17 @@ components:
       properties:
         id:
           type: string
+        webhook:
+          type: object
+          additionalProperties: false
+          required: [hook, delivery, digest, repositoryId, event, sha]
+          properties:
+            hook: {type: string}
+            delivery: {type: string}
+            digest: {type: string, pattern: '^[a-f0-9]{64}$'}
+            repositoryId: {type: integer}
+            event: {type: string, enum: [push, pull_request]}
+            sha: {type: string, pattern: '^[a-f0-9]{40}$'}
         pipelineId:
           type: string
         actorId:
@@ -575,6 +605,11 @@ components:
           $ref: '#/components/schemas/Definition'
       additionalProperties: false
   securitySchemes:
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-Hub-Signature-256
+      description: HMAC-SHA256 of the raw request body, prefixed with sha256=.
     sessionCookie:
       $ref: ./openapi.yaml#/components/securitySchemes/sessionCookie
     csrfCookie:

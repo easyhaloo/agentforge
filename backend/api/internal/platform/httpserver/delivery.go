@@ -53,6 +53,7 @@ type DeliveryDependencies struct {
 	Evaluator delivery.Evaluator
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer
+	WebhookDirectory string
 	Runs execution.Store
 	Pipelines pipeline.Store
 	Catalog delivery.RepositoryCatalog
