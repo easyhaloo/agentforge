@@ -1,0 +1,45 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "refresh": "Refresh",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "submit": "Submit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "confirm": "Confirm",
+    "loading": "Loading"
+  },
+  "status": {
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info",
+    "loading": "Loading...",
+    "completed": "Completed",
+    "pending": "Pending",
+    "failed": "Failed"
+  },
+  "pagination": {
+    "page": "Page",
+    "of": "of",
+    "items": "items",
+    "showing": "Showing",
+    "to": "to"
+  },
+  "feedback": {
+    "noData": "No data available",
+    "noResults": "No results found",
+    "serverError": "Server error occurred",
+    "networkError": "Network error occurred",
+    "unauthorized": "Unauthorized access",
+    "notFound": "Resource not found"
+  }
+}

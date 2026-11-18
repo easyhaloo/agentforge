@@ -1,0 +1,29 @@
+{
+  "routes": {
+    "overview": "概览",
+    "projects": "项目",
+    "workspaces": "工作空间",
+    "stacks": "技术栈",
+    "selfHealing": "自愈系统",
+    "memory": "记忆",
+    "cicd": "CI / CD",
+    "pipelines": "CI / CD",
+    "security": "安全",
+    "governance": "治理",
+    "usage": "成本与用量",
+    "settings": "设置",
+    "changesets": "变更集",
+    "changeset": "变更集",
+    "repositories": "代码仓库",
+    "trails": "轨迹",
+    "review": "代码审查",
+    "eval": "评估",
+    "organization": "组织",
+    "uiComponents": "UI 组件",
+    "notFound": "页面未找到"
+  },
+  "breadcrumbs": {
+    "home": "首页",
+    "back": "返回{{page}}"
+  }
+}

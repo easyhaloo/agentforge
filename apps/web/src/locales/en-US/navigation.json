@@ -1,0 +1,29 @@
+{
+  "routes": {
+    "overview": "Overview",
+    "projects": "Projects",
+    "workspaces": "Workspaces",
+    "stacks": "Stacks",
+    "selfHealing": "Self-healing",
+    "memory": "Memory",
+    "cicd": "CI / CD",
+    "pipelines": "CI / CD",
+    "security": "Security",
+    "governance": "Governance",
+    "usage": "Cost & Usage",
+    "settings": "Settings",
+    "changesets": "Changesets",
+    "changeset": "Changeset",
+    "repositories": "Repositories",
+    "trails": "Trails",
+    "review": "Review",
+    "eval": "Eval",
+    "organization": "Organization",
+    "uiComponents": "UI Components",
+    "notFound": "Page not found"
+  },
+  "breadcrumbs": {
+    "home": "Home",
+    "back": "Back to {{page}}"
+  }
+}

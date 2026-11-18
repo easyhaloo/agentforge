@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { routes } from "./app/routes";
 import { NotificationProvider, UIThemeProvider } from "./shared/ui";
+import "./locales";
 import "./styles/index.css";
 import "./shared/ui/theme/theme.css";
 import "./shared/ui/components/components.css";

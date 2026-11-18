@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "变更集",
+    "summary": "{{count}} 个持久化变更集",
+    "description": "组织级 Git 生命周期 · PostgreSQL 状态",
+    "loadingMessage": "加载变更集中…"
+  },
+  "create": {
+    "title": "创建变更集",
+    "description": "针对已注册的代码仓库启动持久化交付工作流",
+    "validated": "服务器验证",
+    "titleLabel": "标题",
+    "titlePlaceholder": "描述此变更",
+    "repositoryLabel": "代码仓库",
+    "createButton": "创建",
+    "successMessage": "变更集已创建并持久化。",
+    "errorMessage": "变更集创建失败"
+  },
+  "list": {
+    "title": "变更集",
+    "description": "最新记录优先 · 范围限定为 {{organizationName}}",
+    "searchPlaceholder": "搜索 ID、标题或代码仓库",
+    "filterByStatus": "按状态筛选",
+    "filterByRepository": "按代码仓库筛选",
+    "allStatuses": "全部状态",
+    "allRepositories": "全部代码仓库",
+    "myPendingReviews": "我的待审查项",
+    "emptyFiltered": "没有符合筛选条件的变更集。",
+    "emptyDefault": "暂无变更集。",
+    "footer": "{{count}} / {{total}} 个变更集",
+    "dataSource": "来自组织 API 的数据"
+  },
+  "empty": {
+    "noRepositories": "未注册代码仓库",
+    "noRepositoriesDescription": "在创建变更集之前，请先在组织的代码仓库页面注册一个代码仓库。"
+  },
+  "errors": {
+    "loadFailed": "无法加载交付数据"
+  },
+  "status": {
+    "draft": "草稿",
+    "evaluation_pending": "评估待处理",
+    "evaluation_failed": "评估失败",
+    "evidence_required": "需要证据",
+    "review_required": "需要审查",
+    "in_review": "审查中",
+    "changes_requested": "需要修改",
+    "ready_to_merge": "准备合并",
+    "merged": "已合并"
+  },
+  "lifecycle": {
+    "repository": "代码仓库",
+    "revision": "修订版本",
+    "evaluation": "评估",
+    "evidence": "证据",
+    "review": "审查",
+    "merge": "合并"
+  },
+  "reviewRefusal": {
+    "readyToMerge": "当前修订版本已有批准的审查。添加新的修订版本以请求另一次审查。",
+    "merged": "该变更集已合并，无法再请求审查。",
+    "default": "当前修订版本具有活跃证据后才能请求审查。"
+  }
+}
