@@ -121,7 +121,8 @@ func (s *Store) ListWorkspaceFiles(ctx context.Context, organizationID, workspac
 		FROM delivery_workspace_files
 		WHERE organization_id=$1 AND workspace_id=$2
 		ORDER BY path COLLATE "C" ASC
-	`, organizationID, workspaceID)
+	LIMIT $3
+	`, organizationID, workspaceID, workspace.MaxWorkspaceFiles+1)
 	if err != nil {
 		return nil, fmt.Errorf("list workspace files: %w", err)
 	}
