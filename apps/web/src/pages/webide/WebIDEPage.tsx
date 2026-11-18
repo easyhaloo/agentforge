@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, FileCode2, Folder, Save, Search } from "lucide-react";
-import { Button } from "../../shared/ui";
+import { Button, Input, TextArea } from "../../shared/ui";
 import { workspaceAPI, type OrganizationSummary, type Workspace, type WorkspaceTreeEntry, type WorkspaceFile } from "../../shared/api/identity";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -81,12 +81,12 @@ export function WebIDEPage({ organization, onNotify }: Props) {
     {error && <div className="org-error" role="alert">{error}</div>}
     <div className="card" style={{display:"grid",gridTemplateColumns:"minmax(220px, 28%) minmax(0,1fr)",minHeight:520,overflow:"hidden"}}>
       <aside style={{borderRight:"1px solid var(--border, #ddd)",padding:12,minWidth:0}}>
-        <label style={{display:"flex",gap:8,alignItems:"center"}}><Search size={14}/><input aria-label="Search files" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Filter files" style={{width:"100%"}}/></label>
+        <label style={{display:"flex",gap:8,alignItems:"center"}}><Search size={14}/><Input aria-label="Search files" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Filter files" style={{width:"100%"}}/></label>
         <div style={{marginTop:12,display:"grid",gap:4}}>
-          {directory && <button className="button link" onClick={()=>{const parent=directory.split("/").slice(0,-1).join("/");setDirectory(parent);if(workspace)void loadTree(workspace.id,parent);}}>..</button>}
-          {visible.map(item=><button key={item.path} className="button link" onClick={()=>void openFile(item)} style={{justifyContent:"flex-start",overflowWrap:"anywhere"}}>
+          {directory && <Button className="button link" onClick={()=>{const parent=directory.split("/").slice(0,-1).join("/");setDirectory(parent);if(workspace)void loadTree(workspace.id,parent);}}>..</Button>}
+          {visible.map(item=><Button key={item.path} className="button link" onClick={()=>void openFile(item)} style={{justifyContent:"flex-start",overflowWrap:"anywhere"}}>
             {item.kind==="tree"?<Folder size={14}/>:<FileCode2 size={14}/>} {item.name}
-          </button>)}
+          </Button>)}
           {!visible.length && <p className="changeset-hint">{workspace?"No files in this directory.":"Create a workspace to browse files."}</p>}
         </div>
       </aside>
@@ -95,7 +95,7 @@ export function WebIDEPage({ organization, onNotify }: Props) {
           <strong>{selected?.path ?? "Select a file"}</strong>
           <span className="changeset-hint">{dirty?"Unsaved changes":selected?selected.source:"Read-only until a file is selected"}</span>
         </div>
-        <textarea aria-label="Source editor" spellCheck={false} value={content} onChange={event=>{setContent(event.target.value);setDirty(true);}} disabled={!selected || workspace?.status!=="active"} style={{flex:1,minHeight:440,width:"100%",resize:"vertical",fontFamily:"ui-monospace, SFMono-Regular, Menlo, monospace",fontSize:13,lineHeight:1.55,padding:12,border:"1px solid var(--border, #ccc)",borderRadius:8,background:"var(--surface, #fff)",color:"inherit"}}/>
+        <TextArea aria-label="Source editor" spellCheck={false} value={content} onChange={event=>{setContent(event.target.value);setDirty(true);}} disabled={!selected || workspace?.status!=="active"} style={{flex:1,minHeight:440,width:"100%",resize:"vertical",fontFamily:"ui-monospace, SFMono-Regular, Menlo, monospace",fontSize:13,lineHeight:1.55,padding:12,border:"1px solid var(--border, #ccc)",borderRadius:8,background:"var(--surface, #fff)",color:"inherit"}}/>
       </main>
     </div>
     {loading && <p className="changeset-hint" role="status">Loading workspace…</p>}
