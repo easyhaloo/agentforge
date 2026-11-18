@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, FileCode2, Folder, Save, Search } from "lucide-react";
 import { Button, Input, TextArea } from "../../shared/ui";
-import { workspaceAPI, type OrganizationSummary, type Workspace, type WorkspaceTreeEntry, type WorkspaceFile } from "../../shared/api/identity";
+import { workspaceAPI, type OrganizationSummary, type Workspace, type WorkspaceTreeEntry, type WorkspaceFile, type WorkspaceDiffEntry } from "../../shared/api/identity";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 
@@ -19,10 +19,17 @@ export function WebIDEPage({ organization, onNotify }: Props) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [diffItems, setDiffItems] = useState<WorkspaceDiffEntry[]>([]);
+  const [showDiff, setShowDiff] = useState(false);
 
   const loadTree = useCallback(async (id: string, path = "") => {
     const result = await workspaceAPI.tree(organization.id, id, path);
     setTree(result.items);
+  }, [organization.id]);
+
+  const loadDiff = useCallback(async (id: string) => {
+    const result = await workspaceAPI.diff(organization.id, id);
+    setDiffItems(result.items);
   }, [organization.id]);
 
   const createWorkspace = async () => {
@@ -74,11 +81,11 @@ export function WebIDEPage({ organization, onNotify }: Props) {
       <div><h2>WebIDE</h2><p>{repository} · isolated workspace editor</p></div>
       <span className="org-role">{workspace?.status ?? "not started"}</span>
       {!workspace && <Button className="button primary" disabled={loading} onClick={() => void createWorkspace()}>Create workspace</Button>}
-      <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> Save</Button>
+      <Button className="button secondary" disabled={!workspace || loading} onClick={() => setShowDiff(value => !value)}> {showDiff ? "Hide diff" : "Workspace diff"} ({diffItems.length})</Button>\n      <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> Save</Button>
       <Link className="button secondary" to={`/orgs/${organization.slug}/repositories`}><ArrowLeft size={14}/> Repositories</Link>
     </div>
     {workspace && <p className="changeset-hint">Workspace <code>{workspace.id}</code> · base <code>{workspace.base_commit_sha.slice(0, 12)}</code> · expires {new Date(workspace.expires_at).toLocaleString()}</p>}
-    {error && <div className="org-error" role="alert">{error}</div>}
+    {error && <div className="org-error" role="alert">{error}</div>}\n    {showDiff && <div className="card" style={{padding:12,marginBottom:12}}><h3>Workspace changes</h3>{diffItems.length ? <ul>{diffItems.map(item=><li key={item.path}><code>{item.path}</code> · {item.status} · v{item.version}</li>)}</ul> : <p className="changeset-hint">No saved workspace changes.</p>}</div>}
     <div className="card" style={{display:"grid",gridTemplateColumns:"minmax(220px, 28%) minmax(0,1fr)",minHeight:520,overflow:"hidden"}}>
       <aside style={{borderRight:"1px solid var(--border, #ddd)",padding:12,minWidth:0}}>
         <div style={{display:"flex",gap:8,alignItems:"center"}}><Search size={14}/><Input aria-label="Search files" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Filter files" style={{width:"100%"}}/></div>
