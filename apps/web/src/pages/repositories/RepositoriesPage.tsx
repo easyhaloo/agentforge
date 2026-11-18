@@ -30,6 +30,10 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
   const [history, setHistory] = useState<RepositoryCommit[]>([]);
   const [historyError, setHistoryError] = useState("");
+  const [fileHistory, setFileHistory] = useState<RepositoryCommit[]>([]);
+  const [blameLines, setBlameLines] = useState<import("../../shared/api/identity").RepositoryBlameLine[]>([]);
+  const [fileInspectionError, setFileInspectionError] = useState("");
+  const [fileInspectionLoading, setFileInspectionLoading] = useState(false);
   const [comparePatch, setComparePatch] = useState("");
   const [compareBase, setCompareBase] = useState("");
   const [compareError, setCompareError] = useState("");
@@ -71,6 +75,24 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       .catch(cause => { if (active) setHistoryError(cause instanceof Error ? cause.message : "Unable to load commit history"); });
     return () => { active = false; };
   }, [organization.id, selectedRepository, previewCommit]);
+
+  const inspectFile = async (kind: "history" | "blame") => {
+    if (!selectedRepository || !selectedFile) return;
+    setFileInspectionLoading(true); setFileInspectionError("");
+    try {
+      if (kind === "history") {
+        const result = await repositoryPreviewAPI.fileHistory(organization.id, selectedRepository, selectedFile.path, previewCommit);
+        setFileHistory(result.items);
+        setBlameLines([]);
+      } else {
+        const result = await repositoryPreviewAPI.blame(organization.id, selectedRepository, selectedFile.path, previewCommit);
+        setBlameLines(result.items);
+        setFileHistory([]);
+      }
+    } catch (cause) {
+      setFileInspectionError(cause instanceof Error ? cause.message : "Unable to inspect file history");
+    } finally { setFileInspectionLoading(false); }
+  };
 
   const compareToCurrent = async (baseCommit: string) => {
     if (!selectedRepository || !previewCommit || baseCommit === previewCommit) return;
@@ -191,6 +213,18 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           <strong>{selectedFile.path}</strong>
         </div>
         <p className="changeset-hint">Blob <code>{selectedFile.blob_sha}</code> · commit <code>{selectedFile.commit_sha}</code></p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0" }}>
+          <Button className="button secondary" onClick={() => void inspectFile("history")} disabled={fileInspectionLoading}>File history</Button>
+          <Button className="button secondary" onClick={() => void inspectFile("blame")} disabled={fileInspectionLoading}>Blame</Button>
+        </div>
+        {fileInspectionLoading && <p role="status">Loading file inspection…</p>}
+        {fileInspectionError && <div className="org-error" role="alert">{fileInspectionError}</div>}
+        {fileHistory.length > 0 && <section aria-label="File history"><h3>File history</h3><ul>{fileHistory.map(commit => <li key={commit.sha}>
+          <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); setFileHistory([]); }}>{commit.subject || "(no subject)"}</Button> <code>{commit.sha.slice(0, 12)}</code>
+        </li>)}</ul></section>}
+        {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360 }}><table><tbody>{blameLines.map(line => <tr key={line.line}>
+          <td><code>{line.line}</code></td><td><code>{line.commit_sha.slice(0, 8)}</code></td><td>{line.author}</td><td><code>{line.content}</code></td>
+        </tr>)}</tbody></table></div></section>}
         {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <pre style={{ overflow: "auto", maxHeight: 640, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre", tabSize: 2 }}><code>{selectedFile.content}</code></pre>}
       </div>}
     </section>}
