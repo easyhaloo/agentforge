@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
 import {
   repositoryAPI,
@@ -23,10 +23,11 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [error, setError] = useState("");
   const [slug, setSlug] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
-  const [selectedRepository, setSelectedRepository] = useState("");
+  const [selectedRepository, setSelectedRepository] = useState(() => new URLSearchParams(window.location.search).get("repository") ?? "");
   const [directory, setDirectory] = useState("");
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
-  const [previewCommit, setPreviewCommit] = useState("");
+  const [previewCommit, setPreviewCommit] = useState(() => new URLSearchParams(window.location.search).get("commit") ?? "");
+  const initialPermalinkPath = useRef(new URLSearchParams(window.location.search).get("path") ?? "");
   const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
   const [history, setHistory] = useState<RepositoryCommit[]>([]);
   const [historyError, setHistoryError] = useState("");
@@ -41,6 +42,36 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
+
+  useEffect(() => {
+    if (!selectedRepository || !previewCommit) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("repository", selectedRepository);
+    url.searchParams.set("commit", previewCommit);
+    const path = selectedFile?.path || directory;
+    if (path) url.searchParams.set("path", path); else url.searchParams.delete("path");
+    window.history.replaceState(window.history.state, "", url);
+  }, [selectedRepository, previewCommit, selectedFile?.path, directory]);
+
+  useEffect(() => {
+    if (!tree || !selectedRepository || !previewCommit || !initialPermalinkPath.current || selectedFile) return;
+    const path = initialPermalinkPath.current;
+    initialPermalinkPath.current = "";
+    void repositoryPreviewAPI.blob(organization.id, selectedRepository, path, previewCommit)
+      .then(setSelectedFile)
+      .catch(cause => setPreviewError(cause instanceof Error ? cause.message : "Unable to open permalink"));
+  }, [organization.id, selectedRepository, previewCommit, tree, selectedFile]);
+
+  const copyPermalink = async () => {
+    if (!selectedRepository || !previewCommit) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("repository", selectedRepository);
+    url.searchParams.set("commit", previewCommit);
+    const path = selectedFile?.path || directory;
+    if (path) url.searchParams.set("path", path); else url.searchParams.delete("path");
+    await navigator.clipboard.writeText(url.toString());
+    onNotify("Commit-pinned permalink copied.");
+  };
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -162,6 +193,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     {selectedRepository && <section className="card" aria-label="Repository preview" style={{ marginTop: 16, padding: 16 }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div><h2 style={{ margin: 0 }}>Repository preview</h2><p style={{ margin: "4px 0 0" }}>{selectedRepository} · read-only, no clone required</p></div>
+        <Button className="button secondary" onClick={() => void copyPermalink()} disabled={!previewCommit}>Copy permalink</Button>
         <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> Close</Button>
       </header>
       {tree && <p className="changeset-hint">Pinned commit: <code>{tree.commit_sha}</code></p>}
