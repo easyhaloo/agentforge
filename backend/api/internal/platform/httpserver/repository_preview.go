@@ -54,7 +54,7 @@ func (d DeliveryDependencies) listRepositoryTree(w http.ResponseWriter, r *http.
 		writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The path exceeds 1024 bytes")
 		return
 	}
-	entries, err := d.Preview.ListTree(r.Context(), strings.TrimSpace(r.PathValue("organizationID")), repository.Slug, commitSHA, directory)
+	entries, err := d.Preview.ListTree(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, directory)
 	if err != nil {
 		if errors.Is(err, delivery.ErrPreviewPathInvalid) { writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The requested path is not a valid repository directory"); return }
 		if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "Directory too large", "The directory contains too many entries to preview"); return }
@@ -65,7 +65,7 @@ func (d DeliveryDependencies) listRepositoryTree(w http.ResponseWriter, r *http.
 }
 
 func (d DeliveryDependencies) readRepositoryBlob(w http.ResponseWriter, r *http.Request) {
-	_, repository, commitSHA, ok := d.previewRepository(w, r)
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
 	if !ok { return }
 	filePath := r.URL.Query().Get("path")
 	if len(filePath) == 0 || len(filePath) > 1024 {
