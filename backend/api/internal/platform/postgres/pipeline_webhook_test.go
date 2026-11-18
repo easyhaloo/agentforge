@@ -107,10 +107,31 @@ func TestWebhookEnqueuesOnceAndScopesSecrets(t *testing.T) {
 	if _, err = s.Events(ctx, "foreign", task.RunID, 0); err != pipeline.ErrMissing {
 		t.Fatal("read foreign events")
 	}
+	// The exact tag and a branch of the same name are separate trigger scopes.
+	tagCfg := strings.Replace(cfg, `"branch":"main"`, `"tag":"release"`, 1)
+	lockMust(t, os.WriteFile(filepath.Join(dir, "push.json"), []byte(tagCfg), 0600))
+	tagBody := strings.Replace(body, "refs/heads/main", "refs/tags/release", 1)
+	if call(strings.Replace(tagBody, "refs/tags/", "refs/heads/", 1), key, "branch") != 422 || call(strings.Replace(tagBody, `"after":`, `"deleted":true,"after":`, 1), key, "delete") != 422 {
+		t.Fatal("tag filter accepted a branch or deleted tag")
+	}
+	for _, deliveryID := range []string{"tag1", "tag2"} {
+		if code := call(tagBody, key, deliveryID); code != 202 {
+			t.Fatalf("tag trigger: %d", code)
+		}
+	}
+	var pinned string
+	lockMust(t, s.pool.QueryRow(ctx, `SELECT webhook->>'sha' FROM pipeline_runs WHERE webhook->>'ref'='refs/tags/release'`).Scan(&pinned))
+	if pinned != sha {
+		t.Fatal("tag did not pin signed SHA")
+	}
+	lockMust(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM pipeline_runs`).Scan(&count))
+	if count != 2 {
+		t.Fatal("tag redelivery duplicated run")
+	}
 	if _, err = s.pool.Exec(ctx, `UPDATE organization_memberships SET role='viewer' WHERE user_id='bot'`); err != nil {
 		t.Fatal(err)
 	}
-	if call(body, key, "retry") != 403 {
+	if call(tagBody, key, "retry") != 403 {
 		t.Fatal("revoked actor triggered a run")
 	}
 }

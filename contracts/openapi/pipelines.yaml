@@ -567,6 +567,25 @@ components:
                 queueEntry: {type: integer, minimum: 1}
                 repository: {type: string}
                 strategy: {type: string, enum: [merge-commit, ff-only]}
+        trigger:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, bindingId, scheduledAt]
+              properties:
+                kind: {type: string, enum: [schedule]}
+                bindingId: {type: string, format: uuid}
+                scheduledAt: {type: string, format: date-time}
+            - type: object
+              additionalProperties: false
+              required: [kind, bindingId, repository, changesetId, revisionId, sha]
+              properties:
+                kind: {type: string, enum: [changeset_revision]}
+                bindingId: {type: string, format: uuid}
+                repository: {type: string}
+                changesetId: {type: string}
+                revisionId: {type: string}
+                sha: {type: string, pattern: '^([a-f0-9]{40}|[a-f0-9]{64})$'}
         webhook:
           type: object
           additionalProperties: false
@@ -577,6 +596,7 @@ components:
             digest: {type: string, pattern: '^[a-f0-9]{64}$'}
             repositoryId: {type: integer}
             event: {type: string, enum: [push, pull_request]}
+            ref: {type: string, description: Bound branch or tag ref. For pull requests this is the target branch.}
             sha: {type: string, pattern: '^[a-f0-9]{40}$'}
         pipelineId:
           type: string
