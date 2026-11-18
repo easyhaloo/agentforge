@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
 import {
   repositoryAPI,
@@ -16,6 +16,14 @@ import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
+type EntrySort = "name" | "size";
+
+export function formatRepositoryFileSize(size?: number): string {
+  if (size === undefined || !Number.isFinite(size) || size < 0) return "Size unavailable";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 /** Registered repositories and a zero-clone, read-only source browser. */
 export function RepositoriesPage({ organization, onNotify }: Props) {
@@ -48,7 +56,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [defaultBranchName, setDefaultBranchName] = useState("");
   const [rootReadme, setRootReadme] = useState<RepositoryPreviewBlob | null>(null);
   const [readmeError, setReadmeError] = useState("");
-  const canRegister = organization.role === "owner" || organization.role === "admin";
+  const canRegister = organization.role === "owner" || organization.role === "admin";\n  const visibleEntries = useMemo(() => {\n    const query = entryQuery.trim().toLocaleLowerCase();\n    return [...(tree?.items ?? [])]\n      .filter(entry => !query || entry.name.toLocaleLowerCase().includes(query) || entry.path.toLocaleLowerCase().includes(query))\n      .sort((left, right) => {\n        if (left.kind === "tree" && right.kind !== "tree") return -1;\n        if (right.kind === "tree" && left.kind !== "tree") return 1;\n        if (entrySort === "size" && left.size !== undefined && right.size !== undefined && left.size !== right.size) return right.size - left.size;\n        return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" });\n      });\n  }, [tree, entryQuery, entrySort]);
 
   useEffect(() => {
     if (!selectedRepository) { setRepositoryRefs([]); setSelectedRef(""); setDefaultBranchName(""); return; }
