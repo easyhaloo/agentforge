@@ -40,3 +40,12 @@ test("repository preview browses a pinned commit and compares history", async ({
   await expect(page.getByRole("heading", { name: "Commit comparison" })).toBeVisible();
   await expect(page.getByText(/diff --git a\/README.md/)).toBeVisible();
 });
+
+
+test("a commit-pinned file permalink opens directly", async ({ page }) => {
+  await page.goto("/orgs/demo/repositories?repository=easyhaloo%2Fagentforge&commit=" + "a".repeat(40) + "&path=README.md");
+  await expect(page.getByRole("heading", { name: "Repository preview" })).toBeVisible();
+  await expect(page.getByText(/Pinned commit:/)).toContainText("aaaaaaaaaaaa");
+  await expect(page.getByRole("button", { name: "Copy permalink" })).toBeEnabled();
+  await expect(page.getByText("# Hello")).toBeVisible();
+});
