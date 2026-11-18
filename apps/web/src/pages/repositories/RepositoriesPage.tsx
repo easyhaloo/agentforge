@@ -8,6 +8,7 @@ import {
   type RepositoryCommit,
   type RepositoryPreviewBlob,
   type RepositoryPreviewEntry,
+  type RepositoryPreviewRef,
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
 import { Button, DataTable, Input, Select } from "../../shared/ui";
