@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"encoding/hex"
 	"errors"
 	"net/http"
@@ -107,7 +108,7 @@ func (d DeliveryDependencies) writeWorkspaceFile(w http.ResponseWriter, r *http.
 	if !ok { return }
 	if principal.Role == "viewer" { writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Viewers cannot edit workspace files"); return }
 	var input writeWorkspaceFileRequest
-	if !decodeJSON(w, r, &input) { return }
+	if !decodeWorkspaceJSON(w, r, &input) { return }
 	if !workspace.ValidPath(input.Path) || len(input.Content) > workspace.MaxFileBytes {
 		writeProblem(w, http.StatusBadRequest, "Invalid file", "A safe relative path and content no larger than 2 MiB are required"); return
 	}
@@ -124,4 +125,19 @@ func (d DeliveryDependencies) writeWorkspaceFile(w http.ResponseWriter, r *http.
 	if errors.Is(err, workspace.ErrVersionConflict) { writeProblem(w, http.StatusConflict, "File version conflict", "The file changed since it was loaded; refresh before saving"); return }
 	if err != nil { writeProblem(w, http.StatusInternalServerError, "Workspace file write failed", "The file could not be persisted"); return }
 	writeJSON(w, http.StatusOK, map[string]any{"workspace_id": item.ID, "path": stored.Path, "content": string(stored.Content), "sha256": stored.SHA256, "version": stored.Version, "source": "workspace"})
+}
+
+func decodeWorkspaceJSON(w http.ResponseWriter, r *http.Request, target any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 3<<20)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		writeProblem(w, http.StatusBadRequest, "Invalid workspace request body", "The request must be valid JSON and no larger than 3 MiB")
+		return false
+	}
+	if err := decoder.Decode(new(any)); err == nil {
+		writeProblem(w, http.StatusBadRequest, "Invalid workspace request body", "Only one JSON value is allowed")
+		return false
+	}
+	return true
 }
