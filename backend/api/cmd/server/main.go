@@ -56,7 +56,7 @@ func main() {
 
 	deps := httpserver.DeliveryDependencies{
 		Repository: store, Identity: principalResolver, CSRF: store, Membership: store, Account: store,
-		AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store,
+		AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store, Workspaces: store,
 	}
 	if err := configureGit(&deps, configuration, os.Getenv("GIT_REMOTE_BINDINGS_FILE"), logger); err != nil {
 		logger.Error("invalid remote integration Git bindings", "error", err)

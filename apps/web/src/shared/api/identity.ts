@@ -178,6 +178,54 @@ export const repositoryAPI = {
   register: (organizationID: string, slug: string, defaultBranch: string) =>
     request<RepositoryMetadata>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`, {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch})}),
 };
+export type WorkspaceStatus = "active" | "expired" | "closed";
+export type Workspace = {
+  id: string;
+  organization_id: string;
+  repository: string;
+  owner_id: string;
+  base_commit_sha: string;
+  base_ref: string;
+  status: WorkspaceStatus;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+};
+export type WorkspaceTreeEntry = { name: string; path: string; kind: string; source: "base" | "workspace"; version?: number };
+export type WorkspaceFile = { workspace_id: string; path: string; content: string; sha256: string; version: number; source: "base" | "workspace" };
+export type WorkspaceDiffEntry = { path: string; status: "added" | "modified"; base_blob_sha?: string; workspace_sha256: string; version: number };
+export type WorkspaceDiff = { workspace_id: string; base_commit_sha: string; items: WorkspaceDiffEntry[]; total: number };
+export const workspaceAPI = {
+  create: (organizationID: string, repository: string, baseRef = "") => {
+    const [owner, name] = repository.split("/");
+    return request<{ workspace: Workspace }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/workspaces`, {
+      method: "POST", body: JSON.stringify(baseRef ? { base_ref: baseRef } : {}),
+    });
+  },
+  get: (organizationID: string, workspaceID: string) =>
+    request<{ workspace: Workspace }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}`),
+  tree: (organizationID: string, workspaceID: string, path = "") => {
+    const query = new URLSearchParams();
+    if (path) query.set("path", path);
+    return request<{ workspace_id: string; base_commit_sha: string; path: string; items: WorkspaceTreeEntry[] }>(
+      `/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/tree?${query.toString()}`,
+    );
+  },
+  diff: (organizationID: string, workspaceID: string) =>
+    request<WorkspaceDiff>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/diff`),
+  createChangeset: (organizationID: string, workspaceID: string, title: string) =>
+    request<{ changeset: StoredChangeset; workspace_id: string; base_commit_sha: string; revision_commit_sha: string }>(
+      `/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/changesets`,
+      { method: "POST", body: JSON.stringify({ title }) },
+    ),
+  readFile: (organizationID: string, workspaceID: string, path: string) =>
+    request<WorkspaceFile>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/files?${new URLSearchParams({ path }).toString()}`),
+  writeFile: (organizationID: string, workspaceID: string, path: string, content: string, expectedVersion: number) =>
+    request<WorkspaceFile>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/files`, {
+      method: "PUT", body: JSON.stringify({ path, content, expected_version: expectedVersion }),
+    }),
+};
+
 export const changesetAPI = {
   get: (organizationID: string, id: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}`),
   addRevision: (organizationID: string,id: string,ref: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/revisions`,{method:"POST",body:JSON.stringify({ref})}),
