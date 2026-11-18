@@ -277,15 +277,21 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           <Button className="button secondary" disabled={!directory} onClick={() => setDirectory(directory.split("/").slice(0, -1).join("/"))}><ChevronLeft size={14}/> Parent</Button>
           <nav className="repository-breadcrumb" aria-label="Repository path"><Button className="button link" onClick={() => { setDirectory(""); setSelectedFile(null); }}>root</Button>{tree.path.split("/").filter(Boolean).map((part, index, parts) => <span key={`${part}-${index}`}> / <Button className="button link" onClick={() => { setDirectory(parts.slice(0, index + 1).join("/")); setSelectedFile(null); }}>{part}</Button></span>)}</nav>
         </div>
+        <div className="repository-tree-tools">
+          <Input aria-label="Filter repository files" placeholder="Filter files in this directory…" value={entryQuery} onChange={event => setEntryQuery(event.target.value)} />
+          <Select aria-label="Sort repository files" controlSize="small" value={entrySort} onChange={event => setEntrySort(event.target.value as EntrySort)} options={[{ value: "name", label: "Name" }, { value: "size", label: "Largest first" }]} />
+          <span className="changeset-hint">{visibleEntries.length} / {tree.items.length} items</span>
+        </div>
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {tree.items.map(entry => <li key={entry.path} style={{ borderTop: "1px solid var(--border-subtle, #ddd)", padding: "8px 4px" }}>
+          {visibleEntries.map(entry => <li key={entry.path} style={{ borderTop: "1px solid var(--border-subtle, #ddd)", padding: "8px 4px" }}>
             <Button className="button link" disabled={entry.kind !== "tree" && entry.kind !== "file"} onClick={() => void openEntry(entry)}>
               {entry.kind === "tree" ? <Folder size={15}/> : <FileText size={15}/>}
               {entry.name}
             </Button>
-            {entry.kind === "symlink" && <span className="changeset-hint"> · symbolic link (not followed)</span>}
+            <span className="repository-tree-entry-meta">{entry.kind === "tree" ? "Directory" : entry.kind === "symlink" ? "Symbolic link · not followed" : entry.kind === "blob" ? "Binary or unsupported · preview unavailable" : "File"} · {formatRepositoryFileSize(entry.size)}</span>
           </li>)}
           {tree.items.length === 0 && <li className="changeset-hint">This directory is empty.</li>}
+          {tree.items.length > 0 && visibleEntries.length === 0 && <li className="changeset-hint">No files match “{entryQuery}”.</li>}
         </ul>
         {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content}/></section>}
         {readmeError && !tree.path && <p className="changeset-hint" role="status">{readmeError}</p>}
