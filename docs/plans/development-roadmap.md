@@ -147,6 +147,27 @@ Acceptance: tasks survive API restarts; worker is isolated; execution lifecycle 
 
 Acceptance: independent releases, demonstrated restore, operational health/alerting and production smoke tests.
 
+## Phase 7 — CI/CD workflow platform
+
+The detailed product scope, architecture and implementation sequence are defined in:
+- [CI/CD architecture](../architecture/cicd-architecture.md)
+- [CI/CD product design](../product/cicd-product-design.md)
+- [CI/CD development plan](cicd-development-plan.md)
+
+The CI/CD plan adds versioned custom workflows, typed parameters, durable worker execution, Git conflict detection, ordered multi-branch integration builds, safe candidate promotion and a merge queue. It complements the Changeset lifecycle and does not replace GitHub Actions for AgentForge repository CI.
+
+Delivery order within this initiative:
+1. Pipeline domain, immutable versions, schema validation and tenant-scoped APIs.
+2. Durable execution tasks, worker leases, isolation, logs, cancellation and retry.
+3. Visual authoring, parameters, secret references and triggers.
+4. Git source pinning, single/multi-branch conflict reports and integration candidates.
+5. Candidate build/test and safe promotion with expected-target-SHA checks.
+6. Per-target merge queue and train rebuild semantics.
+7. Remote providers, artifact storage and production hardening.
+
+Acceptance: see the phase-specific measurable criteria in `docs/plans/cicd-development-plan.md`. Do not mark any capability complete until implementation and CI demonstrate it.
+
+
 ## Native Git Hosting workstream
 
 The approved target, data model and phased acceptance criteria are documented in:
