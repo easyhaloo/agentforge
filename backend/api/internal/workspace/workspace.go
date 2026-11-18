@@ -17,6 +17,7 @@ const (
 	StatusClosed  Status = "closed"
 	MaxFileBytes         = 2 << 20
 	MaxWorkspaceFiles    = 2000
+	MaxWorkspaceBytes    = 32 << 20
 )
 
 var (
