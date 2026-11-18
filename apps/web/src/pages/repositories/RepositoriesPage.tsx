@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ChevronLeft, Code2, FileText, Folder, GitCommit, Plus, RefreshCw, X } from "lucide-react";
+import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
 import {
   repositoryAPI,
   repositoryPreviewAPI,
@@ -29,6 +29,9 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
   const [history, setHistory] = useState<RepositoryCommit[]>([]);
   const [historyError, setHistoryError] = useState("");
+  const [comparePatch, setComparePatch] = useState("");
+  const [compareError, setCompareError] = useState("");
+  const [compareLoading, setCompareLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
@@ -66,6 +69,17 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       .catch(cause => { if (active) setHistoryError(cause instanceof Error ? cause.message : "Unable to load commit history"); });
     return () => { active = false; };
   }, [organization.id, selectedRepository, previewCommit]);
+
+  const compareToCurrent = async (baseCommit: string) => {
+    if (!selectedRepository || !previewCommit || baseCommit === previewCommit) return;
+    setCompareLoading(true); setCompareError(""); setComparePatch("");
+    try {
+      const result = await repositoryPreviewAPI.compare(organization.id, selectedRepository, baseCommit, previewCommit);
+      setComparePatch(result.patch);
+    } catch (cause) {
+      setCompareError(cause instanceof Error ? cause.message : "Unable to compare commits");
+    } finally { setCompareLoading(false); }
+  };
 
   const register = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError("");
@@ -135,13 +149,23 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           {history.map(commit => <li key={commit.sha} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
             <GitCommit size={15} style={{ marginTop: 3, flexShrink: 0 }}/>
             <div style={{ minWidth: 0 }}>
-              <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); }}>{commit.subject || "(no subject)"}</Button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); setComparePatch(""); }}>{commit.subject || "(no subject)"}</Button>
+                {commit.sha !== previewCommit && <Button className="button secondary" onClick={() => void compareToCurrent(commit.sha)} disabled={compareLoading}><GitCompare size={13}/> Compare to current</Button>}
+              </div>
               <div className="changeset-hint">{commit.author} · {new Date(commit.authored_at).toLocaleString()} · <code>{commit.sha.slice(0, 12)}</code></div>
             </div>
           </li>)}
         </ul>
       </div>}
 
+      {compareError && <div className="org-error" role="alert">{compareError}</div>}
+      {compareLoading && <p role="status">Comparing immutable commits…</p>}
+      {comparePatch !== "" && <section aria-label="Commit comparison" style={{ marginTop: 12 }}>
+        <h3>Commit comparison</h3>
+        <p className="changeset-hint">Base commit <code>{history.find(item => item.sha !== previewCommit)?.sha?.slice(0, 12) ?? "selected"}</code> · head commit <code>{previewCommit.slice(0, 12)}</code></p>
+        <pre style={{ overflow: "auto", maxHeight: 480, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre" }}><code>{comparePatch || "No changes."}</code></pre>
+      </section>}
       {previewLoading && <p role="status">Loading repository content…</p>}
       {!previewLoading && tree && !selectedFile && <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0" }}>
