@@ -367,6 +367,58 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit; resolved once to an immutable commit SHA.
+        schema: { type: string }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+    get:
+      operationId: listRepositoryHistory
+      summary: List commits reachable from a pinned repository revision
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [sha, parents, author, authored_at, subject]
+                      properties:
+                        sha: { type: string }
+                        parents: { type: array, items: { type: string } }
+                        author: { type: string }
+                        authored_at: { type: string, format: date-time }
+                        subject: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob:
     parameters:
       - in: path
