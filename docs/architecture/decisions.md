@@ -102,3 +102,21 @@
   - A mock page that graduates to a real capability changes URL, from flat to organization-scoped.
   - Adding or changing a URL means updating `app/routes.tsx`, `app/navigation.ts`, the route table tests and this ADR together.
   - Browser tests run against the real entry and deep links instead of a separate harness page.
+
+
+## ADR-009: Native AgentForge Git hosting
+
+- Status: Accepted
+- Decision: AgentForge is an independent Git hosting platform. It owns repository lifecycle, bare Git storage, refs, Git Smart HTTP, authentication, authorization, push policy and repository browsing. GitHub/GitLab Provider integrations and synchronization are not part of the core repository architecture.
+- Context: Repository and Changeset workflows require an authoritative source-control system. Delegating Git authority to another hosting service would make AgentForge a dependent integration rather than an independent platform.
+- Consequences:
+  - Git's native object format and standard Git client protocol are reused; AgentForge does not reimplement packfiles or Git wire protocol.
+  - PostgreSQL owns repository metadata, tenant permissions, policy and durable event records. Git bare repositories own objects and refs.
+  - The initial storage implementation is one bare repository per AgentForge repository on a durable server-controlled filesystem volume. The storage boundary is internal and is not an external provider abstraction.
+  - Smart HTTP supports upload-pack and receive-pack. The MVP should use the maintained Git git-http-backend behind a tightly controlled Go gateway, subject to CGI isolation and interoperability/security tests.
+  - Git commands run through a centralized bounded command runner with trusted storage keys, argument arrays, controlled environment, timeouts and output limits.
+  - Browser file reads are authorized by repository and pinned full commit SHA; blob resolution is commit+path, not an arbitrary SHA endpoint.
+  - Push policy runs before ref acceptance; successful ref updates publish durable post-receive outbox events for CI, indexing, Changeset and Trail consumers.
+  - Revision, evaluation, evidence, review and merge remain native AgentForge concepts and bind to immutable Git commit IDs.
+  - SSH, Git LFS, forks, search and horizontally scalable storage are later phases, not implied by the initial implementation.
+  - See [Native Git Hosting Architecture](native-git-hosting.md), [API and Data Model](native-git-api-and-data-model.md), and [Delivery Plan](../plans/native-git-hosting.md).
