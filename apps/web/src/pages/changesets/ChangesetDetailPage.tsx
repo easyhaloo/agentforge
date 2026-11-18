@@ -4,7 +4,7 @@ import { CheckCircle2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck } from
 import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
 import { changesetPath, changesetTabs, organizationHandle, orgPath, type ChangesetTab } from "../../shared/routing";
 import { Button, Input } from "../../shared/ui";
-import { changesetLifecycleSteps, changesetStatusClass, changesetStatusLabels, completedLifecycleSteps } from "./changeset-status";
+import { changesetLifecycleSteps, changesetReviewRefusal, changesetStatusClass, changesetStatusLabels, completedLifecycleSteps } from "./changeset-status";
 
 type Props = {
   organization: OrganizationSummary;
@@ -122,7 +122,8 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
         <div className="changeset-workflow">
           <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.assignReview(organization.id, changeset.id, reviewerID, reviewComment), "Review assigned to an active organization member."); setReviewerID(""); setReviewComment(""); }}>
             <div><label><ShieldCheck size={14}/> Assign review (active member ID)</label><Input required value={reviewerID} onChange={event => setReviewerID(event.target.value)} placeholder="reviewer user ID"/><Input value={reviewComment} onChange={event => setReviewComment(event.target.value)} placeholder="Review context (optional)"/></div>
-            <Button className="button secondary" type="submit" disabled={busy || !canAssignReview}>Assign review</Button>
+            <Button className="button secondary" type="submit" title={canAssignReview ? undefined : changesetReviewRefusal(item.status)} disabled={busy || !canAssignReview}>Assign review</Button>
+            {!canAssignReview && <p className="changeset-hint">{changesetReviewRefusal(item.status)}</p>}
           </form>
           {review && <div><label><ShieldCheck size={14}/> Review decision</label><p>Assigned to {review.reviewer} · {review.status}{review.comment ? " · " + review.comment : ""}</p>{review.reviewer === accountUserID && review.status === "pending" && <div className="org-actions"><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, true, decisionComment), "Review approved.")}>Approve</Button><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, false, decisionComment), "Changes requested.")}>Request changes</Button></div>}<Input value={decisionComment} onChange={event => setDecisionComment(event.target.value)} placeholder="Decision comment"/></div>}
         </div>

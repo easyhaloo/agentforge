@@ -242,3 +242,10 @@
   border-bottom-color: #9382ff;
   color: #c9c0ff;
 }
+
+/* Why an action is not available right now. */
+.changeset-hint {
+  margin: 0;
+  color: #8995aa;
+  font-size: 9px;
+}

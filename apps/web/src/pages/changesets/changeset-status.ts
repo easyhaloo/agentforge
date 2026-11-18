@@ -40,3 +40,13 @@ const lifecycleStepsCompleted: Record<ChangesetStatus, number> = {
 export function completedLifecycleSteps(status: ChangesetStatus): number {
   return lifecycleStepsCompleted[status];
 }
+
+/**
+ * Why the server refuses a new review for a changeset in this status. The wording is the server's own:
+ * it answers 409 "Review already approved" once the current revision carries an approved review.
+ */
+export function changesetReviewRefusal(status: ChangesetStatus): string {
+  if (status === "ready_to_merge") return "The current revision already has an approved review. Add a new revision to request another review.";
+  if (status === "merged") return "The changeset is merged, so no further review can be requested.";
+  return "A review can be asked for once the current revision has active evidence.";
+}
