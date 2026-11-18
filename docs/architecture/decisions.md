@@ -180,3 +180,33 @@
   - Any migration is staged and verifiable: freeze or serialize writes per repository, export/import, verify graph/content, shadow-read, compare results, switch authority, retain rollback data, then resume.
   - Keep the initial SourceControlStore interface narrow and driven by real use cases. Do not prematurely implement two complete storage engines.
   - Revisit only with measured thresholds and a dedicated ADR amendment; no Scion compatibility or performance claim is implied.
+
+
+## ADR-014: First-class Repository Preview
+
+- Status: Accepted
+- Decision: Build a zero-clone repository browsing and preview experience on the native Source Control API. Every view resolves a moving ref to a full immutable commit SHA and serves repository content through authorization-aware, bounded APIs.
+- Context: Humans and Agents need to inspect repositories without provisioning a workspace or downloading the full Git object graph. Repository Preview should work independently from WebIDE and must not execute repository content.
+- Consequences:
+  - Provide repository landing, refs, tree, README/Markdown, source files, commit history, diffs, compare and blame as incremental capabilities over the Git adapter.
+  - Canonical links pin the commit SHA; branch/tag names are display context and are resolved at the boundary.
+  - Repository and directory ACL are enforced before object resolution, cache lookup or content delivery.
+  - Markdown is sanitized, external resource loading is controlled, binary/large files are streamed or downloaded with limits, and repository HTML/JS is never executed on the application origin.
+  - Immutable commit-scoped responses may be cached only with repository/visibility-aware keys and authorization checks.
+  - Preview is read-only; edits and execution require an explicit WebIDE workspace.
+  - See [Repository Preview and WebIDE](repository-preview-and-webide.md).
+
+## ADR-015: Extensible WebIDE with isolated workspaces and extension hosts
+
+- Status: Accepted
+- Decision: Provide a browser-based WebIDE as a client of AgentForge's server-managed, isolated workspace APIs. Start with a Monaco-based editor shell and a versioned AgentForge Extension SDK; do not promise full VS Code Marketplace compatibility.
+- Context: Users and Agents need browser-based editing, diagnostics, task execution and live previews. A fixed editor would constrain product growth, while unrestricted plugins or running code in the API/browser origin would create unacceptable security risks.
+- Consequences:
+  - A workspace is created from a pinned base commit and has durable lifecycle, ownership, expiry, resource limits and audit identity.
+  - File writes use optimistic version checks. Diff and Changeset handoff use the existing Source Control and Changeset lifecycle; the IDE does not invent an alternate commit/review/merge path.
+  - Terminal, build, test and preview execute only in isolated workers/runtimes, never in HTTP handlers or the trusted frontend origin.
+  - Web extensions run in a sandboxed Worker/iframe through a versioned message-based RPC bridge. Server-side extensions run in isolated workers.
+  - Extensions declare contributions and deny-by-default capabilities; organization grants, per-call authorization, short-lived tokens, package integrity, audit and revocation are mandatory.
+  - First-party and organization-private extensions precede a curated registry. Open VSX or VS Code extension compatibility is a later, explicitly scoped project.
+  - Preview applications use isolated origins, strict CSP, bounded egress and short-lived access; preview URLs are not public by default.
+  - See [Repository Preview and WebIDE](repository-preview-and-webide.md).
