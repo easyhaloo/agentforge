@@ -56,12 +56,14 @@ func main() {
 
 
 	var gitProvider delivery.GitProvider
+	var previewReader delivery.RepositoryPreviewReader
 	var evaluator delivery.Evaluator
 	var evidenceStore delivery.EvidenceStore
 	if configuration.GitRepositoryRoot != "" {
 		provider, providerErr := delivery.NewLocalGitProvider(configuration.GitRepositoryRoot, 2*time.Minute)
 		if providerErr != nil { logger.Error("Git provider initialization failed; revision and merge operations remain unavailable", "error", providerErr) } else {
 			gitProvider = provider
+			previewReader = provider
 			evaluator = delivery.GitDiffEvaluator{Git: provider}
 			if configuration.EvaluationDockerImage != "" { evaluator = delivery.DockerEvaluator{Git: provider, Image: configuration.EvaluationDockerImage, Command: configuration.EvaluationCommand, Timeout: 10*time.Minute} }
 		}
@@ -75,7 +77,7 @@ func main() {
 		Addr:              ":" + configuration.Port,
 		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 			Repository: store, Identity: principalResolver, CSRF: store, Membership: store, Account: store,
-			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Locker: store,
+			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Preview: previewReader, Locker: store,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

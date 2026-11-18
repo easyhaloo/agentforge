@@ -113,6 +113,50 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryMetadata = { organization_id: string; slug: string; default_branch: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
+export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
+export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
+export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
+export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
+export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
+export const repositoryPreviewAPI = {
+  tree: (organizationID: string, repository: string, path = "", ref = "") => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams();
+    if (path) query.set("path", path);
+    if (ref) query.set("ref", ref);
+    return request<RepositoryPreviewTree>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/tree?${query.toString()}`);
+  },
+  compare: (organizationID: string, repository: string, base: string, head: string) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ base, head });
+    return request<RepositoryCompare>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/compare?${query.toString()}`);
+  },
+  history: (organizationID: string, repository: string, ref = "", limit = 30) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (ref) query.set("ref", ref);
+    return request<{ repository: string; commit_sha: string; items: RepositoryCommit[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/history?${query.toString()}`);
+  },
+  fileHistory: (organizationID: string, repository: string, path: string, ref = "", limit = 30) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ path, limit: String(limit) });
+    if (ref) query.set("ref", ref);
+    return request<{ repository: string; commit_sha: string; path: string; items: RepositoryCommit[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/file-history?${query.toString()}`);
+  },
+  blame: (organizationID: string, repository: string, path: string, ref = "", start = 1, end = 200) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ path, start: String(start), end: String(end) });
+    if (ref) query.set("ref", ref);
+    return request<{ repository: string; commit_sha: string; path: string; start: number; end: number; items: RepositoryBlameLine[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blame?${query.toString()}`);
+  },
+  blob: (organizationID: string, repository: string, path: string, ref = "") => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ path });
+    if (ref) query.set("ref", ref);
+    return request<RepositoryPreviewBlob>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blob?${query.toString()}`);
+  },
+};
 export const repositoryAPI = {
   list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`),
   register: (organizationID: string, slug: string, defaultBranch: string) =>
