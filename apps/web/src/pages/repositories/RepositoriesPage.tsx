@@ -44,7 +44,13 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const canRegister = organization.role === "owner" || organization.role === "admin";
 
   useEffect(() => {
-    if (!selectedRepository || !previewCommit) return;
+    if (!selectedRepository) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("repository"); url.searchParams.delete("commit"); url.searchParams.delete("path");
+      window.history.replaceState(window.history.state, "", url);
+      return;
+    }
+    if (!previewCommit) return;
     const url = new URL(window.location.href);
     url.searchParams.set("repository", selectedRepository);
     url.searchParams.set("commit", previewCommit);
@@ -154,6 +160,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       return;
     }
     if (entry.kind !== "file") return;
+    setFileHistory([]); setBlameLines([]); setFileInspectionError("");
     setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
     try {
       setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, entry.path, previewCommit));
