@@ -30,6 +30,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [history, setHistory] = useState<RepositoryCommit[]>([]);
   const [historyError, setHistoryError] = useState("");
   const [comparePatch, setComparePatch] = useState("");
+  const [compareBase, setCompareBase] = useState("");
   const [compareError, setCompareError] = useState("");
   const [compareLoading, setCompareLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -72,7 +73,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
 
   const compareToCurrent = async (baseCommit: string) => {
     if (!selectedRepository || !previewCommit || baseCommit === previewCommit) return;
-    setCompareLoading(true); setCompareError(""); setComparePatch("");
+    setCompareLoading(true); setCompareError(""); setComparePatch(""); setCompareBase(baseCommit);
     try {
       const result = await repositoryPreviewAPI.compare(organization.id, selectedRepository, baseCommit, previewCommit);
       setComparePatch(result.patch);
@@ -163,7 +164,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       {compareLoading && <p role="status">Comparing immutable commits…</p>}
       {comparePatch !== "" && <section aria-label="Commit comparison" style={{ marginTop: 12 }}>
         <h3>Commit comparison</h3>
-        <p className="changeset-hint">Base commit <code>{history.find(item => item.sha !== previewCommit)?.sha?.slice(0, 12) ?? "selected"}</code> · head commit <code>{previewCommit.slice(0, 12)}</code></p>
+        <p className="changeset-hint">Base commit <code>{compareBase.slice(0, 12)}</code> · head commit <code>{previewCommit.slice(0, 12)}</code></p>
         <pre style={{ overflow: "auto", maxHeight: 480, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre" }}><code>{comparePatch || "No changes."}</code></pre>
       </section>}
       {previewLoading && <p role="status">Loading repository content…</p>}
