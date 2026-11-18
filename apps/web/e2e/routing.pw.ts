@@ -51,7 +51,6 @@ const flatPages = [
   ["/stacks", "Stacks"],
   ["/self-healing", "Self-healing"],
   ["/memory", "Memory"],
-  ["/pipelines", "CI / CD"],
   ["/security", "Security"],
   ["/governance", "Governance"],
   ["/usage", "Cost & Usage"],

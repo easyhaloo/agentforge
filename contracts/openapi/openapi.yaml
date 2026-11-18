@@ -6,6 +6,20 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/validate-inputs:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1validate-inputs"
+  /api/v1/organizations/{organizationID}/pipelines:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines"
+  /api/v1/organizations/{organizationID}/pipelines/{id}:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/draft:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1draft"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/publish:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1publish"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/archive:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1archive"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions"
   /healthz:
     get:
       operationId: getHealth
