@@ -140,6 +140,9 @@ func (s *Store) ListWorkspaceFiles(ctx context.Context, organizationID, workspac
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate workspace files: %w", err)
 	}
+	if len(items) > workspace.MaxWorkspaceFiles {
+		return nil, workspace.ErrTooLarge
+	}
 	return items, nil
 }
 
