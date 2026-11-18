@@ -99,3 +99,15 @@ func TestMergeWorkspaceTreeEntriesRejectsDuplicateBaseNames(t *testing.T) {
 		t.Fatalf("error = %v, want ErrInvalidInput", err)
 	}
 }
+
+func TestMergeWorkspaceTreeEntriesPreservesSubmodules(t *testing.T) {
+	got, err := mergeWorkspaceTreeEntries([]delivery.PreviewEntry{
+		{Name: "vendor", Path: "vendor", Kind: "commit"},
+	}, nil, "")
+	if err != nil {
+		t.Fatalf("mergeWorkspaceTreeEntries() error = %v", err)
+	}
+	if len(got) != 1 || got[0].Kind != "commit" {
+		t.Fatalf("entries = %#v, want the git submodule entry preserved", got)
+	}
+}
