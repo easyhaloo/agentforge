@@ -34,7 +34,7 @@ var (
 
 func (p *LocalGitProvider) ListTree(ctx context.Context, organizationID, repository, commitSHA, directory string) ([]PreviewEntry, error) {
 	if !validGitObjectID(commitSHA) || !validRepositoryPath(directory) { return nil, ErrPreviewPathInvalid }
-	repoPath, err := p.repositoryPath(organizationID, repository)
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil { return nil, err }
 	treeish := commitSHA
 	if directory != "" { treeish += ":" + directory }
@@ -65,7 +65,7 @@ func (p *LocalGitProvider) ListTree(ctx context.Context, organizationID, reposit
 
 func (p *LocalGitProvider) ReadBlob(ctx context.Context, organizationID, repository, commitSHA, filePath string, maxBytes int64) ([]byte, string, error) {
 	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" { return nil, "", ErrPreviewPathInvalid }
-	repoPath, err := p.repositoryPath(organizationID, repository)
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil { return nil, "", err }
 	if maxBytes <= 0 || maxBytes > 2<<20 { maxBytes = 1 << 20 }
 	object, err := p.run(ctx, repoPath, "rev-parse", "--verify", "--end-of-options", commitSHA+":"+filePath)
@@ -135,7 +135,7 @@ type RepositoryHistoryReader interface {
 func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repository, commitSHA string, limit int) ([]RepositoryCommit, error) {
 	if !validGitObjectID(commitSHA) { return nil, ErrPreviewPathInvalid }
 	if limit < 1 || limit > 100 { return nil, ErrPreviewPathInvalid }
-	repoPath, err := p.repositoryPath(organizationID, repository)
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil { return nil, err }
 	format := "%H%x00%P%x00%an%x00%aI%x00%s"
 	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--")
@@ -164,7 +164,7 @@ func (p *LocalGitProvider) Compare(ctx context.Context, organizationID, reposito
 	if !validGitObjectID(baseSHA) || !validGitObjectID(headSHA) {
 		return "", ErrPreviewPathInvalid
 	}
-	repoPath, err := p.repositoryPath(organizationID, repository)
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return "", err
 	}
@@ -189,7 +189,7 @@ func (p *LocalGitProvider) ListFileHistory(ctx context.Context, organizationID, 
 	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" || limit < 1 || limit > 100 {
 		return nil, ErrPreviewPathInvalid
 	}
-	repoPath, err := p.repositoryPath(organizationID, repository)
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil { return nil, err }
 	format := "%H%x00%P%x00%an%x00%aI%x00%s"
 	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--", filePath)
@@ -224,7 +224,7 @@ func (p *LocalGitProvider) Blame(ctx context.Context, organizationID, repository
 	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" || startLine < 1 || endLine < startLine || endLine-startLine >= 500 {
 		return nil, ErrPreviewPathInvalid
 	}
-	repoPath, err := p.repositoryPath(organizationID, repository)
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil { return nil, err }
 	output, err := p.runPreview(ctx, repoPath, 1<<20, "blame", "--line-porcelain", "-L", strconv.Itoa(startLine)+","+strconv.Itoa(endLine), commitSHA, "--", filePath)
 	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
