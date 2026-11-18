@@ -103,23 +103,20 @@
   - Adding or changing a URL means updating `app/routes.tsx`, `app/navigation.ts`, the route table tests and this ADR together.
   - Browser tests run against the real entry and deep links instead of a separate harness page.
 
-## ADR-009: First-party CI/CD workflow and integration platform
 
-- Status: Proposed
-- Decision: Build a first-party, organization-scoped CI/CD workflow product inside the existing Go modular monolith. Keep GitHub Actions as the CI system for the AgentForge repository itself; do not conflate repository CI with user-managed pipelines.
-- Context: AgentForge needs reusable custom workflows, typed run parameters, durable execution, conflict detection, ordered multi-branch integration builds and safe promotion. Existing repository, Changeset, Revision, Evaluation, Review and Merge Gate capabilities should remain authoritative owners of their invariants.
-- Decision details:
-  - Persist canonical versioned workflow definitions as validated JSON; visual editing is the primary UX and YAML import/export is an interoperability feature.
-  - Introduce pipeline, execution and integration module boundaries incrementally; extend the existing Git provider/local adapter through explicit ports.
-  - Use PostgreSQL for workflow state, run metadata and initial durable task scheduling. Use isolated worker processes/containers for all untrusted repository execution.
-  - Pin target and source refs to immutable commit SHAs at run creation. Build and test the exact ordered integration candidate.
-  - Use Git merge simulation for conflict diagnostics, but require a real isolated candidate build for application validation.
-  - Promotion is separate from candidate creation and requires current policy/evidence/approval plus expected-target-SHA concurrency protection. A moved target makes the candidate stale and requires rebuild/revalidation.
-  - Add a per-repository/target-branch merge queue only after candidate provenance and safe promotion are implemented.
-  - Do not add Redis, Kafka, Temporal or Kubernetes as initial mandatory dependencies.
+## ADR-009: Native AgentForge Git hosting
+
+- Status: Accepted
+- Decision: AgentForge is an independent Git hosting platform. It owns repository lifecycle, bare Git storage, refs, Git Smart HTTP, authentication, authorization, push policy and repository browsing. GitHub/GitLab Provider integrations and synchronization are not part of the core repository architecture.
+- Context: Repository and Changeset workflows require an authoritative source-control system. Delegating Git authority to another hosting service would make AgentForge a dependent integration rather than an independent platform.
 - Consequences:
-  - Workflow version, run, task, integration candidate and approval provenance must be persisted and auditable.
-  - Secrets are references, never plaintext in definitions, API responses or run snapshots.
-  - At-least-once task delivery requires idempotent task/step behavior and lease recovery.
-  - The UI must distinguish mergeability, build/test success, gate eligibility and actual promotion.
-  - Implementation proceeds according to `docs/plans/cicd-development-plan.md`; this ADR does not imply implementation is complete.
+  - Git's native object format and standard Git client protocol are reused; AgentForge does not reimplement packfiles or Git wire protocol.
+  - PostgreSQL owns repository metadata, tenant permissions, policy and durable event records. Git bare repositories own objects and refs.
+  - The initial storage implementation is one bare repository per AgentForge repository on a durable server-controlled filesystem volume. The storage boundary is internal and is not an external provider abstraction.
+  - Smart HTTP supports upload-pack and receive-pack. The MVP should use the maintained Git git-http-backend behind a tightly controlled Go gateway, subject to CGI isolation and interoperability/security tests.
+  - Git commands run through a centralized bounded command runner with trusted storage keys, argument arrays, controlled environment, timeouts and output limits.
+  - Browser file reads are authorized by repository and pinned full commit SHA; blob resolution is commit+path, not an arbitrary SHA endpoint.
+  - Push policy runs before ref acceptance; successful ref updates publish durable post-receive outbox events for CI, indexing, Changeset and Trail consumers.
+  - Revision, evaluation, evidence, review and merge remain native AgentForge concepts and bind to immutable Git commit IDs.
+  - SSH, Git LFS, forks, search and horizontally scalable storage are later phases, not implied by the initial implementation.
+  - See [Native Git Hosting Architecture](native-git-hosting.md), [API and Data Model](native-git-api-and-data-model.md), and [Delivery Plan](../plans/native-git-hosting.md).
