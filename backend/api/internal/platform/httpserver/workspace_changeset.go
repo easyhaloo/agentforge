@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -44,7 +45,13 @@ func (d DeliveryDependencies) createWorkspaceChangeset(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusBadRequest, "Invalid changeset title", "A title between 1 and 200 characters is required")
 		return
 	}
-	filesSnapshot, err := d.Workspaces.ListWorkspaceFileContents(r.Context(), principal.OrganizationID, item.ID)
+	if d.Preview == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A Git preview reader is required to verify saved changes against the pinned base")
+		return
+	}
+	snapshotContext, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	filesSnapshot, err := d.Workspaces.ListWorkspaceFileContents(snapshotContext, principal.OrganizationID, item.ID)
 	if err != nil {
 		if err == workspace.ErrTooLarge {
 			writeProblem(w, http.StatusRequestEntityTooLarge, "Workspace too large", "A workspace may contain at most 2,000 files and 32 MiB of saved overlay data")
@@ -53,13 +60,21 @@ func (d DeliveryDependencies) createWorkspaceChangeset(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusInternalServerError, "Workspace files unavailable", "The saved workspace overlay could not be read consistently")
 		return
 	}
-	if len(filesSnapshot) == 0 {
-		writeProblem(w, http.StatusUnprocessableEntity, "No workspace changes", "Save at least one file before creating a changeset")
-		return
-	}
 	files := make([]delivery.WorkspaceRevisionFile, 0, len(filesSnapshot))
 	for _, file := range filesSnapshot {
-		files = append(files, delivery.WorkspaceRevisionFile{Path: file.Path, Content: file.Content})
+		baseContent, baseBlobSHA, readErr := d.Preview.ReadBlob(snapshotContext, principal.OrganizationID, item.Repository, item.BaseCommitSHA, file.Path, workspace.MaxFileBytes)
+		_, _, changed, statusErr := workspaceDiffStatus(readErr, baseContent, baseBlobSHA, file.SHA256)
+		if statusErr != nil {
+			writeProblem(w, http.StatusInternalServerError, "Workspace comparison failed", "A saved file could not be compared safely with the pinned base commit")
+			return
+		}
+		if changed {
+			files = append(files, delivery.WorkspaceRevisionFile{Path: file.Path, Content: file.Content})
+		}
+	}
+	if len(files) == 0 {
+		writeProblem(w, http.StatusUnprocessableEntity, "No workspace changes", "Save at least one file that differs from the pinned base commit before creating a changeset")
+		return
 	}
 	changesetID, err := newID()
 	if err != nil {
