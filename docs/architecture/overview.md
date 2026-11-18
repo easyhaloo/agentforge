@@ -96,6 +96,10 @@ Suggested business modules:
 | identity | Authentication, principals, credentials and authorization context |
 | organization | Organizations and memberships |
 | repository | Native AgentForge repository metadata, lifecycle and access policy |
+| git | Bare repository lifecycle, safe Git command boundary, refs and object access |
+| gittransport | Git Smart HTTP protocol gateway and bounded process execution |
+| gitpolicy | Push rules, branch protection and repository quotas |
+| git-events | Durable post-receive events, idempotent consumers and reconciliation |
 | changeset | Changeset lifecycle and invariants |
 | revision | Revision identity, ancestry and commit association |
 | evaluation | Evaluation lifecycle and result aggregation |
