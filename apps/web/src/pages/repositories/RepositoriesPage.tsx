@@ -24,6 +24,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [selectedRepository, setSelectedRepository] = useState("");
   const [directory, setDirectory] = useState("");
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
+  const [previewCommit, setPreviewCommit] = useState("");
   const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
@@ -43,12 +44,14 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     if (!selectedRepository) return;
     setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
     try {
-      setTree(await repositoryPreviewAPI.tree(organization.id, selectedRepository, directory));
+      const result = await repositoryPreviewAPI.tree(organization.id, selectedRepository, directory, previewCommit);
+      setTree(result);
+      if (!previewCommit) setPreviewCommit(result.commit_sha);
     } catch (cause) {
       setTree(null);
       setPreviewError(cause instanceof Error ? cause.message : "Unable to load repository tree");
     } finally { setPreviewLoading(false); }
-  }, [organization.id, selectedRepository, directory]);
+  }, [organization.id, selectedRepository, directory, previewCommit]);
   useEffect(() => { void loadTree(); }, [loadTree]);
 
   const register = async (event: FormEvent) => {
@@ -71,7 +74,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     if (entry.kind !== "file") return;
     setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
     try {
-      setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, entry.path));
+      setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, entry.path, previewCommit));
     } catch (cause) {
       setPreviewError(cause instanceof Error ? cause.message : "Unable to read source file");
     } finally { setPreviewLoading(false); }
@@ -94,7 +97,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     <DataTable
       className="org-table"
       columns={[
-        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); }}><Code2 size={14}/>{item.slug}</Button> },
+        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
         { key: "default_branch", title: "DEFAULT BRANCH" },
         { key: "created_by", title: "REGISTERED BY" },
         { key: "created_at", title: "REGISTERED" },
@@ -108,7 +111,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     {selectedRepository && <section className="card" aria-label="Repository preview" style={{ marginTop: 16, padding: 16 }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div><h2 style={{ margin: 0 }}>Repository preview</h2><p style={{ margin: "4px 0 0" }}>{selectedRepository} · read-only, no clone required</p></div>
-        <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); }}><X size={14}/> Close</Button>
+        <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> Close</Button>
       </header>
       {tree && <p className="changeset-hint">Pinned commit: <code>{tree.commit_sha}</code></p>}
       {previewError && <div className="org-error" role="alert">{previewError}</div>}
