@@ -349,6 +349,23 @@ export interface components {
                 /** @enum {string} */
                 strategy: "merge-commit" | "ff-only";
             };
+            trigger?: {
+                /** @enum {string} */
+                kind: "schedule";
+                /** Format: uuid */
+                bindingId: string;
+                /** Format: date-time */
+                scheduledAt: string;
+            } | {
+                /** @enum {string} */
+                kind: "changeset_revision";
+                /** Format: uuid */
+                bindingId: string;
+                repository: string;
+                changesetId: string;
+                revisionId: string;
+                sha: string;
+            };
             webhook?: {
                 hook: string;
                 delivery: string;
@@ -356,6 +373,8 @@ export interface components {
                 repositoryId: number;
                 /** @enum {string} */
                 event: "push" | "pull_request";
+                /** @description Bound branch or tag ref. For pull requests this is the target branch. */
+                ref?: string;
                 sha: string;
             };
             pipelineId: string;

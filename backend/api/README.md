@@ -162,9 +162,26 @@ For a container step, `secretParams` lists up to 16 parameters of type `secretRe
 
 ### GitHub webhook triggers
 
-Set `PIPELINE_WEBHOOKS_DIR` on the API to an absolute, operator-controlled directory mounted from your secret manager. Provision `{hook}.json` with `organizationID`, `pipelineID`, `version` (published version number), `actorID` (an active member allowed to start runs), numeric GitHub `repositoryID`, `branch`, `event` and `secret`. Use an independent random secret of at least 32 bytes for each hook. Configure GitHub to send JSON to `POST /hooks/github/{hook}` over HTTPS with that secret. Rotate the binding and GitHub secret together. Remove the binding to disable delivery.
+For a release tag, configure `event` as `push` and set `tag` to the exact short tag name. Supply exactly one of `tag` and `branch`. The signed event must name the matching full ref. Deleted tags are rejected. Retries reuse the same run and its pinned SHA.
+
+Set `PIPELINE_WEBHOOKS_DIR` on the API to an absolute, operator-controlled directory mounted from your secret manager. Provision `{hook}.json` with `organizationID`, `pipelineID`, `version` (published version number), `actorID` (an active member allowed to start runs), numeric GitHub `repositoryID`, `branch` or `tag`, `event` and `secret`. Use an independent random secret of at least 32 bytes for each hook. Configure GitHub to send JSON to `POST /hooks/github/{hook}` over HTTPS with that secret. Rotate the binding and GitHub secret together. Remove the binding to disable delivery.
 
 Choose `push` for updates to the named branch, or `pull_request` for same-repository PRs targeting that branch on open, reopen or synchronize. Fork PRs are rejected. The handler verifies the raw-body HMAC, then checks the repository and branch before queuing the configured version with its published defaults. A run records the signed event's head SHA. A `202` acknowledges both accepted deliveries and retries. Duplicate delivery IDs or identical signed bodies cannot create another run. A `409` indicates a reused delivery ID with different contents or a workflow configuration conflict. Check the binding and required defaults before retrying. A `429` can be retried once an organization run slot becomes available.
+
+### Timers and Changeset revisions
+
+Operators provision bindings on the database. Each binding names an organization, a published workflow version and a member who can start runs. For example, use these parameterized statements for an hourly timer and a repository revision subscription, respectively.
+
+```sql
+INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,every_seconds,next_due)
+VALUES ($1,$2,$3,$4,3600,$5::timestamptz) RETURNING id;
+INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,repository)
+VALUES ($1,$2,$3,$4,$5) RETURNING id;
+```
+
+Timers use fixed intervals of at least 60 seconds. `next_due` anchors the cadence. After downtime the API coalesces missed ticks into the latest elapsed slot. A revision subscription captures future Git-backed revisions in the same transaction as the Changeset write. Each run records the binding and either the scheduled time or the repository, Changeset ID, Revision ID and full commit SHA.
+
+Set `enabled=false` to disable a binding. Provision a new binding to change its destination or actor. Pending deliveries recheck authorization and use the published input defaults. Quota pressure defers admission. Inspect `pipeline_trigger_events` by `binding_id` for pending (`outcome IS NULL`), `queued` (with `run_id`), `disabled`, `denied` or `invalid` deliveries. Each API process dispatches up to one event per second.
 
 ### Ordered merge previews
 

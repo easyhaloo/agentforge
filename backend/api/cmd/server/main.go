@@ -55,6 +55,21 @@ func main() {
 	}
 
 
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := store.AdvanceTriggers(ctx); err != nil && ctx.Err() == nil {
+					logger.Error("pipeline trigger reconciliation failed", "error", err)
+				}
+			}
+		}
+	}()
+
 	var gitProvider delivery.GitProvider
 	var previewReader delivery.RepositoryPreviewReader
 	var evaluator delivery.Evaluator

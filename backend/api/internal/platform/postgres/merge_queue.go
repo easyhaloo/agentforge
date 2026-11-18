@@ -71,7 +71,7 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	// A head entry can reuse its admission candidate. Later entries build in FIFO order.
 	if count == 0 {
 		candidate.QueueEntry = id
-		run, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &candidate)
+		run, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &candidate, nil)
 		if err != nil {
 			return entry, err
 		}
@@ -249,7 +249,7 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		}
 		return tx.Commit(ctx)
 	}
-	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: candidate, QueueEntry: id})
+	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: candidate, QueueEntry: id}, nil)
 	if errors.Is(err, execution.ErrQuota) {
 		return tx.Commit(ctx)
 	}
