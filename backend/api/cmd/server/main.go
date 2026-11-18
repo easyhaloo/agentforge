@@ -71,11 +71,22 @@ func main() {
 		if evidenceErr != nil { logger.Error("evidence storage initialization failed; evidence and merge operations remain unavailable", "error", evidenceErr) } else { evidenceStore = evidence }
 	}
 
+	// Initialize local password authentication
+	localAuthConfig := identity.LocalAuthConfig{
+		SessionTTL: 24 * time.Hour,
+		AppOrigin:  configuration.AppOrigin,
+	}
+	localAuth, err := identity.NewLocalAuthenticator(localAuthConfig, store)
+	if err != nil {
+		logger.Error("local auth initialization failed", "error", err)
+		os.Exit(1)
+	}
+
 	server := &http.Server{
 		Addr:              ":" + configuration.Port,
 		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 			Repository: store, Identity: principalResolver, CSRF: store, Membership: store, Account: store,
-			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Locker: store,
+			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, LocalAuth: localAuth, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Locker: store,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

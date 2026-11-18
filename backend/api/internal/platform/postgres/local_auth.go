@@ -84,7 +84,7 @@ func (s *Store) CreateLocalUser(ctx context.Context, email, passwordHash, displa
 	}
 
 	// Generate new user ID
-	userID, err := generateUserID()
+	userID, err := newSessionID()
 	if err != nil {
 		return "", fmt.Errorf("generate user ID: %w", err)
 	}
@@ -108,7 +108,7 @@ func (s *Store) CreateLocalUser(ctx context.Context, email, passwordHash, displa
 	}
 
 	// Create external_identities entry with issuer='platform:internal'
-	identityID, err := generateIdentityID()
+	identityID, err := newSessionID()
 	if err != nil {
 		return "", fmt.Errorf("generate identity ID: %w", err)
 	}
@@ -118,6 +118,29 @@ func (s *Store) CreateLocalUser(ctx context.Context, email, passwordHash, displa
 	`, identityID, userID, userID)
 	if err != nil {
 		return "", fmt.Errorf("create platform identity: %w", err)
+	}
+
+	// Create a default organization for the new user
+	organizationID, err := newSessionID()
+	if err != nil {
+		return "", fmt.Errorf("generate organization ID: %w", err)
+	}
+	organizationName := displayName + "'s Workspace"
+	_, err = tx.Exec(ctx, `
+		INSERT INTO organizations (id, name, created_at)
+		VALUES ($1, $2, now())
+	`, organizationID, organizationName)
+	if err != nil {
+		return "", fmt.Errorf("create default organization: %w", err)
+	}
+
+	// Add user as owner of the organization
+	_, err = tx.Exec(ctx, `
+		INSERT INTO organization_memberships (organization_id, user_id, role, status, created_at)
+		VALUES ($1, $2, 'owner', 'active', now())
+	`, organizationID, userID)
+	if err != nil {
+		return "", fmt.Errorf("create organization membership: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
