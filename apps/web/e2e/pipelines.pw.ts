@@ -34,9 +34,11 @@ test("an owner creates, edits and publishes the saved workflow revision", async 
 test("visual authoring prevents dependency cycles and a run uses the selected published version", async ({ page }) => {
   await installApiMocks(page);
   let created: Pipeline | undefined;
+  let snapshot = { status: "queued", stepStatuses: { approve: "queued", step1: "queued" } };
+  await page.route("**/pipeline-runs/run-1", route => route.fulfill({json: {id:"run-1", version:1, ...snapshot}}));
   await page.route("**/api/v1/organizations/org-demo/pipelines**", async route => {
     const url = new URL(route.request().url());
-    if (url.pathname.endsWith("/versions")) return route.fulfill({ json: { items: [2, 1].map(number => ({number, checksum:"a".repeat(64), publishedAt:new Date().toISOString(), definition: number === 1 ? created!.definition : { ...created!.definition, parameters: [] }})) } });
+    if (url.pathname.endsWith("/versions")) return route.fulfill({ json: { items: [2, 1].map(number => ({number, checksum:"a".repeat(64), publishedAt:new Date().toISOString(), definition: number === 1 ? created!.definition : { ...created!.definition, name:"second-version", parameters: [] }})) } });
     if (url.pathname.endsWith("/versions/1/runs")) {
       expect(route.request().postDataJSON()).toEqual({ attempts: 3 });
       return route.fulfill({ json: { id: "run-1", version: 1, status: "queued" } });
@@ -71,6 +73,14 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
   await page.getByRole("spinbutton", { name: "attempts", exact: true }).fill("3");
   await page.getByRole("button", { name:"Start run" }).click();
   await expect(page.getByRole("status").filter({ hasText:"Run run-1 · Version 1 · queued" })).toBeVisible();
+  const canvas = page.getByRole("region", { name: "Run graph" });
+  await page.getByRole("combobox", { name: "Published version", exact: true }).selectOption("2");
+  await expect(canvas.locator("header")).not.toContainText("second-version");
+  snapshot = {status:"running", stepStatuses:{approve:"waiting", step1:"queued"}};
+  await expect(canvas.getByText("Waiting for approval").first()).toBeVisible();
+  snapshot = {status:"failed", stepStatuses:{approve:"failed", step1:"cancelled"}};
+  await expect(canvas.locator("header")).toContainText("Failed");
+  await expect(canvas.locator(".wf-step").filter({hasText:"step1"})).toContainText("Cancelled");
 });
 
 
@@ -116,4 +126,21 @@ test("queue promotion is offered only for the ready head", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Promote candidate" })).toHaveCount(1);
   await page.getByRole("listitem").filter({ hasText: "first" }).getByRole("button", { name: "Promote candidate" }).click();
   await expect(page.getByText("The queue is empty.")).toBeVisible();
+});
+
+
+test("canvas lays out forward references, independent roots and an implicit dependency", async ({ page }) => {
+  await installApiMocks(page);
+  await page.route("**/api/v1/organizations/org-demo/pipelines", route => route.fulfill({json:{items:[]}}));
+  await page.goto("/orgs/demo/pipelines");
+  const editor = page.getByLabel("Workflow definition (JSON)");
+  const definition = JSON.parse(await editor.inputValue());
+  const stages = [ {id:"join", dependsOn:["build","test"]}, {id:"deploy"}, {id:"build",dependsOn:[]}, {id:"test",dependsOn:[]} ];
+  await editor.fill(JSON.stringify({...definition, stages: stages.map(s => ({...s, jobs:definition.stages[0].jobs}))}));
+  const canvas = page.getByRole("region", {name:"Workflow graph"});
+  await expect(canvas.locator(".wf-column").first().locator("summary strong")).toHaveText(["build","test"]);
+  await expect(canvas.locator(".wf-column").last().locator("summary strong")).toHaveText("deploy");
+  await expect(canvas.locator("path[marker-end]")).toHaveCount(3);
+  await canvas.locator("summary").first().press("Enter");
+  await expect(canvas.locator("details").first().locator(".wf-body")).toBeHidden();
 });

@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type OrganizationSummary } from "../../shared/api/identity";
 import { pipelines, type Definition, type Pipeline, type Summary } from "../../shared/api/pipelines";
 import { Button, ConfirmDialog, Select, TextArea } from "../../shared/ui";
 
+import { WorkflowCanvas } from "./WorkflowCanvas";
 import { RunPanel } from "./RunPanel";
 import { editable, WorkflowEditor } from "./WorkflowEditor";
 
@@ -28,6 +29,10 @@ export function PipelinesPage({ organization }: { organization: OrganizationSumm
   const [error, setError] = useState("");
   const [confirmation, confirm] = useState<{ title: string; run: () => void } | null>(null);
   const [visual, setVisual] = useState(false);
+  const draft = useMemo(() => {
+    try { const parsed = JSON.parse(text); return editable(parsed) ? parsed as Definition : null; }
+    catch { return null; }
+  }, [text]);
   const canEdit = organization.role !== "viewer" && selected?.status !== "archived";
   const canPublish = organization.role === "owner" || organization.role === "admin";
   const dirty = text !== format(selected?.definition ?? template);
@@ -69,6 +74,9 @@ export function PipelinesPage({ organization }: { organization: OrganizationSumm
       }} />}
     {error && <p className="org-error" role="alert">{error}</p>}
     {selected && <p role="status">{t("revision", {status:t(selected.status), revision:selected.revision, version:selected.version})}</p>}
+    {(selected || canEdit) && (draft ? <WorkflowCanvas definition={draft}/> : <p>{t("invalidGraph")}</p>)}
+    {selected && selected.version > 0 && <RunPanel key={`${selected.id}:${selected.version}`} org={org} pipeline={selected} canStart={canEdit} canPromote={canPublish} />}
+    <details open={!selected?.version}><summary>{t("workflowSettings")}</summary>
     {canEdit && <Button disabled={busy} onClick={() => {
       if (!visual) {
         try {
@@ -95,7 +103,7 @@ export function PipelinesPage({ organization }: { organization: OrganizationSumm
         confirm({ title: t("confirmArchive", {name:selected.name}), run: () => void apply(() => pipelines.transition(org, selected, "archive")) });
       }}>{t("archive")}</Button>}
     </div>
-    {selected && selected.version > 0 && <RunPanel key={`${selected.id}:${selected.version}`} org={org} pipeline={selected} canStart={canEdit} canPromote={canPublish} />}
+    </details>
     <ConfirmDialog open={Boolean(confirmation)} title={confirmation?.title} description={dirty ? t("editsLost") : t("versionsRemain")}
       onCancel={() => confirm(null)} onConfirm={() => { confirmation?.run(); confirm(null); }} />
   </section>;

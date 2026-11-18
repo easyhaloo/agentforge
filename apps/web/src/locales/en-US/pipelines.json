@@ -74,5 +74,16 @@
   "cancelEntry": "Remove",
   "promoteCandidate": "Promote candidate",
   "building": "Building",
-  "ready": "Ready for promotion"
+  "ready": "Ready for promotion",
+  "designCanvas": "Workflow graph",
+  "executionCanvas": "Run graph",
+  "workflowSettings": "Workflow settings",
+  "invalidGraph": "Check stage IDs and dependencies to preview the workflow.",
+  "staleRun": "Reconnecting. Showing the last known run state.",
+  "running": "Running",
+  "waiting": "Waiting for approval",
+  "succeeded": "Succeeded",
+  "failed": "Failed",
+  "cancelled": "Cancelled",
+  "timed_out": "Timed out"
 }

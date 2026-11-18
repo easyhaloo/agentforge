@@ -43,17 +43,18 @@ type TriggerSource struct {
 }
 
 type Run struct {
-	Trigger     *TriggerSource             `json:"trigger,omitempty"`
-	Integration *Integration               `json:"integration,omitempty"`
-	Webhook     *Webhook                   `json:"webhook,omitempty"`
-	ID          string                     `json:"id"`
-	PipelineID  string                     `json:"pipelineId"`
-	Version     int                        `json:"version"`
-	ActorID     string                     `json:"actorId"`
-	Status      string                     `json:"status"`
-	Inputs      map[string]json.RawMessage `json:"inputs"`
-	CreatedAt   time.Time                  `json:"createdAt"`
-	Deadline    time.Time                  `json:"deadline"`
+	StepStatuses map[string]string          `json:"stepStatuses,omitempty"`
+	Trigger      *TriggerSource             `json:"trigger,omitempty"`
+	Integration  *Integration               `json:"integration,omitempty"`
+	Webhook      *Webhook                   `json:"webhook,omitempty"`
+	ID           string                     `json:"id"`
+	PipelineID   string                     `json:"pipelineId"`
+	Version      int                        `json:"version"`
+	ActorID      string                     `json:"actorId"`
+	Status       string                     `json:"status"`
+	Inputs       map[string]json.RawMessage `json:"inputs"`
+	CreatedAt    time.Time                  `json:"createdAt"`
+	Deadline     time.Time                  `json:"deadline"`
 }
 
 type PromotionProvider interface {

@@ -11,6 +11,7 @@ const item = (org: string, id: string) => `${path(org)}/${encodeURIComponent(id)
 const orgBase = (org: string) => `/api/v1/organizations/${encodeURIComponent(org)}`;
 export type QueueEntry = components["schemas"]["QueueEntry"];
 export const pipelines = {
+  run: (org: string, id: string, signal: AbortSignal) => request<Run>(`${orgBase(org)}/pipeline-runs/${encodeURIComponent(id)}`, {signal, cache: "no-store"}),
   queue: (org:string,repository:string,target:string) => request<{items: QueueEntry[]}>(`${orgBase(org)}/merge-queue?${new URLSearchParams({repository,target})}`),
   enqueue: (org:string,id:string,version:number,body: {repository:string;target:string;sources:string[];inputs:Record<string,unknown>}) => request<QueueEntry>(`${item(org,id)}/versions/${version}/merge-queue`,{method:"POST",body:JSON.stringify(body)}),
   cancelEntry: (org:string,id:number) => request<void>(`${orgBase(org)}/merge-queue/${id}/cancel`,{method:"POST"}),

@@ -377,6 +377,9 @@ export interface components {
                 ref?: string;
                 sha: string;
             };
+            stepStatuses?: {
+                [key: string]: "queued" | "leased" | "waiting" | "succeeded" | "failed" | "cancelled" | "timed_out";
+            };
             pipelineId: string;
             actorId: string;
             /** @enum {unknown} */
