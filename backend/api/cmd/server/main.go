@@ -62,6 +62,20 @@ func main() {
 		provider, providerErr := delivery.NewLocalGitProvider(configuration.GitRepositoryRoot, 2*time.Minute)
 		if providerErr != nil { logger.Error("Git provider initialization failed; revision and merge operations remain unavailable", "error", providerErr) } else {
 			gitProvider = provider
+			go func() {
+				ticker := time.NewTicker(time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						if err := store.AdvanceQueue(ctx, provider); err != nil && ctx.Err() == nil {
+							logger.Error("merge queue reconciliation failed", "error", err)
+						}
+					}
+				}
+			}()
 			evaluator = delivery.GitDiffEvaluator{Git: provider}
 			if configuration.EvaluationDockerImage != "" { evaluator = delivery.DockerEvaluator{Git: provider, Image: configuration.EvaluationDockerImage, Command: configuration.EvaluationCommand, Timeout: 10*time.Minute} }
 		}
