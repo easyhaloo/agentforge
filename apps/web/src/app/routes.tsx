@@ -5,7 +5,7 @@ import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError, WebIDERoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -64,7 +64,7 @@ export const routes: RouteObject[] = [
               changesetDetail("evaluation"),
               changesetDetail("review"),
               changesetDetail("merge"),
-              organizationPage("repositories", "Repositories", <RepositoriesRoute />),
+              organizationPage("repositories", "Repositories", <RepositoriesRoute />),\n              { path: "orgs/:org/webide/:owner/:repo", handle: routeHandle("WebIDE"), element: <WebIDERoute /> },
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),
               organizationPage("review", "Review", <ChangesetsRoute />),
