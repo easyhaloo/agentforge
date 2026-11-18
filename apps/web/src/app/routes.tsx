@@ -1,11 +1,21 @@
 import type { ReactElement } from "react";
-import type { RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import { UIShowcasePage } from "../pages/ui-showcase";
+import {
+  ProfileSettingsPage,
+  AccountSettingsPage,
+  AppearanceSettingsPage,
+  NotificationsSettingsPage,
+  AuthenticationSettingsPage,
+  KeysSettingsPage,
+  SessionsSettingsPage,
+  AgentSettingsPage,
+} from "../pages/settings";
 import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError, SettingsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -53,7 +63,21 @@ export const routes: RouteObject[] = [
           resource("security", "Security"),
           resource("governance", "Governance"),
           resource("usage", "Cost & Usage"),
-          resource("settings", "Settings"),
+          {
+            path: "settings",
+            element: <SettingsRoute />,
+            children: [
+              { index: true, handle: routeHandle("Settings"), element: <Navigate to="/settings/profile" replace /> },
+              { path: "profile", handle: routeHandle("Public profile"), element: <ProfileSettingsPage /> },
+              { path: "account", handle: routeHandle("Account"), element: <AccountSettingsPage /> },
+              { path: "appearance", handle: routeHandle("Appearance"), element: <AppearanceSettingsPage /> },
+              { path: "notifications", handle: routeHandle("Notifications"), element: <NotificationsSettingsPage /> },
+              { path: "authentication", handle: routeHandle("Password and authentication"), element: <AuthenticationSettingsPage /> },
+              { path: "keys", handle: routeHandle("SSH and GPG keys"), element: <KeysSettingsPage /> },
+              { path: "sessions", handle: routeHandle("Sessions"), element: <SessionsSettingsPage /> },
+              { path: "agents", handle: routeHandle("Agent Interactions"), element: <AgentSettingsPage /> },
+            ],
+          },
           { path: "dev/ui", handle: routeHandle("UI Components"), element: <UIShowcasePage /> },
           {
             element: <OrganizationGate variant="changesets" />,

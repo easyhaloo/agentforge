@@ -7,6 +7,7 @@ import { OrganizationManagementPage } from "../pages/organization/OrganizationMa
 import { OverviewPage } from "../pages/overview";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { ResourceWorkspacePage } from "../pages/resources";
+import { SettingsLayout } from "../pages/settings";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { useNotify } from "./useNotify";
@@ -60,6 +61,19 @@ export function OrganizationRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <OrganizationManagementPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function SettingsRoute() {
+  const notify = useNotify();
+  // Mock user data for Phase 1 - will be replaced with actual user context later
+  return (
+    <SettingsLayout
+      username="demo-user"
+      displayName="Demo User"
+      avatarUrl={undefined}
+      onNotify={notify}
+    />
+  );
 }
 
 export function NotFound() {
