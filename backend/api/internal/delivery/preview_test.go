@@ -77,3 +77,29 @@ func TestLocalGitPreviewListsCommitHistoryPinnedToRevision(t *testing.T) {
 		t.Fatalf("expected invalid limit rejection, got %v", err)
 	}
 }
+
+
+func TestLocalGitPreviewComparesImmutableCommits(t *testing.T) {
+	root := t.TempDir()
+	repository := filepath.Join(root, "org-a", "team", "compare")
+	if err := os.MkdirAll(repository, 0700); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "init", "-b", "main")
+	if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte("before\n"), 0600); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "add", ".")
+	gitTest(t, repository, "commit", "-m", "base")
+	base := stringTrim(gitTest(t, repository, "rev-parse", "HEAD"))
+	if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte("after\n"), 0600); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "commit", "-am", "head")
+	head := stringTrim(gitTest(t, repository, "rev-parse", "HEAD"))
+
+	provider, err := NewLocalGitProvider(root, 10*time.Second)
+	if err != nil { t.Fatal(err) }
+	patch, err := provider.Compare(context.Background(), "org-a", "team/compare", base, head)
+	if err != nil { t.Fatal(err) }
+	if !bytes.Contains([]byte(patch), []byte("-before")) || !bytes.Contains([]byte(patch), []byte("+after")) {
+		t.Fatalf("compare patch missing expected changes: %s", patch)
+	}
+	if _, err := provider.Compare(context.Background(), "org-a", "team/compare", "invalid", head); err != ErrPreviewPathInvalid {
+		t.Fatalf("expected invalid commit rejection, got %v", err)
+	}
+}
