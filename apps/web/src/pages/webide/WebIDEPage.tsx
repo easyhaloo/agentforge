@@ -62,6 +62,17 @@ export function WebIDEPage({ organization, onNotify }: Props) {
     } finally { setLoading(false); }
   };
 
+  const createChangeset = async () => {
+    if (!workspace || diffItems.length === 0) return;
+    setLoading(true); setError("");
+    try {
+      const result = await workspaceAPI.createChangeset(organization.id, workspace.id, `Update ${repository}`);
+      onNotify(`Changeset ${result.changeset.changeset.id} created from workspace.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create changeset");
+    } finally { setLoading(false); }
+  };
+
   const save = async () => {
     if (!workspace || !selected || !dirty) return;
     setLoading(true); setError("");
@@ -84,6 +95,7 @@ export function WebIDEPage({ organization, onNotify }: Props) {
       <span className="org-role">{workspace?.status ?? "not started"}</span>
       {!workspace && <Button className="button primary" disabled={loading} onClick={() => void createWorkspace()}>Create workspace</Button>}
       <Button className="button secondary" disabled={!workspace || loading} onClick={() => setShowDiff(value => !value)}> {showDiff ? "Hide diff" : "Workspace diff"} ({diffItems.length})</Button>
+      <Button className="button primary" disabled={!workspace || diffItems.length === 0 || loading || dirty} onClick={() => void createChangeset()}>Create changeset</Button>
       <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> Save</Button>
       <Link className="button secondary" to={`/orgs/${organization.slug}/repositories`}><ArrowLeft size={14}/> Repositories</Link>
     </div>
@@ -110,6 +122,6 @@ export function WebIDEPage({ organization, onNotify }: Props) {
       </main>
     </div>
     {loading && <p className="changeset-hint" role="status">Loading workspace…</p>}
-    <p className="changeset-hint">MVP editor uses a bounded plain-text surface. Terminal, build, test and preview execution are intentionally unavailable until isolated workers are implemented.</p>
+    <p className="changeset-hint">Saved workspace overlays can be handed off as immutable Git revisions in the existing Changeset lifecycle. Unsaved editor content must be saved first. Terminal, build, test and preview execution remain unavailable until isolated workers are implemented.</p>
   </section>;
 }
