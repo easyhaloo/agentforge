@@ -274,3 +274,11 @@
 .repository-code__token--number{color:#e7b36e}
 .repository-code__token--comment{color:#74839a;font-style:italic}
 @media(max-width:600px){.repository-source__toolbar{align-items:flex-start}.repository-source__line{grid-template-columns:42px minmax(0,1fr)}.repository-source__text{padding:0 10px}}
+
+
+/* Repository tree filtering and file metadata */
+.repository-tree-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 8px}
+.repository-tree-tools> :first-child{flex:1 1 220px;min-width:180px}
+.repository-tree-tools .changeset-hint{margin-left:auto;white-space:nowrap}
+.repository-tree-entry-meta{display:inline-block;margin-left:10px;color:var(--text-muted,#8290a8);font-size:11px}
+@media(max-width:600px){.repository-tree-entry-meta{display:block;margin:3px 0 0 28px}.repository-tree-tools .changeset-hint{margin-left:0}}
