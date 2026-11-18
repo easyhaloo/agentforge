@@ -39,12 +39,18 @@ type MembershipRepository interface {
 
 type ReviewerAuthorizer interface { IsActiveMember(context.Context, string, string) (bool, error) }
 
+type LocalAuthHandler interface {
+	Login(http.ResponseWriter, *http.Request)
+	Register(http.ResponseWriter, *http.Request)
+}
+
 type DeliveryDependencies struct {
 	Repository  delivery.Repository
 	Identity    identity.PrincipalResolver
 	CSRF        identity.CSRFValidator
 	AllowedOrigin string
 	OIDC          identity.OIDCHandler
+	LocalAuth     LocalAuthHandler
 	Membership    MembershipRepository
 	Account       AccountRepository
 	Git delivery.GitProvider

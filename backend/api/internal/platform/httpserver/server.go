@@ -23,6 +23,9 @@ func NewHandler() http.Handler {
 func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/me", deps.currentAccount)
+	mux.HandleFunc("GET /api/v1/me/identities", deps.listIdentities)
+	mux.HandleFunc("POST /api/v1/me/password", deps.changePassword)
+	mux.HandleFunc("DELETE /api/v1/me/identities/{identityID}", deps.deleteIdentity)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeHealth(w, http.StatusOK, "ok")
 	})
@@ -47,6 +50,16 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		mux.HandleFunc("GET /auth/oidc/callback", deps.OIDC.Callback)
 		mux.HandleFunc("GET /auth/invitations/accept", deps.OIDC.AcceptInvitation)
 		mux.HandleFunc("POST /api/v1/auth/logout", deps.OIDC.Logout)
+	}
+	if deps.LocalAuth == nil {
+		unavailable := func(w http.ResponseWriter, _ *http.Request) {
+			writeProblem(w, http.StatusServiceUnavailable, "Local auth unavailable", "Local password authentication is not configured")
+		}
+		mux.HandleFunc("POST /auth/local/login", unavailable)
+		mux.HandleFunc("POST /auth/local/register", unavailable)
+	} else {
+		mux.HandleFunc("POST /auth/local/login", deps.LocalAuth.Login)
+		mux.HandleFunc("POST /auth/local/register", deps.LocalAuth.Register)
 	}
 	mux.Handle("/", newDeliveryHandler(deps))
 	return requestIDMiddleware(corsMiddleware(csrfMiddleware(rejectMalformedText(mux), deps.CSRF, deps.AllowedOrigin), deps.AllowedOrigin))
