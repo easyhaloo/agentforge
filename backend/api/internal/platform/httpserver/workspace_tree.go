@@ -63,7 +63,7 @@ func (d DeliveryDependencies) listWorkspaceTree(w http.ResponseWriter, r *http.R
 func mergeWorkspaceTreeEntries(base []delivery.PreviewEntry, overlays []workspace.FileEntry, directory string) ([]workspaceTreeEntry, error) {
 	entries := make(map[string]workspaceTreeEntry, len(base))
 	for _, entry := range base {
-		if entry.Name == "" || (entry.Kind != "tree" && entry.Kind != "file" && entry.Kind != "symlink") {
+		if entry.Name == "" || (entry.Kind != "tree" && entry.Kind != "file" && entry.Kind != "symlink" && entry.Kind != "commit") {
 			return nil, workspace.ErrInvalidInput
 		}
 		if _, exists := entries[entry.Name]; exists {
