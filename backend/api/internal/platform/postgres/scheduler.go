@@ -41,7 +41,7 @@ func (s *Store) ClaimTask(ctx context.Context, worker string) (*execution.Task, 
 	defer tx.Rollback(ctx)
 	var task execution.Task
 	var expired bool
-	err = tx.QueryRow(ctx, `SELECT r.id,r.deadline,r.deadline<=now() FROM pipeline_runs r WHERE r.status IN ('queued','running') AND (r.deadline<=now() OR EXISTS(SELECT 1`+runnableTasks+`)) ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`).Scan(&task.RunID, &task.Deadline, &expired)
+	err = tx.QueryRow(ctx, `SELECT r.id,r.organization_id,r.pipeline_id,r.deadline,r.deadline<=now() FROM pipeline_runs r WHERE r.status IN ('queued','running') AND (r.deadline<=now() OR EXISTS(SELECT 1`+runnableTasks+`)) ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`).Scan(&task.RunID, &task.OrganizationID, &task.PipelineID, &task.Deadline, &expired)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -54,7 +54,7 @@ func (s *Store) ClaimTask(ctx context.Context, worker string) (*execution.Task, 
 		}
 		return nil, tx.Commit(ctx)
 	}
-	err = tx.QueryRow(ctx, `SELECT t.id,t.capability,t.attempt FROM pipeline_runs r CROSS JOIN LATERAL (SELECT t.id,t.capability,t.attempt`+runnableTasks+` ORDER BY t.job_id,t.position LIMIT 1)t WHERE r.id=$1`, task.RunID).Scan(&task.StepID, &task.Capability, &task.Attempt)
+	err = tx.QueryRow(ctx, `SELECT t.id,t.capability,t.attempt,t.secret_refs FROM pipeline_runs r CROSS JOIN LATERAL (SELECT t.id,t.capability,t.attempt,t.secret_refs`+runnableTasks+` ORDER BY t.job_id,t.position LIMIT 1)t WHERE r.id=$1`, task.RunID).Scan(&task.StepID, &task.Capability, &task.Attempt, &task.SecretRefs)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +75,11 @@ func (s *Store) ClaimTask(ctx context.Context, worker string) (*execution.Task, 
 	}
 	if err = runEvent(ctx, tx, task.RunID, "claimed", task.StepID, worker); err != nil {
 		return nil, err
+	}
+	if len(task.SecretRefs) > 0 {
+		if err = runEvent(ctx, tx, task.RunID, "secret_refs_requested", task.StepID, worker); err != nil {
+			return nil, err
+		}
 	}
 	return &task, tx.Commit(ctx)
 }
@@ -120,14 +125,15 @@ func (s *Store) FinishTask(ctx context.Context, t execution.Task, outcome, outpu
 	if !active {
 		return execution.ErrLease
 	}
-	tag, err := tx.Exec(ctx, `UPDATE pipeline_step_runs SET status=$5,worker_id=NULL,lease_until=NULL WHERE `+leasePredicate, t.RunID, t.StepID, t.WorkerID, t.Attempt, outcome)
+	var suppressOutput bool
+	err = tx.QueryRow(ctx, `UPDATE pipeline_step_runs SET status=$5,worker_id=NULL,lease_until=NULL WHERE `+leasePredicate+` RETURNING secret_refs <> '{}'::jsonb`, t.RunID, t.StepID, t.WorkerID, t.Attempt, outcome).Scan(&suppressOutput)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return execution.ErrLease
+	}
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() == 0 {
-		return execution.ErrLease
-	}
-	if output != "" {
+	if output != "" && !suppressOutput {
 		if _, err = tx.Exec(ctx, `INSERT INTO pipeline_run_events(run_id,kind,step_id,actor,message) VALUES($1,'log',$2,$3,$4)`, t.RunID, t.StepID, t.WorkerID, output); err != nil {
 			return err
 		}

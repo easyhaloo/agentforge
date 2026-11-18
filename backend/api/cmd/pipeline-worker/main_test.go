@@ -29,7 +29,10 @@ test ! -S /var/run/docker.sock
 test -w /tmp
 test "$(wc -l </proc/net/route)" -eq 1
 test "$(cat /sys/fs/cgroup/pids.max)" = 32
-if test -f /slow; then sleep 60; fi
+if test -f /slow; then sleep 60; else
+  test "$(cat)" = '{"token":"fixture"}'
+  echo fixture
+fi
 `
 	if err := os.WriteFile(filepath.Join(dir, "check"), []byte(script), 0755); err != nil {
 		t.Fatal(err)
@@ -48,10 +51,24 @@ if test -f /slow; then sleep 60; fi
 		}
 		t.Cleanup(func() { _ = exec.Command("docker", "image", "rm", image).Run() })
 		task := execution.Task{RunID: image, StepID: "check", Attempt: 1}
+		var capture logPrefix
+		if !slow {
+			task.OrganizationID, task.PipelineID = "org", "workflow"
+			task.SecretRefs = map[string]string{"token": "secret://key"}
+			root := t.TempDir()
+			t.Setenv("PIPELINE_SECRETS_DIR", root)
+			scope := filepath.Join(root, "org", "workflow", task.StepID)
+			if err := os.MkdirAll(scope, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(scope, "key"), []byte("fixture"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
 		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 		defer cancel()
 		done := make(chan error, 1)
-		go func() { done <- containerCheck(ctx, task, image, io.Discard) }()
+		go func() { done <- containerCheck(ctx, task, image, &capture) }()
 		if slow {
 			running := false
 			for i := 0; i < 50; i++ {
@@ -75,8 +92,8 @@ if test -f /slow; then sleep 60; fi
 			if exec.Command("docker", "inspect", "af-"+image+"-check-1").Run() == nil {
 				t.Fatal("cancelled container still exists")
 			}
-		} else if err != nil {
-			t.Fatalf("isolation check failed: %v", err)
+		} else if err != nil || capture.text() != "" {
+			t.Fatalf("isolation or log suppression failed: %v", err)
 		}
 	}
 }
@@ -87,5 +104,30 @@ func TestLogPrefixDrainsAndBoundsOutput(t *testing.T) {
 	n, err := output.Write(data)
 	if err != nil || n != len(data) || len(output.text()) != 8191 || strings.ContainsRune(output.text(), 0) {
 		t.Fatalf("captured %d bytes from %d, %v", len(output.text()), n, err)
+	}
+}
+
+func TestSecretInputIsStepScoped(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "org", "workflow", "check")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "key"), []byte("fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	task := execution.Task{OrganizationID: "org", PipelineID: "workflow", StepID: "check", SecretRefs: map[string]string{"token": "secret://key"}}
+	input, err := secretInput(base, task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := io.ReadAll(input)
+	if err != nil || string(b) != `{"token":"fixture"}` {
+		t.Fatal("bad injected value")
+	}
+	for _, task := range []execution.Task{{OrganizationID: "other", PipelineID: "workflow", StepID: "check", SecretRefs: task.SecretRefs}, {OrganizationID: "org", PipelineID: "workflow", StepID: "other", SecretRefs: task.SecretRefs}, {OrganizationID: "org", PipelineID: "workflow", StepID: "check", SecretRefs: map[string]string{"token": "secret://../key"}}} {
+		if _, err := secretInput(base, task); err != secretUnavailable {
+			t.Fatal("resolved outside step scope")
+		}
 	}
 }

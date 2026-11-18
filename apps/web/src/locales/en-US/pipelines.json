@@ -1,4 +1,5 @@
 {
+  "bindSecret": "Pass secret {{name}} to this step",
   "unset": "Select a value",
   "branchesHint": "Branch names separated by commas",
   "secretHint": "Secret reference (secret://name)",

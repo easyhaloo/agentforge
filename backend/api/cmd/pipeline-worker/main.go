@@ -60,7 +60,7 @@ func main() {
 	}
 }
 
-// Capture a bounded prefix while continuing to drain stdout. The check receives no host secrets or user inputs.
+// Capture a bounded prefix while continuing to drain stdout.
 type logPrefix struct{ buf bytes.Buffer }
 
 func (w *logPrefix) Write(p []byte) (int, error) {
@@ -128,7 +128,18 @@ func containerCheck(ctx context.Context, t execution.Task, image string, output 
 	// The in-container watchdog also bounds runtime if the worker process dies.
 	name := "af-" + t.RunID + "-" + t.StepID + "-" + strconv.Itoa(t.Attempt)
 	args := []string{"run", "--name", name, "--rm", "--pull=never", "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--user=65532:65532", "--memory=128m", "--memory-swap=128m", "--cpus=0.5", "--pids-limit=32", "--log-driver=none", "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=16m", "--entrypoint", "/usr/bin/timeout", image, "-s", "KILL", "115", "/usr/local/bin/agentforge-check"}
+	var input io.Reader
+	if len(t.SecretRefs) > 0 {
+		var err error
+		input, err = secretInput(os.Getenv("PIPELINE_SECRETS_DIR"), t)
+		if err != nil {
+			return err
+		}
+		args = append([]string{"run", "--interactive"}, args[1:]...)
+		output = io.Discard
+	}
 	command := exec.CommandContext(ctx, "docker", args...)
+	command.Stdin = input
 	command.Stdout = output
 	err := command.Run()
 	if ctx.Err() != nil {

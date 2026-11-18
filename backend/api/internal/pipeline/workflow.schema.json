@@ -129,6 +129,10 @@
                         "type": "string",
                         "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
                       },
+                      "secretParams": {
+                        "type": "array", "uniqueItems": true, "maxItems": 16,
+                        "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" }
+                      },
                       "uses": {
                         "enum": ["control/approval@v1", "container/check@v1"]
                       }

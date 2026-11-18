@@ -37,8 +37,9 @@ type Job struct {
 	Steps []Step `json:"steps"`
 }
 type Step struct {
-	ID   string `json:"id"`
-	Uses string `json:"uses"`
+	ID           string   `json:"id"`
+	Uses         string   `json:"uses"`
+	SecretParams []string `json:"secretParams,omitempty"`
 }
 type Parameter struct {
 	Name     string          `json:"name"`
@@ -55,6 +56,10 @@ func (d Definition) Validate() error {
 	}
 	if len(d.Stages) < 1 || len(d.Stages) > 64 || len(d.Parameters) > 64 {
 		return errors.New("expected 1–64 stages and at most 64 parameters")
+	}
+	secretParams := map[string]bool{}
+	for _, p := range d.Parameters {
+		secretParams[p.Name] = p.Type == "secretRef"
 	}
 	ids := map[string]bool{}
 	graph := map[string][]string{}
@@ -81,6 +86,16 @@ func (d Definition) Validate() error {
 			for _, step := range j.Steps {
 				if !register(step.ID) || (step.Uses != Approval && step.Uses != ContainerCheck) {
 					return errors.New("invalid step ID or unknown capability")
+				}
+				if len(step.SecretParams) > 16 || (len(step.SecretParams) > 0 && step.Uses != ContainerCheck) {
+					return errors.New("secret bindings require a container step and at most 16 parameters")
+				}
+				seen := map[string]bool{}
+				for _, name := range step.SecretParams {
+					if !secretParams[name] || seen[name] {
+						return errors.New("secret bindings must name unique secretRef parameters")
+					}
+					seen[name] = true
 				}
 			}
 		}

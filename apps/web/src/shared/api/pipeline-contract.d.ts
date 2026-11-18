@@ -318,6 +318,7 @@ export interface components {
                     id: string;
                     steps: {
                         id: string;
+                        secretParams?: string[];
                         /** @enum {unknown} */
                         uses: "control/approval@v1" | "container/check@v1";
                     }[];
