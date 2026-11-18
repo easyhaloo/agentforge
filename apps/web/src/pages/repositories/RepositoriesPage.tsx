@@ -40,10 +40,18 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [compareError, setCompareError] = useState("");
   const [compareLoading, setCompareLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState("");\n  const [repositoryRefs, setRepositoryRefs] = useState<RepositoryPreviewRef[]>([]);\n  const [selectedRef, setSelectedRef] = useState("");\n  const [defaultBranchName, setDefaultBranchName] = useState("");
+  const [previewError, setPreviewError] = useState("");
+  const [repositoryRefs, setRepositoryRefs] = useState<RepositoryPreviewRef[]>([]);
+  const [selectedRef, setSelectedRef] = useState("");
+  const [defaultBranchName, setDefaultBranchName] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
 
-  useEffect(() => {\n    if (!selectedRepository) { setRepositoryRefs([]); setSelectedRef(""); setDefaultBranchName(""); return; }\n    let active = true;\n    void repositoryPreviewAPI.refs(organization.id, selectedRepository).then(result => { if (active) { setRepositoryRefs(result.items); setDefaultBranchName(result.default_branch); } }).catch(() => { if (active) setRepositoryRefs([]); });\n    return () => { active = false; };\n  }, [organization.id, selectedRepository]);
+  useEffect(() => {
+    if (!selectedRepository) { setRepositoryRefs([]); setSelectedRef(""); setDefaultBranchName(""); return; }
+    let active = true;
+    void repositoryPreviewAPI.refs(organization.id, selectedRepository).then(result => { if (active) { setRepositoryRefs(result.items); setDefaultBranchName(result.default_branch); } }).catch(() => { if (active) setRepositoryRefs([]); });
+    return () => { active = false; };
+  }, [organization.id, selectedRepository]);
 
   useEffect(() => {
     if (!selectedRepository) {

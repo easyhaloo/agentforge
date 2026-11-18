@@ -138,7 +138,10 @@ export type RepositoryCommit = { sha: string; parents: string[]; author: string;
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
 export const repositoryPreviewAPI = {
-  refs: (organizationID: string, repository: string) => {\n    const [owner, name] = repository.split("/");\n    return request<RepositoryPreviewRefs>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/refs`);\n  },
+  refs: (organizationID: string, repository: string) => {
+    const [owner, name] = repository.split("/");
+    return request<RepositoryPreviewRefs>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/refs`);
+  },
   tree: (organizationID: string, repository: string, path = "", ref = "") => {
     const [owner, name] = repository.split("/");
     const query = new URLSearchParams();
