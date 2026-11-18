@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 	"github.com/jackc/pgx/v5"
@@ -67,8 +68,6 @@ func (s *Store) GetWorkspaceFile(ctx context.Context, organizationID, workspaceI
 	return item, nil
 }
 
-// PutWorkspaceFile is a database-level compare-and-swap. expectedVersion=0 inserts;
-// otherwise only the exact current version can be replaced.
 func (s *Store) PutWorkspaceFile(ctx context.Context, organizationID string, item workspace.File, expectedVersion int64) (workspace.File, error) {
 	if strings.TrimSpace(organizationID) == "" || item.WorkspaceID == "" || !workspace.ValidPath(item.Path) ||
 		len(item.Content) > workspace.MaxFileBytes || item.Version < 1 || item.SHA256 == "" || item.UpdatedBy == "" {
@@ -80,7 +79,11 @@ func (s *Store) PutWorkspaceFile(ctx context.Context, organizationID string, ite
 		err = s.pool.QueryRow(ctx, `
 			INSERT INTO delivery_workspace_files
 				(organization_id, workspace_id, path, content, sha256, version, updated_by, updated_at)
-			VALUES ($1,$2,$3,$4,$5,1,$6,$7)
+			SELECT $1,$2,$3,$4,$5,1,$6,$7
+			WHERE EXISTS (
+				SELECT 1 FROM delivery_workspaces
+				WHERE organization_id=$1 AND id=$2 AND status='active' AND expires_at > now()
+			)
 			ON CONFLICT (organization_id, workspace_id, path) DO NOTHING
 			RETURNING workspace_id, path, content, sha256, version, updated_by, updated_at
 		`, organizationID, item.WorkspaceID, item.Path, item.Content, item.SHA256, item.UpdatedBy, item.UpdatedAt).
@@ -90,6 +93,10 @@ func (s *Store) PutWorkspaceFile(ctx context.Context, organizationID string, ite
 			UPDATE delivery_workspace_files
 			SET content=$4, sha256=$5, version=version+1, updated_by=$6, updated_at=$7
 			WHERE organization_id=$1 AND workspace_id=$2 AND path=$3 AND version=$8
+			  AND EXISTS (
+				SELECT 1 FROM delivery_workspaces
+				WHERE organization_id=$1 AND id=$2 AND status='active' AND expires_at > now()
+			  )
 			RETURNING workspace_id, path, content, sha256, version, updated_by, updated_at
 		`, organizationID, item.WorkspaceID, item.Path, item.Content, item.SHA256, item.UpdatedBy, item.UpdatedAt, expectedVersion).
 			Scan(&stored.WorkspaceID, &stored.Path, &stored.Content, &stored.SHA256, &stored.Version, &stored.UpdatedBy, &stored.UpdatedAt)
@@ -105,9 +112,34 @@ func (s *Store) PutWorkspaceFile(ctx context.Context, organizationID string, ite
 	return stored, nil
 }
 
-var _ interface {
-	CreateWorkspace(context.Context, workspace.Workspace) (workspace.Workspace, error)
-	GetWorkspace(context.Context, string, string) (workspace.Workspace, error)
-	GetWorkspaceFile(context.Context, string, string, string) (workspace.File, error)
-	PutWorkspaceFile(context.Context, string, workspace.File, int64) (workspace.File, error)
-} = (*Store)(nil)
+func (s *Store) ListWorkspaceFiles(ctx context.Context, organizationID, workspaceID string) ([]workspace.FileEntry, error) {
+	if strings.TrimSpace(organizationID) == "" || strings.TrimSpace(workspaceID) == "" {
+		return nil, workspace.ErrInvalidInput
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT path, sha256, version, updated_by, updated_at
+		FROM delivery_workspace_files
+		WHERE organization_id=$1 AND workspace_id=$2
+		ORDER BY path COLLATE "C" ASC
+	`, organizationID, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list workspace files: %w", err)
+	}
+	defer rows.Close()
+	items := make([]workspace.FileEntry, 0)
+	for rows.Next() {
+		var item workspace.FileEntry
+		var updatedAt time.Time
+		if err := rows.Scan(&item.Path, &item.SHA256, &item.Version, &item.UpdatedBy, &updatedAt); err != nil {
+			return nil, fmt.Errorf("scan workspace file: %w", err)
+		}
+		item.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate workspace files: %w", err)
+	}
+	return items, nil
+}
+
+var _ workspace.Repository = (*Store)(nil)
