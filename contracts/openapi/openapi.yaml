@@ -1055,6 +1055,17 @@ components:
         created_by: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    RepositoryCommit:
+      type: object
+      required: [sha, parents, author, authored_at, subject]
+      properties:
+        sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        parents:
+          type: array
+          items: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        author: { type: string }
+        authored_at: { type: string, format: date-time }
+        subject: { type: string }
     Health:
       type: object
       required: [status]
