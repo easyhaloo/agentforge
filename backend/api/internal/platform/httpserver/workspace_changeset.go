@@ -44,32 +44,21 @@ func (d DeliveryDependencies) createWorkspaceChangeset(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusBadRequest, "Invalid changeset title", "A title between 1 and 200 characters is required")
 		return
 	}
-	entries, err := d.Workspaces.ListWorkspaceFiles(r.Context(), principal.OrganizationID, item.ID)
+	filesSnapshot, err := d.Workspaces.ListWorkspaceFileContents(r.Context(), principal.OrganizationID, item.ID)
 	if err != nil {
 		if err == workspace.ErrTooLarge {
-			writeProblem(w, http.StatusRequestEntityTooLarge, "Workspace too large", "A workspace may contain at most 2,000 overlay files")
+			writeProblem(w, http.StatusRequestEntityTooLarge, "Workspace too large", "A workspace may contain at most 2,000 files and 32 MiB of saved overlay data")
 			return
 		}
-		writeProblem(w, http.StatusInternalServerError, "Workspace files unavailable", "The saved workspace overlay could not be listed")
+		writeProblem(w, http.StatusInternalServerError, "Workspace files unavailable", "The saved workspace overlay could not be read consistently")
 		return
 	}
-	if len(entries) == 0 {
+	if len(filesSnapshot) == 0 {
 		writeProblem(w, http.StatusUnprocessableEntity, "No workspace changes", "Save at least one file before creating a changeset")
 		return
 	}
-	files := make([]delivery.WorkspaceRevisionFile, 0, len(entries))
-	var totalBytes int
-	for _, entry := range entries {
-		file, err := d.Workspaces.GetWorkspaceFile(r.Context(), principal.OrganizationID, item.ID, entry.Path)
-		if err != nil {
-			writeProblem(w, http.StatusInternalServerError, "Workspace files unavailable", "A saved workspace file could not be loaded")
-			return
-		}
-		totalBytes += len(file.Content)
-		if totalBytes > 32<<20 {
-			writeProblem(w, http.StatusRequestEntityTooLarge, "Workspace too large", "The combined saved overlay may not exceed 32 MiB")
-			return
-		}
+	files := make([]delivery.WorkspaceRevisionFile, 0, len(filesSnapshot))
+	for _, file := range filesSnapshot {
 		files = append(files, delivery.WorkspaceRevisionFile{Path: file.Path, Content: file.Content})
 	}
 	changesetID, err := newID()
