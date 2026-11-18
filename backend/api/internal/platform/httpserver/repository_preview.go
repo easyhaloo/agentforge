@@ -14,6 +14,8 @@ const repositoryPreviewMaxBlobBytes int64 = 1 << 20
 func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.Request) (Principal, delivery.RepositoryMetadata, string, bool) {
 	principal, ok := d.principal(w, r, false)
 	if !ok { return Principal{}, delivery.RepositoryMetadata{}, "", false }
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if d.Catalog == nil || d.Git == nil || d.Preview == nil {
 		writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "Repository catalog, Git provider and read-only preview capability are required")
 		return Principal{}, delivery.RepositoryMetadata{}, "", false
