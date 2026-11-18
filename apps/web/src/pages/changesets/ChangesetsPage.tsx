@@ -1,34 +1,22 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Plus, RefreshCw, Search, GitCommitHorizontal, GitBranch, Play, ShieldCheck, GitMerge, CheckCircle2, AlertTriangle, FileCheck2 } from "lucide-react";
-import { changesetAPI, repositoryAPI, type RepositoryMetadata, type StoredChangeset } from "../../shared/api/identity";
-import type { OrganizationSummary } from "../../shared/api/identity";
-import { Button, DataTable, Input, SearchInput, Select } from "../../shared/ui";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Plus, RefreshCw, GitCommitHorizontal, GitBranch, Play, ShieldCheck, GitMerge, CheckCircle2, AlertTriangle, FileCheck2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { changesetAPI, changesetStatuses, repositoryAPI, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../shared/api/identity";
+import { Button, Input, SearchInput, Select } from "../../shared/ui";
+import { ChangesetTable, changesetRows } from "./ui/ChangesetTable";
+import { changesetStatusClass, changesetStatusLabels } from "./changeset-status";
+import { CHANGESET_QUERY_MAX, readChangesetFilters, writeChangesetFilters, type ChangesetFilters } from "./changeset-filters";
 
 type Props = { organization: OrganizationSummary; accountUserID: string; onNotify: (message: string) => void };
-type ChangesetRow = { id: string; title: string; repository: string; status: string; revision: string; updated: string; version: string };
+
 const dateTime = (value: string) => new Date(value).toLocaleString();
-function statusOf(item: StoredChangeset["changeset"]): string {
-  if (item.merge) return "Merged";
-  const revision = item.revisions[item.revisions.length - 1];
-  if (!revision) return "Draft";
-  const evaluation = item.evaluations.filter(value => value.revision_id === revision.id).slice(-1)[0];
-  if (evaluation?.status === "failed") return "Evaluation failed";
-  if (evaluation?.status !== "passed") return "Evaluation pending";
-  if (!item.evidence.some(value => value.revision_id === revision.id && value.status === "active")) return "Evidence required";
-  const review = item.reviews.filter(value => value.revision_id === revision.id).slice(-1)[0];
-  if (!review) return "Review required";
-  if (review.status === "rejected") return "Changes requested";
-  if (review.status !== "approved") return "In review";
-  return "Ready to merge";
-}
-function statusClass(status: string) {
-  if (status === "Merged" || status === "Ready to merge") return "status success";
-  if (status === "Evaluation failed" || status === "Changes requested") return "status danger";
-  return "status muted";
-}
 
 export function ChangesetsPage({ organization, accountUserID, onNotify }: Props) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = readChangesetFilters(searchParams);
+  const [queryDraft, setQueryDraft] = useState(filters.q);
   const [items, setItems] = useState<StoredChangeset[]>([]);
+  const [total, setTotal] = useState(0);
   const [repositories, setRepositories] = useState<RepositoryMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -37,26 +25,40 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
   const [title, setTitle] = useState("");
   const [repoSlug, setRepoSlug] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
-  const [search, setSearch] = useState("");
   const [selectedID, setSelectedID] = useState("");
   const [revisionRef, setRevisionRef] = useState("");
   const [reviewerID, setReviewerID] = useState("");
   const [reviewComment, setReviewComment] = useState("");
   const [targetRef, setTargetRef] = useState("main");
   const [decisionComment, setDecisionComment] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
   const canManageRepositories = organization.role === "owner" || organization.role === "admin";
   const selected = items.find(item => item.changeset.id === selectedID);
+  const rows = changesetRows(items);
+  const selectedStatus = rows.find(row => row.id === selectedID)?.status ?? "";
+  const page = Math.floor(filters.offset / filters.limit) + 1;
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [page, repoPage] = await Promise.all([changesetAPI.list(organization.id), repositoryAPI.list(organization.id)]);
-      setItems(page.items); setRepositories(repoPage.items);
+      const [page, repoPage] = await Promise.all([
+        changesetAPI.list(organization.id, {
+          q: filters.q, repository: filters.repository, status: filters.status || undefined, reviewer: filters.reviewer,
+          limit: filters.limit, offset: filters.offset,
+        }),
+        repositoryAPI.list(organization.id),
+      ]);
+      setItems(page.items); setTotal(page.total); setRepositories(repoPage.items);
       setRepository(current => current || repoPage.items[0]?.slug || "");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load delivery data"); }
     finally { setLoading(false); }
-  }, [organization.id]);
+  }, [organization.id, filters.q, filters.repository, filters.status, filters.reviewer, filters.limit, filters.offset, reloadToken]);
   useEffect(() => { void load(); }, [load]);
+  // The URL owns the search term; the field is the edit buffer of the term the URL carries.
+  useEffect(() => { setQueryDraft(filters.q); }, [filters.q]);
+
+  /** Every filter change is a URL change, so the list stays linkable and survives a reload. */
+  const applyFilters = (patch: Partial<ChangesetFilters>) => setSearchParams(writeChangesetFilters(patch, searchParams));
 
   const run = async (action: () => Promise<StoredChangeset>, message: string) => {
     setBusy(true); setError("");
@@ -69,8 +71,18 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
   };
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    await run(() => changesetAPI.create(organization.id, repository, title.trim()), "Changeset created and persisted.");
-    setTitle("");
+    setBusy(true); setError("");
+    try {
+      await changesetAPI.create(organization.id, repository, title.trim());
+      setTitle("");
+      onNotify("Changeset created and persisted.");
+      // A new changeset belongs to an unfiltered list, so the list starts again and shows it.
+      if (filters.q || filters.repository || filters.status || filters.reviewer || filters.offset) {
+        setSearchParams(writeChangesetFilters({ offset: 0 }, new URLSearchParams()), { replace: true });
+      }
+      setReloadToken(value => value + 1);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Changeset creation failed"); }
+    finally { setBusy(false); }
   };
   const register = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError("");
@@ -81,15 +93,7 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository registration failed"); }
     finally { setBusy(false); }
   };
-  const filtered = useMemo(() => items.filter(({ changeset }) => {
-    const needle = search.trim().toLowerCase();
-    return !needle || [changeset.id, changeset.title, changeset.repository, changeset.created_by].some(value => value.toLowerCase().includes(needle));
-  }), [items, search]);
-  const rows: ChangesetRow[] = filtered.map(({ changeset, updated_at, version }) => ({
-    id: changeset.id, title: changeset.title, repository: changeset.repository, status: statusOf(changeset),
-    revision: changeset.revisions.slice(-1)[0]?.commit_sha?.slice(0, 12) || "—",
-    updated: dateTime(updated_at), version: `v${version}`,
-  }));
+
   const currentRevision = selected?.changeset.revisions.slice(-1)[0];
   const currentEvaluation = currentRevision && selected?.changeset.evaluations.filter(value => value.revision_id === currentRevision.id).slice(-1)[0];
   const currentReview = currentRevision && selected?.changeset.reviews.filter(value => value.revision_id === currentRevision.id).slice(-1)[0];
@@ -99,7 +103,7 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
   return <section className="changesets-page">
     <div className="changesets-summary card">
       <div className="changesets-summary__icon"><GitCommitHorizontal size={20}/></div>
-      <div><b>{items.length} persisted changesets</b><p>Organization-scoped Git lifecycle · PostgreSQL state</p></div>
+      <div><b>{total} persisted changesets</b><p>Organization-scoped Git lifecycle · PostgreSQL state</p></div>
       <span className="org-role">{organization.role}</span>
       <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> Refresh</Button>
     </div>
@@ -124,25 +128,25 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
     <div className="changesets-list card">
       <div className="changesets-list__head">
         <div><h3>Changesets</h3><p>Newest records first · scoped to {organization.name}</p></div>
-        <SearchInput value={search} onChange={setSearch} onSearch={setSearch} placeholder="Search ID, title or repository" className="changesets-search"/>
+        <div className="changesets-filters">
+          <SearchInput value={queryDraft} onChange={setQueryDraft} onSearch={value => applyFilters({ q: value.slice(0, CHANGESET_QUERY_MAX) })} placeholder="Search ID, title or repository" className="changesets-search"/>
+          <Select aria-label="Filter by status" placeholder="All statuses" value={filters.status} onChange={event => applyFilters({ status: event.target.value as ChangesetFilters["status"] })} options={changesetStatuses.map(status => ({ value: status, label: changesetStatusLabels[status] }))}/>
+          <Select aria-label="Filter by repository" placeholder="All repositories" value={filters.repository} onChange={event => applyFilters({ repository: event.target.value })} options={repositories.map(item => ({ value: item.slug, label: item.slug }))}/>
+          <Button className="button secondary" aria-pressed={filters.reviewer === "me" && filters.status === "in_review"} onClick={() => applyFilters({ reviewer: "me", status: "in_review" })}>My pending reviews</Button>
+        </div>
       </div>
-      {loading ? <div className="org-loading">Loading changesets…</div> : <DataTable<ChangesetRow>
-        columns={[
-          { key: "title", title: "CHANGESET", render: (_value, row) => <div><b>{row.title}</b><small className="mono">{row.id}</small></div> },
-          { key: "repository", title: "REPOSITORY" },
-          { key: "status", title: "STATUS", render: value => <span className={statusClass(String(value))}>{String(value)}</span> },
-          { key: "revision", title: "REVISION" },
-          { key: "updated", title: "UPDATED" },
-          { key: "version", title: "VERSION" },
-        ]}
-        data={rows} rowKey="id" showColumnVisibility={false} emptyText={items.length ? "No changesets match this search." : "No changesets yet."}
-        onRowClick={row => setSelectedID(selectedID === row.id ? "" : row.id)}
-        rowClassName={row => selectedID === row.id ? "is-selected" : ""}
+      {loading ? <div className="org-loading">Loading changesets…</div> : <ChangesetTable
+        items={items}
+        total={total}
+        page={page}
+        pageSize={filters.limit}
+        onPageChange={(nextPage, pageSize) => applyFilters({ limit: pageSize, offset: (nextPage - 1) * pageSize })}
+        onOpen={id => setSelectedID(selectedID === id ? "" : id)}
       />}
-      <div className="changesets-list__foot"><span>{filtered.length} of {items.length} changesets</span><span><AlertTriangle size={12}/> Data from organization API</span></div>
+      <div className="changesets-list__foot"><span>{rows.length} of {total} changesets</span><span><AlertTriangle size={12}/> Data from organization API</span></div>
     </div>
     {selected && <div className="changeset-detail card">
-      <div className="changeset-detail__head"><div><h3>{selected.changeset.title}</h3><p>{selected.changeset.repository} · Created by {selected.changeset.created_by}</p></div><span className={statusClass(statusOf(selected.changeset))}>{statusOf(selected.changeset)}</span></div>
+      <div className="changeset-detail__head"><div><h3>{selected.changeset.title}</h3><p>{selected.changeset.repository} · Created by {selected.changeset.created_by}</p></div><span className={changesetStatusClass(selectedStatus)}>{selectedStatus}</span></div>
       <div className="changeset-steps">{["Repository", "Revision", "Evaluation", "Evidence", "Review", "Merge"].map((step, index) => <div key={step} className={["is-complete", currentRevision && index > 0 ? "is-complete" : "", currentEvaluation?.status === "passed" && index > 1 ? "is-complete" : "", activeEvidence && index > 2 ? "is-complete" : "", currentReview?.status === "approved" && index > 3 ? "is-complete" : "", selected.changeset.merge && index > 4 ? "is-complete" : ""].join(" ")}><span>{index + 1}</span><b>{step}</b></div>)}</div>
       <div className="changeset-workflow">
         <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.addRevision(organization.id, selected.changeset.id, revisionRef), "Git revision resolved and persisted."); setRevisionRef(""); }}>

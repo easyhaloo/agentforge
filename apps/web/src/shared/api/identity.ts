@@ -68,6 +68,19 @@ export type ChangesetStatus =
   | "ready_to_merge"
   | "merged";
 
+/** The statuses the changeset list endpoint accepts as a filter. */
+export const changesetStatuses: ChangesetStatus[] = [
+  "draft",
+  "evaluation_pending",
+  "evaluation_failed",
+  "evidence_required",
+  "review_required",
+  "in_review",
+  "changes_requested",
+  "ready_to_merge",
+  "merged",
+];
+
 /** The filters the changeset list endpoint accepts; empty fields are not sent. */
 export type ChangesetListFilters = {
   q?: string;

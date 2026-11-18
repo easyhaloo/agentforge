@@ -4,12 +4,12 @@ export const now = "2026-11-17T09:00:00.000Z";
 export const demoOrganization = { id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "owner" };
 export const labsOrganization = { id: "org-labs", slug: "labs", name: "AgentForge Labs", role: "admin" };
 
-export const storedChangeset = (id: string, title: string, repository = "easyhaloo/agentforge") => ({
+export const storedChangeset = (id: string, title: string, repository = "easyhaloo/agentforge", status = "draft") => ({
   changeset: {
     id, created_by: "user-owner", repository, title, revisions: [], evaluations: [],
     evidence: [], reviews: [], audit: [],
   },
-  version: 1, created_at: now, updated_at: now,
+  status, version: 1, created_at: now, updated_at: now,
 });
 
 type MockOptions = {
@@ -26,7 +26,10 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     role: "member", status: "active", created_at: now, updated_at: now,
   }];
   let invitations: Array<Record<string, unknown>> = [];
-  let changesets = [storedChangeset("CS-E2E-01", "Browser test baseline")];
+  let changesets = [
+    storedChangeset("CS-E2E-01", "Browser test baseline", "easyhaloo/agentforge", "in_review"),
+    storedChangeset("CS-E2E-03", "Unrelated change", "other/repository", "draft"),
+  ];
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -70,7 +73,22 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return json({ items: [], limit: 100, offset: 0 });
     }
     if (path.endsWith("/changesets") && method === "GET") {
-      return json({ items: changesets, limit: 100, offset: 0 });
+      // The server owns the filters and the status: the mock answers with the matching rows and their total.
+      const q = (url.searchParams.get("q") ?? "").toLowerCase();
+      const repository = url.searchParams.get("repository") ?? "";
+      const status = url.searchParams.get("status") ?? "";
+      const reviewer = url.searchParams.get("reviewer") ?? "";
+      const limit = Number(url.searchParams.get("limit") ?? 20);
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const matched = changesets.filter((item) => {
+        if (q && ![item.changeset.id, item.changeset.title, item.changeset.repository, item.changeset.created_by]
+          .some((field) => field.toLowerCase().includes(q))) return false;
+        if (repository && item.changeset.repository !== repository) return false;
+        if (status && item.status !== status) return false;
+        if (reviewer && !item.changeset.reviews.some((entry) => entry.reviewer === reviewer)) return false;
+        return true;
+      });
+      return json({ items: matched.slice(offset, offset + limit), total: matched.length, limit, offset });
     }
     if (path.endsWith("/changesets") && method === "POST") {
       const body = request.postDataJSON() as { repository: string; title: string };
