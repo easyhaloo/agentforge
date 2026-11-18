@@ -82,6 +82,9 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     const path = url.pathname;
     const method = request.method();
 
+    // Helper to return JSON responses
+    const json = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+
     // POST /auth/local/login
     if (path === "/auth/local/login" && method === "POST") {
       const body = request.postDataJSON() as { email: string; password: string };
