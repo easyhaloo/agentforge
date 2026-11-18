@@ -430,6 +430,50 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "410": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/diff:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getWorkspaceDiff
+      summary: List saved workspace additions and modifications against the pinned base commit
+      description: Returns bounded file metadata only. File contents and unified patches are not included. Deletions are not yet supported.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Workspace diff metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, base_commit_sha, items, total]
+                properties:
+                  workspace_id: { type: string }
+                  base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  total: { type: integer, minimum: 0, maximum: 2000 }
+                  items:
+                    type: array
+                    maxItems: 2000
+                    items:
+                      type: object
+                      required: [path, status, workspace_sha256, version]
+                      properties:
+                        path: { type: string }
+                        status: { type: string, enum: [added, modified] }
+                        base_blob_sha: { type: string }
+                        workspace_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+                        version: { type: integer, minimum: 1 }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files:
     parameters:
       - in: path
