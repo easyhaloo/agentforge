@@ -11,6 +11,7 @@ import {
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
 import { Button, DataTable, Input } from "../../shared/ui";
+import { RepositoryReadme } from "./RepositoryReadme";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 
@@ -190,7 +191,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           <strong>{selectedFile.path}</strong>
         </div>
         <p className="changeset-hint">Blob <code>{selectedFile.blob_sha}</code> · commit <code>{selectedFile.commit_sha}</code></p>
-        <pre style={{ overflow: "auto", maxHeight: 640, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre", tabSize: 2 }}><code>{selectedFile.content}</code></pre>
+        {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <pre style={{ overflow: "auto", maxHeight: 640, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre", tabSize: 2 }}><code>{selectedFile.content}</code></pre>}
       </div>}
     </section>}
   </section>;
