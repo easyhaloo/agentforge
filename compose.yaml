@@ -6,7 +6,9 @@ services:
       POSTGRES_USER: agentforge
       POSTGRES_PASSWORD: agentforge
     ports:
-      - "5432:5432"
+      # The published host port is overridable (POSTGRES_PORT) so a developer with a
+      # busy 5432 can still run the local stack; the default is unchanged.
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - agentforge-postgres:/var/lib/postgresql/data
     healthcheck:
