@@ -1,9 +1,9 @@
 package httpserver
 
 import (
-	"errors"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
