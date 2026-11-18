@@ -6,7 +6,6 @@ describe("flat (mock page) paths", () => {
     expect(flatPaths).toEqual({
       overview: "/",
       projects: "/projects",
-      repositories: "/repositories",
       workspaces: "/workspaces",
       stacks: "/stacks",
       selfHealing: "/self-healing",
@@ -24,6 +23,7 @@ describe("flat (mock page) paths", () => {
 describe("organization-scoped paths", () => {
   it.each([
     ["changesets", "/orgs/demo/changesets"],
+    ["repositories", "/orgs/demo/repositories"],
     ["trails", "/orgs/demo/trails"],
     ["review", "/orgs/demo/review"],
     ["eval", "/orgs/demo/eval"],

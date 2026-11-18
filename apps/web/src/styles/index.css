@@ -209,3 +209,43 @@
     display: none;
   }
 }
+
+/* The changeset title links to the detail page of that changeset. */
+.changesets-table td:first-child a {
+  color: #a99cff;
+  text-decoration: none;
+}
+
+.changesets-table td:first-child a:hover {
+  text-decoration: underline;
+}
+
+/* The parts of a changeset are routes, so they are links and not a tab widget. */
+.changeset-tabs {
+  display: flex;
+  gap: 5px;
+  border-bottom: 1px solid #273147;
+  overflow: auto;
+  margin-bottom: 15px;
+}
+
+.changeset-tabs a {
+  padding: 11px 13px;
+  border-bottom: 2px solid transparent;
+  color: #8995aa;
+  font-size: 10px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.changeset-tabs a.is-active {
+  border-bottom-color: #9382ff;
+  color: #c9c0ff;
+}
+
+/* Why an action is not available right now. */
+.changeset-hint {
+  margin: 0;
+  color: #8995aa;
+  font-size: 9px;
+}

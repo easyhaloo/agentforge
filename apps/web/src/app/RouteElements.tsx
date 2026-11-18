@@ -1,11 +1,13 @@
 import { useEffect } from "react";
-import { Link, useLocation, useOutletContext, useRouteError } from "react-router-dom";
+import { Link, useLocation, useOutletContext, useParams, useRouteError } from "react-router-dom";
 import { DeliveryFlow } from "../features/delivery";
+import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
+import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { ResourceWorkspacePage } from "../pages/resources";
-import { flatPaths } from "../shared/routing";
+import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { useNotify } from "./useNotify";
 
@@ -29,9 +31,22 @@ export function DeliveryRoute({ label }: { label: string }) {
 }
 
 export function ChangesetsRoute() {
-  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
-  return <ChangesetsPage key={organization.id} organization={organization} accountUserID={account.user_id} onNotify={notify} />;
+  return <ChangesetsPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const { id = "" } = useParams();
+  const notify = useNotify();
+  return <ChangesetDetailPage key={`${organization.id}:${id}:${tab}`} organization={organization} accountUserID={account.user_id} changesetID={id} tab={tab} onNotify={notify} />;
+}
+
+export function RepositoriesRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
 }
 
 export function OrganizationRoute() {

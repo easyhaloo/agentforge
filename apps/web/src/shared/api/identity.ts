@@ -56,6 +56,41 @@ export const authAPI = {
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
 };
 
+/** The server owns the changeset lifecycle status (ADR-003); the browser only displays it. */
+export type ChangesetStatus =
+  | "draft"
+  | "evaluation_pending"
+  | "evaluation_failed"
+  | "evidence_required"
+  | "review_required"
+  | "in_review"
+  | "changes_requested"
+  | "ready_to_merge"
+  | "merged";
+
+/** The statuses the changeset list endpoint accepts as a filter. */
+export const changesetStatuses: ChangesetStatus[] = [
+  "draft",
+  "evaluation_pending",
+  "evaluation_failed",
+  "evidence_required",
+  "review_required",
+  "in_review",
+  "changes_requested",
+  "ready_to_merge",
+  "merged",
+];
+
+/** The filters the changeset list endpoint accepts; empty fields are not sent. */
+export type ChangesetListFilters = {
+  q?: string;
+  repository?: string;
+  status?: ChangesetStatus;
+  reviewer?: string;
+  limit?: number;
+  offset?: number;
+};
+
 export type StoredChangeset = {
   changeset: {
     id: string;
@@ -69,10 +104,14 @@ export type StoredChangeset = {
     merge?: { id: string; revision_id: string; actor: string; target_ref: string; commit_sha: string; created_at: string };
     audit: Array<{ sequence: number; actor: string; operation: string; target_id: string; outcome: string; at: string }>;
   };
+  status: ChangesetStatus;
   version: number;
   created_at: string;
   updated_at: string;
 };
+
+/** A page of changesets plus the number of matches before paging. */
+export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryMetadata = { organization_id: string; slug: string; default_branch: string; created_by: string; created_at: string; updated_at: string };
 export const repositoryAPI = {
   list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`),
@@ -87,8 +126,16 @@ export const changesetAPI = {
   assignReview: (organizationID: string,id: string,reviewerID: string,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews`,{method:"POST",body:JSON.stringify({reviewer_id:reviewerID,comment})}),
   decideReview: (organizationID: string,id: string,reviewID: string,approved: boolean,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewID)}/decision`,{method:"POST",body:JSON.stringify({approved,comment})}),
   merge: (organizationID: string,id: string,targetRef: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef})}),
-  list: (organizationID: string) =>
-    request<{ items: StoredChangeset[]; limit: number; offset: number }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?limit=100&offset=0`),
+  list: (organizationID: string, filters: ChangesetListFilters = {}) => {
+    const query = new URLSearchParams();
+    if (filters.q) query.set("q", filters.q);
+    if (filters.repository) query.set("repository", filters.repository);
+    if (filters.status) query.set("status", filters.status);
+    if (filters.reviewer) query.set("reviewer", filters.reviewer);
+    query.set("limit", String(filters.limit ?? 20));
+    query.set("offset", String(filters.offset ?? 0));
+    return request<ChangesetPage>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?${query.toString()}`);
+  },
   create: (organizationID: string, repository: string, title: string) =>
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
       method: "POST", body: JSON.stringify({ repository, title }),

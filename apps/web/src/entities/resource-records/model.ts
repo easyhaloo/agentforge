@@ -105,10 +105,6 @@ function fromLegacy(row: ResourceRow, page: string): ResourceRecord {
       const match = row.detail.match(/^(\d+) repositories · (.+)$/);
       return { kind: "project", ...common, repositoryCount: match ? Number(match[1]) : 0, description: match?.[2] ?? row.detail, lifecycle: row.status };
     }
-    case "Repositories": {
-      const match = row.detail.match(/^Project (.+) · (.+)$/);
-      return { kind: "repository", ...common, projectName: match?.[1] ?? "Unassigned", language: match?.[2] ?? "Unknown", health: row.status };
-    }
     case "Workspaces": {
       const [changesetId, runtime] = splitDetail(row.detail);
       return { kind: "workspace", ...common, changesetId: changesetId || "Unlinked", runtime, state: row.status };

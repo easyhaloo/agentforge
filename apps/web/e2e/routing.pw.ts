@@ -25,30 +25,28 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
 
   await sidebarLink(page, "Repositories").click();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
-  await expect(page.getByRole("table").getByText("web-platform", { exact: true })).toBeVisible();
-  await expect(page.getByRole("table").getByText("Core Platform", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("cell").getByText("easyhaloo/agentforge")).toBeVisible();
   await sidebarLink(page, "Memory").click();
   await expect(page).toHaveURL(/\/memory$/);
   await expect(pageHeading(page)).toHaveText("Memory");
 
   await page.goBack();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
   await expect(sidebarLink(page, "Repositories")).toHaveAttribute("aria-current", "page");
   await page.goBack();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(pageHeading(page)).toHaveText("Projects");
   await page.goForward();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
 });
 
 const flatPages = [
   ["/", "Overview"],
   ["/projects", "Projects"],
-  ["/repositories", "Repositories"],
   ["/workspaces", "Workspaces"],
   ["/stacks", "Stacks"],
   ["/self-healing", "Self-healing"],
@@ -219,7 +217,7 @@ test("Refresh only simulates a refresh on mock pages and reloads the account on 
 test("an unknown path renders the not-found state inside the shell and highlights no sidebar item", async ({ page }) => {
   await installApiMocks(page);
   // The last three sit below a real page: a prefix match would keep that page's sidebar item highlighted.
-  for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo", "/projects/extra", "/dev/ui/x", "/orgs/demo/changesets/x"]) {
+  for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo", "/projects/extra", "/dev/ui/x", "/orgs/demo/changesets/x/extra"]) {
     await page.goto(path);
     await expect(pageHeading(page)).toHaveText("Page not found");
     await expect(page.getByText(`Nothing is served at ${path}.`)).toBeVisible();

@@ -11,7 +11,6 @@ export const CURRENT_ORGANIZATION_HANDLE = "current";
 export const flatPaths = {
   overview: "/",
   projects: "/projects",
-  repositories: "/repositories",
   workspaces: "/workspaces",
   stacks: "/stacks",
   selfHealing: "/self-healing",
@@ -25,10 +24,20 @@ export const flatPaths = {
 } as const;
 
 /** Pages backed by the real API live under `/orgs/:org/<section>`. `settings` is the Organization page. */
-export type OrgSection = "changesets" | "trails" | "review" | "eval" | "settings";
+export type OrgSection = "changesets" | "repositories" | "trails" | "review" | "eval" | "settings";
 
 export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
+}
+
+/** The parts of a changeset. Each one is a route, so every step of the lifecycle is linkable. */
+export const changesetTabs = ["overview", "revisions", "evaluation", "review", "merge"] as const;
+export type ChangesetTab = typeof changesetTabs[number];
+
+/** The changeset detail page; the overview is the page itself, the other parts are a suffix. */
+export function changesetPath(handle: string, changesetID: string, tab: ChangesetTab = "overview"): string {
+  const base = `${orgPath(handle, "changesets")}/${encodeURIComponent(changesetID)}`;
+  return tab === "overview" ? base : `${base}/${tab}`;
 }
 
 /**
