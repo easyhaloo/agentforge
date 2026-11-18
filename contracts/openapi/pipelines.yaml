@@ -3,6 +3,66 @@ info:
   title: Pipeline API
   version: 1.0.0
 paths:
+  /api/v1/organizations/{organizationID}/merge-queue:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: listMergeQueue
+      summary: List active entries in promotion order
+      security: [{sessionCookie: []}]
+      parameters:
+        - {name: repository, in: query, required: true, schema: {type: string}}
+        - {name: target, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Current train
+          content: {application/json: {schema: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/QueueEntry'}}}}}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+      - {name: entry, in: path, required: true, schema: {type: integer, minimum: 1}}
+    post:
+      operationId: cancelMergeQueueEntry
+      summary: Remove an entry and invalidate its successors
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      responses:
+        '204': {description: Removed}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/merge-queue:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+      - {name: id, in: path, required: true, schema: {type: string}}
+      - {name: number, in: path, required: true, schema: {type: integer, minimum: 1}}
+    post:
+      operationId: enqueueMergeCandidate
+      summary: Admit one pinned source to the default branch queue
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repository, target, sources]
+              additionalProperties: false
+              properties:
+                repository: {type: string}
+                target: {type: string}
+                sources: {type: array, minItems: 1, maxItems: 1, items: {type: string}}
+                strategy: {type: string, const: merge-commit}
+                inputs: {type: object, additionalProperties: true}
+      responses:
+        '201':
+          description: Queue entry
+          content: {application/json: {schema: {$ref: '#/components/schemas/QueueEntry'}}}
+        '409':
+          description: Conflict or duplicate entry
+          content: {application/json: {schema: {$ref: './merge-preview.yaml#/components/schemas/MergePreview'}}, application/problem+json: {schema: {$ref: './openapi.yaml#/components/schemas/Problem'}}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
   /hooks/github/{hook}:
     post:
       operationId: triggerPipelineWebhook
@@ -480,6 +540,18 @@ paths:
           $ref: ./openapi.yaml#/components/responses/Problem
 components:
   schemas:
+    QueueEntry:
+      type: object
+      required: [id, repository, target, source, sourceSHA, status]
+      properties:
+        id: {type: integer, minimum: 1}
+        repository: {type: string}
+        target: {type: string}
+        source: {type: string}
+        sourceSHA: {type: string}
+        status: {type: string, enum: [queued, building, ready]}
+        runId: {type: string}
+        candidateSHA: {type: string}
     Run:
       type: object
       additionalProperties: false
@@ -492,6 +564,7 @@ components:
             - type: object
               required: [repository, strategy, candidateSHA, treeSHA]
               properties:
+                queueEntry: {type: integer, minimum: 1}
                 repository: {type: string}
                 strategy: {type: string, enum: [merge-commit, ff-only]}
         webhook:

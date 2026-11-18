@@ -63,5 +63,16 @@
   "draft": "草稿",
   "published": "已发布",
   "archived": "已归档",
-  "queued": "已排队"
+  "queued": "已排队",
+  "mergeQueue": "合并队列",
+  "queueRepo": "已注册仓库",
+  "queueTarget": "目标分支",
+  "refreshQueue": "刷新队列",
+  "queueSource": "源分支或提交",
+  "enqueue": "加入队列",
+  "queueEmpty": "队列为空。",
+  "cancelEntry": "移出队列",
+  "promoteCandidate": "晋升候选提交",
+  "building": "构建中",
+  "ready": "可晋升"
 }

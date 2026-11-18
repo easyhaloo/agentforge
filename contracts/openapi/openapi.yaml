@@ -6,6 +6,12 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/organizations/{organizationID}/merge-queue:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-queue
+  /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-queue~1{entry}~1cancel
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/merge-queue:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1merge-queue
   /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/integration-runs:
     $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1integration-runs
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}/promote:
