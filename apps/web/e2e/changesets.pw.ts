@@ -131,3 +131,10 @@ test("the detail page merges the changeset", async ({ page }) => {
   expect((await sent).postDataJSON()).toEqual({ target_ref: "release" });
   await expect(page.getByText("Merged as")).toBeVisible();
 });
+
+test("a changeset that is ready to merge cannot be sent back for review, and says why", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-04/review");
+
+  await expect(page.getByRole("button", { name: "Assign review" })).toBeDisabled();
+  await expect(page.getByText("The current revision already has an approved review.")).toBeVisible();
+});
