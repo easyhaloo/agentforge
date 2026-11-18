@@ -25,30 +25,28 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
 
   await sidebarLink(page, "Repositories").click();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
-  await expect(page.getByRole("table").getByText("web-platform", { exact: true })).toBeVisible();
-  await expect(page.getByRole("table").getByText("Core Platform", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("cell").getByText("easyhaloo/agentforge")).toBeVisible();
   await sidebarLink(page, "Memory").click();
   await expect(page).toHaveURL(/\/memory$/);
   await expect(pageHeading(page)).toHaveText("Memory");
 
   await page.goBack();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
   await expect(sidebarLink(page, "Repositories")).toHaveAttribute("aria-current", "page");
   await page.goBack();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(pageHeading(page)).toHaveText("Projects");
   await page.goForward();
-  await expect(page).toHaveURL(/\/repositories$/);
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
 });
 
 const flatPages = [
   ["/", "Overview"],
   ["/projects", "Projects"],
-  ["/repositories", "Repositories"],
   ["/workspaces", "Workspaces"],
   ["/stacks", "Stacks"],
   ["/self-healing", "Self-healing"],

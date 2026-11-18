@@ -5,7 +5,7 @@ import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, ResourceRoute, RootError } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -37,7 +37,6 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, handle: routeHandle("Overview"), element: <OverviewRoute /> },
           resource("projects", "Projects"),
-          resource("repositories", "Repositories"),
           resource("workspaces", "Workspaces"),
           delivery("stacks", "Stacks"),
           delivery("self-healing", "Self-healing"),
@@ -57,6 +56,7 @@ export const routes: RouteObject[] = [
               changesetDetail("evaluation"),
               changesetDetail("review"),
               changesetDetail("merge"),
+              organizationPage("repositories", "Repositories", <RepositoriesRoute />),
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),
               organizationPage("review", "Review", <ChangesetsRoute />),

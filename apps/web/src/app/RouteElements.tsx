@@ -5,6 +5,7 @@ import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
+import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
@@ -40,6 +41,12 @@ export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
   const { id = "" } = useParams();
   const notify = useNotify();
   return <ChangesetDetailPage key={`${organization.id}:${id}:${tab}`} organization={organization} accountUserID={account.user_id} changesetID={id} tab={tab} onNotify={notify} />;
+}
+
+export function RepositoriesRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
 }
 
 export function OrganizationRoute() {

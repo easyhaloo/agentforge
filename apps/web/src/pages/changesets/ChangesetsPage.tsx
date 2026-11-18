@@ -26,10 +26,7 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
   const [error, setError] = useState("");
   const [repository, setRepository] = useState("");
   const [title, setTitle] = useState("");
-  const [repoSlug, setRepoSlug] = useState("");
-  const [defaultBranch, setDefaultBranch] = useState("main");
   const [reloadToken, setReloadToken] = useState(0);
-  const canManageRepositories = organization.role === "owner" || organization.role === "admin";
   const rows = changesetRows(items);
   const page = Math.floor(filters.offset / filters.limit) + 1;
 
@@ -70,16 +67,6 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Changeset creation failed"); }
     finally { setBusy(false); }
   };
-  const register = async (event: FormEvent) => {
-    event.preventDefault(); setBusy(true); setError("");
-    try {
-      const added = await repositoryAPI.register(organization.id, repoSlug.trim(), defaultBranch.trim());
-      setRepositories(current => [...current, added]); setRepository(added.slug); setRepoSlug("");
-      onNotify("Repository registered.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository registration failed"); }
-    finally { setBusy(false); }
-  };
-
   return <section className="changesets-page">
     <div className="changesets-summary card">
       <div className="changesets-summary__icon"><GitCommitHorizontal size={20}/></div>
@@ -88,14 +75,6 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
       <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> Refresh</Button>
     </div>
     {error && <div className="org-error" role="alert">{error}</div>}
-    {canManageRepositories && <form className="changeset-create card" onSubmit={register}>
-      <div className="changeset-create__heading"><div><h3>Register repository</h3><p>Repository must already exist under the server's trusted Git root</p></div><span className="changeset-create__secure">Owner / Admin</span></div>
-      <div className="changeset-create__fields">
-        <Input label="Repository slug" required pattern="[^/]+/[^/]+" value={repoSlug} onChange={event => setRepoSlug(event.target.value)} placeholder="team/repository"/>
-        <Input label="Default branch" required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder="main"/>
-        <Button className="button secondary" type="submit" disabled={busy}><Plus size={14}/> Register</Button>
-      </div>
-    </form>}
     {repositories.length > 0 && <form className="changeset-create card" onSubmit={create}>
       <div className="changeset-create__heading"><div><h3>Create changeset</h3><p>Starts a persisted delivery workflow against a registered repository</p></div><span className="changeset-create__secure">Server validated</span></div>
       <div className="changeset-create__fields">
@@ -104,7 +83,7 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
         <Button className="button primary" type="submit" disabled={busy || !repository}><Plus size={14}/> Create</Button>
       </div>
     </form>}
-    {!repositories.length && !loading && <div className="org-admin-empty card"><GitBranch size={22}/><h2>No repositories registered</h2><p>{canManageRepositories ? "Register an existing repository above. The API resolves its default branch against the configured local Git provider." : "Ask an organization owner or administrator to register a repository."}</p></div>}
+    {!repositories.length && !loading && <div className="org-admin-empty card"><GitBranch size={22}/><h2>No repositories registered</h2><p>Register a repository on the organization's repositories page before creating a changeset.</p></div>}
     <div className="changesets-list card">
       <div className="changesets-list__head">
         <div><h3>Changesets</h3><p>Newest records first · scoped to {organization.name}</p></div>

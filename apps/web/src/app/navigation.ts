@@ -18,7 +18,7 @@ const inOrganization = (section: OrgSection) => (handle: string) => orgPath(hand
 export const navigationItems: readonly NavigationItem[] = [
   { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, description: "A live map of changes, verification and delivery across your engineering system.", path: flatPaths.overview },
   { group: "WORKSPACE", label: "Projects", icon: Boxes, description: "Organize repositories, teams and delivery boundaries.", path: flatPaths.projects },
-  { group: "WORKSPACE", label: "Repositories", icon: Code2, description: "Git-compatible repositories backed by a canonical object graph.", path: flatPaths.repositories },
+  { group: "WORKSPACE", label: "Repositories", icon: Code2, description: "Git-compatible repositories backed by a canonical object graph.", orgPath: inOrganization("repositories") },
   { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, description: "Reviewable, revisioned units of change — distinct from Git commits.", orgPath: inOrganization("changesets") },
   { group: "WORKSPACE", label: "Workspaces", icon: Terminal, description: "Isolated environments for agents and human contributors.", path: flatPaths.workspaces },
   { group: "COORDINATION", label: "Trails", icon: Workflow, description: "Cross-repository delivery goals with traceable evidence.", orgPath: inOrganization("trails") },

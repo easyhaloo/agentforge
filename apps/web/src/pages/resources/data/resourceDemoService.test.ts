@@ -5,7 +5,6 @@ describe("resource demo service", () => {
   it("creates typed local drafts for every creatable resource page", () => {
     const cases = [
       ["Projects", "project"],
-      ["Repositories", "repository"],
       ["Changesets", "changeset"],
       ["Workspaces", "workspace"],
       ["Trails", "trail"],

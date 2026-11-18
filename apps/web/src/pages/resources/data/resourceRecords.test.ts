@@ -12,19 +12,17 @@ const legacy = {
 };
 
 describe("resource record migration", () => {
-  it("migrates project, repository and workspace rows into entity-specific fields", () => {
+  it("migrates project and workspace rows into entity-specific fields", () => {
     const [project] = migrateResourceRecords([legacy], "Projects", []);
-    const [repository] = migrateResourceRecords([{ ...legacy, id: "REP-1", detail: "Project Core Platform · TypeScript", status: "Healthy" }], "Repositories", []);
     const [workspace] = migrateResourceRecords([{ ...legacy, id: "WS-1", detail: "CS-2481 · Linux x64", status: "Ready" }], "Workspaces", []);
     expect(project).toMatchObject({ kind: "project", repositoryCount: 8, description: "Runtime & APIs" });
-    expect(repository).toMatchObject({ kind: "repository", projectName: "Core Platform", language: "TypeScript" });
     expect(workspace).toMatchObject({ kind: "workspace", changesetId: "CS-2481", runtime: "Linux x64" });
     expect(toResourceRow(project)).toEqual(legacy);
   });
 
   it("migrates every resource page into its dedicated discriminated record", () => {
     const expectedKinds: Record<string, string> = {
-      Projects: "project", Repositories: "repository", Changesets: "changeset",
+      Projects: "project", Changesets: "changeset",
       Workspaces: "workspace", Trails: "trail", Stacks: "stack", Review: "review",
       Eval: "evaluation", "Self-healing": "repair-session", Memory: "memory-entry",
       "CI / CD": "pipeline-run", Security: "security-finding", Governance: "governance-policy",

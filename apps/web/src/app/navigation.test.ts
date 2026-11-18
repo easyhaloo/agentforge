@@ -56,7 +56,7 @@ describe("navigation data source", () => {
     expect(Object.fromEntries(navigationItems.map((item) => [item.label, itemHref(item, "demo")]))).toEqual({
       Overview: "/",
       Projects: "/projects",
-      Repositories: "/repositories",
+      Repositories: "/orgs/demo/repositories",
       Changesets: "/orgs/demo/changesets",
       Workspaces: "/workspaces",
       Trails: "/orgs/demo/trails",

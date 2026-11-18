@@ -11,8 +11,6 @@ export function createResourceDraft(page: string, name: string, id: string): Res
   switch (page) {
     case "Projects":
       return { kind: "project", ...common, description: "New local demo project", repositoryCount: 0, lifecycle: "Draft" };
-    case "Repositories":
-      return { kind: "repository", ...common, projectName: "Unassigned", language: "Unknown", health: "Draft" };
     case "Workspaces":
       return { kind: "workspace", ...common, changesetId: "Unlinked", runtime: "Not provisioned", state: "Draft" };
     case "Changesets":

@@ -11,7 +11,6 @@ export const CURRENT_ORGANIZATION_HANDLE = "current";
 export const flatPaths = {
   overview: "/",
   projects: "/projects",
-  repositories: "/repositories",
   workspaces: "/workspaces",
   stacks: "/stacks",
   selfHealing: "/self-healing",
@@ -25,7 +24,7 @@ export const flatPaths = {
 } as const;
 
 /** Pages backed by the real API live under `/orgs/:org/<section>`. `settings` is the Organization page. */
-export type OrgSection = "changesets" | "trails" | "review" | "eval" | "settings";
+export type OrgSection = "changesets" | "repositories" | "trails" | "review" | "eval" | "settings";
 
 export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;

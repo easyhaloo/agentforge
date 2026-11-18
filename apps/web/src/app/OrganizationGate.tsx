@@ -22,6 +22,13 @@ const copy = {
     unavailableTitle: "Changeset service unavailable",
     noOrganization: "This account has no active organization membership.",
   },
+  repositories: {
+    signedOutTitle: "Sign in to view repositories",
+    signedOutBody: "Repositories are scoped to an authenticated organization.",
+    retryWhenSignedOut: false,
+    unavailableTitle: "Repository service unavailable",
+    noOrganization: "This account has no active organization membership.",
+  },
 } as const;
 
 /**

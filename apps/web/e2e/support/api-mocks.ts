@@ -58,6 +58,10 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     role: "member", status: "active", created_at: now, updated_at: now,
   }];
   let invitations: Array<Record<string, unknown>> = [];
+  let repositories = [{
+    id: "repo-demo", organization_id: "org-demo", slug: "easyhaloo/agentforge", default_branch: "main",
+    created_by: "user-owner", created_at: now, updated_at: now,
+  }];
   let changesets: MockChangeset[] = [
     reviewedChangeset("CS-E2E-01", "Browser test baseline", "in_review"),
     storedChangeset("CS-E2E-03", "Unrelated change", "other/repository", "draft"),
@@ -81,7 +85,16 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return route.fulfill({ status: 204 });
     }
     if (path.endsWith("/repositories") && method === "GET") {
-      return json({ items: [{ id: "repo-demo", slug: "easyhaloo/agentforge", default_branch: "main", created_at: now }] });
+      return json({ items: repositories });
+    }
+    if (path.endsWith("/repositories") && method === "POST") {
+      const body = request.postDataJSON() as { slug: string; default_branch: string };
+      const added = {
+        id: `repo-${repositories.length + 1}`, organization_id: "org-demo", slug: body.slug, default_branch: body.default_branch,
+        created_by: "user-owner", created_at: now, updated_at: now,
+      };
+      repositories = [...repositories, added];
+      return json(added, 201);
     }
     if (path.endsWith("/members") && method === "GET") {
       return json({ items: members, limit: 100, offset: 0 });
