@@ -474,6 +474,52 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "410": { $ref: "#/components/responses/Problem" }
         "413": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/changesets:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createWorkspaceChangeset
+      summary: Materialize the saved workspace overlay as an immutable Git revision and create a Changeset
+      description: Creates a commit whose sole parent is the workspace's pinned base commit, stores it under an immutable AgentForge ref, and attaches it to the existing Changeset lifecycle. The user target branch is not moved. The saved overlay is read from one bounded repeatable-read database snapshot; at most 2,000 files and 32 MiB are accepted.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              additionalProperties: false
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "201":
+          description: Changeset and immutable workspace revision created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changeset, workspace_id, base_commit_sha, revision_commit_sha]
+                properties:
+                  changeset: { $ref: "#/components/schemas/StoredChangeset" }
+                  workspace_id: { type: string }
+                  base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  revision_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files:
     parameters:
       - in: path
