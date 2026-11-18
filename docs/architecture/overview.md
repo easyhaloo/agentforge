@@ -12,9 +12,12 @@
 - Backend hosting: an independently deployed Go service.
 - Execution: isolated workers/workspaces; never run untrusted repository code inside an API request handler.
 
-This document describes the approved target architecture. It does not claim that the Go backend, database, or execution workers already exist.
+This document describes the approved target architecture. It does not claim that the Go backend, database, Git Smart HTTP transport, or execution workers already exist.
 
 ## 1. Product boundary
+
+AgentForge is an independent Git hosting platform, on the same product category level as GitHub and GitLab. AgentForge owns Git repository storage, refs, transport, authentication, authorization and browsing. GitHub/GitLab are not upstream sources or provider dependencies for core repository operations. See [ADR-009](decisions.md#adr-009-native-git-hosting) and [Native Git Hosting Architecture](native-git-hosting.md).
+
 
 AgentForge is an **Agent-native Source Control & Verified Change Platform**. It coordinates changes and verifies delivery; it is not itself an Agent Runtime and must not be reduced to an AI-themed Git hosting interface.
 
@@ -70,7 +73,7 @@ Browser
                                ├── Application use cases
                                ├── Domain modules
                                ├── PostgreSQL
-                               ├── Git provider adapters
+                               ├── Native Git Hosting Engine
                                └── Execution scheduler
                                       │
                                       ▼
@@ -92,7 +95,7 @@ Suggested business modules:
 | --- | --- |
 | identity | Authentication, principals, credentials and authorization context |
 | organization | Organizations and memberships |
-| repository | Repository metadata and Git provider connections |
+| repository | Native AgentForge repository metadata, lifecycle and access policy |
 | changeset | Changeset lifecycle and invariants |
 | revision | Revision identity, ancestry and commit association |
 | evaluation | Evaluation lifecycle and result aggregation |
@@ -174,7 +177,7 @@ Do not introduce GraphQL or gRPC in the initial implementation without a demonst
 
 PostgreSQL is the initial system of record for business state and durable execution metadata.
 
-Object storage is used for larger artifacts such as logs, test reports and evidence files; relational records store metadata and immutable references.
+Object storage is used for larger artifacts such as logs, test reports and evidence files, and later Git LFS payloads; relational records store metadata and immutable references. Native Git objects and refs live in AgentForge-managed bare repositories, not PostgreSQL.
 
 Do not introduce Redis or a separate message broker until concrete concurrency, throughput, or coordination requirements justify the operational cost. The first durable scheduler can use PostgreSQL-backed records and transactional claiming if that is sufficient.
 
