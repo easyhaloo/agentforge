@@ -96,6 +96,18 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       repositories = [...repositories, added];
       return json(added, 201);
     }
+    if (path.endsWith("/repositories/team/repo/tree") && method === "GET") {
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), path: "", items: [{ name: "README.md", path: "README.md", kind: "file", mode: "100644", sha: "b".repeat(40), size: 12 }] });
+    }
+    if (path.endsWith("/repositories/team/repo/history") && method === "GET") {
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), items: [{ sha: "a".repeat(40), parents: [], author: "Test Author", authored_at: now, subject: "Initial commit" }] });
+    }
+    if (path.endsWith("/repositories/team/repo/compare") && method === "GET") {
+      return json({ repository: "team/repo", base_sha: "b".repeat(40), head_sha: "a".repeat(40), patch: "diff --git a/README.md b/README.md\\n-before\\n+after\\n" });
+    }
+    if (path.endsWith("/repositories/team/repo/blob") && method === "GET") {
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), blob_sha: "b".repeat(40), path: "README.md", encoding: "utf-8", content: "# Hello\\n" });
+    }
     if (path.endsWith("/members") && method === "GET") {
       return json({ items: members, limit: 100, offset: 0 });
     }
