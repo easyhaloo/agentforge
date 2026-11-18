@@ -18,6 +18,8 @@ func (d DeliveryDependencies) executionRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+base+"/pipeline-runs/{run}/cancel", d.executionRequest)
 	mux.HandleFunc("POST "+base+"/pipeline-runs/{run}/steps/{step}/decision", d.executionRequest)
 	mux.HandleFunc("GET "+base+"/pipeline-runs/{run}/events", d.executionEvents)
+	mux.HandleFunc("GET "+base+"/pipeline-runs/{run}/objects", d.pipelineObjects)
+	mux.HandleFunc("GET "+base+"/pipeline-runs/{run}/objects/{object}", d.pipelineObjects)
 
 }
 func (d DeliveryDependencies) executionRequest(w http.ResponseWriter, r *http.Request) {

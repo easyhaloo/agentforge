@@ -82,7 +82,7 @@ func TestIntegrationBuildAndGatedPromotion(t *testing.T) {
 	}
 	sha := run.Integration.CandidateSHA
 	promote(sha, 409)
-	task, err := s.ClaimTask(ctx, "worker")
+	task, err := s.ClaimTask(ctx, registerTestRunner(t, s, h.organizationID, pipeline.ContainerCheck))
 	lockMust(t, err)
 	if task == nil || task.Integration == nil || task.Integration.CandidateSHA != sha {
 		t.Fatal("worker received wrong candidate")
@@ -160,7 +160,7 @@ func TestMergeQueueRebuildAfterRemoval(t *testing.T) {
 	}
 	finish := func(expected string) {
 		t.Helper()
-		task, err := s.ClaimTask(ctx, "worker")
+		task, err := s.ClaimTask(ctx, registerTestRunner(t, s, h.organizationID, pipeline.ContainerCheck))
 		lockMust(t, err)
 		if task == nil || task.RunID != expected {
 			t.Fatalf("expected task for %s, got %v", expected, task)
@@ -237,9 +237,9 @@ func TestMergeQueueConcurrentAdmissionAndFailedHead(t *testing.T) {
 	lockMust(t, s.AdvanceQueue(ctx, git))
 	entries, err := s.ListQueue(ctx, org, repo, "main")
 	lockMust(t, err)
-	head, err := s.ClaimTask(ctx, "worker1")
+	head, err := s.ClaimTask(ctx, registerTestRunner(t, s, h.organizationID, pipeline.ContainerCheck))
 	lockMust(t, err)
-	tail, err := s.ClaimTask(ctx, "worker2")
+	tail, err := s.ClaimTask(ctx, registerTestRunner(t, s, h.organizationID, pipeline.ContainerCheck))
 	lockMust(t, err)
 	if head == nil || tail == nil || head.RunID != entries[0].RunID || tail.RunID != entries[1].RunID {
 		t.Fatal("expected both builds to be leased")
