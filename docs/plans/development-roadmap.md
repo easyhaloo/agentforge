@@ -93,8 +93,8 @@ Acceptance: unauthenticated requests are rejected; every organization route is b
 Status: **Implemented in the single Changeset lifecycle delivery branch; pending CI and review before merge.**
 
 Implemented in this delivery:
-- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins and validates the default branch against the trusted Git provider.
-- Git Provider interface and local Git adapter. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch.
+- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins. The current local Git implementation is an early internal storage adapter, not a complete Git hosting transport.
+- Initial local Git adapter and repository lifecycle integration. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch. This is not a GitHub/GitLab Provider integration and does not yet imply clone/fetch/push over Smart HTTP.
 - Revision changes stale prior evidence and reviews; API mutation operations are serialized with PostgreSQL advisory locks and optimistic version checks.
 - Server-side evaluation interface. Default evaluator performs Git patch integrity checks; optional digest-pinned Docker evaluator runs an operator-configured test command in a network-isolated, read-only, non-root, resource-limited container.
 - Evaluation reports are persisted as content-addressed artifacts with SHA-256 provenance and revision/evaluation linkage.
@@ -145,3 +145,12 @@ Acceptance: tasks survive API restarts; worker is isolated; execution lifecycle 
 - Metrics, logs, traces, audit events, security controls and runbooks.
 
 Acceptance: independent releases, demonstrated restore, operational health/alerting and production smoke tests.
+
+## Native Git Hosting workstream
+
+The approved target, data model and phased acceptance criteria are documented in:
+- [Native Git Hosting Architecture](../architecture/native-git-hosting.md)
+- [Native Git Hosting API and Data Model](../architecture/native-git-api-and-data-model.md)
+- [Native Git Hosting Delivery Plan](native-git-hosting.md)
+
+The workstream supersedes any earlier proposal that treated GitHub/GitLab as repository providers. Existing local Git code is reusable implementation material, but must be audited against the native hosting security, lifecycle and protocol requirements before it is considered production-ready.
