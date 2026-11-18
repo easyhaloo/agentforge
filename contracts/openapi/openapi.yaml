@@ -466,6 +466,118 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "413": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/file-history:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit resolved to an immutable SHA.
+        schema: { type: string }
+      - in: query
+        name: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 1024 }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+    get:
+      operationId: listRepositoryFileHistory
+      summary: List history for a file at a pinned commit
+      description: Requires active organization membership and repository registration. The ref is resolved server-side and Git history is bounded to 100 commits and 1 MiB output.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: File commit history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, path, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  items: { type: array, items: { $ref: "#/components/schemas/RepositoryCommit" } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blame:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit resolved to an immutable SHA.
+        schema: { type: string }
+      - in: query
+        name: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 1024 }
+      - in: query
+        name: start
+        schema: { type: integer, minimum: 1, default: 1 }
+      - in: query
+        name: end
+        schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+    get:
+      operationId: blameRepositoryFile
+      summary: Attribute file lines to immutable commits
+      description: Requires active organization membership and repository registration. At most 500 lines and 1 MiB of Git blame output are returned for the pinned commit.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: File blame lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, path, start, end, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  start: { type: integer }
+                  end: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [line, commit_sha, author, authored_at, summary, content]
+                      properties:
+                        line: { type: integer }
+                        commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                        author: { type: string }
+                        authored_at: { type: string }
+                        summary: { type: string }
+                        content: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob:
     parameters:
       - in: path
