@@ -20,10 +20,15 @@ type QueueEntry struct {
 type QueueStore interface {
 	Enqueue(context.Context, string, string, int, string, map[string]json.RawMessage, Integration) (QueueEntry, error)
 	ListQueue(context.Context, string, string, string) ([]QueueEntry, error)
-	CancelQueueEntry(context.Context, string, int64, string) error
+	CancelQueueEntry(context.Context, string, int64, string, PromotionReceipts) error
+}
+
+type PromotionReceipts interface {
+	HasPromotion(ctx context.Context, org, repository, runID, candidateSHA string) (bool, error)
 }
 
 type TrainProvider interface {
+	PromotionReceipts
 	PrepareCandidate(context.Context, string, string, delivery.MergeRequest) (delivery.MergePreview, error)
 	ResolveRevision(context.Context, string, string, string) (delivery.GitRevision, error)
 }
