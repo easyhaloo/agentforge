@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook`
+const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook,integration`
 
 func scanRun(row pgx.Row) (execution.Run, error) {
 	var r execution.Run
-	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook)
+	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = pipeline.ErrMissing
 	}
@@ -25,12 +25,15 @@ func (s *Store) GetRun(ctx context.Context, org, id string) (execution.Run, erro
 	return scanRun(s.pool.QueryRow(ctx, `SELECT `+runColumns+` FROM pipeline_runs WHERE organization_id=$1 AND id::text=$2`, org, id))
 }
 func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage) (execution.Run, error) {
-	return s.createRun(ctx, org, id, number, actor, inputs, nil)
+	return s.createRun(ctx, org, id, number, actor, inputs, nil, nil)
 }
 func (s *Store) TriggerRun(ctx context.Context, org, id string, number int, actor string, hook execution.Webhook) (execution.Run, error) {
-	return s.createRun(ctx, org, id, number, actor, nil, &hook)
+	return s.createRun(ctx, org, id, number, actor, nil, &hook, nil)
 }
-func (s *Store) createRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage, hook *execution.Webhook) (execution.Run, error) {
+func (s *Store) CreateIntegrationRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage, integration execution.Integration) (execution.Run, error) {
+	return s.createRun(ctx, org, id, number, actor, inputs, nil, &integration)
+}
+func (s *Store) createRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage, hook *execution.Webhook, integration *execution.Integration) (execution.Run, error) {
 	var empty execution.Run
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -86,6 +89,19 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 			snapshot[p.Name] = value
 		}
 	}
+	if integration != nil {
+		checked := false
+		for _, stage := range def.Stages {
+			for _, job := range stage.Jobs {
+				for _, step := range job.Steps {
+					checked = checked || step.Uses == pipeline.ContainerCheck
+				}
+			}
+		}
+		if !checked {
+			return empty, fmt.Errorf("%w: integration workflow requires a container check", execution.ErrInputs)
+		}
+	}
 	var active int
 	if err = tx.QueryRow(ctx, `SELECT count(*) FROM pipeline_runs WHERE organization_id=$1 AND status IN ('queued','running')`, org).Scan(&active); err != nil {
 		return empty, err
@@ -93,7 +109,7 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 	if active >= 16 {
 		return empty, execution.ErrQuota
 	}
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+runColumns, org, id, number, actor, snapshot, hook))
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook,integration) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING `+runColumns, org, id, number, actor, snapshot, hook, integration))
 	if err != nil {
 		return empty, err
 	}

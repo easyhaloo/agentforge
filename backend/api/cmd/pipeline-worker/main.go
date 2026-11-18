@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
@@ -127,7 +128,20 @@ func runCheck(ctx context.Context, s *postgres.Store, t execution.Task, image st
 func containerCheck(ctx context.Context, t execution.Task, image string, output io.Writer) error {
 	// The in-container watchdog also bounds runtime if the worker process dies.
 	name := "af-" + t.RunID + "-" + t.StepID + "-" + strconv.Itoa(t.Attempt)
-	args := []string{"run", "--name", name, "--rm", "--pull=never", "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--user=65532:65532", "--memory=128m", "--memory-swap=128m", "--cpus=0.5", "--pids-limit=32", "--log-driver=none", "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=16m", "--entrypoint", "/usr/bin/timeout", image, "-s", "KILL", "115", "/usr/local/bin/agentforge-check"}
+	args := []string{"run", "--name", name, "--rm", "--pull=never", "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--user=65532:65532", "--memory=128m", "--memory-swap=128m", "--cpus=0.5", "--pids-limit=32", "--log-driver=none", "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=16m", "--entrypoint", "/usr/bin/timeout"}
+	if t.Integration != nil {
+		git, err := delivery.NewLocalGitProvider(os.Getenv("GIT_REPOSITORY_ROOT"), time.Minute)
+		if err != nil {
+			return err
+		}
+		dir, cleanup, err := git.CheckoutCandidate(ctx, t.OrganizationID, t.Integration.Repository, t.Integration.CandidateSHA)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		args = append(args, "--volume", dir+":/workspace:ro", "--workdir", "/workspace", "--env", "AGENTFORGE_REVISION_SHA="+t.Integration.CandidateSHA)
+	}
+	args = append(args, image, "-s", "KILL", "115", "/usr/local/bin/agentforge-check")
 	var input io.Reader
 	if len(t.SecretRefs) > 0 {
 		var err error
