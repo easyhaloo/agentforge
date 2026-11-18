@@ -16,5 +16,5 @@ type WorkspaceRevisionFile struct {
 // WorkspaceRevisionCreator materializes a bounded workspace overlay as an immutable Git commit.
 // Implementations must create a durable, immutable ref without moving a user branch.
 type WorkspaceRevisionCreator interface {
-	CreateWorkspaceRevision(context.Context, string, string, string, string, string, []WorkspaceRevisionFile) (GitRevision, error)
+	CreateWorkspaceRevision(context.Context, string, string, string, string, string, string, []WorkspaceRevisionFile) (GitRevision, error)
 }
