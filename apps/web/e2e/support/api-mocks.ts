@@ -106,7 +106,7 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return json({ repository: "team/repo", base_sha: "b".repeat(40), head_sha: "a".repeat(40), patch: "diff --git a/README.md b/README.md\\n-before\\n+after\\n" });
     }
     if (path.endsWith("/repositories/easyhaloo/agentforge/blob") && method === "GET") {
-      return json({ repository: "team/repo", commit_sha: "a".repeat(40), blob_sha: "b".repeat(40), path: "README.md", encoding: "utf-8", content: "# Hello\\n" });
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), blob_sha: "b".repeat(40), path: "README.md", encoding: "utf-8", content: "# Hello\n" });
     }
     if (path.endsWith("/members") && method === "GET") {
       return json({ items: members, limit: 100, offset: 0 });
