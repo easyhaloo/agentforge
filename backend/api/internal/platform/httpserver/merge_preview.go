@@ -14,9 +14,16 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 )
 
+func (d DeliveryDependencies) integrationGit() delivery.GitProvider {
+	if d.IntegrationGit != nil {
+		return d.IntegrationGit
+	}
+	return d.Git
+}
+
 func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 	const base = "/api/v1/organizations/{organizationID}/merge-preview"
-	provider, supported := d.Git.(delivery.MergePreviewProvider)
+	provider, supported := d.integrationGit().(delivery.MergePreviewProvider)
 	slots := make(chan struct{}, 1) // One preview per API process bounds temporary repositories and Git subprocesses.
 	mux.HandleFunc("GET "+base+"/capabilities", func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := d.principal(w, r, false); !ok {
@@ -81,7 +88,7 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 		}
 		simulate := provider.PreviewMerge
 		if version != 0 {
-			candidates, ok := d.Git.(interface {
+			candidates, ok := d.integrationGit().(interface {
 				PrepareCandidate(context.Context, string, string, delivery.MergeRequest) (delivery.MergePreview, error)
 			})
 			if !ok || d.Runs == nil {
@@ -152,7 +159,7 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 		writeProblem(w, 403, "Promotion denied", "An owner or admin must approve the candidate")
 		return
 	}
-	git, ok := d.Git.(execution.PromotionProvider)
+	git, ok := d.integrationGit().(execution.PromotionProvider)
 	if !ok || d.Runs == nil {
 		writeProblem(w, 503, "Promotion unavailable", "A provider with atomic promotion is required")
 		return
@@ -229,7 +236,12 @@ func (d DeliveryDependencies) queueRequest(w http.ResponseWriter, r *http.Reques
 		writeProblem(w, 400, "Invalid entry", "Provide a numeric entry ID")
 		return
 	}
-	if err = queue.CancelQueueEntry(r.Context(), user.OrganizationID, id, user.UserID); err != nil {
+	receipts, ok := d.integrationGit().(execution.PromotionReceipts)
+	if !ok {
+		writeProblem(w, 503, "Queue unavailable", "Git promotion receipts are required")
+		return
+	}
+	if err = queue.CancelQueueEntry(r.Context(), user.OrganizationID, id, user.UserID, receipts); err != nil {
 		writeQueueError(w, err)
 		return
 	}

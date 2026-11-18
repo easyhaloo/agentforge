@@ -127,7 +127,21 @@ func invalidateTrain(ctx context.Context, tx pgx.Tx, org, repo, target string, a
 	_, err := tx.Exec(ctx, `WITH invalid AS (UPDATE merge_queue_entries SET status='queued',run_id=NULL,candidate_sha='',checked_at='-infinity' WHERE organization_id=$1 AND repository=$2 AND target=$3 AND id>$4 AND status IN ('building','ready') RETURNING id) INSERT INTO merge_queue_events(entry_id,status,actor) SELECT id,'rebuild',$5 FROM invalid`, org, repo, target, after, actor)
 	return err
 }
-func (s *Store) CancelQueueEntry(ctx context.Context, org string, id int64, actor string) error {
+
+// Only the head can promote. A later entry's base check can invalidate the head too.
+// Call under lockQueue, before mutating the train.
+func headHasPromotion(ctx context.Context, tx pgx.Tx, org, repo, target string, git execution.PromotionReceipts) (bool, error) {
+	var run, sha string
+	err := tx.QueryRow(ctx, `SELECT coalesce(run_id::text,''),candidate_sha FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND `+activeQueue+` ORDER BY id LIMIT 1`, org, repo, target).Scan(&run, &sha)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil || run == "" {
+		return false, err
+	}
+	return git.HasPromotion(ctx, org, repo, run, sha)
+}
+func (s *Store) CancelQueueEntry(ctx context.Context, org string, id int64, actor string, git execution.PromotionReceipts) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -143,6 +157,11 @@ func (s *Store) CancelQueueEntry(ctx context.Context, org string, id int64, acto
 	}
 	if err = lockQueue(ctx, tx, org, repo, target); err != nil {
 		return err
+	}
+	if pending, err := headHasPromotion(ctx, tx, org, repo, target, git); err != nil {
+		return err
+	} else if pending {
+		return pipeline.ErrConflict
 	}
 	if err = removeQueueEntry(ctx, tx, org, repo, target, id, "cancelled", actor); err != nil {
 		return err
@@ -196,6 +215,12 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 	}
 	if err != nil {
 		return err
+	}
+	if pending, err := headHasPromotion(ctx, tx, org, repo, target, git); err != nil {
+		// Keep this entry's polling delay so other trains can make progress.
+		return errors.Join(err, tx.Commit(ctx))
+	} else if pending {
+		return tx.Commit(ctx)
 	}
 	if status != "queued" {
 		var runStatus, base string
