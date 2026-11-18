@@ -15,6 +15,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/config"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
+	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 )
 
 func main() {
@@ -77,7 +78,7 @@ func main() {
 		Addr:              ":" + configuration.Port,
 		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 			Repository: store, Identity: principalResolver, CSRF: store, Membership: store, Account: store,
-			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Preview: previewReader, Locker: store,
+			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Preview: previewReader, Locker: store, Workspaces: store,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
