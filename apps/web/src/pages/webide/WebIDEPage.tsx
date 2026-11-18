@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, FileCode2, Folder, Save, Search } from "lucide-react";
 import { Button } from "../../shared/ui";
@@ -25,18 +25,18 @@ export function WebIDEPage({ organization, onNotify }: Props) {
     setTree(result.items);
   }, [organization.id]);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    workspaceAPI.create(organization.id, repository).then(async result => {
-      if (!active) return;
+  const createWorkspace = async () => {
+    setLoading(true); setError("");
+    try {
+      const result = await workspaceAPI.create(organization.id, repository);
       setWorkspace(result.workspace);
+      setDirectory("");
       await loadTree(result.workspace.id);
-    }).catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : "Unable to create workspace");
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [organization.id, repository, loadTree]);
+      onNotify("Isolated workspace created.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create workspace");
+    } finally { setLoading(false); }
+  };
 
   const openFile = async (entry: WorkspaceTreeEntry) => {
     if (entry.kind === "tree") {
@@ -72,7 +72,8 @@ export function WebIDEPage({ organization, onNotify }: Props) {
     <div className="org-admin-summary card">
       <div className="org-admin-summary__icon"><FileCode2 size={19}/></div>
       <div><h2>WebIDE</h2><p>{repository} · isolated workspace editor</p></div>
-      <span className="org-role">{workspace?.status ?? "creating"}</span>
+      <span className="org-role">{workspace?.status ?? "not started"}</span>
+      {!workspace && <Button className="button primary" disabled={loading} onClick={() => void createWorkspace()}>Create workspace</Button>}
       <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> Save</Button>
       <Link className="button secondary" to={`/orgs/${organization.slug}/repositories`}><ArrowLeft size={14}/> Repositories</Link>
     </div>
@@ -86,7 +87,7 @@ export function WebIDEPage({ organization, onNotify }: Props) {
           {visible.map(item=><button key={item.path} className="button link" onClick={()=>void openFile(item)} style={{justifyContent:"flex-start",overflowWrap:"anywhere"}}>
             {item.kind==="tree"?<Folder size={14}/>:<FileCode2 size={14}/>} {item.name}
           </button>)}
-          {!visible.length && <p className="changeset-hint">No files in this directory.</p>}
+          {!visible.length && <p className="changeset-hint">{workspace?"No files in this directory.":"Create a workspace to browse files."}</p>}
         </div>
       </aside>
       <main style={{minWidth:0,padding:12,display:"flex",flexDirection:"column"}}>
