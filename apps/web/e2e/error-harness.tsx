@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router-dom";
 import { I18nextProvider } from "react-i18next";
 import { routes } from "../src/app/routes";
+import i18n from "../src/locales";
 import { NotificationProvider, UIThemeProvider } from "../src/shared/ui";
 import i18n from "../src/locales";
 import "../src/styles/index.css";

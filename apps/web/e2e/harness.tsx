@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { I18nextProvider } from "react-i18next";
 import { Button, Drawer, Modal, Popover, Tabs } from "../src/shared/ui";
+import i18n from "../src/locales";
 import { CommandPalette } from "../src/app/components/CommandPalette";
 import i18n from "../src/locales";
 import "../src/styles/index.css";

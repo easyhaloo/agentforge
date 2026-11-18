@@ -6,10 +6,12 @@ import enCommon from "./en-US/common.json";
 import enNavigation from "./en-US/navigation.json";
 import enChangesets from "./en-US/changesets.json";
 import enLogin from "./en-US/login.json";
+import enRegister from "./en-US/register.json";
 import zhCommon from "./zh-CN/common.json";
 import zhNavigation from "./zh-CN/navigation.json";
 import zhChangesets from "./zh-CN/changesets.json";
 import zhLogin from "./zh-CN/login.json";
+import zhRegister from "./zh-CN/register.json";
 
 const resources = {
   "en-US": {
@@ -17,12 +19,14 @@ const resources = {
     navigation: enNavigation,
     changesets: enChangesets,
     login: enLogin,
+    register: enRegister,
   },
   "zh-CN": {
     common: zhCommon,
     navigation: zhNavigation,
     changesets: zhChangesets,
     login: zhLogin,
+    register: zhRegister,
   },
 };
 
@@ -33,7 +37,7 @@ i18n
     resources,
     fallbackLng: "en-US",
     defaultNS: "common",
-    ns: ["common", "navigation", "changesets", "login"],
+    ns: ["common", "navigation", "changesets", "login", "register"],
     interpolation: {
       escapeValue: false, // React already escapes
     },
