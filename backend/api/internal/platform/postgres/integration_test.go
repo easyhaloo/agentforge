@@ -175,10 +175,10 @@ func TestMergeQueueRebuildAfterRemoval(t *testing.T) {
 	if err := promote(built); !errors.Is(err, pipeline.ErrConflict) {
 		t.Fatal("non-head promotion", err)
 	}
-	if err := s.CancelQueueEntry(ctx, "unrelated", first.ID, h.userID); !errors.Is(err, pipeline.ErrMissing) {
+	if err := s.CancelQueueEntry(ctx, "unrelated", first.ID, h.userID, git); !errors.Is(err, pipeline.ErrMissing) {
 		t.Fatal("foreign cancellation", err)
 	}
-	lockMust(t, s.CancelQueueEntry(ctx, org, first.ID, h.userID))
+	lockMust(t, s.CancelQueueEntry(ctx, org, first.ID, h.userID, git))
 	entries := list()
 	if len(entries) != 1 || entries[0].RunID != "" {
 		t.Fatal("stale reference", entries)

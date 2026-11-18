@@ -130,7 +130,7 @@ func containerCheck(ctx context.Context, t execution.Task, image string, output 
 	name := "af-" + t.RunID + "-" + t.StepID + "-" + strconv.Itoa(t.Attempt)
 	args := []string{"run", "--name", name, "--rm", "--pull=never", "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--user=65532:65532", "--memory=128m", "--memory-swap=128m", "--cpus=0.5", "--pids-limit=32", "--log-driver=none", "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=16m", "--entrypoint", "/usr/bin/timeout"}
 	if t.Integration != nil {
-		git, err := delivery.NewLocalGitProvider(os.Getenv("GIT_REPOSITORY_ROOT"), time.Minute)
+		git, err := delivery.LoadIntegrationGit(os.Getenv("GIT_REMOTE_BINDINGS_FILE"), os.Getenv("GIT_REPOSITORY_ROOT"), time.Minute)
 		if err != nil {
 			return err
 		}
