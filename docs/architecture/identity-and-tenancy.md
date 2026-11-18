@@ -35,13 +35,13 @@ The authenticated principal contains a local user_id and the verified external i
 
 /api/v1/organizations/{organization_id}/changesets
 
-The path organization ID is an untrusted selector. It becomes an authorized scope only after the server verifies an active membership for the authenticated user. A guessed, copied, or modified organization ID must never grant access.
+The path organization handle is an untrusted selector: it carries the organization ID or the organization's slug. It becomes an authorized scope only after the server verifies an active membership for the authenticated user. A guessed, copied, or modified handle must never grant access.
 
 The API resolves a request context in this order:
 
 1. Validate the application session and load the local user.
-2. Parse the requested organization ID.
-3. Load the user's active membership in that organization.
+2. Parse the requested organization handle (ID or slug).
+3. Resolve the handle to one of the user's own active memberships; a handle that names no such membership is indistinguishable from an unknown organization.
 4. Authorize the operation against the membership role and resource policy.
 5. Pass the resolved organization ID to every repository operation.
 
@@ -49,7 +49,7 @@ No query may fall back to a global/unscoped lookup.
 
 ### 3. Organization and membership model
 
-- organizations: tenant boundary, immutable ID, display name, lifecycle state, timestamps.
+- organizations: tenant boundary, immutable ID, unique slug (a readable path handle; the ID stays the primary key and the tenant key in every query), display name, lifecycle state, timestamps.
 - users: local user identity and profile.
 - external_identities: unique (issuer, subject) mapping to one local user.
 - organization_memberships: unique (organization_id, user_id), role, state and timestamps; organization_invitations: organization-scoped email, role, inviter, expiry, single-use token hash, acceptance and revocation state.
