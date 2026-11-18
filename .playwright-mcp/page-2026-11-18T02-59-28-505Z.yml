@@ -1,0 +1,149 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - complementary [ref=f1e5]:
+      - generic [ref=f1e10]:
+        - generic [ref=f1e11]:
+          - link [ref=f1e12] [cursor=pointer]:
+            - /url: /
+          - link [ref=f1e18] [cursor=pointer]:
+            - /url: /projects
+          - link [ref=f1e29] [cursor=pointer]:
+            - /url: /repositories
+          - link [ref=f1e34] [cursor=pointer]:
+            - /url: /orgs/current/changesets
+          - link [ref=f1e37] [cursor=pointer]:
+            - /url: /workspaces
+        - generic [ref=f1e40]:
+          - link [ref=f1e41] [cursor=pointer]:
+            - /url: /orgs/current/trails
+          - link [ref=f1e46] [cursor=pointer]:
+            - /url: /stacks
+          - link [ref=f1e51] [cursor=pointer]:
+            - /url: /orgs/current/review
+          - link [ref=f1e56] [cursor=pointer]:
+            - /url: /orgs/current/eval
+          - link [ref=f1e60] [cursor=pointer]:
+            - /url: /self-healing
+        - generic [ref=f1e63]:
+          - link [ref=f1e64] [cursor=pointer]:
+            - /url: /memory
+          - link [ref=f1e77] [cursor=pointer]:
+            - /url: /pipelines
+        - link [ref=f1e81] [cursor=pointer]:
+          - /url: /dev/ui
+        - generic [ref=f1e84]:
+          - link [ref=f1e85] [cursor=pointer]:
+            - /url: /orgs/current/settings
+          - link [ref=f1e91] [cursor=pointer]:
+            - /url: /security
+          - link [ref=f1e95] [cursor=pointer]:
+            - /url: /governance
+          - link [ref=f1e100] [cursor=pointer]:
+            - /url: /usage
+          - link [ref=f1e104] [cursor=pointer]:
+            - /url: /settings
+    - main [ref=f1e108]:
+      - generic [ref=f1e109]:
+        - generic [ref=f1e110]: Workspace / Projects
+        - generic [ref=f1e111]:
+          - button "Search anything (Command K)" [ref=f1e112] [cursor=pointer]: Search anything...
+          - button "Notifications" [ref=f1e116] [cursor=pointer]
+          - generic [ref=f1e121]: H
+      - generic [ref=f1e122]:
+        - generic [ref=f1e123]:
+          - generic [ref=f1e124]:
+            - generic [ref=f1e125]: AGENTFORGE / PROJECTS
+            - heading "Projects" [level=1] [ref=f1e126]
+            - paragraph [ref=f1e127]: Organize repositories, teams and delivery boundaries.
+          - button "Refresh" [ref=f1e129] [cursor=pointer]
+        - generic [ref=f1e132]:
+          - generic [ref=f1e133]:
+            - generic [ref=f1e134]:
+              - generic [ref=f1e135]: Active projects
+              - strong [ref=f1e136]: "12"
+              - generic [ref=f1e137]: Across 4 teams
+            - generic [ref=f1e138]:
+              - generic [ref=f1e139]: Repositories
+              - strong [ref=f1e140]: "38"
+              - generic [ref=f1e141]: 3 archived
+            - generic [ref=f1e142]:
+              - generic [ref=f1e143]: Open changes
+              - strong [ref=f1e144]: "64"
+              - generic [ref=f1e145]: 18 need review
+          - generic [ref=f1e146]:
+            - generic [ref=f1e147]:
+              - generic [ref=f1e148]:
+                - generic [ref=f1e149]:
+                  - heading "Projects workspace" [level=3] [ref=f1e150]
+                  - paragraph [ref=f1e151]: Delivery boundaries that group repositories, teams and change activity.
+                - button "Create project" [ref=f1e152] [cursor=pointer]
+              - generic [ref=f1e155]:
+                - textbox "Search Projects" [ref=f1e157]:
+                  - /placeholder: Search projects...
+                - combobox "Filter by status" [ref=f1e159]:
+                  - option "All statuses" [selected]
+                  - option "Active"
+                  - option "At risk"
+                  - option "Paused"
+              - table [ref=f1e162]:
+                - rowgroup [ref=f1e163]:
+                  - row [ref=f1e164]:
+                    - columnheader "PROJECT" [ref=f1e165]
+                    - columnheader "REPOSITORIES" [ref=f1e166]
+                    - columnheader "STATUS" [ref=f1e167]
+                    - columnheader "UPDATED" [ref=f1e168]
+                - rowgroup [ref=f1e169]:
+                  - row "Open row" [ref=f1e170] [cursor=pointer]:
+                    - cell "Core Platform" [ref=f1e171]
+                    - cell "8 repositories · Runtime & APIs" [ref=f1e172]
+                    - cell "Active" [ref=f1e173]
+                    - cell "4 min ago" [ref=f1e175]
+                  - row "Open row" [ref=f1e176] [cursor=pointer]:
+                    - cell "Developer Experience" [ref=f1e177]
+                    - cell "6 repositories · CLI & SDK" [ref=f1e178]
+                    - cell "Active" [ref=f1e179]
+                    - cell "26 min ago" [ref=f1e181]
+                  - row "Open row" [ref=f1e182] [cursor=pointer]:
+                    - cell "Commerce" [ref=f1e183]
+                    - cell "11 repositories · Billing & orders" [ref=f1e184]
+                    - cell "At risk" [ref=f1e185]
+                    - cell "1 hr ago" [ref=f1e187]
+                  - row "Open row" [ref=f1e188] [cursor=pointer]:
+                    - cell "Legacy Services" [ref=f1e189]
+                    - cell "13 repositories · Maintenance" [ref=f1e190]
+                    - cell "Paused" [ref=f1e191]
+                    - cell "Yesterday" [ref=f1e193]
+              - generic [ref=f1e194]:
+                - generic [ref=f1e195]: Showing 4 of 4 demo resources
+                - generic [ref=f1e196]: Prototype data
+            - complementary [ref=f1e198]:
+              - generic [ref=f1e199]:
+                - generic [ref=f1e200]: INSPECTOR
+                - button "Close inspector" [ref=f1e201] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=f1e202]: ×
+              - heading "Core Platform" [level=3] [ref=f1e206]
+              - generic [ref=f1e207]: PRJ-014
+              - generic [ref=f1e208]: Active
+              - generic [ref=f1e209]:
+                - generic [ref=f1e210]:
+                  - generic [ref=f1e211]: Owner
+                  - generic [ref=f1e212]: Platform
+                - generic [ref=f1e213]:
+                  - generic [ref=f1e214]: Last updated
+                  - generic [ref=f1e215]: 4 min ago
+              - heading "Project overview" [level=4] [ref=f1e217]
+              - paragraph [ref=f1e218]: 8 repositories · Runtime & APIs
+              - generic [ref=f1e219]:
+                - generic [ref=f1e220]: "1"
+                - text: Repository ownership and boundaries
+              - generic [ref=f1e223]:
+                - generic [ref=f1e224]: "2"
+                - text: Open changes and delivery health
+              - generic [ref=f1e227]:
+                - generic [ref=f1e228]: "3"
+                - text: Team membership and permissions
+              - generic [ref=f1e231]: Demo environment. Actions update local UI state only; no remote operation is performed.
+        - generic [ref=f1e236]:
+          - generic [ref=f1e237]: AgentForge Prototype v0.1.0
+          - generic [ref=f1e238]: All systems operational · Mock environment
+  - generic "Notifications"

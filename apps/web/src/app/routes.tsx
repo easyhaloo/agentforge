@@ -5,7 +5,7 @@ import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, RepositoriesRoute, ResourceRoute, RootError } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -27,6 +27,14 @@ const changesetDetail = (tab: ChangesetTab): RouteObject => ({
 });
 
 export const routes: RouteObject[] = [
+  // Login route - NO shell (sibling to App, not child)
+  {
+    path: "/login",
+    element: <LoginRoute />,
+    errorElement: <RootError />,
+  },
+
+  // All other routes - WITH shell
   {
     path: "/",
     element: <App />,

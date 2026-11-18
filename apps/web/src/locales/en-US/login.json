@@ -1,0 +1,11 @@
+{
+  "title": "AgentForge",
+  "tagline": "Agent-native Source Control & Verified Change Platform",
+  "ssoButton": "Continue with SSO",
+  "trustMessage": "Secure authentication via OpenID Connect",
+  "loading": "Signing in...",
+  "error": {
+    "unavailable": "Authentication service is unavailable. Please try again later.",
+    "generic": "An error occurred. Please try again."
+  }
+}
