@@ -41,6 +41,12 @@ Use the existing stack unless a task explicitly approves a migration:
   - Pages sit under the layout route that carries the `errorElement` (the root route has its own fallback), so a page that throws replaces only the page area and the shell stays. Error messages and stacks are logged to the console and never rendered to users; `app/routes.test.ts` checks that every navigation page and the not-found route are under such a boundary.
 - Lucide React for icons
 - Recharts for charts where appropriate
+- **react-i18next** for internationalization (i18n)
+  - All user-facing text must be externalized to translation files under `apps/web/src/locales/`
+  - Use the `useTranslation()` hook and `t()` function for runtime translation
+  - Organize translations by namespace: `common`, `navigation`, `changesets`, `repositories`, `organization`, `errors`, `validation`
+  - Support both English (en-US) and Chinese (zh-CN)
+  - Never hardcode user-facing strings directly in JSX or component logic
 
 Node.js 22 is used by GitHub Actions.
 
@@ -284,7 +290,62 @@ If either command cannot be run, state that explicitly and explain what remains 
 - Avoid one-off inline styles when a reusable class or design token is appropriate.
 - Do not add decorative UI that obscures the primary task or makes a page look more complete than its underlying behavior.
 
-## 11. Change workflow
+## 11. Internationalization (i18n)
+
+The application supports multiple languages using react-i18next. All user-facing text must be internationalized.
+
+**Mandatory i18n rules:**
+
+1. **Never hardcode user-facing strings** in JSX, component logic, or error messages
+2. **Use translation keys** for all text visible to users:
+   - UI labels, headings, and descriptions
+   - Button text and action labels
+   - Form labels, placeholders, and help text
+   - Error messages and validation feedback
+   - Toast notifications and alert messages
+   - Empty states and loading messages
+   - Table headers, column names, and filter labels
+3. **Translation file structure:**
+   - Location: `apps/web/src/locales/{en-US,zh-CN}/`
+   - Namespaces: `common.json`, `navigation.json`, `changesets.json`, `repositories.json`, `organization.json`, `errors.json`, `validation.json`
+   - Use the appropriate namespace for the feature being modified
+4. **Translation key naming:**
+   - Use descriptive, hierarchical keys: `"changesets.createDialog.title"` not `"title1"`
+   - Keep keys stable across refactors; rename with care as they affect all languages
+5. **When adding or modifying UI text:**
+   - Extract the text to the appropriate namespace JSON file
+   - Provide translations for **both** en-US and zh-CN
+   - Use `useTranslation()` hook: `const { t } = useTranslation('namespace')`
+   - Call `t('key')` or `t('key', { variable })` for interpolation
+6. **Dynamic content and pluralization:**
+   - Use i18next interpolation: `t('key', { count: n })` for plurals
+   - Use i18next context for gender/variant: `t('key', { context: 'variant' })`
+7. **Non-translatable content:**
+   - Technical identifiers (commit SHAs, IDs, URLs) remain untranslated
+   - Code snippets, logs, and API responses remain as-is
+   - Developer-facing error messages in console.log/console.error can stay in English
+
+**Examples:**
+
+```tsx
+// ❌ Wrong: hardcoded string
+<button>Create Changeset</button>
+
+// ✅ Correct: translated
+const { t } = useTranslation('changesets');
+<button>{t('createButton')}</button>
+
+// ❌ Wrong: hardcoded error message
+throw new Error('Repository not found');
+
+// ✅ Correct: translated error
+const { t } = useTranslation('errors');
+throw new Error(t('repositoryNotFound'));
+```
+
+When modifying an existing page that has not yet been migrated to i18n, you must migrate only the text you are adding or changing. Do not perform a full page migration unless explicitly requested.
+
+## 12. Change workflow
 
 For every task:
 
@@ -292,11 +353,12 @@ For every task:
 2. Identify the owner layer for the change and respect the dependency direction.
 3. Confirm whether the requested behavior is real integration or prototype-only behavior.
 4. Make the smallest coherent change. Refactor adjacent code only when needed to preserve a clean boundary.
-5. Add or update tests for changed domain rules and user-visible behavior.
-6. Run tests and production build.
-7. Review the diff for accidental behavior changes, dead code, duplicated state and incorrect domain terminology.
-8. Update README or this guide when architecture, commands or contributor rules materially change.
-9. Use a concise commit message describing the change. Never claim a commit or CI result that has not been verified.
+5. **If adding or modifying user-facing text:** Add translation keys to both `en-US` and `zh-CN` locale files in the appropriate namespace. Use `useTranslation()` and `t()` instead of hardcoded strings.
+6. Add or update tests for changed domain rules and user-visible behavior.
+7. Run tests and production build.
+8. Review the diff for accidental behavior changes, dead code, duplicated state, incorrect domain terminology, and **hardcoded user-facing strings**.
+9. Update README or this guide when architecture, commands or contributor rules materially change.
+10. Use a concise commit message describing the change. Never claim a commit or CI result that has not been verified.
 
 Do not perform unrelated cleanup, dependency upgrades, formatting churn or architecture migrations as part of a narrowly scoped feature request.
 
