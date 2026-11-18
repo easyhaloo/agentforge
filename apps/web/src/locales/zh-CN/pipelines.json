@@ -74,5 +74,16 @@
   "cancelEntry": "移出队列",
   "promoteCandidate": "晋升候选提交",
   "building": "构建中",
-  "ready": "可晋升"
+  "ready": "可晋升",
+  "designCanvas": "流水线画布",
+  "executionCanvas": "执行画布",
+  "workflowSettings": "工作流配置",
+  "invalidGraph": "请检查阶段 ID 和依赖关系以预览工作流。",
+  "staleRun": "正在重连，当前显示上次读取的执行状态。",
+  "running": "运行中",
+  "waiting": "等待审批",
+  "succeeded": "已成功",
+  "failed": "已失败",
+  "cancelled": "已取消",
+  "timed_out": "已超时"
 }

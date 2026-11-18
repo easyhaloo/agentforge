@@ -11,7 +11,7 @@ const capabilities = [
   { value: "container/check@v1", label: "container" },
 ] satisfies { value: Capability; label: string }[];
 
-function dependencies(stages: Stage[], index: number): string[] {
+export function dependencies(stages: Stage[], index: number): string[] {
   return stages[index].dependsOn ?? (index ? [stages[index - 1].id] : []);
 }
 function nextID(d: Definition, prefix: string) {
