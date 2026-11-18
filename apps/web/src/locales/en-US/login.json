@@ -1,11 +1,19 @@
 {
   "title": "AgentForge",
   "tagline": "Agent-native Source Control & Verified Change Platform",
+  "email": "Email address",
+  "password": "Password",
+  "signInButton": "Sign in",
+  "orDivider": "or",
   "ssoButton": "Continue with SSO",
   "trustMessage": "Secure authentication via OpenID Connect",
   "loading": "Signing in...",
   "error": {
     "unavailable": "Authentication service is unavailable. Please try again later.",
-    "generic": "An error occurred. Please try again."
+    "generic": "An error occurred. Please try again.",
+    "invalidCredentials": "Invalid email or password.",
+    "networkError": "Network error. Please check your connection and try again.",
+    "emptyEmail": "Email is required.",
+    "emptyPassword": "Password is required."
   }
 }

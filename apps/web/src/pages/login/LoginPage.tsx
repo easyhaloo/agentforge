@@ -1,6 +1,10 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type FormEvent } from "react";
+import { Input } from "../../shared/ui/components";
+import { PasswordInput } from "../../shared/ui/components/form-controls";
+import { Button } from "../../shared/ui/components";
+import { authAPI, APIError } from "../../shared/api/identity";
 import "./LoginPage.css";
 
 type AuthCheckState = "checking" | "authenticated" | "unauthenticated";
@@ -9,6 +13,11 @@ export function LoginPage() {
   const { t } = useTranslation("login");
   const [searchParams] = useSearchParams();
   const [authState, setAuthState] = useState<AuthCheckState>("unauthenticated");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -26,11 +35,46 @@ export function LoginPage() {
   }, []);
 
   // Redirect authenticated users to return URL or default page
-  if (authState === "authenticated") {
+  if (authState === "authenticated" || loginSuccess) {
     const returnUrl = searchParams.get("return");
     const destination = (returnUrl && returnUrl.startsWith("/")) ? returnUrl : "/orgs/current/changesets";
     return <Navigate to={destination} replace />;
   }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    // Client-side validation
+    if (!email.trim()) {
+      setError(t("error.emptyEmail"));
+      return;
+    }
+    if (!password) {
+      setError(t("error.emptyPassword"));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authAPI.localLogin(email, password);
+      setLoginSuccess(true);
+    } catch (err) {
+      if (err instanceof APIError) {
+        if (err.status === 401) {
+          setError(t("error.invalidCredentials"));
+        } else {
+          setError(t("error.generic"));
+        }
+      } else if (err instanceof TypeError) {
+        setError(t("error.networkError"));
+      } else {
+        setError(t("error.generic"));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="login-page" role="main" aria-labelledby="login-heading">
@@ -41,9 +85,44 @@ export function LoginPage() {
           <p className="tagline">{t("tagline")}</p>
         </header>
 
+        <form className="local-login-form" onSubmit={handleSubmit}>
+          <Input
+            type="email"
+            name="email"
+            label={t("email")}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <PasswordInput
+            name="password"
+            label={t("password")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          {error && (
+            <div className="login-error" role="alert">
+              {error}
+            </div>
+          )}
+          <Button
+            type="submit"
+            variant="primary"
+            loading={loading}
+            className="login-button"
+          >
+            {t("signInButton")}
+          </Button>
+        </form>
+
+        <div className="login-divider">
+          <span>{t("orDivider")}</span>
+        </div>
+
         <a
           href="/auth/oidc/login"
-          className="button primary login-button"
+          className="button secondary login-button"
           aria-label={t("ssoButton")}
         >
           <svg
