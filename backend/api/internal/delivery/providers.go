@@ -278,6 +278,7 @@ func validRefComponent(value string) bool {
 
 func validWorkspaceRevisionPath(value string) bool {
 	if value == "" || len(value) > 1024 || strings.ContainsAny(value, "\x00\\\\") || strings.HasPrefix(value, "/") ||
+		strings.IndexFunc(value, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 ||
 		path.Clean(value) != value || value == "." || value == ".." || strings.HasPrefix(value, "../") {
 		return false
 	}
