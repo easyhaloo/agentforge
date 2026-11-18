@@ -19,6 +19,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
  "github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
+	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 )
 
 type Principal = identity.Principal
@@ -58,6 +59,7 @@ type DeliveryDependencies struct {
 	Catalog delivery.RepositoryCatalog
 	Preview delivery.RepositoryPreviewReader
 	Locker delivery.ChangesetLocker
+	Workspaces workspace.Repository
 }
 
 type storedChangesetResponse struct {
@@ -91,6 +93,13 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
 	deps.pipelineRoutes(mux)
 	deps.executionRoutes(mux)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces", deps.createWorkspace)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}", deps.getWorkspaceHandler)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/tree", deps.listWorkspaceTree)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/diff", deps.getWorkspaceDiff)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/changesets", deps.createWorkspaceChangeset)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files", deps.readWorkspaceFile)
+	mux.HandleFunc("PUT /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files", deps.writeWorkspaceFile)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)

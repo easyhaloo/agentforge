@@ -77,7 +77,7 @@ func main() {
 		Addr:              ":" + configuration.Port,
 		Handler:           httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 			Repository: store, Identity: principalResolver, CSRF: store, Membership: store, Account: store,
-			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, Preview: previewReader, Locker: store,
+			AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Git: gitProvider, Evaluator: evaluator, Evidence: evidenceStore, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, Preview: previewReader, Locker: store, Workspaces: store,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

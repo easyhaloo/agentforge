@@ -186,7 +186,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     <DataTable
       className="org-table"
       columns={[
-        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
+        { key: "slug", title: "REPOSITORY", render: (_value, item) => <span style={{display:"inline-flex",gap:8,alignItems:"center"}}><Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button><Button className="button secondary" onClick={() => { const [owner, name] = item.slug.split("/"); window.location.assign(`/orgs/${encodeURIComponent(organization.slug)}/webide/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`); }}>Open WebIDE</Button></span> },
         { key: "default_branch", title: "DEFAULT BRANCH" },
         { key: "created_by", title: "REGISTERED BY" },
         { key: "created_at", title: "REGISTERED" },
