@@ -64,7 +64,7 @@ export const routes: RouteObject[] = [
               changesetDetail("evaluation"),
               changesetDetail("review"),
               changesetDetail("merge"),
-              organizationPage("repositories", "Repositories", <RepositoriesRoute />),\n              { path: "orgs/:org/webide/:owner/:repo", handle: routeHandle("WebIDE"), element: <WebIDERoute /> },
+              organizationPage("repositories", "Repositories", <RepositoriesRoute />),\n              { path: "orgs/:org/webide/:owner/:repo", handle: routeHandle("Repositories"), element: <WebIDERoute /> },
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),
               organizationPage("review", "Review", <ChangesetsRoute />),
