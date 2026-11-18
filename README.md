@@ -6,6 +6,9 @@
 
 - [Target architecture](docs/architecture/overview.md)
 - [Architecture decisions](docs/architecture/decisions.md)
+- [Native Git Hosting architecture](docs/architecture/native-git-hosting.md)
+- [Native Git Hosting API and data model](docs/architecture/native-git-api-and-data-model.md)
+- [Native Git Hosting delivery plan](docs/plans/native-git-hosting.md)
 - [Development roadmap](docs/plans/development-roadmap.md)
 - [Deployment architecture](docs/deployment/architecture.md)
 
