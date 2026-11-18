@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
