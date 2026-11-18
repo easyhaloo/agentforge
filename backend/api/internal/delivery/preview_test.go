@@ -47,3 +47,33 @@ func TestLocalGitPreviewRejectsTraversalAndInvalidCommit(t *testing.T) {
 		t.Fatalf("expected invalid commit rejection, got %v", err)
 	}
 }
+
+func TestLocalGitPreviewListsCommitHistoryPinnedToRevision(t *testing.T) {
+	root := t.TempDir()
+	repository := filepath.Join(root, "org-a", "team", "history")
+	if err := os.MkdirAll(repository, 0700); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "init", "-b", "main")
+	if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte("first\n"), 0600); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "add", ".")
+	gitTest(t, repository, "commit", "-m", "first commit")
+	first := stringTrim(gitTest(t, repository, "rev-parse", "HEAD"))
+	if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte("second\n"), 0600); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "commit", "-am", "second commit")
+	second := stringTrim(gitTest(t, repository, "rev-parse", "HEAD"))
+
+	provider, err := NewLocalGitProvider(root, 10*time.Second)
+	if err != nil { t.Fatal(err) }
+	history, err := provider.ListHistory(context.Background(), "org-a", "team/history", second, 10)
+	if err != nil { t.Fatal(err) }
+	if len(history) != 2 || history[0].SHA != second || history[0].Subject != "second commit" || history[1].SHA != first {
+		t.Fatalf("unexpected history: %#v", history)
+	}
+	pinned, err := provider.ListHistory(context.Background(), "org-a", "team/history", first, 10)
+	if err != nil { t.Fatal(err) }
+	if len(pinned) != 1 || pinned[0].SHA != first {
+		t.Fatalf("history was not pinned to requested commit: %#v", pinned)
+	}
+	if _, err := provider.ListHistory(context.Background(), "org-a", "team/history", second, 101); err != ErrPreviewPathInvalid {
+		t.Fatalf("expected invalid limit rejection, got %v", err)
+	}
+}
