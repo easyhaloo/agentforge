@@ -117,6 +117,7 @@ export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" 
 export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
+export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export const repositoryPreviewAPI = {
   tree: (organizationID: string, repository: string, path = "", ref = "") => {
     const [owner, name] = repository.split("/");
@@ -124,6 +125,11 @@ export const repositoryPreviewAPI = {
     if (path) query.set("path", path);
     if (ref) query.set("ref", ref);
     return request<RepositoryPreviewTree>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/tree?${query.toString()}`);
+  },
+  compare: (organizationID: string, repository: string, base: string, head: string) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ base, head });
+    return request<RepositoryCompare>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/compare?${query.toString()}`);
   },
   history: (organizationID: string, repository: string, ref = "", limit = 30) => {
     const [owner, name] = repository.split("/");
