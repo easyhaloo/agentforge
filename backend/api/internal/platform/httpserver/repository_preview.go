@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
@@ -86,4 +87,33 @@ func (d DeliveryDependencies) readRepositoryBlob(w http.ResponseWriter, r *http.
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"blob_sha":blobSHA,"path":filePath,"encoding":"utf-8","content":string(content)})
+}
+
+func (d DeliveryDependencies) listRepositoryHistory(w http.ResponseWriter, r *http.Request) {
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	if !ok { return }
+	reader, supported := d.Preview.(delivery.RepositoryHistoryReader)
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository history unavailable", "The configured Git provider does not support commit history")
+		return
+	}
+	limit := 30
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeProblem(w, http.StatusBadRequest, "Invalid history limit", "History limit must be between 1 and 100")
+			return
+		}
+		limit = parsed
+	}
+	commits, err := reader.ListHistory(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, limit)
+	if errors.Is(err, delivery.ErrPreviewTooLarge) {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "History too large", "The requested history exceeds the preview output limit")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "Repository history unavailable", "Commit history could not be read at this revision")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"items":commits})
 }
