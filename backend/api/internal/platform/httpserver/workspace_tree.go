@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"net/http"
+	"errors"
 	"sort"
 	"strings"
 
@@ -29,6 +30,7 @@ func (d DeliveryDependencies) listWorkspaceTree(w http.ResponseWriter, r *http.R
 		entries[entry.Name] = workspaceTreeEntry{Name: entry.Name, Path: entry.Path, Kind: entry.Kind, Source: "base"}
 	}
 	overlays, err := d.Workspaces.ListWorkspaceFiles(r.Context(), principal.OrganizationID, item.ID)
+	if errors.Is(err, workspace.ErrTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "Workspace tree too large", "The workspace contains more than 2000 overlay files"); return }
 	if err != nil { writeProblem(w, http.StatusInternalServerError, "Workspace tree unavailable", "Workspace file metadata could not be listed"); return }
 	prefix := ""
 	if directory != "" { prefix = directory + "/" }
