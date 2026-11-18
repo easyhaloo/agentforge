@@ -161,3 +161,46 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 		"patch": patch,
 	})
 }
+
+
+func (d DeliveryDependencies) listRepositoryFileHistory(w http.ResponseWriter, r *http.Request) {
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	if !ok { return }
+	reader, supported := d.Preview.(delivery.RepositoryFileHistoryReader)
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "File history unavailable", "The configured Git provider does not support file history")
+		return
+	}
+	filePath := r.URL.Query().Get("path")
+	limit := 30
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 100 { writeProblem(w, http.StatusBadRequest, "Invalid history limit", "File history limit must be between 1 and 100"); return }
+		limit = parsed
+	}
+	if len(filePath) == 0 || len(filePath) > 1024 { writeProblem(w, http.StatusBadRequest, "Invalid repository path", "A file path of at most 1024 bytes is required"); return }
+	items, err := reader.ListFileHistory(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, filePath, limit)
+	if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "File history too large", "The requested file history exceeds the output limit"); return }
+	if err != nil { writeProblem(w, http.StatusNotFound, "File history unavailable", "The requested file history could not be read at this revision"); return }
+	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"path":filePath,"items":items})
+}
+
+func (d DeliveryDependencies) blameRepositoryFile(w http.ResponseWriter, r *http.Request) {
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	if !ok { return }
+	reader, supported := d.Preview.(delivery.RepositoryBlameReader)
+	if !supported { writeProblem(w, http.StatusServiceUnavailable, "File blame unavailable", "The configured Git provider does not support blame"); return }
+	filePath := r.URL.Query().Get("path")
+	start, end := 1, 200
+	var err error
+	if raw := r.URL.Query().Get("start"); raw != "" { start, err = strconv.Atoi(raw) }
+	if err != nil { writeProblem(w, http.StatusBadRequest, "Invalid blame range", "Blame line range must contain positive integers"); return }
+	if raw := r.URL.Query().Get("end"); raw != "" { end, err = strconv.Atoi(raw) }
+	if err != nil || len(filePath) == 0 || len(filePath) > 1024 || start < 1 || end < start || end-start >= 500 {
+		writeProblem(w, http.StatusBadRequest, "Invalid blame range", "A file path and a range of at most 500 lines are required"); return
+	}
+	items, err := reader.Blame(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, filePath, start, end)
+	if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "Blame output too large", "The requested blame output exceeds the preview limit"); return }
+	if err != nil { writeProblem(w, http.StatusNotFound, "File blame unavailable", "The requested file could not be blamed at this revision"); return }
+	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"path":filePath,"start":start,"end":end,"items":items})
+}
