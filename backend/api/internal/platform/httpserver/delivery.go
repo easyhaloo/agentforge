@@ -17,6 +17,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+ "github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
@@ -52,6 +53,7 @@ type DeliveryDependencies struct {
 	Evaluator delivery.Evaluator
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer
+	Runs execution.Store
 	Pipelines pipeline.Store
 	Catalog delivery.RepositoryCatalog
 	Preview delivery.RepositoryPreviewReader
@@ -88,6 +90,7 @@ type problemResponse struct {
 func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
 	deps.pipelineRoutes(mux)
+	deps.executionRoutes(mux)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)

@@ -145,10 +145,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a published version */
+        post: operations["createRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipeline-runs/{run}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        /** Read a run and its input snapshot */
+        get: operations["getRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipeline-runs/{run}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a run */
+        post: operations["cancelRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipeline-runs/{run}/steps/{step}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+                step: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide a waiting approval */
+        post: operations["decideRunStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipeline-runs/{run}/events": {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: number;
+            };
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        /** Replay run events after Last-Event-ID */
+        get: operations["runEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Run: {
+            id: string;
+            pipelineId: string;
+            actorId: string;
+            /** @enum {unknown} */
+            status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "timed_out";
+            createdAt: string;
+            deadline: string;
+            version: number;
+            inputs: {
+                [key: string]: unknown;
+            };
+        };
         Definition: components["schemas"]["workflow.schema"];
         Summary: {
             id: string;
@@ -201,8 +318,8 @@ export interface components {
                     id: string;
                     steps: {
                         id: string;
-                        /** @constant */
-                        uses: "control/approval@v1";
+                        /** @enum {unknown} */
+                        uses: "control/approval@v1" | "container/check@v1";
                     }[];
                 }[];
             }[];
@@ -451,6 +568,143 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    createRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    getRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    cancelRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    decideRunStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+                step: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    approved: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    runEvents: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: number;
+            };
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
             };
             "4XX": components["responses"]["Problem"];
             "5XX": components["responses"]["Problem"];

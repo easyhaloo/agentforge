@@ -287,8 +287,216 @@ paths:
           $ref: ./openapi.yaml#/components/responses/Problem
         5XX:
           $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/runs:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: number
+      required: true
+      schema:
+        type: integer
+    post:
+      operationId: createRun
+      summary: Queue a published version
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: getRun
+      summary: Read a run and its input snapshot
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/cancel:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: cancelRun
+      summary: Cancel a run
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '204':
+          description: Success
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/steps/{step}/decision:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: step
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: decideRunStep
+      summary: Decide a waiting approval
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '204':
+          description: Success
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - approved
+              properties:
+                approved:
+                  type: boolean
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/events:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    - in: header
+      name: Last-Event-ID
+      schema:
+        type: integer
+        minimum: 0
+    get:
+      operationId: runEvents
+      summary: Replay run events after Last-Event-ID
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
 components:
   schemas:
+    Run:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        pipelineId:
+          type: string
+        actorId:
+          type: string
+        status:
+          enum:
+          - queued
+          - running
+          - succeeded
+          - failed
+          - cancelled
+          - timed_out
+        createdAt:
+          type: string
+        deadline:
+          type: string
+        version:
+          type: integer
+        inputs:
+          type: object
+          additionalProperties: true
+      required:
+      - id
+      - pipelineId
+      - actorId
+      - status
+      - createdAt
+      - deadline
+      - version
+      - inputs
     Definition:
       $ref: ../../backend/api/internal/pipeline/workflow.schema.json
     Summary:
