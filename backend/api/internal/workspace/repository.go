@@ -8,6 +8,7 @@ type Repository interface {
 	GetWorkspaceFile(context.Context, string, string, string) (File, error)
 	PutWorkspaceFile(context.Context, string, File, int64) (File, error)
 	ListWorkspaceFiles(context.Context, string, string) ([]FileEntry, error)
+	ListWorkspaceFileContents(context.Context, string, string) ([]File, error)
 }
 
 type FileEntry struct {
