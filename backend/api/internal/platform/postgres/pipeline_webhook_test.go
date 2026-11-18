@@ -71,7 +71,8 @@ func TestWebhookEnqueuesOnceAndScopesSecrets(t *testing.T) {
 	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM pipeline_runs`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("created %d runs: %v", count, err)
 	}
-	task, err := s.ClaimTask(ctx, "worker")
+	token := registerTestRunner(t, s, "team", pipeline.ContainerCheck)
+	task, err := s.ClaimTask(ctx, token)
 	if err != nil || task == nil || task.SecretRefs["token"] != "secret://release" || task.OrganizationID != "team" || task.PipelineID != "flow" {
 		t.Fatalf("bad task scope: %v", err)
 	}
@@ -86,7 +87,7 @@ func TestWebhookEnqueuesOnceAndScopesSecrets(t *testing.T) {
 	if err = s.FinishTask(ctx, *task, "succeeded", "synthetic-output"); err != nil {
 		t.Fatal(err)
 	}
-	second, err := s.ClaimTask(ctx, "worker")
+	second, err := s.ClaimTask(ctx, token)
 	if err != nil || second == nil || len(second.SecretRefs) != 0 {
 		t.Fatal("unexpected secret on sibling step")
 	}

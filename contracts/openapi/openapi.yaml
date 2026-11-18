@@ -30,6 +30,10 @@ paths:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1cancel
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}/steps/{step}/decision:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1steps~1{step}~1decision
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/objects:
+    $ref: ./pipeline-objects.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1objects
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/objects/{object}:
+    $ref: ./pipeline-objects.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1objects~1{object}
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}/events:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1events
   /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/validate-inputs:

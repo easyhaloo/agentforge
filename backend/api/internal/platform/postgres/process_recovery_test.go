@@ -71,6 +71,7 @@ func TestPipelineProcessRecovery(t *testing.T) {
 	}
 	api := start("server")
 	until("API startup", health)
+	t.Setenv("PIPELINE_RUNNER_TOKEN", registerTestRunner(t, s, h.organizationID, pipeline.Approval))
 	worker := start("pipeline-worker")
 	first, err := s.CreateRun(ctx, h.organizationID, "recovery", 1, h.userID, nil)
 	lockMust(t, err)
