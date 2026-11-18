@@ -1055,6 +1055,20 @@ components:
         created_by: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    Workspace:
+      type: object
+      required: [id, organization_id, repository, owner_id, base_commit_sha, base_ref, status, expires_at, created_at, updated_at]
+      properties:
+        id: { type: string }
+        organization_id: { type: string }
+        repository: { type: string }
+        owner_id: { type: string }
+        base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        base_ref: { type: string }
+        status: { type: string, enum: [active, expired, closed] }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     RepositoryCommit:
       type: object
       required: [sha, parents, author, authored_at, subject]
