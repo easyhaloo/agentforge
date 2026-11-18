@@ -356,6 +356,51 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listRepositoryRefs
+      summary: List repository branches and tags
+      description: Requires active organization membership and a registered repository. Ref names are selectors; content reads resolve them to immutable commit SHAs. Results are bounded to 1000 refs.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Repository branches and tags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, default_branch, resolved_commit_sha, items]
+                properties:
+                  repository: { type: string }
+                  default_branch: { type: string }
+                  resolved_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  items:
+                    type: array
+                    maxItems: 1000
+                    items:
+                      type: object
+                      required: [name, kind, sha]
+                      properties:
+                        name: { type: string }
+                        kind: { type: string, enum: [branch, tag] }
+                        sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree:
     parameters:
       - in: path

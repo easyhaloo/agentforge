@@ -8,9 +8,10 @@ import {
   type RepositoryCommit,
   type RepositoryPreviewBlob,
   type RepositoryPreviewEntry,
+  type RepositoryPreviewRef,
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
-import { Button, DataTable, Input } from "../../shared/ui";
+import { Button, DataTable, Input, Select } from "../../shared/ui";
 import { RepositoryReadme } from "./RepositoryReadme";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -41,7 +42,17 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [compareLoading, setCompareLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
+  const [repositoryRefs, setRepositoryRefs] = useState<RepositoryPreviewRef[]>([]);
+  const [selectedRef, setSelectedRef] = useState("");
+  const [defaultBranchName, setDefaultBranchName] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
+
+  useEffect(() => {
+    if (!selectedRepository) { setRepositoryRefs([]); setSelectedRef(""); setDefaultBranchName(""); return; }
+    let active = true;
+    void repositoryPreviewAPI.refs(organization.id, selectedRepository).then(result => { if (active) { setRepositoryRefs(result.items); setDefaultBranchName(result.default_branch); } }).catch(() => { if (active) setRepositoryRefs([]); });
+    return () => { active = false; };
+  }, [organization.id, selectedRepository]);
 
   useEffect(() => {
     if (!selectedRepository) {
@@ -93,14 +104,14 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     if (!selectedRepository) return;
     setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
     try {
-      const result = await repositoryPreviewAPI.tree(organization.id, selectedRepository, directory, previewCommit);
+      const result = await repositoryPreviewAPI.tree(organization.id, selectedRepository, directory, previewCommit || selectedRef);
       setTree(result);
       if (!previewCommit) setPreviewCommit(result.commit_sha);
     } catch (cause) {
       setTree(null);
       setPreviewError(cause instanceof Error ? cause.message : "Unable to load repository tree");
     } finally { setPreviewLoading(false); }
-  }, [organization.id, selectedRepository, directory, previewCommit]);
+  }, [organization.id, selectedRepository, directory, previewCommit, selectedRef]);
   useEffect(() => { void loadTree(); }, [loadTree]);
 
   useEffect(() => {
@@ -186,7 +197,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     <DataTable
       className="org-table"
       columns={[
-        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
+        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setSelectedRef(item.default_branch); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
         { key: "default_branch", title: "DEFAULT BRANCH" },
         { key: "created_by", title: "REGISTERED BY" },
         { key: "created_at", title: "REGISTERED" },
@@ -200,6 +211,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     {selectedRepository && <section className="card" aria-label="Repository preview" style={{ marginTop: 16, padding: 16 }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div><h2 style={{ margin: 0 }}>Repository preview</h2><p style={{ margin: "4px 0 0" }}>{selectedRepository} · read-only, no clone required</p></div>
+        <Select label="Ref" aria-label="Repository branch or tag" controlSize="small" value={selectedRef || defaultBranchName} onChange={event => { setSelectedRef(event.target.value); setPreviewCommit(""); setDirectory(""); setSelectedFile(null); setComparePatch(""); }} options={[...repositoryRefs.filter(ref => ref.kind === "branch").map(ref => ({ value: ref.name, label: `Branch · ${ref.name}` })), ...repositoryRefs.filter(ref => ref.kind === "tag").map(ref => ({ value: ref.name, label: `Tag · ${ref.name}` }))]} />
         <Button className="button secondary" onClick={() => void copyPermalink()} disabled={!previewCommit}>Copy permalink</Button>
         <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> Close</Button>
       </header>

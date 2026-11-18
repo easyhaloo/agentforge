@@ -263,3 +263,32 @@ func (p *LocalGitProvider) Blame(ctx context.Context, organizationID, repository
 	}
 	return result, nil
 }
+
+type RepositoryRef struct { Name string `json:"name"`; Kind string `json:"kind"`; SHA string `json:"sha"` }
+type RepositoryRefsReader interface { ListRefs(context.Context, string, string) ([]RepositoryRef, error) }
+
+// ListRefs returns bounded branch and tag metadata. Consumers resolve a selected
+// ref to an immutable commit before reading repository content.
+func (p *LocalGitProvider) ListRefs(ctx context.Context, organizationID, repository string) ([]RepositoryRef, error) {
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
+	if err != nil { return nil, err }
+	output, err := p.runPreview(ctx, repoPath, 1<<20, "for-each-ref", "--format=%(refname)%00%(objectname)%00%(objecttype)", "refs/heads", "refs/tags")
+	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
+	if err != nil { return nil, fmt.Errorf("%w: %v", ErrRepositoryInvalid, err) }
+	refs := make([]RepositoryRef, 0, 32)
+	for _, record := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if record == "" { continue }
+		fields := strings.Split(record, "\x00")
+		if len(fields) != 3 || !validGitObjectID(fields[1]) { return nil, ErrRepositoryInvalid }
+		kind, name := "", ""
+		switch {
+		case strings.HasPrefix(fields[0], "refs/heads/"): kind, name = "branch", strings.TrimPrefix(fields[0], "refs/heads/")
+		case strings.HasPrefix(fields[0], "refs/tags/"): kind, name = "tag", strings.TrimPrefix(fields[0], "refs/tags/")
+		default: continue
+		}
+		if name == "" { return nil, ErrRepositoryInvalid }
+		refs = append(refs, RepositoryRef{Name:name, Kind:kind, SHA:fields[1]})
+		if len(refs) > 1000 { return nil, ErrPreviewTooLarge }
+	}
+	return refs, nil
+}

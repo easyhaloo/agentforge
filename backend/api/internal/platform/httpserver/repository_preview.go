@@ -204,3 +204,14 @@ func (d DeliveryDependencies) blameRepositoryFile(w http.ResponseWriter, r *http
 	if err != nil { writeProblem(w, http.StatusNotFound, "File blame unavailable", "The requested file could not be blamed at this revision"); return }
 	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"path":filePath,"start":start,"end":end,"items":items})
 }
+
+func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.Request) {
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	if !ok { return }
+	reader, supported := d.Preview.(delivery.RepositoryRefsReader)
+	if !supported { writeProblem(w, http.StatusServiceUnavailable, "Repository refs unavailable", "The configured Git provider does not support branch and tag listing"); return }
+	refs, err := reader.ListRefs(r.Context(), principal.OrganizationID, repository.Slug)
+	if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "Too many repository refs", "The repository has too many refs to list"); return }
+	if err != nil { writeProblem(w, http.StatusNotFound, "Repository refs unavailable", "Branches and tags could not be read"); return }
+	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"default_branch":repository.DefaultBranch,"resolved_commit_sha":commitSHA,"items":refs})
+}

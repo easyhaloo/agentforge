@@ -102,6 +102,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs", deps.listRepositoryRefs)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob", deps.readRepositoryBlob)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history", deps.listRepositoryHistory)
