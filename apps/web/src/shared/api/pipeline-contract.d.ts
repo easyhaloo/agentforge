@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/hooks/github/{hook}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue the pinned workflow for a signed GitHub event */
+        post: operations["triggerPipelineWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{organizationID}/pipelines": {
         parameters: {
             query?: never;
@@ -255,6 +272,15 @@ export interface components {
     schemas: {
         Run: {
             id: string;
+            webhook?: {
+                hook: string;
+                delivery: string;
+                digest: string;
+                repositoryId: number;
+                /** @enum {string} */
+                event: "push" | "pull_request";
+                sha: string;
+            };
             pipelineId: string;
             actorId: string;
             /** @enum {unknown} */
@@ -344,6 +370,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    triggerPipelineWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-GitHub-Delivery": string;
+                "X-GitHub-Event": "push" | "pull_request";
+            };
+            path: {
+                hook: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Enqueued or previously accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
     listPipelines: {
         parameters: {
             query?: never;
