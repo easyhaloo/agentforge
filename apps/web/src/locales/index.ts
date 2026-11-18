@@ -9,13 +9,18 @@ import zhCommon from "./zh-CN/common.json";
 import zhNavigation from "./zh-CN/navigation.json";
 import zhChangesets from "./zh-CN/changesets.json";
 
+import enPipelines from "./en-US/pipelines.json";
+import zhPipelines from "./zh-CN/pipelines.json";
+
 const resources = {
   "en-US": {
+    pipelines: enPipelines,
     common: enCommon,
     navigation: enNavigation,
     changesets: enChangesets,
   },
   "zh-CN": {
+    pipelines: zhPipelines,
     common: zhCommon,
     navigation: zhNavigation,
     changesets: zhChangesets,
@@ -29,7 +34,7 @@ i18n
     resources,
     fallbackLng: "en-US",
     defaultNS: "common",
-    ns: ["common", "navigation", "changesets"],
+    ns: ["common", "navigation", "changesets", "pipelines"],
     interpolation: {
       escapeValue: false, // React already escapes
     },

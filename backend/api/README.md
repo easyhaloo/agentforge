@@ -140,7 +140,7 @@ Organizations get a unique, human-readable slug besides their opaque `id`, so cl
 
 ### Organization pipelines
 
-Open **CI / CD** in the organization sidebar to create a workflow, edit its JSON draft and publish a version. Members can create and edit. Owners and admins can also publish and archive. Viewers can read definitions and version history. The initial capability is `control/approval@v1`. Pipeline execution belongs to the durable worker phase.
+Open **CI / CD** in the organization sidebar to start from an approval or check-then-approve template, clone a workflow, edit stages, jobs, steps and typed parameters visually or as JSON, and publish the saved draft. Members can create and edit. Owners and admins can also publish and archive. Viewers can read definitions and version history. Use the published version selector to start an immutable version with runtime overrides. Clearing a runtime control restores the published default or omits the optional input.
 
 The API is rooted at `/api/v1/organizations/{organizationID}/pipelines`. Saving a draft, publishing and archiving require the current `revision`. A `409` means the lifecycle or revision changed. Reload and compare the saved draft before retrying. Archiving preserves published versions. A version's checksum is SHA-256 over its stored UTF-8 JSON bytes. Migration `008_pipelines.sql` creates `pipelines`, `pipeline_versions` and `pipeline_audit`. Each successful mutation writes the actor and revision to the audit table in the same transaction.
 
