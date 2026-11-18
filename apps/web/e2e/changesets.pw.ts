@@ -78,3 +78,56 @@ test("every part of a changeset is a route with its own panel", async ({ page })
   await expect(tabs.getByRole("link", { name: "Merge" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Merge target")).toBeVisible();
 });
+
+test("the detail page resolves a Git revision", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-03/revisions");
+  await page.getByPlaceholder("branch, tag or commit SHA").fill("feature/one");
+  const sent = page.waitForRequest((request) => request.url().endsWith("/changesets/CS-E2E-03/revisions") && request.method() === "POST");
+
+  await page.getByRole("button", { name: "Add revision" }).click();
+
+  expect((await sent).postDataJSON()).toEqual({ ref: "feature/one" });
+  await expect(page.getByText("Evaluation pending")).toBeVisible();
+});
+
+test("the detail page runs the trusted evaluation", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-01/evaluation");
+  const sent = page.waitForRequest((request) => request.url().endsWith("/changesets/CS-E2E-01/evaluations") && request.method() === "POST");
+
+  await page.getByRole("button", { name: "Run evaluation" }).click();
+
+  await sent;
+  await expect(page.getByText("Review required")).toBeVisible();
+});
+
+test("the detail page assigns a review", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-01/review");
+  await page.getByPlaceholder("reviewer user ID").fill("user-member");
+  const sent = page.waitForRequest((request) => request.url().endsWith("/changesets/CS-E2E-01/reviews") && request.method() === "POST");
+
+  await page.getByRole("button", { name: "Assign review" }).click();
+
+  expect((await sent).postDataJSON()).toEqual({ reviewer_id: "user-member", comment: "" });
+  await expect(page.getByText("Assigned to user-member")).toBeVisible();
+});
+
+test("the detail page decides the review assigned to the signed-in user", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-01/review");
+  const sent = page.waitForRequest((request) => request.url().includes("/changesets/CS-E2E-01/reviews/rev-review-1/decision") && request.method() === "POST");
+
+  await page.getByRole("button", { name: "Approve" }).click();
+
+  expect((await sent).postDataJSON()).toEqual({ approved: true, comment: "" });
+  await expect(page.getByText("Ready to merge")).toBeVisible();
+});
+
+test("the detail page merges the changeset", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-04/merge");
+  await page.getByPlaceholder("main").fill("release");
+  const sent = page.waitForRequest((request) => request.url().endsWith("/changesets/CS-E2E-04/merge") && request.method() === "POST");
+
+  await page.getByRole("button", { name: "Merge changeset" }).click();
+
+  expect((await sent).postDataJSON()).toEqual({ target_ref: "release" });
+  await expect(page.getByText("Merged as")).toBeVisible();
+});
