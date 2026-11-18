@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, useLocation } from "react-router-dom";
+import { I18nextProvider } from "react-i18next";
 import { Button, Drawer, Modal, Popover, Tabs } from "../src/shared/ui";
 import { CommandPalette } from "../src/app/components/CommandPalette";
+import i18n from "../src/locales";
 import "../src/styles/index.css";
 import "../src/shared/ui/theme/theme.css";
 import "../src/shared/ui/components/components.css";
@@ -55,7 +57,9 @@ function SharedUIHarness() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <MemoryRouter initialEntries={["/harness"]}>
-    <SharedUIHarness />
-  </MemoryRouter>,
+  <I18nextProvider i18n={i18n}>
+    <MemoryRouter initialEntries={["/harness"]}>
+      <SharedUIHarness />
+    </MemoryRouter>
+  </I18nextProvider>,
 );

@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "Changesets",
+    "summary": "{{count}} persisted changesets",
+    "description": "Organization-scoped Git lifecycle · PostgreSQL state",
+    "loadingMessage": "Loading changesets…"
+  },
+  "create": {
+    "title": "Create changeset",
+    "description": "Starts a persisted delivery workflow against a registered repository",
+    "validated": "Server validated",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Describe the change",
+    "repositoryLabel": "Repository",
+    "createButton": "Create",
+    "successMessage": "Changeset created and persisted.",
+    "errorMessage": "Changeset creation failed"
+  },
+  "list": {
+    "title": "Changesets",
+    "description": "Newest records first · scoped to {{organizationName}}",
+    "searchPlaceholder": "Search ID, title or repository",
+    "filterByStatus": "Filter by status",
+    "filterByRepository": "Filter by repository",
+    "allStatuses": "All statuses",
+    "allRepositories": "All repositories",
+    "myPendingReviews": "My pending reviews",
+    "emptyFiltered": "No changesets match the filters.",
+    "emptyDefault": "No changesets yet.",
+    "footer": "{{count}} of {{total}} changesets",
+    "dataSource": "Data from organization API"
+  },
+  "empty": {
+    "noRepositories": "No repositories registered",
+    "noRepositoriesDescription": "Register a repository on the organization's repositories page before creating a changeset."
+  },
+  "errors": {
+    "loadFailed": "Unable to load delivery data"
+  },
+  "status": {
+    "draft": "Draft",
+    "evaluation_pending": "Evaluation pending",
+    "evaluation_failed": "Evaluation failed",
+    "evidence_required": "Evidence required",
+    "review_required": "Review required",
+    "in_review": "In review",
+    "changes_requested": "Changes requested",
+    "ready_to_merge": "Ready to merge",
+    "merged": "Merged"
+  },
+  "lifecycle": {
+    "repository": "Repository",
+    "revision": "Revision",
+    "evaluation": "Evaluation",
+    "evidence": "Evidence",
+    "review": "Review",
+    "merge": "Merge"
+  },
+  "reviewRefusal": {
+    "readyToMerge": "The current revision already has an approved review. Add a new revision to request another review.",
+    "merged": "The changeset is merged, so no further review can be requested.",
+    "default": "A review can be asked for once the current revision has active evidence."
+  }
+}

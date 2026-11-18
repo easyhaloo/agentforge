@@ -10,9 +10,16 @@ import { ResourceWorkspacePage } from "../pages/resources";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { useNotify } from "./useNotify";
+import { useAppAccount } from "./account-context";
+import { LoginPage } from "../pages/login";
 
 // Thin adapters between the route table and the pages: they supply what a page needs from the
 // shell (notifications, the organization resolved by the gate) so the pages keep their props.
+
+export function LoginRoute() {
+  const { accountState } = useAppAccount();
+  return <LoginPage accountState={accountState} />;
+}
 
 export function OverviewRoute() {
   const notify = useNotify();

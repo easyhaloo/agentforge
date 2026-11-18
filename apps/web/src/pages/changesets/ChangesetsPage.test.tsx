@@ -1,8 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { ChangesetsPage } from "./ChangesetsPage";
+import i18n from "../../locales";
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en-US");
+});
 
 const organization: OrganizationSummary = { id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "owner" };
 

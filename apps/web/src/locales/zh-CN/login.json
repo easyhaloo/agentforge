@@ -1,0 +1,11 @@
+{
+  "title": "AgentForge",
+  "tagline": "Agent 原生的源代码控制与验证变更平台",
+  "ssoButton": "使用 SSO 登录",
+  "trustMessage": "通过 OpenID Connect 安全认证",
+  "loading": "登录中...",
+  "error": {
+    "unavailable": "认证服务暂时不可用，请稍后重试。",
+    "generic": "发生错误，请重试。"
+  }
+}
