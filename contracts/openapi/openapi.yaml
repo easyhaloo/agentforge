@@ -359,7 +359,7 @@ paths:
                       properties:
                         name: { type: string }
                         path: { type: string }
-                        kind: { type: string, enum: [tree, file, symlink, blob] }
+                        kind: { type: string }
                         mode: { type: string }
                         sha: { type: string }
                         size: { type: integer, minimum: 0 }
