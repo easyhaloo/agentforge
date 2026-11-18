@@ -67,9 +67,9 @@ export type RegisterResponse = {
 export const authAPI = {
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
   localLogin: (email: string, password: string) =>
-    request<LocalLoginResponse>("/api/v1/auth/local/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+    request<LocalLoginResponse>("/auth/local/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   registerUser: (email: string, password: string, display_name: string) =>
-    request<RegisterResponse>("/api/v1/auth/local/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }),
+    request<RegisterResponse>("/auth/local/register", { method: "POST", body: JSON.stringify({ email, password, display_name }) }),
 };
 
 /** The server owns the changeset lifecycle status (ADR-003); the browser only displays it. */
