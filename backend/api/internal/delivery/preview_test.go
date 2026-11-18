@@ -103,3 +103,34 @@ func TestLocalGitPreviewComparesImmutableCommits(t *testing.T) {
 		t.Fatalf("expected invalid commit rejection, got %v", err)
 	}
 }
+
+
+func TestLocalGitPreviewListsFileHistoryAndBlameAtPinnedCommit(t *testing.T) {
+	root := t.TempDir()
+	repository := filepath.Join(root, "org-a", "team", "history")
+	if err := os.MkdirAll(repository, 0700); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "init", "-b", "main")
+	file := filepath.Join(repository, "README.md")
+	if err := os.WriteFile(file, []byte("first\nsecond\n"), 0600); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "add", ".")
+	gitTest(t, repository, "commit", "-m", "initial file")
+	if err := os.WriteFile(file, []byte("first changed\nsecond\n"), 0600); err != nil { t.Fatal(err) }
+	gitTest(t, repository, "commit", "-am", "update first line")
+	commit := stringTrim(gitTest(t, repository, "rev-parse", "HEAD"))
+	provider, err := NewLocalGitProvider(root, 10*time.Second)
+	if err != nil { t.Fatal(err) }
+
+	history, err := provider.ListFileHistory(context.Background(), "org-a", "team/history", commit, "README.md", 10)
+	if err != nil { t.Fatal(err) }
+	if len(history) != 2 || history[0].Subject != "update first line" || history[1].Subject != "initial file" {
+		t.Fatalf("unexpected file history: %#v", history)
+	}
+	blame, err := provider.Blame(context.Background(), "org-a", "team/history", commit, "README.md", 1, 2)
+	if err != nil { t.Fatal(err) }
+	if len(blame) != 2 || blame[0].Content != "first changed" || blame[1].Content != "second" || blame[0].Summary != "update first line" {
+		t.Fatalf("unexpected blame output: %#v", blame)
+	}
+	if _, err := provider.Blame(context.Background(), "org-a", "team/history", commit, "README.md", 1, 501); err != ErrPreviewPathInvalid {
+		t.Fatalf("expected blame range limit, got %v", err)
+	}
+}
