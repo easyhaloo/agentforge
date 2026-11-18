@@ -119,3 +119,37 @@ func validRepositoryPath(value string) bool {
 	}
 	return true
 }
+
+type RepositoryCommit struct {
+	SHA string `json:"sha"`
+	Parents []string `json:"parents"`
+	Author string `json:"author"`
+	AuthoredAt string `json:"authored_at"`
+	Subject string `json:"subject"`
+}
+
+type RepositoryHistoryReader interface {
+	ListHistory(context.Context, string, string, string, int) ([]RepositoryCommit, error)
+}
+
+func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repository, commitSHA string, limit int) ([]RepositoryCommit, error) {
+	if !validGitObjectID(commitSHA) { return nil, ErrPreviewPathInvalid }
+	if limit < 1 || limit > 100 { return nil, ErrPreviewPathInvalid }
+	repoPath, err := p.repositoryPath(organizationID, repository)
+	if err != nil { return nil, err }
+	format := "%H%x00%P%x00%an%x00%aI%x00%s%x00"
+	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--")
+	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
+	if err != nil { return nil, ErrRepositoryInvalid }
+	fields := bytes.Split(output, []byte{0})
+	commits := make([]RepositoryCommit, 0, limit)
+	for i := 0; i+4 < len(fields); i += 5 {
+		if len(fields[i]) == 0 { continue }
+		sha := string(fields[i])
+		if !validGitObjectID(sha) { return nil, ErrRepositoryInvalid }
+		parents := strings.Fields(string(fields[i+1]))
+		for _, parent := range parents { if !validGitObjectID(parent) { return nil, ErrRepositoryInvalid } }
+		commits = append(commits, RepositoryCommit{SHA:sha, Parents:parents, Author:string(fields[i+2]), AuthoredAt:string(fields[i+3]), Subject:string(fields[i+4])})
+	}
+	return commits, nil
+}
