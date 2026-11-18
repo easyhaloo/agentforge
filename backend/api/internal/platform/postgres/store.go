@@ -23,13 +23,19 @@ var ErrVersionConflict = delivery.ErrVersionConflict
 
 type Store struct {
 	pool *pgxpool.Pool
+	// lockPool serves only changeset advisory locks (LockChangeset) and never shares a connection with pool.
+	lockPool *pgxpool.Pool
 }
 
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("database URL is required")
 	}
-	pool, err := pgxpool.New(ctx, databaseURL)
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("create postgres pool: %w", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("create postgres pool: %w", err)
 	}
@@ -37,15 +43,26 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
-	store := &Store{pool: pool}
-	if err := store.Migrate(ctx); err != nil {
+	// The lock pool shares the connection settings but has its own size, and opens no connection
+	// until a lock needs one, whatever pool_min_conns asks of the query pool.
+	lockConfig := config.Copy()
+	lockConfig.MaxConns = lockPoolMaxConns
+	lockConfig.MinConns = 0
+	lockPool, err := pgxpool.NewWithConfig(ctx, lockConfig)
+	if err != nil {
 		pool.Close()
+		return nil, fmt.Errorf("create postgres lock pool: %w", err)
+	}
+	store := &Store{pool: pool, lockPool: lockPool}
+	if err := store.Migrate(ctx); err != nil {
+		store.Close()
 		return nil, err
 	}
 	return store, nil
 }
 
 func (s *Store) Close() {
+	s.lockPool.Close()
 	s.pool.Close()
 }
 
