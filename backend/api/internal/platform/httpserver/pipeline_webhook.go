@@ -27,8 +27,20 @@ type hookBinding struct {
 	Version        int    `json:"version"`
 	RepositoryID   int64  `json:"repositoryID"`
 	Branch         string `json:"branch"`
+	Tag            string `json:"tag"`
 	Event          string `json:"event"`
 	Secret         string `json:"secret"`
+}
+
+// A binding selects exactly one namespace so a branch and tag with the same name stay distinct.
+func (b hookBinding) ref() string {
+	if b.Event == "push" && b.Tag != "" && b.Branch == "" {
+		return "refs/tags/" + b.Tag
+	}
+	if (b.Event == "push" || b.Event == "pull_request") && b.Branch != "" && b.Tag == "" {
+		return "refs/heads/" + b.Branch
+	}
+	return ""
 }
 
 // Only the signed body supplies the event identity, ref and revision. Headers alone cannot select a workflow.
@@ -58,7 +70,7 @@ func (b hookBinding) revision(body []byte) string {
 	sha := ""
 	switch b.Event {
 	case "push":
-		if !e.Deleted && e.PR == nil && e.Ref == "refs/heads/"+b.Branch {
+		if !e.Deleted && e.PR == nil && e.Ref == b.ref() && e.Ref != "" {
 			sha = e.After
 		}
 	case "pull_request":
@@ -91,7 +103,7 @@ func (d DeliveryDependencies) githubPipelineHook(w http.ResponseWriter, r *http.
 			err = json.Unmarshal(cfg, &b)
 		}
 	}
-	if err != nil || d.Runs == nil || len(b.Secret) < 32 || b.RepositoryID < 1 || b.Branch == "" || b.OrganizationID == "" || b.PipelineID == "" || b.ActorID == "" || b.Version < 1 || (b.Event != "push" && b.Event != "pull_request") {
+	if err != nil || d.Runs == nil || len(b.Secret) < 32 || b.RepositoryID < 1 || b.ref() == "" || b.OrganizationID == "" || b.PipelineID == "" || b.ActorID == "" || b.Version < 1 {
 		writeProblem(w, 503, "Webhook unavailable", "Check the trigger binding")
 		return
 	}
@@ -115,7 +127,7 @@ func (d DeliveryDependencies) githubPipelineHook(w http.ResponseWriter, r *http.
 		return
 	}
 	digest := sha256.Sum256(raw)
-	_, err = d.Runs.TriggerRun(r.Context(), b.OrganizationID, b.PipelineID, b.Version, b.ActorID, execution.Webhook{Hook: id, Delivery: delivery, Digest: hex.EncodeToString(digest[:]), Event: b.Event, RepositoryID: b.RepositoryID, SHA: sha})
+	_, err = d.Runs.TriggerRun(r.Context(), b.OrganizationID, b.PipelineID, b.Version, b.ActorID, execution.Webhook{Hook: id, Delivery: delivery, Digest: hex.EncodeToString(digest[:]), Event: b.Event, Ref: b.ref(), RepositoryID: b.RepositoryID, SHA: sha})
 	switch {
 	case err == nil:
 		w.WriteHeader(http.StatusAccepted)

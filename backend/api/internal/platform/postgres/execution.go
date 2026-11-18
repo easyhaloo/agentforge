@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook,integration`
+const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook,integration,trigger_source`
 
 func scanRun(row pgx.Row) (execution.Run, error) {
 	var r execution.Run
-	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration)
+	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration, &r.Trigger)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = pipeline.ErrMissing
 	}
@@ -40,20 +40,20 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 		return empty, err
 	}
 	defer tx.Rollback(ctx)
-	run, err := createRunTx(ctx, tx, org, id, number, actor, inputs, hook, integration)
+	run, err := createRunTx(ctx, tx, org, id, number, actor, inputs, hook, integration, nil)
 	if err != nil {
 		return empty, err
 	}
 	return run, tx.Commit(ctx)
 }
-func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, actor string, inputs map[string]json.RawMessage, hook *execution.Webhook, integration *execution.Integration) (execution.Run, error) {
+func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, actor string, inputs map[string]json.RawMessage, hook *execution.Webhook, integration *execution.Integration, source *execution.TriggerSource) (execution.Run, error) {
 	var empty execution.Run
 	var err error
 	// Serialize admission within the tenant so concurrent requests cannot exceed its quota.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(9071,hashtext($1))`, org); err != nil {
 		return empty, err
 	}
-	if hook != nil || (integration != nil && integration.QueueEntry != 0) {
+	if hook != nil || source != nil || (integration != nil && integration.QueueEntry != 0) {
 		var allowed bool
 		err = tx.QueryRow(ctx, `SELECT true FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id WHERE m.organization_id=$1 AND m.user_id=$2 AND m.status='active' AND o.status='active' AND m.role IN ('member','owner','admin') FOR SHARE OF m,o`, org, actor).Scan(&allowed)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -96,7 +96,7 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 	if active >= 16 {
 		return empty, execution.ErrQuota
 	}
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook,integration) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING `+runColumns, org, id, number, actor, snapshot, hook, integration))
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook,integration,trigger_source) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+runColumns, org, id, number, actor, snapshot, hook, integration, source))
 	if err != nil {
 		return empty, err
 	}
