@@ -232,6 +232,9 @@ func (p *LocalGitProvider) Blame(ctx context.Context, organizationID, repository
 	lines := strings.Split(string(output), "\n")
 	result := make([]RepositoryBlameLine, 0, endLine-startLine+1)
 	for i := 0; i < len(lines); {
+		if strings.TrimSpace(lines[i]) == "" {
+			break
+		}
 		header := strings.Fields(lines[i])
 		if len(header) < 3 { return nil, ErrRepositoryInvalid }
 		blamedSHA := strings.TrimPrefix(header[0], "^")
