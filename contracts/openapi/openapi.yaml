@@ -312,6 +312,109 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit; omitted uses the registered default branch. The response always returns an immutable commit SHA.
+        schema: { type: string }
+      - in: query
+        name: path
+        description: Repository-relative directory path; empty selects the repository root.
+        schema: { type: string, maxLength: 1024 }
+    get:
+      operationId: listRepositoryTree
+      summary: List a repository directory at an immutable Git commit
+      description: Requires active organization membership and a registered repository. Resolves ref once and returns entries pinned to the resulting full commit SHA. Directory results are bounded to 2000 entries.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit-pinned directory listing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, path, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, path, kind, mode, sha]
+                      properties:
+                        name: { type: string }
+                        path: { type: string }
+                        kind: { type: string, enum: [tree, file, symlink, blob] }
+                        mode: { type: string }
+                        sha: { type: string }
+                        size: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit; omitted uses the registered default branch.
+        schema: { type: string }
+      - in: query
+        name: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 1024 }
+    get:
+      operationId: readRepositoryBlob
+      summary: Read a UTF-8 Git blob at an immutable commit
+      description: Requires active organization membership and a registered repository. Returns raw source text as JSON, never executes or renders repository HTML. Preview is limited to 1 MiB; binary and larger files are rejected.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit-pinned UTF-8 file content
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, blob_sha, path, encoding, content]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string }
+                  blob_sha: { type: string }
+                  path: { type: string }
+                  encoding: { type: string, const: utf-8 }
+                  content: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "415": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets:
     parameters:
       - in: path
