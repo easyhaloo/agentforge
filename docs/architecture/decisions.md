@@ -110,7 +110,7 @@
 - Context: AgentForge needs reusable custom workflows, typed run parameters, durable execution, conflict detection, ordered multi-branch integration builds and safe promotion. Existing repository, Changeset, Revision, Evaluation, Review and Merge Gate capabilities should remain authoritative owners of their invariants.
 - Decision details:
   - Persist canonical versioned workflow definitions as validated JSON; visual editing is the primary UX and YAML import/export is an interoperability feature.
-  - Introduce pipeline, execution and integration module boundaries incrementally; extend the existing Git provider/local adapter through explicit ports.
+  - Introduce pipeline, execution and integration module boundaries incrementally; extend the existing Git adapter through explicit ports.
   - Use PostgreSQL for workflow state, run metadata and initial durable task scheduling. Use isolated worker processes/containers for all untrusted repository execution.
   - Pin target and source refs to immutable commit SHAs at run creation. Build and test the exact ordered integration candidate.
   - Use Git merge simulation for conflict diagnostics, but require a real isolated candidate build for application validation.
@@ -124,20 +124,59 @@
   - The UI must distinguish mergeability, build/test success, gate eligibility and actual promotion.
   - Implementation proceeds according to `docs/plans/cicd-development-plan.md`; this ADR does not imply implementation is complete.
 
-
-## ADR-009: Native AgentForge Git hosting
+## ADR-010: Native AgentForge Git hosting
 
 - Status: Accepted
-- Decision: AgentForge is an independent Git hosting platform. It owns repository lifecycle, bare Git storage, refs, Git Smart HTTP, authentication, authorization, push policy and repository browsing. GitHub/GitLab Provider integrations and synchronization are not part of the core repository architecture.
+- Decision: AgentForge is an independent Git hosting platform. It owns repository lifecycle, Git object storage, refs, Git transport, authentication, authorization, push policy and repository browsing. GitHub/GitLab integrations are not dependencies for core repository operations.
 - Context: Repository and Changeset workflows require an authoritative source-control system. Delegating Git authority to another hosting service would make AgentForge a dependent integration rather than an independent platform.
 - Consequences:
   - Reuse Git's native object format and standard Git client protocol; do not reimplement packfiles or Git wire protocol.
-  - PostgreSQL owns repository metadata, tenant permissions, policy and durable event records. Git bare repositories own objects and refs.
-  - Initial storage is one bare repository per AgentForge repository on a durable server-controlled filesystem volume. The storage boundary is internal, not an external provider abstraction.
-  - Smart HTTP supports upload-pack and receive-pack. MVP should use maintained git-http-backend behind a tightly controlled Go gateway, subject to CGI isolation and interoperability/security tests.
+  - PostgreSQL owns repository metadata, tenant permissions, policy and durable event records. Git repositories own canonical Git objects and refs.
+  - Initial storage is one bare repository per AgentForge repository on a durable server-controlled filesystem volume. This is an MVP deployment choice, not a horizontal-scaling claim.
+  - Smart HTTP uses a maintained Git protocol implementation behind a tightly controlled Go gateway, subject to CGI isolation and interoperability/security tests.
   - Git commands run through a centralized bounded command runner with trusted storage keys, argument arrays, controlled environment, timeouts and output limits.
   - Browser reads are authorized by repository and pinned full commit SHA; blob resolution is commit+path, not an arbitrary SHA endpoint.
   - Push policy runs before ref acceptance; successful ref updates publish durable post-receive outbox events for CI, indexing, Changeset and Trail consumers.
   - Revision, evaluation, evidence, review and merge remain native AgentForge concepts bound to immutable Git commit IDs.
   - SSH, Git LFS, forks, search and horizontally scalable storage are later phases.
   - See [Native Git Hosting Architecture](native-git-hosting.md), [API and Data Model](native-git-api-and-data-model.md), and [Delivery Plan](../plans/native-git-hosting.md).
+
+## ADR-011: Git-compatible storage scaling before alternative SCM storage
+
+- Status: Accepted
+- Decision: Evolve the first-party Git hosting engine using Git-compatible storage and protocol semantics first. Adopt Pando-inspired techniques incrementally: per-ref concurrency control, immutable pack/object reuse, fetch negotiation and caching, background compaction, bounded streaming and protocol conformance testing.
+- Context: AgentForge must remain usable by standard Git clients and preserve Git commit identities, signatures and interoperability. Replacing the storage model before product requirements and operational scale are measured would create migration and compatibility risk.
+- Consequences:
+  - Git remains the canonical interoperable representation in the initial phases; Git commit SHA is never conflated with an AgentForge Changeset or Revision ID.
+  - Ref updates use compare-and-swap against an expected old object ID. Independent refs may progress concurrently; competing updates to one ref are serialized/rejected safely.
+  - Object/pack data is immutable after publication. Pack reuse and compaction are storage optimizations and must not change reachable Git object identity.
+  - Fetch optimizations must preserve Git negotiation semantics and authorization boundaries. Cache keys include repository identity and relevant visibility/policy context.
+  - Protocol v2 and packfile-URI-like transfer optimizations are enabled only after client interoperability tests.
+  - Start with a local bare-repository adapter and explicit storage ports. Do not claim distributed scaling until shared-storage/sharding, locking, crash recovery and integrity behavior are proven.
+  - Add deterministic concurrency tests for ref races, interrupted pushes, pack publication and reconciliation before introducing more complex storage topology.
+
+## ADR-012: Server-side Source Control API and rebuildable derived data
+
+- Status: Accepted
+- Decision: Provide server-side source-control operations for Agents and CI, while keeping Git as the canonical data model initially. Add a versioned, rebuildable Derived Data layer for graph, blame, path history and search rather than requiring clients to clone full repositories for every query.
+- Context: Anthropic's Scion demonstrates the value of always-online clients, server-side source-control RPCs, bounded local workspaces and derived indexes. Its Changeset-WAL storage model is a much larger compatibility break and is not required to obtain these API and workflow benefits.
+- Consequences:
+  - Provide bounded server operations for changeset metadata, diff, merge-base, history, blame, tree, blob and integration preview, all pinned to immutable Git object IDs.
+  - Derived records are keyed by repository, commit/object identity, derivation kind and algorithm version. They are disposable projections, never the sole source of truth, and can be recomputed.
+  - Support eager or lazy derivation according to query frequency and cost. Use asynchronous workers for expensive indexing; persist status and retry metadata.
+  - Authorization is checked before resolving or returning objects. A known blob SHA is not an authorization credential; path-level ACLs apply before content access.
+  - Agents and CI may use server APIs without a full checkout. Sparse and virtualized workspaces are later optimizations, not prerequisites for the API.
+  - Keep REST/OpenAPI as the initial public contract. Internal interfaces may be transport-neutral, but do not introduce gRPC or a new RPC protocol without measured need.
+
+## ADR-013: Scion-style Changeset storage is a future, separately versioned backend
+
+- Status: Accepted
+- Decision: Do not implement a Scion-style Changeset WAL / content-addressed Blob backend in the initial delivery. Preserve a future adapter boundary and evaluate it only when measured repository size, checkout traffic, write contention or storage cost justify a second data model.
+- Context: Scion replaces Git's core storage and client assumptions with server-created Changesets, first-parent changed-file logs, blob pointers and derived graph/index data. Anthropic explicitly describes it as a purpose-built internal system, not a drop-in general Git replacement.
+- Consequences:
+  - The initial canonical store remains Git-native. No dual-write of all commits into a speculative WAL.
+  - If a future backend is approved, define stable repository/changeset/blob IDs, parent and merge semantics, import/export fidelity, signature preservation, ref mapping, audit provenance and rollback before migration.
+  - Git commit SHA and any future Changeset ID are distinct typed identifiers with explicit mapping/provenance; never compare or substitute them.
+  - Any migration is staged and verifiable: freeze or serialize writes per repository, export/import, verify graph/content, shadow-read, compare results, switch authority, retain rollback data, then resume.
+  - Keep the initial SourceControlStore interface narrow and driven by real use cases. Do not prematurely implement two complete storage engines.
+  - Revisit only with measured thresholds and a dedicated ADR amendment; no Scion compatibility or performance claim is implied.
