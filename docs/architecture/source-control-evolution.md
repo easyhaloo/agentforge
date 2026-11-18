@@ -251,3 +251,10 @@ No Anthropic or OpenAI performance figures are AgentForge targets or guarantees.
 - Anthropic, *Redesigning source control at Anthropic* (2026-10-13; updated 2026-10-15): https://www.anthropic.com/research/redesigning-source-control
 - Git protocol documentation: https://git-scm.com/docs/protocol-v2
 
+
+
+## 14. Repository Preview and WebIDE
+
+The read-only Repository Preview and editable WebIDE are separate clients of the Source Control Core. Preview resolves refs to immutable commit IDs and serves authorized, bounded tree/blob/history/diff content without creating a workspace. WebIDE creates an isolated workspace from a pinned commit and submits changes through the existing Changeset lifecycle.
+
+The extension host is a versioned, capability-scoped API. Repository code and preview output are untrusted; neither executes in the trusted application origin or Go API process. See [Repository Preview and WebIDE](repository-preview-and-webide.md), ADR-014 and ADR-015.
