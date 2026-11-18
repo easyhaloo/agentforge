@@ -63,5 +63,16 @@
   "draft": "draft",
   "published": "published",
   "archived": "archived",
-  "queued": "queued"
+  "queued": "queued",
+  "mergeQueue": "Merge queue",
+  "queueRepo": "Registered repository",
+  "queueTarget": "Target branch",
+  "refreshQueue": "Refresh queue",
+  "queueSource": "Source branch or commit",
+  "enqueue": "Enqueue",
+  "queueEmpty": "The queue is empty.",
+  "cancelEntry": "Remove",
+  "promoteCandidate": "Promote candidate",
+  "building": "Building",
+  "ready": "Ready for promotion"
 }

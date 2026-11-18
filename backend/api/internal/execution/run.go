@@ -25,6 +25,7 @@ type Webhook struct {
 var ErrTriggerDenied = errors.New("webhook trigger denied")
 
 type Integration struct {
+	QueueEntry int64  `json:"queueEntry,omitempty"`
 	Repository string `json:"repository"`
 	Strategy   string `json:"strategy"`
 	delivery.MergePreview

@@ -40,11 +40,20 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 		return empty, err
 	}
 	defer tx.Rollback(ctx)
+	run, err := createRunTx(ctx, tx, org, id, number, actor, inputs, hook, integration)
+	if err != nil {
+		return empty, err
+	}
+	return run, tx.Commit(ctx)
+}
+func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, actor string, inputs map[string]json.RawMessage, hook *execution.Webhook, integration *execution.Integration) (execution.Run, error) {
+	var empty execution.Run
+	var err error
 	// Serialize admission within the tenant so concurrent requests cannot exceed its quota.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(9071,hashtext($1))`, org); err != nil {
 		return empty, err
 	}
-	if hook != nil {
+	if hook != nil || (integration != nil && integration.QueueEntry != 0) {
 		var allowed bool
 		err = tx.QueryRow(ctx, `SELECT true FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id WHERE m.organization_id=$1 AND m.user_id=$2 AND m.status='active' AND o.status='active' AND m.role IN ('member','owner','admin') FOR SHARE OF m,o`, org, actor).Scan(&allowed)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -53,6 +62,8 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 		if err != nil {
 			return empty, err
 		}
+	}
+	if hook != nil {
 		prior, err := scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM pipeline_runs WHERE organization_id=$1 AND webhook->>'hook'=$2 AND (webhook->>'delivery'=$3 OR webhook->>'digest'=$4)`, org, hook.Hook, hook.Delivery, hook.Digest))
 		if err == nil {
 			if prior.Webhook.Digest != hook.Digest {
@@ -64,20 +75,9 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 			return empty, err
 		}
 	}
-	var def pipeline.Definition
-	var archived bool
-	err = tx.QueryRow(ctx, `SELECT v.definition,p.status='archived' FROM pipelines p JOIN pipeline_versions v ON (v.organization_id,v.pipeline_id)=(p.organization_id,p.id) WHERE p.organization_id=$1 AND p.id=$2 AND v.number=$3 FOR SHARE OF p`, org, id, number).Scan(&def, &archived)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return empty, pipeline.ErrMissing
-	}
+	def, err := runDefinition(ctx, tx, org, id, number, inputs, integration != nil)
 	if err != nil {
 		return empty, err
-	}
-	if archived {
-		return empty, pipeline.ErrConflict
-	}
-	if err = def.ValidateInputs(inputs); err != nil {
-		return empty, fmt.Errorf("%w: %s", execution.ErrInputs, err)
 	}
 	snapshot := map[string]json.RawMessage{}
 	for _, p := range def.Parameters {
@@ -87,19 +87,6 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 		}
 		if value != nil {
 			snapshot[p.Name] = value
-		}
-	}
-	if integration != nil {
-		checked := false
-		for _, stage := range def.Stages {
-			for _, job := range stage.Jobs {
-				for _, step := range job.Steps {
-					checked = checked || step.Uses == pipeline.ContainerCheck
-				}
-			}
-		}
-		if !checked {
-			return empty, fmt.Errorf("%w: integration workflow requires a container check", execution.ErrInputs)
 		}
 	}
 	var active int
@@ -152,7 +139,7 @@ func (s *Store) createRun(ctx context.Context, org, id string, number int, actor
 	if _, err = tx.Exec(ctx, `INSERT INTO pipeline_run_events(run_id,kind,actor) VALUES($1,'queued',$2)`, run.ID, actor); err != nil {
 		return empty, err
 	}
-	return run, tx.Commit(ctx)
+	return run, nil
 }
 
 func (s *Store) Events(ctx context.Context, org, id string, after int64) ([]execution.Event, error) {
@@ -164,4 +151,36 @@ func (s *Store) Events(ctx context.Context, org, id string, after int64) ([]exec
 		return nil, err
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[execution.Event])
+}
+
+func runDefinition(ctx context.Context, tx pgx.Tx, org, id string, number int, inputs map[string]json.RawMessage, needsCheck bool) (pipeline.Definition, error) {
+	var def pipeline.Definition
+	var archived bool
+	err := tx.QueryRow(ctx, `SELECT v.definition,p.status='archived' FROM pipelines p JOIN pipeline_versions v ON (v.organization_id,v.pipeline_id)=(p.organization_id,p.id) WHERE p.organization_id=$1 AND p.id=$2 AND v.number=$3 FOR SHARE OF p`, org, id, number).Scan(&def, &archived)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return def, pipeline.ErrMissing
+	}
+	if err != nil {
+		return def, err
+	}
+	if archived {
+		return def, pipeline.ErrConflict
+	}
+	if err = def.ValidateInputs(inputs); err != nil {
+		return def, fmt.Errorf("%w: %s", execution.ErrInputs, err)
+	}
+	if needsCheck {
+		checked := false
+		for _, stage := range def.Stages {
+			for _, job := range stage.Jobs {
+				for _, step := range job.Steps {
+					checked = checked || step.Uses == pipeline.ContainerCheck
+				}
+			}
+		}
+		if !checked {
+			return def, fmt.Errorf("%w: integration workflow requires a container check", execution.ErrInputs)
+		}
+	}
+	return def, nil
 }
