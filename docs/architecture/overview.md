@@ -258,3 +258,10 @@ AgentForge keeps Git as its canonical interoperable storage model while adopting
 A Scion-style Changeset WAL is explicitly deferred until AgentForge workload metrics justify a separately versioned storage backend and a verified migration path. Git commit IDs and AgentForge Changeset/Revision IDs remain distinct.
 
 See [Source Control Evolution](source-control-evolution.md) and ADR-010 through ADR-013 in [Architecture Decisions](decisions.md).
+
+
+## 15. Repository Preview and WebIDE
+
+Repository Preview is the zero-clone, read-only interface over immutable commit-pinned Source Control APIs. WebIDE is a browser client of isolated server-managed workspaces and hands changes back through the existing Changeset lifecycle. Its extension SDK is versioned and capability-scoped; extensions and preview runtimes never receive unrestricted host access.
+
+See [Repository Preview and WebIDE](repository-preview-and-webide.md) and ADR-014/ADR-015 in [Architecture Decisions](decisions.md).
