@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 )
 
@@ -30,6 +31,10 @@ test -w /tmp
 test "$(wc -l </proc/net/route)" -eq 1
 test "$(cat /sys/fs/cgroup/pids.max)" = 32
 if test -f /slow; then sleep 60; else
+  test -n "$AGENTFORGE_REVISION_SHA"
+  test "$(cat /workspace/build-input)" = pinned
+  test ! -d /workspace/.git
+  test ! -w /workspace/build-input
   test "$(cat)" = '{"token":"fixture"}'
   echo fixture
 fi
@@ -54,6 +59,38 @@ fi
 		var capture logPrefix
 		if !slow {
 			task.OrganizationID, task.PipelineID = "org", "workflow"
+			gitRoot := t.TempDir()
+			t.Setenv("GIT_REPOSITORY_ROOT", gitRoot)
+			repo := filepath.Join(gitRoot, "org", "team", "repo")
+			if err := os.MkdirAll(repo, 0700); err != nil {
+				t.Fatal(err)
+			}
+			git := func(args ...string) {
+				t.Helper()
+				out, err := exec.Command("git", append([]string{"-C", repo, "-c", "user.name=fixture", "-c", "user.email=test@example.invalid"}, args...)...).CombinedOutput()
+				if err != nil {
+					t.Fatalf("git fixture: %v %s", err, out)
+				}
+			}
+			git("init", "-b", "main")
+			git("commit", "--allow-empty", "-m", "base")
+			git("checkout", "-b", "topic")
+			if err := os.WriteFile(filepath.Join(repo, "build-input"), []byte("pinned"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			git("add", ".")
+			git("commit", "-m", "input")
+			provider, err := delivery.NewLocalGitProvider(gitRoot, time.Minute)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate, err := provider.PrepareCandidate(t.Context(), "org", "team/repo", delivery.MergeRequest{Target: "main", Sources: []string{"topic"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			git("checkout", "main")
+			task.Integration = &execution.Integration{Repository: "team/repo", MergePreview: candidate}
+
 			task.SecretRefs = map[string]string{"token": "secret://key"}
 			root := t.TempDir()
 			t.Setenv("PIPELINE_SECRETS_DIR", root)

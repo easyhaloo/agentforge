@@ -18,8 +18,9 @@ type MergePreviewProvider interface {
 	PreviewMerge(context.Context, string, string, MergeRequest) (MergePreview, error)
 }
 type MergeRequest struct {
-	Target  string   `json:"target"`
-	Sources []string `json:"sources"`
+	Target   string   `json:"target"`
+	Sources  []string `json:"sources"`
+	Strategy string   `json:"strategy,omitempty"`
 }
 type PinnedRef struct {
 	Ref string `json:"ref"`
@@ -40,7 +41,11 @@ var ErrPreviewUnavailable = errors.New("merge preview unavailable")
 
 // previewGit keeps hooks, user configuration and original-repository merge drivers out of the simulation.
 func previewGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	return previewGitInput(ctx, dir, nil, args...)
+}
+func previewGitInput(ctx context.Context, dir string, stdin io.Reader, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir, "-c", "core.hooksPath=/dev/null", "-c", "protocol.allow=never"}, args...)...)
+	cmd.Stdin = stdin
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "LC_ALL=C", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1", "GIT_ATTR_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_AUTHOR_NAME=AgentForge", "GIT_COMMITTER_NAME=AgentForge", "GIT_AUTHOR_EMAIL=ci@agentforge.invalid", "GIT_COMMITTER_EMAIL=ci@agentforge.invalid", "GIT_AUTHOR_DATE=2000-01-01T00:00:00Z", "GIT_COMMITTER_DATE=2000-01-01T00:00:00Z"}
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -67,7 +72,19 @@ func (p *LocalGitProvider) SupportsMergePreview(ctx context.Context) bool {
 }
 
 func (p *LocalGitProvider) PreviewMerge(ctx context.Context, org, repository string, input MergeRequest) (MergePreview, error) {
+	return p.merge(ctx, org, repository, input, false)
+}
+
+// PrepareCandidate keeps the clean candidate reachable for a later isolated build.
+func (p *LocalGitProvider) PrepareCandidate(ctx context.Context, org, repository string, input MergeRequest) (MergePreview, error) {
+	return p.merge(ctx, org, repository, input, true)
+}
+
+func (p *LocalGitProvider) merge(ctx context.Context, org, repository string, input MergeRequest, retain bool) (MergePreview, error) {
 	var result MergePreview
+	if input.Strategy != "" && input.Strategy != "merge-commit" && input.Strategy != "ff-only" {
+		return result, ErrRepositoryInvalid
+	}
 	if len(input.Sources) == 0 || len(input.Sources) > 32 {
 		return result, ErrRepositoryInvalid
 	}
@@ -125,6 +142,25 @@ func (p *LocalGitProvider) PreviewMerge(ctx context.Context, org, repository str
 	}
 	current := result.Target.SHA
 	for i, source := range result.Sources {
+		if input.Strategy == "ff-only" {
+			if _, err := previewGit(ctx, temp, "merge-base", "--is-ancestor", current, source.SHA); err != nil {
+				var exit *exec.ExitError
+				if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+					return result, ErrPreviewUnavailable
+				}
+				result.Status = "non_fast_forward"
+				result.ConflictAt = &i
+				result.TreeSHA = ""
+				return result, nil
+			}
+			current = source.SHA
+			raw, err := previewGit(ctx, temp, "rev-parse", current+"^{tree}")
+			if err != nil {
+				return result, ErrPreviewUnavailable
+			}
+			result.TreeSHA = strings.TrimSpace(string(raw))
+			continue
+		}
 		out, err := previewGit(ctx, temp, "merge-tree", "--write-tree", "--name-only", "--no-messages", "-z", current, source.SHA)
 		fields := bytes.Split(bytes.TrimSuffix(out, []byte{0}), []byte{0})
 		if !objectID.Match(fields[0]) {
@@ -160,6 +196,15 @@ func (p *LocalGitProvider) PreviewMerge(ctx context.Context, org, repository str
 			return result, ErrPreviewUnavailable
 		}
 		result.TreeSHA = tree
+	}
+	if retain {
+		ref := candidateRef(current)
+		if _, err := previewGit(ctx, temp, "update-ref", ref, current); err != nil {
+			return result, ErrPreviewUnavailable
+		}
+		if _, err := previewGit(ctx, path, "-c", "protocol.file.allow=always", "fetch", "--no-tags", "--no-write-fetch-head", "--no-auto-maintenance", "--", temp, ref+":"+ref); err != nil {
+			return result, ErrPreviewUnavailable
+		}
 	}
 	result.Status = "clean"
 	result.CandidateSHA = current

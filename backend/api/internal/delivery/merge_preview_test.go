@@ -131,3 +131,53 @@ func TestPreviewRequiresTenantOwnedRepository(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildAndPromoteOnlyRetainedCandidate(t *testing.T) {
+	root := t.TempDir()
+	src := t.TempDir()
+	gitTest(t, src, "init", "-b", "main")
+	gitTest(t, src, "commit", "--allow-empty", "-m", "base")
+	gitTest(t, src, "checkout", "-b", "topic")
+	if err := os.WriteFile(filepath.Join(src, "input"), []byte("exact revision"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitTest(t, src, "add", "input")
+	gitTest(t, src, "commit", "-m", "feature")
+	repo := filepath.Join(root, "org", "team", "repo")
+	gitTest(t, src, "clone", "--bare", src, repo)
+	p, err := NewLocalGitProvider(root, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := p.PrepareCandidate(t.Context(), "org", "team/repo", MergeRequest{Target: "main", Sources: []string{"topic"}})
+	if err != nil || candidate.Status != "clean" {
+		t.Fatalf("prepare=%v %v", candidate, err)
+	}
+	gitTest(t, repo, "update-ref", "-d", "refs/heads/topic")
+	gitTest(t, repo, "gc", "--prune=now")
+	dir, cleanup, err := p.CheckoutCandidate(t.Context(), "org", "team/repo", candidate.CandidateSHA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	b, err := os.ReadFile(filepath.Join(dir, "input"))
+	if err != nil || string(b) != "exact revision" {
+		t.Fatalf("wrong candidate contents %q, %v", b, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); !os.IsNotExist(err) {
+		t.Fatal("Git metadata exposed to build")
+	}
+	gitTest(t, repo, "update-ref", "refs/heads/main", candidate.Sources[0].SHA)
+	if err := p.PromoteCandidate(t.Context(), "org", "team/repo", "run-1", candidate); !errors.Is(err, ErrCandidateStale) {
+		t.Fatalf("stale promotion returned %v", err)
+	}
+	gitTest(t, repo, "update-ref", "refs/heads/main", candidate.Target.SHA)
+	for range 2 {
+		if err := p.PromoteCandidate(t.Context(), "org", "team/repo", "run-1", candidate); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := stringTrim(gitTest(t, repo, "rev-parse", "main")); got != candidate.CandidateSHA {
+		t.Fatalf("promoted %s", got)
+	}
+}

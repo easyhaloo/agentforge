@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 )
 
 var ErrInputs = errors.New("invalid run inputs")
@@ -22,19 +24,33 @@ type Webhook struct {
 
 var ErrTriggerDenied = errors.New("webhook trigger denied")
 
+type Integration struct {
+	Repository string `json:"repository"`
+	Strategy   string `json:"strategy"`
+	delivery.MergePreview
+}
+
 type Run struct {
-	Webhook    *Webhook                   `json:"webhook,omitempty"`
-	ID         string                     `json:"id"`
-	PipelineID string                     `json:"pipelineId"`
-	Version    int                        `json:"version"`
-	ActorID    string                     `json:"actorId"`
-	Status     string                     `json:"status"`
-	Inputs     map[string]json.RawMessage `json:"inputs"`
-	CreatedAt  time.Time                  `json:"createdAt"`
-	Deadline   time.Time                  `json:"deadline"`
+	Integration *Integration               `json:"integration,omitempty"`
+	Webhook     *Webhook                   `json:"webhook,omitempty"`
+	ID          string                     `json:"id"`
+	PipelineID  string                     `json:"pipelineId"`
+	Version     int                        `json:"version"`
+	ActorID     string                     `json:"actorId"`
+	Status      string                     `json:"status"`
+	Inputs      map[string]json.RawMessage `json:"inputs"`
+	CreatedAt   time.Time                  `json:"createdAt"`
+	Deadline    time.Time                  `json:"deadline"`
+}
+
+type PromotionProvider interface {
+	CandidateCommits(context.Context, string, string, delivery.MergePreview) ([]string, error)
+	PromoteCandidate(context.Context, string, string, string, delivery.MergePreview) error
 }
 
 type Store interface {
+	PromoteIntegration(context.Context, string, string, string, string, PromotionProvider) error
+	CreateIntegrationRun(context.Context, string, string, int, string, map[string]json.RawMessage, Integration) (Run, error)
 	TriggerRun(context.Context, string, string, int, string, Webhook) (Run, error)
 	CreateRun(context.Context, string, string, int, string, map[string]json.RawMessage) (Run, error)
 	GetRun(context.Context, string, string) (Run, error)
@@ -43,6 +59,7 @@ type Store interface {
 }
 
 type Task struct {
+	Integration    *Integration
 	OrganizationID string
 	PipelineID     string
 	SecretRefs     map[string]string
