@@ -17,6 +17,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 )
 
 type Principal = identity.Principal
@@ -54,6 +55,7 @@ type DeliveryDependencies struct {
 	Catalog delivery.RepositoryCatalog
 	Preview delivery.RepositoryPreviewReader
 	Locker delivery.ChangesetLocker
+	Workspaces workspace.Repository
 }
 
 type storedChangesetResponse struct {
@@ -93,6 +95,13 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces", deps.createWorkspace)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}", deps.getWorkspaceHandler)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/tree", deps.listWorkspaceTree)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/diff", deps.getWorkspaceDiff)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/changesets", deps.createWorkspaceChangeset)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files", deps.readWorkspaceFile)
+	mux.HandleFunc("PUT /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files", deps.writeWorkspaceFile)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob", deps.readRepositoryBlob)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history", deps.listRepositoryHistory)

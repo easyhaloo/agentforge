@@ -6,6 +6,7 @@ import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
@@ -71,6 +72,12 @@ export function RepositoriesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function WebIDERoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <WebIDEPage key={`${organization.id}:${window.location.pathname}`} organization={organization} onNotify={notify} />;
 }
 
 export function OrganizationRoute() {
