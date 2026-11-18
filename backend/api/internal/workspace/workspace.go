@@ -16,12 +16,14 @@ const (
 	StatusExpired Status = "expired"
 	StatusClosed  Status = "closed"
 	MaxFileBytes         = 2 << 20
+	MaxWorkspaceFiles    = 2000
 )
 
 var (
 	ErrInvalidInput    = errors.New("invalid workspace input")
 	ErrVersionConflict = errors.New("workspace file version conflict")
 	ErrUnavailable     = errors.New("workspace is not active")
+	ErrTooLarge        = errors.New("workspace exceeds the listing limit")
 )
 
 type Workspace struct {
