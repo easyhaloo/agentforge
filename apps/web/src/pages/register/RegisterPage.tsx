@@ -135,7 +135,7 @@ export function RegisterPage() {
           <p className="tagline">{t("tagline")}</p>
         </header>
 
-        <form className="register-form" onSubmit={handleSubmit}>
+        <form className="register-form" onSubmit={handleSubmit} noValidate>
           <Input
             type="email"
             name="email"
