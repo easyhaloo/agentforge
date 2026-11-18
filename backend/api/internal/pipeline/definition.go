@@ -15,6 +15,7 @@ import (
 
 const APIVersion = "agentforge.dev/v1"
 const Approval = "control/approval@v1"
+const ContainerCheck = "container/check@v1"
 
 var identifier = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 var ErrMissing = errors.New("pipeline not found")
@@ -78,7 +79,7 @@ func (d Definition) Validate() error {
 				return errors.New("invalid job ID or step count")
 			}
 			for _, step := range j.Steps {
-				if !register(step.ID) || step.Uses != Approval {
+				if !register(step.ID) || (step.Uses != Approval && step.Uses != ContainerCheck) {
 					return errors.New("invalid step ID or unknown capability")
 				}
 			}

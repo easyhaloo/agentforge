@@ -151,3 +151,9 @@ The OpenAPI contract imports the same v1 JSON Schema that the API embeds. Regene
 ```sh
 npx --yes openapi-typescript@7.10.1 contracts/openapi/pipelines.yaml -o apps/web/src/shared/api/pipeline-contract.d.ts
 ```
+
+### Starting and observing a pipeline run
+
+Post a JSON object of parameter overrides to `/api/v1/organizations/{org}/pipelines/{id}/versions/{number}/runs`. The response includes the run ID, actor, immutable published version, resolved defaults and a one-hour deadline. Each organization can have 16 active runs. Archived pipelines reject new runs. Read status at `/api/v1/organizations/{org}/pipeline-runs/{run}`. Its `/events` endpoint replays up to 128 audit events over SSE and resumes from `Last-Event-ID`. Members can post to `/cancel`. Owners and admins can post `{"approved":true}` or `{"approved":false}` to `/steps/{step}/decision` when an approval is waiting.
+
+Start the separate worker with `go run ./cmd/pipeline-worker` from the API module. Provide `DATABASE_URL` and `PIPELINE_CHECK_IMAGE` in its environment. Use a dedicated Docker runner with a preloaded operator-controlled digest-pinned image containing `/usr/bin/timeout` and an executable `/usr/local/bin/agentforge-check`. The `container/check@v1` step invokes that check as an unprivileged user with a read-only filesystem, disabled networking and a two-minute time limit. Each worker claims one step at a time. A lost lease becomes available after 30 seconds. Three abandoned attempts fail the run. Run events include the first 8 KiB of the check’s stdout, the result and the actor. Checks receive no host credentials or user-supplied environment.
