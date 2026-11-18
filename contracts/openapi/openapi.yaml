@@ -6,6 +6,10 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/integration-runs:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1integration-runs
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/promote:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1promote
   /api/v1/organizations/{organizationID}/merge-preview:
     $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-preview
   /api/v1/organizations/{organizationID}/merge-preview/capabilities:

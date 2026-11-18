@@ -272,6 +272,11 @@ export interface components {
     schemas: {
         Run: {
             id: string;
+            integration?: components["schemas"]["MergePreview"] & {
+                repository: string;
+                /** @enum {string} */
+                strategy: "merge-commit" | "ff-only";
+            };
             webhook?: {
                 hook: string;
                 delivery: string;
@@ -350,6 +355,20 @@ export interface components {
                     }[];
                 }[];
             }[];
+        };
+        PinnedRef: {
+            ref: string;
+            sha: string;
+        };
+        MergePreview: {
+            /** @enum {string} */
+            status: "clean" | "conflict" | "non_fast_forward";
+            target: components["schemas"]["PinnedRef"];
+            sources: components["schemas"]["PinnedRef"][];
+            candidateSHA?: string;
+            treeSHA?: string;
+            conflictAt?: number;
+            conflictPaths?: string[];
         };
     };
     responses: {
