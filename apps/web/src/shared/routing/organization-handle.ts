@@ -3,7 +3,10 @@ import { CURRENT_ORGANIZATION_HANDLE } from "./paths";
 
 /** The URL handle of an organization: its slug, or its id while the API does not return a slug. */
 export function organizationHandle(organization: Pick<OrganizationSummary, "id" | "slug">): string {
-  return organization.slug || organization.id;
+  // `current` is reserved for the client-side alias, so an organization that carries it is addressed by its id.
+  const slug = organization.slug;
+  if (slug && slug.toLowerCase() !== CURRENT_ORGANIZATION_HANDLE) return slug;
+  return organization.id;
 }
 
 /**

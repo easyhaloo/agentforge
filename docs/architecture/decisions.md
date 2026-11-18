@@ -69,7 +69,7 @@
 - Status: Accepted
 - Decision: Navigation state lives in the URL. The web app uses a React Router data router with one route table, `apps/web/src/app/routes.tsx`, as the only place that declares routes. Pages backed by the real API are organization-scoped under `/orgs/:org/...`. Mock and fixture pages stay flat, so they remain browsable without a session, and move under `/orgs/:org` only when a real backend capability replaces them.
   - `:org` is an organization handle: the organization's `slug`, or its `id`. Resolution mirrors the server: an exact `id` match wins, otherwise the slug matches case-insensitively; no match means "not found". The literal handle `current` is a client-side alias for the selected organization. Once the account is known the client replaces it (history `replace`, query string and hash preserved) with the organization's own handle, so a shared URL does not contain `current`.
-  - The client builds handles as `slug || id`: frontend and backend deploy independently, so it falls back to `id` while the API does not return `slug`.
+  - The client builds handles as `slug || id`: frontend and backend deploy independently, so it falls back to `id` while the API does not return `slug`. `current` is reserved for the alias, so an organization whose slug is `current` is addressed by its `id`.
   - `/api/*` and `/auth/*` are backend paths on the same origin (reverse proxy) and are never client routes. The SSO entry is a plain `<a href="/auth/oidc/login">`.
   - Any other path renders a not-found state inside the shell. Pages build links only through `shared/routing`.
 
