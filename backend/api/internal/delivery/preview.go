@@ -93,7 +93,7 @@ func (p *LocalGitProvider) runPreview(ctx context.Context, repoPath string, maxO
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &boundedBuffer{buffer:&stdout, limit:maxOutput}
 	command.Stderr = &boundedBuffer{buffer:&stderr, limit:64<<10}
-	if err := command.Run(); err != nil { return nil, err }
+	if err := command.Run(); err != nil { return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())) }
 	return stdout.Bytes(), nil
 }
 
@@ -140,7 +140,7 @@ func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repo
 	format := "%H%x00%P%x00%an%x00%aI%x00%s"
 	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--")
 	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
-	if err != nil { return nil, ErrRepositoryInvalid }
+	if err != nil { return nil, fmt.Errorf("%w: %v", ErrRepositoryInvalid, err) }
 	fields := bytes.Split(output, []byte{0})
 	commits := make([]RepositoryCommit, 0, limit)
 	for i := 0; i+4 < len(fields); i += 5 {
