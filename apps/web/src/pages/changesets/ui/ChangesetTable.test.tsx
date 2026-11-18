@@ -30,4 +30,15 @@ describe("changeset list table", () => {
     const items = [stored("CS-1", "Row the server sent"), stored("CS-2", "Another row")];
     expect(changesetRows(items)).toHaveLength(items.length);
   });
+
+  it("shows the status the server reports, not one the browser derives", () => {
+    // A stored changeset that looks merged, but the server says it is still a draft.
+    const item = stored("CS-1", "Server status wins", "draft");
+    item.changeset.merge = { id: "m-1", revision_id: "r-1", actor: "user-owner", target_ref: "main", commit_sha: "abc123", created_at: "2026-11-17T09:00:00.000Z" };
+
+    const html = renderTable([item]);
+
+    expect(html).toContain('<span class="status muted">Draft</span>');
+    expect(html).not.toContain("Merged");
+  });
 });
