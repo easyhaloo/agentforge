@@ -118,6 +118,7 @@ export type RepositoryPreviewTree = { repository: string; commit_sha: string; pa
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
+export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
 export const repositoryPreviewAPI = {
   tree: (organizationID: string, repository: string, path = "", ref = "") => {
     const [owner, name] = repository.split("/");
@@ -136,6 +137,18 @@ export const repositoryPreviewAPI = {
     const query = new URLSearchParams({ limit: String(limit) });
     if (ref) query.set("ref", ref);
     return request<{ repository: string; commit_sha: string; items: RepositoryCommit[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/history?${query.toString()}`);
+  },
+  fileHistory: (organizationID: string, repository: string, path: string, ref = "", limit = 30) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ path, limit: String(limit) });
+    if (ref) query.set("ref", ref);
+    return request<{ repository: string; commit_sha: string; path: string; items: RepositoryCommit[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/file-history?${query.toString()}`);
+  },
+  blame: (organizationID: string, repository: string, path: string, ref = "", start = 1, end = 200) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ path, start: String(start), end: String(end) });
+    if (ref) query.set("ref", ref);
+    return request<{ repository: string; commit_sha: string; path: string; start: number; end: number; items: RepositoryBlameLine[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blame?${query.toString()}`);
   },
   blob: (organizationID: string, repository: string, path: string, ref = "") => {
     const [owner, name] = repository.split("/");
