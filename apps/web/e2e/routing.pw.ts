@@ -89,8 +89,10 @@ test("/orgs/current is replaced by the canonical organization URL, keeping query
 
 test("a mixed-case /ORGS URL is served like /orgs and the current alias is still replaced", async ({ page }) => {
   await installApiMocks(page);
+  await page.clock.install();
   await page.goto("/ORGS/current/changesets");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await page.clock.fastForward(500); // Mounting the search field must not submit an empty filter.
   expect(pathOf(page)).toBe("/orgs/demo/changesets");
   await expect(changesetsLink(page)).toHaveAttribute("aria-current", "page");
 });
