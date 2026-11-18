@@ -47,5 +47,5 @@ test("a commit-pinned file permalink opens directly", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Repository preview" })).toBeVisible();
   await expect(page.getByText(/Pinned commit:/)).toContainText("aaaaaaaaaaaa");
   await expect(page.getByRole("button", { name: "Copy permalink" })).toBeEnabled();
-  await expect(page.getByText("# Hello")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
 });
