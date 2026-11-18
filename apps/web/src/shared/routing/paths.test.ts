@@ -10,7 +10,6 @@ describe("flat (mock page) paths", () => {
       stacks: "/stacks",
       selfHealing: "/self-healing",
       memory: "/memory",
-      pipelines: "/pipelines",
       security: "/security",
       governance: "/governance",
       usage: "/usage",
@@ -23,6 +22,7 @@ describe("flat (mock page) paths", () => {
 describe("organization-scoped paths", () => {
   it.each([
     ["changesets", "/orgs/demo/changesets"],
+    ["pipelines", "/orgs/demo/pipelines"],
     ["repositories", "/orgs/demo/repositories"],
     ["trails", "/orgs/demo/trails"],
     ["review", "/orgs/demo/review"],

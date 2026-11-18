@@ -1,0 +1,375 @@
+openapi: 3.1.0
+info:
+  title: Pipeline API
+  version: 1.0.0
+paths:
+  /api/v1/organizations/{organizationID}/pipelines:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: listPipelines
+      summary: List pipelines in the organization
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Summary'
+                additionalProperties: false
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+    post:
+      operationId: createPipeline
+      summary: Create a validated draft
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Definition'
+  /api/v1/organizations/{organizationID}/pipelines/{id}:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: getPipeline
+      summary: Read the current workflow
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/draft:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    put:
+      operationId: savePipelineDraft
+      summary: Save a draft at the supplied revision
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              - definition
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+                definition:
+                  $ref: '#/components/schemas/Definition'
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/publish:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: publishPipeline
+      summary: Publish an immutable checksummed version (owner or admin)
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/archive:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: archivePipeline
+      summary: Archive a pipeline (owner or admin)
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions:
+    parameters:
+    - &id001
+      in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - &id002
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: getPipelineVersions
+      summary: Read the published version history
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Version'
+                additionalProperties: false
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/validate-inputs:
+    parameters:
+    - *id001
+    - *id002
+    - in: path
+      name: number
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    post:
+      operationId: validatePipelineInputs
+      summary: Validate runtime overrides for one published version
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '204':
+          description: Inputs match the published version
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+components:
+  schemas:
+    Definition:
+      $ref: ../../backend/api/internal/pipeline/workflow.schema.json
+    Summary:
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - revision
+      - version
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          pattern: ^[A-Za-z][A-Za-z0-9_-]{0,63}$
+        status:
+          enum:
+          - draft
+          - published
+          - archived
+        revision:
+          type: integer
+          minimum: 1
+        version:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    Pipeline:
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - revision
+      - version
+      - definition
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          pattern: ^[A-Za-z][A-Za-z0-9_-]{0,63}$
+        status:
+          enum:
+          - draft
+          - published
+          - archived
+        revision:
+          type: integer
+          minimum: 1
+        version:
+          type: integer
+          minimum: 0
+        definition:
+          $ref: '#/components/schemas/Definition'
+      additionalProperties: false
+    Version:
+      type: object
+      required:
+      - number
+      - checksum
+      - publishedAt
+      - definition
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        checksum:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        publishedAt:
+          type: string
+          format: date-time
+        definition:
+          $ref: '#/components/schemas/Definition'
+      additionalProperties: false
+  securitySchemes:
+    sessionCookie:
+      $ref: ./openapi.yaml#/components/securitySchemes/sessionCookie
+    csrfCookie:
+      $ref: ./openapi.yaml#/components/securitySchemes/csrfCookie
+    csrfToken:
+      $ref: ./openapi.yaml#/components/securitySchemes/csrfToken

@@ -15,6 +15,11 @@ const copy = {
     unavailableTitle: "Organization service unavailable",
     noOrganization: "This account has no active organization membership. Ask an organization owner for an invitation.",
   },
+  pipelines: {
+    signedOutTitle: "Sign in to view pipelines", signedOutBody: "Workflows belong to your organization.",
+    retryWhenSignedOut: true, unavailableTitle: "Pipeline service unavailable",
+    noOrganization: "This account has no active organization membership.",
+  },
   changesets: {
     signedOutTitle: "Sign in to view changesets",
     signedOutBody: "Changesets are scoped to an authenticated organization.",
