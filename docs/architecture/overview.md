@@ -249,3 +249,12 @@ Key invariants:
 - PostgreSQL remains the initial system of record and durable scheduler; add brokers or workflow infrastructure only when measured requirements justify them.
 
 These are target decisions, not claims that the CI/CD product capabilities are already implemented.
+
+
+## 14. Source Control evolution
+
+AgentForge keeps Git as its canonical interoperable storage model while adopting server-side source-control APIs and rebuildable derived indexes. Pando-inspired work (per-ref concurrency, immutable pack reuse, bounded streaming, caching and compaction) improves the Git-native data plane. Scion-inspired work (server-side diff/history/blame APIs, sparse workspaces and versioned Derived Data) reduces the need for full client checkouts without replacing Git.
+
+A Scion-style Changeset WAL is explicitly deferred until AgentForge workload metrics justify a separately versioned storage backend and a verified migration path. Git commit IDs and AgentForge Changeset/Revision IDs remain distinct.
+
+See [Source Control Evolution](source-control-evolution.md) and ADR-010 through ADR-013 in [Architecture Decisions](decisions.md).
