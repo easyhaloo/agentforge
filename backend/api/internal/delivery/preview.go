@@ -153,3 +153,29 @@ func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repo
 	}
 	return commits, nil
 }
+
+
+// RepositoryCompareReader exposes a bounded, read-only diff between immutable commits.
+type RepositoryCompareReader interface {
+	Compare(context.Context, string, string, string, string) (string, error)
+}
+
+func (p *LocalGitProvider) Compare(ctx context.Context, organizationID, repository, baseSHA, headSHA string) (string, error) {
+	if !validGitObjectID(baseSHA) || !validGitObjectID(headSHA) {
+		return "", ErrPreviewPathInvalid
+	}
+	repoPath, err := p.repositoryPath(organizationID, repository)
+	if err != nil {
+		return "", err
+	}
+	output, err := p.runPreview(ctx, repoPath, 1<<20,
+		"diff", "--no-ext-diff", "--no-renames", "--no-color",
+		"--src-prefix=a/", "--dst-prefix=b/", baseSHA, headSHA, "--")
+	if errors.Is(err, ErrPreviewTooLarge) {
+		return "", ErrPreviewTooLarge
+	}
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrRepositoryInvalid, err)
+	}
+	return string(output), nil
+}
