@@ -193,6 +193,9 @@ func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organiza
 		_ = os.Remove(indexPath)
 		return GitRevision{}, err
 	}
+	if err := os.Remove(indexPath); err != nil {
+		return GitRevision{}, err
+	}
 	defer os.Remove(indexPath)
 
 	run := func(input []byte, args ...string) (string, error) {
@@ -274,6 +277,14 @@ func validRefComponent(value string) bool {
 }
 
 func validWorkspaceRevisionPath(value string) bool {
-	return value != "" && len(value) <= 1024 && !strings.ContainsAny(value, "\x00\\\\") &&
-		!strings.HasPrefix(value, "/") && path.Clean(value) == value && value != "." && value != ".." && !strings.HasPrefix(value, "../")
+	if value == "" || len(value) > 1024 || strings.ContainsAny(value, "\x00\\\\") || strings.HasPrefix(value, "/") ||
+		path.Clean(value) != value || value == "." || value == ".." || strings.HasPrefix(value, "../") {
+		return false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if strings.EqualFold(segment, ".git") {
+			return false
+		}
+	}
+	return true
 }
