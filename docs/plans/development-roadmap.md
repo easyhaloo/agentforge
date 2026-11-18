@@ -176,3 +176,17 @@ The approved target, data model and phased acceptance criteria are documented in
 - [Native Git Hosting Delivery Plan](native-git-hosting.md)
 
 The workstream supersedes any earlier proposal that treated GitHub/GitLab as repository providers. Existing local Git code is reusable implementation material, but must be audited against the native hosting security, lifecycle and protocol requirements before it is considered production-ready.
+
+
+## Source Control scaling and Agent-native APIs
+
+The Native Git Hosting workstream now follows the decisions in [Source Control Evolution](../architecture/source-control-evolution.md) and ADR-010 through ADR-013:
+
+1. Keep Git-native storage and standard Git client compatibility as the first canonical implementation.
+2. Implement server-side diff, merge-base, history, tree/blob and integration-preview operations over the Git adapter; all reads are authorized and pinned to immutable commit IDs.
+3. Add versioned, rebuildable Derived Data for commit graph, path history and blame, with eager/lazy computation and canonical Git fallback.
+4. Optimize measured Git bottlenecks using per-ref CAS, immutable pack reuse, bounded streaming, fetch caching and background compaction.
+5. Add sparse/virtualized workspaces only after server-side APIs and usage telemetry demonstrate the need.
+6. Evaluate a Scion-style Changeset WAL only through a separate ADR backed by measured workload, import/export fidelity, shadow-read parity and rollback proof.
+
+Do not implement two complete storage engines or dual-write speculative Changeset logs in the initial delivery. Performance figures published by OpenAI or Anthropic are reference context, not AgentForge targets or guarantees.
