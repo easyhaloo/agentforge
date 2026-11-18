@@ -38,7 +38,8 @@ tests/integration/
 │   └── load-fixtures.js         # Fixture loading script
 └── auth/
     ├── login.test.ts            # Login flow tests
-    └── registration.test.ts     # Registration flow tests
+    ├── registration.test.ts     # Registration flow tests
+    └── complete-flow.test.ts    # End-to-end user journey tests
 ```
 
 ## Running Tests
