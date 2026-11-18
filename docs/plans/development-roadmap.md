@@ -93,8 +93,8 @@ Acceptance: unauthenticated requests are rejected; every organization route is b
 Status: **Implemented in the single Changeset lifecycle delivery branch; pending CI and review before merge.**
 
 Implemented in this delivery:
-- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins and validates the default branch against the trusted Git provider.
-- Git Provider interface and local Git adapter. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch.
+- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins. The current local Git implementation is an early internal storage adapter, not a complete Git hosting transport.
+- Initial local Git adapter and repository lifecycle integration. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch. This is not a GitHub/GitLab Provider integration and does not yet imply clone/fetch/push over Smart HTTP.
 - Revision changes stale prior evidence and reviews; API mutation operations are serialized with PostgreSQL advisory locks and optimistic version checks.
 - Server-side evaluation interface. Default evaluator performs Git patch integrity checks; optional digest-pinned Docker evaluator runs an operator-configured test command in a network-isolated, read-only, non-root, resource-limited container.
 - Evaluation reports are persisted as content-addressed artifacts with SHA-256 provenance and revision/evaluation linkage.
@@ -103,7 +103,8 @@ Implemented in this delivery:
 - Changeset audit events record each lifecycle transition; complete authenticated API workflow tests cover registration through merge and negative gate/authorization cases.
 
 Known adapter boundary:
-- The first provider is operator-provisioned local Git storage, not a remote GitHub/GitLab API integration.
+- The existing local Git adapter is an early internal storage implementation, not a complete AgentForge Git Hosting Engine. Smart HTTP clone/fetch/push, transport authentication, receive hooks, durable post-receive events and repository browsing remain separate deliverables.
+- AgentForge is the authoritative Git hosting platform; GitHub/GitLab Provider or synchronization layers are explicitly out of scope.
 - Without the optional Docker evaluator configuration, the default evaluator checks Git diff integrity only; it does not claim to run the repository's complete test suite.
 - The lifecycle API is synchronous; durable background job scheduling, cancellation and streamed execution events remain Phase 5 work.
 
@@ -146,22 +147,11 @@ Acceptance: tasks survive API restarts; worker is isolated; execution lifecycle 
 
 Acceptance: independent releases, demonstrated restore, operational health/alerting and production smoke tests.
 
-## Phase 7 — CI/CD workflow platform
+## Native Git Hosting workstream
 
-The detailed product scope, architecture and implementation sequence are defined in:
-- [CI/CD architecture](../architecture/cicd-architecture.md)
-- [CI/CD product design](../product/cicd-product-design.md)
-- [CI/CD development plan](cicd-development-plan.md)
+The approved target, data model and phased acceptance criteria are documented in:
+- [Native Git Hosting Architecture](../architecture/native-git-hosting.md)
+- [Native Git Hosting API and Data Model](../architecture/native-git-api-and-data-model.md)
+- [Native Git Hosting Delivery Plan](native-git-hosting.md)
 
-The CI/CD plan adds versioned custom workflows, typed parameters, durable worker execution, Git conflict detection, ordered multi-branch integration builds, safe candidate promotion and a merge queue. It complements the Changeset lifecycle and does not replace GitHub Actions for AgentForge repository CI.
-
-Delivery order within this initiative:
-1. Pipeline domain, immutable versions, schema validation and tenant-scoped APIs.
-2. Durable execution tasks, worker leases, isolation, logs, cancellation and retry.
-3. Visual authoring, parameters, secret references and triggers.
-4. Git source pinning, single/multi-branch conflict reports and integration candidates.
-5. Candidate build/test and safe promotion with expected-target-SHA checks.
-6. Per-target merge queue and train rebuild semantics.
-7. Remote providers, artifact storage and production hardening.
-
-Acceptance: see the phase-specific measurable criteria in `docs/plans/cicd-development-plan.md`. Do not mark any capability complete until implementation and CI demonstrate it.
+The workstream supersedes any earlier proposal that treated GitHub/GitLab as repository providers. Existing local Git code is reusable implementation material, but must be audited against the native hosting security, lifecycle and protocol requirements before it is considered production-ready.
