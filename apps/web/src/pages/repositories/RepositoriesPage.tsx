@@ -179,7 +179,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     <DataTable
       className="org-table"
       columns={[
-        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
+        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
         { key: "default_branch", title: "DEFAULT BRANCH" },
         { key: "created_by", title: "REGISTERED BY" },
         { key: "created_at", title: "REGISTERED" },
