@@ -1,28 +1,35 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useState, useEffect } from "react";
 import "./LoginPage.css";
 
-export type LoginPageProps = {
-  accountState: "loading" | "ready" | "signed-out" | "unavailable";
-};
+type AuthCheckState = "checking" | "authenticated" | "unauthenticated";
 
-export function LoginPage({ accountState }: LoginPageProps) {
+export function LoginPage() {
   const { t } = useTranslation("login");
+  const [searchParams] = useSearchParams();
+  const [authState, setAuthState] = useState<AuthCheckState>("unauthenticated");
 
-  // Show loading state while checking authentication
-  if (accountState === "loading") {
-    return (
-      <main className="login-page" role="main">
-        <div className="login-card card">
-          <div className="login-loading">{t("loading")}</div>
-        </div>
-      </main>
-    );
-  }
+  // Check if user is already authenticated
+  useEffect(() => {
+    fetch("/api/v1/me", { credentials: "include" })
+      .then((res) => {
+        if (res.ok) {
+          setAuthState("authenticated");
+        } else {
+          setAuthState("unauthenticated");
+        }
+      })
+      .catch(() => {
+        setAuthState("unauthenticated");
+      });
+  }, []);
 
-  // Redirect authenticated users to changesets
-  if (accountState === "ready") {
-    return <Navigate to="/orgs/current/changesets" replace />;
+  // Redirect authenticated users to return URL or default page
+  if (authState === "authenticated") {
+    const returnUrl = searchParams.get("return");
+    const destination = (returnUrl && returnUrl.startsWith("/")) ? returnUrl : "/orgs/current/changesets";
+    return <Navigate to={destination} replace />;
   }
 
   return (

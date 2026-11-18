@@ -7,19 +7,30 @@ import { OrganizationManagementPage } from "../pages/organization/OrganizationMa
 import { OverviewPage } from "../pages/overview";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { ResourceWorkspacePage } from "../pages/resources";
-import { SettingsLayout } from "../pages/settings";
+import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { useNotify } from "./useNotify";
-import { useAppAccount } from "./account-context";
 import { LoginPage } from "../pages/login";
 
 // Thin adapters between the route table and the pages: they supply what a page needs from the
 // shell (notifications, the organization resolved by the gate) so the pages keep their props.
 
 export function LoginRoute() {
-  const { accountState } = useAppAccount();
-  return <LoginPage accountState={accountState} />;
+  return <LoginPage />;
+}
+
+export function SettingsRoute() {
+  const notify = useNotify();
+  // TODO: Get actual user data from context or API
+  // For now, using placeholder values until user context is available
+  return (
+    <SettingsLayout
+      username="user"
+      displayName="User"
+      onNotify={notify}
+    />
+  );
 }
 
 export function OverviewRoute() {
@@ -61,19 +72,6 @@ export function OrganizationRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <OrganizationManagementPage key={organization.id} organization={organization} onNotify={notify} />;
-}
-
-export function SettingsRoute() {
-  const notify = useNotify();
-  // Mock user data for Phase 1 - will be replaced with actual user context later
-  return (
-    <SettingsLayout
-      username="demo-user"
-      displayName="Demo User"
-      avatarUrl={undefined}
-      onNotify={notify}
-    />
-  );
 }
 
 export function NotFound() {
