@@ -329,6 +329,24 @@ paths:
         - in: query
           name: offset
           schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: repository
+          description: Exact repository match.
+          schema: { type: string }
+        - in: query
+          name: status
+          description: Server-derived lifecycle status of the changeset.
+          schema:
+            type: string
+            enum: [draft, evaluation_pending, evaluation_failed, evidence_required, review_required, in_review, changes_requested, ready_to_merge, merged]
+        - in: query
+          name: reviewer
+          description: A user id, or the literal `me` for the authenticated user. Matches changesets whose current revision has a review assigned to that user, whatever its decision, except a review superseded by a newer assignment (status stale), which never matches. Reviews of older revisions do not count. Combine with status=in_review for a pending review queue.
+          schema: { type: string }
+        - in: query
+          name: q
+          description: Case-insensitive substring match over id, title, repository and created_by.
+          schema: { type: string, maxLength: 200 }
       responses:
         "200":
           description: Changeset page
@@ -336,6 +354,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ChangesetPage" }
         "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createChangeset
@@ -486,7 +507,7 @@ paths:
     post:
       operationId: submitReview
       summary: Submit a review for a revision with active evidence
-      description: Assigns a pending review to a verified active organization member other than the changeset author. Only that assigned reviewer can decide.
+      description: Assigns a pending review to a verified active organization member other than the changeset author. Only that assigned reviewer can decide. A revision has one active review, so assigning a review supersedes any pending one, which becomes stale, and once the current revision has an approved review the request is refused with 409 until a new revision is added.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       parameters:
         - in: path
@@ -510,6 +531,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision:
@@ -770,7 +792,10 @@ components:
         id: { type: string }
         revision_id: { type: string }
         reviewer: { type: string }
-        status: { type: string, enum: [pending, approved, rejected, stale] }
+        status:
+          type: string
+          enum: [pending, approved, rejected, stale]
+          description: A pending review superseded by a newer assignment on the same revision becomes stale, and so do the pending and approved reviews of a revision that a newer revision replaces. A rejected review stays rejected as history.
         comment: { type: string }
         created_at: { type: string, format: date-time }
     Merge:
@@ -785,7 +810,7 @@ components:
         created_at: { type: string, format: date-time }
     StoredChangeset:
       type: object
-      required: [changeset, version, created_at, updated_at]
+      required: [changeset, status, version, created_at, updated_at]
       properties:
         changeset:
           type: object
@@ -801,16 +826,25 @@ components:
             reviews: { type: array, items: { $ref: "#/components/schemas/Review" } }
             merge: { $ref: "#/components/schemas/Merge" }
             audit: { type: array, items: { type: object } }
+        status:
+          type: string
+          enum: [draft, evaluation_pending, evaluation_failed, evidence_required, review_required, in_review, changes_requested, ready_to_merge, merged]
+          description: Overall state derived by the server from the current revision only. Evaluations, evidence and reviews of older revisions never count. Clients display it and must not derive it. `ready_to_merge` means the lifecycle gates recorded for the current revision are satisfied. It does not guarantee that a merge will succeed, because the merge endpoint re-validates the current target branch and review state when it runs and can refuse with 409 or 422. Clients must treat merge as a command that can fail and show the server's reason.
         version: { type: integer, minimum: 1 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     ChangesetPage:
       type: object
-      required: [items, limit, offset]
+      required: [items, total, limit, offset]
+      description: One page of the changesets that match every supplied filter, ordered by updated_at descending then id ascending.
       properties:
         items:
           type: array
           items: { $ref: "#/components/schemas/StoredChangeset" }
+        total:
+          type: integer
+          minimum: 0
+          description: Number of changesets that match the filters, before limit and offset are applied.
         limit: { type: integer }
         offset: { type: integer }
     Problem:

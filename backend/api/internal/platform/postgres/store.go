@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"slices"
 	"sort"
 	"strings"
 
@@ -203,17 +204,66 @@ func (s *Store) Get(ctx context.Context, organizationID string, id delivery.ID) 
 	return stored, nil
 }
 
-func (s *Store) List(ctx context.Context, organizationID string, limit, offset int) ([]delivery.StoredChangeset, error) {
+// List returns one page of the organization's changesets matching filter, ordered by updated_at
+// descending then id ascending, and the number of matches before paging. Every query keeps
+// organization_id = $1.
+//
+// When only repository narrows the list (status, reviewer and q are empty; a blank q is no filter,
+// as in delivery.FilterAndPage) the ordering, paging and counting happen in SQL, so only the
+// requested page is transferred and decoded. The database still scans the organization's rows to
+// sort and count them (an index covering the order would avoid the sort), but without decoding
+// their state. The id tie-break uses COLLATE "C" because FilterAndPage compares ids bytewise: both
+// paths must return the same page whatever the database collation is
+// (TestPostgresStoreListSQLPathMatchesFilterAndPage pins that).
+//
+// Any other request loads the organization's changesets (those of the repository when one is
+// given) and lets delivery.FilterAndPage match, order and page them.
+//
+// ponytail: a request that filters by status, reviewer or q loads and decodes every changeset of the
+// organization (of the repository when one is given), so it costs O(changesets per organization).
+// Upgrade path: denormalize the lifecycle status and the current reviewers into indexed columns and
+// push those filters down to SQL as well.
+func (s *Store) List(ctx context.Context, organizationID string, filter delivery.ListFilter, limit, offset int) ([]delivery.StoredChangeset, int, error) {
 	if strings.TrimSpace(organizationID) == "" || limit < 1 || limit > 100 || offset < 0 {
-		return nil, delivery.ErrInvalidInput
+		return nil, 0, delivery.ErrInvalidInput
 	}
-	rows, err := s.pool.Query(ctx, `
+	where := "organization_id = $1"
+	args := []any{organizationID}
+	if filter.Repository != "" {
+		where += " AND repository = $2"
+		args = append(args, filter.Repository)
+	}
+	if filter.Status == "" && filter.Reviewer == "" && strings.TrimSpace(filter.Query) == "" {
+		var total int
+		if err := s.pool.QueryRow(ctx, "SELECT count(*) FROM delivery_changesets WHERE "+where, args...).Scan(&total); err != nil {
+			return nil, 0, fmt.Errorf("count changesets: %w", err)
+		}
+		items, err := s.queryChangesets(ctx, fmt.Sprintf(`
+			SELECT state, version, created_at, updated_at
+			FROM delivery_changesets
+			WHERE %s
+			ORDER BY updated_at DESC, id COLLATE "C" ASC
+			LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2), append(slices.Clone(args), limit, offset)...)
+		if err != nil {
+			return nil, 0, err
+		}
+		return items, total, nil
+	}
+	candidates, err := s.queryChangesets(ctx, `
 		SELECT state, version, created_at, updated_at
 		FROM delivery_changesets
-		WHERE organization_id = $1
-		ORDER BY updated_at DESC, id ASC
-		LIMIT $2 OFFSET $3
-	`, organizationID, limit, offset)
+		WHERE `+where, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	items, total := delivery.FilterAndPage(candidates, filter, limit, offset)
+	return items, total, nil
+}
+
+// queryChangesets runs a query selecting (state, version, created_at, updated_at) and decodes every
+// row it returns.
+func (s *Store) queryChangesets(ctx context.Context, query string, args ...any) ([]delivery.StoredChangeset, error) {
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list changesets: %w", err)
 	}

@@ -44,6 +44,37 @@ The delivery control plane exposes an organization-scoped lifecycle:
 6. **Merge** — The server revalidates current passing evaluation, active evidence, and approved review, then performs a no-fast-forward Git merge and persists the actual merge commit SHA.
 7. **Audit and verification** — Each domain transition is appended to the changeset audit trail; PostgreSQL optimistic versions prevent stale state updates, and API/integration tests exercise the complete lifecycle.
 
+**One active review per revision.** A revision has at most one active review. Assigning a review while another is pending supersedes it: the earlier review becomes `stale`, a `review.superseded` event is added to the audit trail, and it can no longer be decided. Once the current revision has an approved review, assigning another is refused with `409` ("Review already approved") until a new revision is added, and a new revision still invalidates pending and approved reviews. Rejected reviews stay as history. Because of this rule, `status` is `ready_to_merge` exactly when the review part of the merge gate is satisfied.
+
+### Changeset status and list filters
+
+Every stored-changeset response (create, get, list and each mutation) carries a server-derived `status` beside `version`. The UI displays it and never derives it (ADR-003). Only the **current** revision is judged: evaluations, evidence and reviews of older revisions never count.
+
+| `status` | Meaning |
+| --- | --- |
+| `draft` | No revision yet |
+| `evaluation_pending` | The current revision has no evaluation yet |
+| `evaluation_failed` | The latest evaluation of the current revision failed |
+| `evidence_required` | The latest evaluation passed but no evidence is active |
+| `review_required` | Evidence is active but no review is assigned |
+| `in_review` | The latest review of the current revision is pending |
+| `changes_requested` | The latest review of the current revision rejected the changes |
+| `ready_to_merge` | The current revision has an approved review |
+| `merged` | A merge has been recorded |
+
+`status` is for display and filtering, not an authorization: `ready_to_merge` means the lifecycle gates recorded for the current revision are satisfied, but `POST .../merge` re-validates the current target branch and review state when it runs and can still refuse with 409 or 422, so clients must treat merge as a command that can fail and show the server's reason.
+
+`GET /api/v1/organizations/{organizationID}/changesets` accepts these optional filters, combined with AND:
+
+- `repository` — exact repository match.
+- `status` — one value from the table above; any other value is a `400` problem response.
+- `reviewer` — a user id, or `me` for the authenticated user. Matches changesets whose current revision has a review assigned to that user, whatever its decision, except a review superseded by a newer assignment (stale), which never matches. Add `status=in_review` for a pending review queue.
+- `q` — case-insensitive substring of the changeset id, title, repository or creator; at most 200 characters, otherwise a `400` problem response.
+
+`limit` (1-100, default 20) and `offset` apply after filtering, and `total` in the response is the number of matches before paging. Results are ordered by `updated_at` descending, then by id. Filtering never crosses organizations.
+
+Current limitation: when `repository` is the only filter (or there is none) the PostgreSQL store orders, pages and counts in SQL, so a request transfers and decodes only the requested page. A request that filters by `status`, `reviewer` or `q` still loads and decodes every changeset of the organization (of the repository when one is given) and filters them in Go, so it costs O(changesets per organization). Denormalizing the status and the current reviewers into indexed columns is the upgrade path.
+
 ### Local Git provider layout
 
 The current provider is a local Git adapter (the provider interface is intentionally independent of Git hosting vendor APIs). An operator provisions repositories using this layout:

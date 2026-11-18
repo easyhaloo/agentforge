@@ -30,6 +30,7 @@ var (
 	ErrReviewRequired     = errors.New("an approved review is required")
 	ErrAlreadyMerged      = errors.New("changeset is already merged")
 	ErrReviewForbidden = errors.New("only the assigned reviewer can decide this review")
+	ErrReviewAlreadyApproved = errors.New("a review is already approved for the current revision")
 )
 
 type Revision struct {
@@ -191,6 +192,10 @@ func (c *Changeset) AttachEvidenceArtifact(id, revisionID, evaluationID ID, kind
 
 func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error { return c.AssignReview(id, revisionID, reviewer, reviewer, comment, now) }
 
+// AssignReview adds a pending review to the current revision. A revision has one active review:
+// the assignment is refused once the revision has an approved review (a new revision is needed to
+// ask again), and otherwise supersedes every pending review of the revision, which becomes stale.
+// Rejected reviews stay as history. A refused assignment changes nothing.
 func (c *Changeset) AssignReview(id, revisionID ID, reviewer, actor, comment string, now time.Time) error {
 	if c == nil || id == "" || reviewer == "" || actor == "" || reviewer == c.CreatedBy {
 		return ErrInvalidInput
@@ -201,9 +206,18 @@ func (c *Changeset) AssignReview(id, revisionID ID, reviewer, actor, comment str
 	if !c.hasActiveEvidence(revisionID) {
 		return ErrEvidenceRequired
 	}
+	if c.hasApprovedReview(revisionID) {
+		return ErrReviewAlreadyApproved
+	}
 	for _, review := range c.Reviews {
 		if review.ID == id {
 			return ErrInvalidInput
+		}
+	}
+	for i := range c.Reviews {
+		if review := &c.Reviews[i]; review.RevisionID == revisionID && review.Status == ReviewPending {
+			review.Status = ReviewStale
+			c.record(actor, "review.superseded", review.ID, string(ReviewStale), now)
 		}
 	}
 	c.Reviews = append(c.Reviews, Review{ID: id, RevisionID: revisionID, Reviewer: reviewer, Status: ReviewPending, Comment: comment, CreatedAt: now})

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
@@ -56,6 +57,7 @@ type DeliveryDependencies struct {
 
 type storedChangesetResponse struct {
 	Changeset *delivery.Changeset `json:"changeset"`
+	Status    string              `json:"status"`
 	Version   int64               `json:"version"`
 	CreatedAt time.Time           `json:"created_at"`
 	UpdatedAt time.Time           `json:"updated_at"`
@@ -63,6 +65,7 @@ type storedChangesetResponse struct {
 
 type changesetListResponse struct {
 	Items  []storedChangesetResponse `json:"items"`
+	Total  int                       `json:"total"`
 	Limit  int                       `json:"limit"`
 	Offset int                       `json:"offset"`
 }
@@ -123,6 +126,9 @@ func (d DeliveryDependencies) registerRepository(w http.ResponseWriter,r *http.R
 	writeJSON(w,201,item)
 }
 
+// maxChangesetQueryLength bounds the free-text q filter, counted in characters.
+const maxChangesetQueryLength = 200
+
 func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, false)
 	if !ok {
@@ -148,7 +154,20 @@ func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-	items, err := d.Repository.List(r.Context(), principal.OrganizationID, limit, offset)
+	values := r.URL.Query()
+	filter := delivery.ListFilter{Repository: values.Get("repository"), Status: delivery.Lifecycle(values.Get("status")), Reviewer: values.Get("reviewer"), Query: values.Get("q")}
+	if filter.Status != "" && !filter.Status.Valid() {
+		writeProblem(w, http.StatusBadRequest, "Invalid status", "status must be one of draft, evaluation_pending, evaluation_failed, evidence_required, review_required, in_review, changes_requested, ready_to_merge, merged")
+		return
+	}
+	if utf8.RuneCountInString(filter.Query) > maxChangesetQueryLength {
+		writeProblem(w, http.StatusBadRequest, "Invalid query", fmt.Sprintf("q must be at most %d characters", maxChangesetQueryLength))
+		return
+	}
+	if filter.Reviewer == "me" {
+		filter.Reviewer = principal.UserID
+	}
+	items, total, err := d.Repository.List(r.Context(), principal.OrganizationID, filter, limit, offset)
 	if errors.Is(err, delivery.ErrInvalidInput) {
 		writeProblem(w, http.StatusBadRequest, "Invalid pagination", err.Error())
 		return
@@ -157,7 +176,7 @@ func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, http.StatusInternalServerError, "Unable to list changesets", "The changeset query failed")
 		return
 	}
-	response := changesetListResponse{Items: make([]storedChangesetResponse, 0, len(items)), Limit: limit, Offset: offset}
+	response := changesetListResponse{Items: make([]storedChangesetResponse, 0, len(items)), Total: total, Limit: limit, Offset: offset}
 	for _, item := range items {
 		response.Items = append(response.Items, toChangesetResponse(item))
 	}
@@ -425,7 +444,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 }
 
 func toChangesetResponse(stored delivery.StoredChangeset) storedChangesetResponse {
-	return storedChangesetResponse{Changeset: stored.Changeset, Version: stored.Version, CreatedAt: stored.CreatedAt, UpdatedAt: stored.UpdatedAt}
+	return storedChangesetResponse{Changeset: stored.Changeset, Status: string(stored.Changeset.Lifecycle()), Version: stored.Version, CreatedAt: stored.CreatedAt, UpdatedAt: stored.UpdatedAt}
 }
 
 func newID() (string, error) {
@@ -639,6 +658,8 @@ func writeDeliveryError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err,delivery.ErrRevisionNotCurrent),errors.Is(err,delivery.ErrEvaluationRequired),errors.Is(err,delivery.ErrEvidenceRequired),errors.Is(err,delivery.ErrReviewRequired),errors.Is(err,delivery.ErrAlreadyMerged):
 		writeProblem(w,http.StatusConflict,"Delivery precondition failed",err.Error())
+	case errors.Is(err,delivery.ErrReviewAlreadyApproved):
+		writeProblem(w,http.StatusConflict,"Review already approved","The current revision already has an approved review. Add a new revision to request another review.")
 	case errors.Is(err,delivery.ErrReviewForbidden):
 		writeProblem(w,http.StatusForbidden,"Review decision forbidden",err.Error())
 	case errors.Is(err,delivery.ErrInvalidInput):

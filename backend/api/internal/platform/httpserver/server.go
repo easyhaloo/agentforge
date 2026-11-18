@@ -49,7 +49,7 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		mux.HandleFunc("POST /api/v1/auth/logout", deps.OIDC.Logout)
 	}
 	mux.Handle("/", newDeliveryHandler(deps))
-	return requestIDMiddleware(corsMiddleware(csrfMiddleware(mux, deps.CSRF, deps.AllowedOrigin), deps.AllowedOrigin))
+	return requestIDMiddleware(corsMiddleware(csrfMiddleware(rejectMalformedText(mux), deps.CSRF, deps.AllowedOrigin), deps.AllowedOrigin))
 }
 
 func writeHealth(w http.ResponseWriter, status int, value string) {

@@ -216,6 +216,7 @@ The delivery workflow must preserve these rules:
 - Merge requires passing evidence and an approved review decision for the same active Revision.
 - A failed, missing or stale evaluation must block approval and merge.
 - A review decision for an older Revision must never authorize merging a newer Revision.
+- A Revision has at most one active review: assigning a new review supersedes a pending one and is refused after an approval.
 
 Keep these rules in domain functions, not only in disabled buttons or conditional UI. UI checks improve usability but are not an authorization or integrity boundary.
 
