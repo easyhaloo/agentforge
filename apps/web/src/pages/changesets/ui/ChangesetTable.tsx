@@ -32,12 +32,13 @@ type Props = {
   total: number;
   page: number;
   pageSize: number;
+  emptyText: string;
   onPageChange: (page: number, pageSize: number) => void;
   onOpen: (id: string) => void;
 };
 
 /** The changeset list: the rows the server sent for the current filters, with server-side paging. */
-export function ChangesetTable({ items, total, page, pageSize, onPageChange, onOpen }: Props) {
+export function ChangesetTable({ items, total, page, pageSize, emptyText, onPageChange, onOpen }: Props) {
   const rows = changesetRows(items);
   return <DataTable<ChangesetRow>
     columns={[
@@ -48,7 +49,7 @@ export function ChangesetTable({ items, total, page, pageSize, onPageChange, onO
       { key: "updated", title: "UPDATED" },
       { key: "version", title: "VERSION" },
     ]}
-    data={rows} rowKey="id" showColumnVisibility={false} emptyText="No changesets yet."
+    data={rows} rowKey="id" showColumnVisibility={false} emptyText={emptyText}
     sortMode="server" filterMode="server"
     pagination={{ page, pageSize, total }}
     onPageChange={onPageChange}

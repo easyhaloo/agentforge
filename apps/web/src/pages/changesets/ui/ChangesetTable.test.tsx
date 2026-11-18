@@ -12,13 +12,14 @@ const stored = (id: string, title: string, status: StoredChangeset["status"] = "
   status, version: 1, created_at: "2026-11-17T09:00:00.000Z", updated_at: "2026-11-17T09:00:00.000Z",
 });
 
-const renderTable = (items: StoredChangeset[], paging: { total?: number; page?: number; pageSize?: number } = {}) => renderToStaticMarkup(
+const renderTable = (items: StoredChangeset[], paging: { total?: number; page?: number; pageSize?: number; emptyText?: string } = {}) => renderToStaticMarkup(
   <MemoryRouter initialEntries={["/orgs/demo/changesets"]}>
     <ChangesetTable
       items={items}
       total={paging.total ?? items.length}
       page={paging.page ?? 1}
       pageSize={paging.pageSize ?? 20}
+      emptyText={paging.emptyText ?? "No changesets yet."}
       onPageChange={() => {}}
       onOpen={() => {}}
     />

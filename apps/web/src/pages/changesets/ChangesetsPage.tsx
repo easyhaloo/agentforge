@@ -140,6 +140,7 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
         total={total}
         page={page}
         pageSize={filters.limit}
+        emptyText={filters.q || filters.repository || filters.status || filters.reviewer ? "No changesets match the filters." : "No changesets yet."}
         onPageChange={(nextPage, pageSize) => applyFilters({ limit: pageSize, offset: (nextPage - 1) * pageSize })}
         onOpen={id => setSelectedID(selectedID === id ? "" : id)}
       />}
