@@ -89,7 +89,8 @@ func TestRemoteGitContract(t *testing.T) {
 			write(file, password)
 			const org, repo = "org", "delivery/repo"
 			binding := RemoteGitRepository{Provider: host, OrganizationID: org, Repository: repo, URL: server.URL + "/team/repo.git", TokenFile: file, CAFile: ca}
-			p, err := NewRemoteGitProvider([]RemoteGitRepository{binding}, 30*time.Second)
+			bindingsPath := writeBindings(t, []RemoteGitRepository{binding})
+			p, err := LoadIntegrationGit(bindingsPath, "", 30*time.Second)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -123,7 +124,11 @@ func TestRemoteGitContract(t *testing.T) {
 			if err != nil || !slices.Contains(commits, intermediate) || slices.Contains(commits, base) {
 				t.Fatalf("history %v: %v", commits, err)
 			}
-			dir, clean, err := p.CheckoutCandidate(ctx, org, repo, sha)
+			worker, err := LoadIntegrationGit(bindingsPath, "", 30*time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dir, clean, err := worker.CheckoutCandidate(ctx, org, repo, sha)
 			if err != nil {
 				t.Fatal(err)
 			}
