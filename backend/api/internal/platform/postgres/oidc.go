@@ -193,6 +193,39 @@ func upsertExternalIdentityTx(ctx context.Context, tx pgx.Tx, issuer, subject, e
 		return "", fmt.Errorf("lookup external identity: %w", err)
 	}
 
+	// Identity doesn't exist - check if user with this email exists
+	email = strings.TrimSpace(email)
+	if email != "" {
+		err = tx.QueryRow(ctx, "SELECT id FROM users WHERE email = $1", email).Scan(&userID)
+		if err == nil {
+			// User exists, link new external identity to existing user
+			identityID, err := newSessionID()
+			if err != nil {
+				return "", err
+			}
+			// Update display name if provided
+			if displayName != "" {
+				_, err = tx.Exec(ctx, `
+					UPDATE users
+					SET display_name = $2, updated_at = now()
+					WHERE id = $1
+				`, userID, displayName)
+				if err != nil {
+					return "", fmt.Errorf("update existing user profile: %w", err)
+				}
+			}
+			// Link new external identity
+			if _, err := tx.Exec(ctx, "INSERT INTO external_identities (id, user_id, issuer, subject) VALUES ($1, $2, $3, $4)", identityID, userID, issuer, subject); err != nil {
+				return "", fmt.Errorf("link external identity to existing user: %w", err)
+			}
+			return userID, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return "", fmt.Errorf("lookup user by email: %w", err)
+		}
+	}
+
+	// No existing user found, create new user
 	userID, err = newSessionID()
 	if err != nil {
 		return "", err
