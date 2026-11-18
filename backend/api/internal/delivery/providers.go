@@ -86,7 +86,7 @@ func NewLocalGitProvider(root string, timeout time.Duration) (*LocalGitProvider,
 	return &LocalGitProvider{Root:absolute, Timeout:timeout}, nil
 }
 
-func (p *LocalGitProvider) repositoryPath(organizationID, repository string) (string, error) {
+func (p *LocalGitProvider) repositoryPath(ctx context.Context, organizationID, repository string) (string, error) {
 	if organizationID == "" || strings.ContainsAny(organizationID, "/\\\\") || organizationID == "." || organizationID == ".." { return "", ErrRepositoryInvalid }
 	parts := strings.Split(repository, "/")
 	if len(parts) != 2 { return "", ErrRepositoryInvalid }
@@ -94,16 +94,25 @@ func (p *LocalGitProvider) repositoryPath(organizationID, repository string) (st
 		if part == "" || part == "." || part == ".." || strings.ContainsAny(part, "\\\\:") { return "", ErrRepositoryInvalid }
 	}
 	path := filepath.Join(p.Root, organizationID, parts[0], parts[1])
-	absolute, err := filepath.Abs(path)
-	if err != nil { return "", err }
-	relative, err := filepath.Rel(p.Root, absolute)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) { return "", ErrRepositoryInvalid }
-	resolved, err := filepath.EvalSymlinks(absolute)
+	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil { return "", ErrProviderUnavailable }
-	relative, err = filepath.Rel(p.Root, resolved)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) { return "", ErrRepositoryInvalid }
-	info, err := os.Stat(resolved)
-	if err != nil || !info.IsDir() { return "", ErrProviderUnavailable }
+	insideOrganization := func(dir string) bool {
+		rel, err := filepath.Rel(filepath.Join(p.Root, organizationID), dir)
+		return err == nil && rel != "." && filepath.IsLocal(rel)
+	}
+	if !insideOrganization(resolved) { return "", ErrRepositoryInvalid }
+	// Identify the repository explicitly so Git cannot discover one in a parent directory.
+	metadata := filepath.Join(resolved, ".git")
+	if _, err := os.Lstat(metadata); os.IsNotExist(err) { metadata = resolved }
+	// Linked worktrees have separate administrative and common directories. Both belong to the tenant.
+	dirs, err := p.run(ctx, resolved, "--git-dir="+metadata, "rev-parse", "--path-format=absolute", "--absolute-git-dir", "--git-common-dir")
+	if err != nil { return "", ErrRepositoryInvalid }
+	paths := strings.Split(dirs, "\n")
+	if len(paths) != 2 { return "", ErrRepositoryInvalid }
+	for _, dir := range paths {
+		canonical, err := filepath.EvalSymlinks(dir)
+		if err != nil || !insideOrganization(canonical) { return "", ErrRepositoryInvalid }
+	}
 	return resolved, nil
 }
 
@@ -120,7 +129,7 @@ func (p *LocalGitProvider) run(ctx context.Context, repository string, args ...s
 }
 
 func (p *LocalGitProvider) ResolveRevision(ctx context.Context, organizationID, repository, ref string) (GitRevision, error) {
-	path, err := p.repositoryPath(organizationID, repository); if err != nil { return GitRevision{}, err }
+	path, err := p.repositoryPath(ctx, organizationID, repository); if err != nil { return GitRevision{}, err }
 	ref = strings.TrimSpace(ref)
 	if ref == "" || strings.HasPrefix(ref, "-") || strings.ContainsAny(ref, "\x00\n\r") { return GitRevision{}, ErrRepositoryInvalid }
 	commit, err := p.run(ctx, path, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}")
@@ -130,7 +139,7 @@ func (p *LocalGitProvider) ResolveRevision(ctx context.Context, organizationID, 
 }
 
 func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef string) (GitMerge, error) {
-	path, err := p.repositoryPath(organizationID, repository); if err != nil { return GitMerge{}, err }
+	path, err := p.repositoryPath(ctx, organizationID, repository); if err != nil { return GitMerge{}, err }
 	p.mu.Lock(); defer p.mu.Unlock()
 	if strings.TrimSpace(targetRef)=="" || strings.HasPrefix(targetRef,"-") { return GitMerge{}, ErrRepositoryInvalid }
 	target, err := p.run(ctx,path,"rev-parse","--verify","--end-of-options",targetRef+"^{commit}")

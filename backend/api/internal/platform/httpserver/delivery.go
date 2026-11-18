@@ -91,6 +91,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
 	deps.pipelineRoutes(mux)
 	deps.executionRoutes(mux)
+	deps.mergePreviewRoutes(mux)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)
