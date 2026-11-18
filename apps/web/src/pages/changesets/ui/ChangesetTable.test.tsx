@@ -20,6 +20,7 @@ const renderTable = (items: StoredChangeset[], paging: { total?: number; page?: 
       page={paging.page ?? 1}
       pageSize={paging.pageSize ?? 20}
       emptyText={paging.emptyText ?? "No changesets yet."}
+      pathFor={(id) => `/orgs/demo/changesets/${id}`}
       onPageChange={() => {}}
       onOpen={() => {}}
     />

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { DataTable } from "../../../shared/ui";
 import type { StoredChangeset } from "../../../shared/api/identity";
 import { changesetStatusClass, changesetStatusLabels } from "../changeset-status";
@@ -33,16 +34,18 @@ type Props = {
   page: number;
   pageSize: number;
   emptyText: string;
+  pathFor: (id: string) => string;
   onPageChange: (page: number, pageSize: number) => void;
   onOpen: (id: string) => void;
 };
 
 /** The changeset list: the rows the server sent for the current filters, with server-side paging. */
-export function ChangesetTable({ items, total, page, pageSize, emptyText, onPageChange, onOpen }: Props) {
+export function ChangesetTable({ items, total, page, pageSize, emptyText, pathFor, onPageChange, onOpen }: Props) {
   const rows = changesetRows(items);
   return <DataTable<ChangesetRow>
+    className="changesets-table"
     columns={[
-      { key: "title", title: "CHANGESET", render: (_value, row) => <div><b>{row.title}</b><small className="mono">{row.id}</small></div> },
+      { key: "title", title: "CHANGESET", render: (_value, row) => <div><b><Link to={pathFor(row.id)}>{row.title}</Link></b><small className="mono">{row.id}</small></div> },
       { key: "repository", title: "REPOSITORY" },
       { key: "status", title: "STATUS", render: value => <span className={changesetStatusClass(String(value))}>{String(value)}</span> },
       { key: "revision", title: "REVISION" },

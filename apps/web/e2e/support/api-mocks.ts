@@ -72,6 +72,12 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     if (path.endsWith("/membership-audit") && method === "GET") {
       return json({ items: [], limit: 100, offset: 0 });
     }
+    if (path.includes("/changesets/") && method === "GET") {
+      const id = path.slice(path.lastIndexOf("/") + 1);
+      const found = changesets.find((item) => item.changeset.id === id);
+      if (!found) return json({ title: "Changeset not found", detail: "The changeset does not exist in this organization" }, 404);
+      return json(found);
+    }
     if (path.endsWith("/changesets") && method === "GET") {
       // The server owns the filters and the status: the mock answers with the matching rows and their total.
       const q = (url.searchParams.get("q") ?? "").toLowerCase();

@@ -9,7 +9,7 @@ const organization: OrganizationSummary = { id: "org-demo", slug: "demo", name: 
 /** The list page reads its filters from the URL, so the URL alone decides what it shows. */
 const renderPage = (entry: string) => renderToStaticMarkup(
   <MemoryRouter initialEntries={[entry]}>
-    <ChangesetsPage organization={organization} accountUserID="user-owner" onNotify={() => {}} />
+    <ChangesetsPage organization={organization} onNotify={() => {}} />
   </MemoryRouter>,
 );
 

@@ -209,3 +209,13 @@
     display: none;
   }
 }
+
+/* The changeset title links to the detail page of that changeset. */
+.changesets-table td:first-child a {
+  color: #a99cff;
+  text-decoration: none;
+}
+
+.changesets-table td:first-child a:hover {
+  text-decoration: underline;
+}

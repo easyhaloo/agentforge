@@ -31,6 +31,16 @@ export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
+/** The parts of a changeset. Each one is a route, so every step of the lifecycle is linkable. */
+export const changesetTabs = ["overview", "revisions", "evaluation", "review", "merge"] as const;
+export type ChangesetTab = typeof changesetTabs[number];
+
+/** The changeset detail page; the overview is the page itself, the other parts are a suffix. */
+export function changesetPath(handle: string, changesetID: string, tab: ChangesetTab = "overview"): string {
+  const base = `${orgPath(handle, "changesets")}/${encodeURIComponent(changesetID)}`;
+  return tab === "overview" ? base : `${base}/${tab}`;
+}
+
 /**
  * Same sub-path under another organization; paths outside `/orgs/:org` are returned unchanged. The router matches
  * static segments case-insensitively, so `/ORGS/a/...` is an organization path too; the prefix is emitted as `/orgs`.

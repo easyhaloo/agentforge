@@ -1,10 +1,11 @@
 import type { ReactElement } from "react";
 import type { RouteObject } from "react-router-dom";
 import { UIShowcasePage } from "../pages/ui-showcase";
+import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
-import { ChangesetsRoute, DeliveryRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, ResourceRoute, RootError } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, ResourceRoute, RootError } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -18,6 +19,12 @@ const routeHandle = (label: string): RouteHandle => ({ label });
 const resource = (path: string, label: string): RouteObject => ({ path, handle: routeHandle(label), element: <ResourceRoute label={label} /> });
 const delivery = (path: string, label: string): RouteObject => ({ path, handle: routeHandle(label), element: <DeliveryRoute label={label} /> });
 const organizationPage = (section: string, label: string, element: ReactElement): RouteObject => ({ path: `orgs/:org/${section}`, handle: routeHandle(label), element });
+/** Each part of a changeset is its own route, so every step of the lifecycle is linkable. */
+const changesetDetail = (tab: ChangesetTab): RouteObject => ({
+  path: tab === "overview" ? "orgs/:org/changesets/:id" : `orgs/:org/changesets/:id/${tab}`,
+  handle: routeHandle("Changeset"),
+  element: <ChangesetDetailRoute tab={tab} />,
+});
 
 export const routes: RouteObject[] = [
   {
@@ -45,6 +52,7 @@ export const routes: RouteObject[] = [
             element: <OrganizationGate variant="changesets" />,
             children: [
               organizationPage("changesets", "Changesets", <ChangesetsRoute />),
+              changesetDetail("overview"),
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),
               organizationPage("review", "Review", <ChangesetsRoute />),

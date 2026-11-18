@@ -219,7 +219,7 @@ test("Refresh only simulates a refresh on mock pages and reloads the account on 
 test("an unknown path renders the not-found state inside the shell and highlights no sidebar item", async ({ page }) => {
   await installApiMocks(page);
   // The last three sit below a real page: a prefix match would keep that page's sidebar item highlighted.
-  for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo", "/projects/extra", "/dev/ui/x", "/orgs/demo/changesets/x"]) {
+  for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo", "/projects/extra", "/dev/ui/x", "/orgs/demo/changesets/x/extra"]) {
     await page.goto(path);
     await expect(pageHeading(page)).toHaveText("Page not found");
     await expect(page.getByText(`Nothing is served at ${path}.`)).toBeVisible();

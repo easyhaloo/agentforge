@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Plus, RefreshCw, GitCommitHorizontal, GitBranch, Play, ShieldCheck, GitMerge, CheckCircle2, AlertTriangle, FileCheck2 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Plus, RefreshCw, GitCommitHorizontal, GitBranch, AlertTriangle } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { changesetAPI, changesetStatuses, repositoryAPI, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../shared/api/identity";
+import { changesetPath, organizationHandle } from "../../shared/routing";
 import { Button, Input, SearchInput, Select } from "../../shared/ui";
 import { ChangesetTable, changesetRows } from "./ui/ChangesetTable";
-import { changesetStatusClass, changesetStatusLabels } from "./changeset-status";
+import { changesetStatusLabels } from "./changeset-status";
 import { CHANGESET_QUERY_MAX, readChangesetFilters, writeChangesetFilters, type ChangesetFilters } from "./changeset-filters";
 
-type Props = { organization: OrganizationSummary; accountUserID: string; onNotify: (message: string) => void };
+type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 
-const dateTime = (value: string) => new Date(value).toLocaleString();
-
-export function ChangesetsPage({ organization, accountUserID, onNotify }: Props) {
+/** The changeset list: a collection view whose filters live in the URL, so a list is linkable. */
+export function ChangesetsPage({ organization, onNotify }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { org } = useParams();
+  const handle = org || organizationHandle(organization);
   const filters = readChangesetFilters(searchParams);
   const [queryDraft, setQueryDraft] = useState(filters.q);
   const [items, setItems] = useState<StoredChangeset[]>([]);
@@ -25,17 +28,9 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
   const [title, setTitle] = useState("");
   const [repoSlug, setRepoSlug] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
-  const [selectedID, setSelectedID] = useState("");
-  const [revisionRef, setRevisionRef] = useState("");
-  const [reviewerID, setReviewerID] = useState("");
-  const [reviewComment, setReviewComment] = useState("");
-  const [targetRef, setTargetRef] = useState("main");
-  const [decisionComment, setDecisionComment] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
   const canManageRepositories = organization.role === "owner" || organization.role === "admin";
-  const selected = items.find(item => item.changeset.id === selectedID);
   const rows = changesetRows(items);
-  const selectedStatus = rows.find(row => row.id === selectedID)?.status ?? "";
   const page = Math.floor(filters.offset / filters.limit) + 1;
 
   const load = useCallback(async () => {
@@ -60,15 +55,6 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
   /** Every filter change is a URL change, so the list stays linkable and survives a reload. */
   const applyFilters = (patch: Partial<ChangesetFilters>) => setSearchParams(writeChangesetFilters(patch, searchParams));
 
-  const run = async (action: () => Promise<StoredChangeset>, message: string) => {
-    setBusy(true); setError("");
-    try {
-      const updated = await action();
-      setItems(current => [updated, ...current.filter(value => value.changeset.id !== updated.changeset.id)]);
-      setSelectedID(updated.changeset.id); onNotify(message);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Delivery operation failed"); }
-    finally { setBusy(false); }
-  };
   const create = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true); setError("");
@@ -93,12 +79,6 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository registration failed"); }
     finally { setBusy(false); }
   };
-
-  const currentRevision = selected?.changeset.revisions.slice(-1)[0];
-  const currentEvaluation = currentRevision && selected?.changeset.evaluations.filter(value => value.revision_id === currentRevision.id).slice(-1)[0];
-  const currentReview = currentRevision && selected?.changeset.reviews.filter(value => value.revision_id === currentRevision.id).slice(-1)[0];
-  const activeEvidence = !!(currentRevision && selected?.changeset.evidence.some(value => value.revision_id === currentRevision.id && value.status === "active"));
-  const canMerge = !!(currentRevision && currentEvaluation?.status === "passed" && activeEvidence && currentReview?.status === "approved" && !selected?.changeset.merge);
 
   return <section className="changesets-page">
     <div className="changesets-summary card">
@@ -141,33 +121,11 @@ export function ChangesetsPage({ organization, accountUserID, onNotify }: Props)
         page={page}
         pageSize={filters.limit}
         emptyText={filters.q || filters.repository || filters.status || filters.reviewer ? "No changesets match the filters." : "No changesets yet."}
+        pathFor={id => changesetPath(handle, id)}
         onPageChange={(nextPage, pageSize) => applyFilters({ limit: pageSize, offset: (nextPage - 1) * pageSize })}
-        onOpen={id => setSelectedID(selectedID === id ? "" : id)}
+        onOpen={id => navigate(changesetPath(handle, id))}
       />}
       <div className="changesets-list__foot"><span>{rows.length} of {total} changesets</span><span><AlertTriangle size={12}/> Data from organization API</span></div>
     </div>
-    {selected && <div className="changeset-detail card">
-      <div className="changeset-detail__head"><div><h3>{selected.changeset.title}</h3><p>{selected.changeset.repository} · Created by {selected.changeset.created_by}</p></div><span className={changesetStatusClass(selectedStatus)}>{selectedStatus}</span></div>
-      <div className="changeset-steps">{["Repository", "Revision", "Evaluation", "Evidence", "Review", "Merge"].map((step, index) => <div key={step} className={["is-complete", currentRevision && index > 0 ? "is-complete" : "", currentEvaluation?.status === "passed" && index > 1 ? "is-complete" : "", activeEvidence && index > 2 ? "is-complete" : "", currentReview?.status === "approved" && index > 3 ? "is-complete" : "", selected.changeset.merge && index > 4 ? "is-complete" : ""].join(" ")}><span>{index + 1}</span><b>{step}</b></div>)}</div>
-      <div className="changeset-workflow">
-        <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.addRevision(organization.id, selected.changeset.id, revisionRef), "Git revision resolved and persisted."); setRevisionRef(""); }}>
-          <div><label><GitBranch size={14}/> Resolve Git ref</label><Input required value={revisionRef} onChange={event => setRevisionRef(event.target.value)} placeholder="branch, tag or commit SHA"/></div>
-          <Button className="button secondary" disabled={busy || !!selected.changeset.merge}>Add revision</Button>
-        </form>
-        <div><label><Play size={14}/> Trusted evaluation</label><p>{currentEvaluation ? currentEvaluation.summary : "No evaluation for the current revision."}</p><Button className="button secondary" disabled={busy || !currentRevision || !!selected.changeset.merge} onClick={() => void run(() => changesetAPI.evaluate(organization.id, selected.changeset.id), "Trusted evaluation completed.")}>Run evaluation</Button></div>
-        <div><label><FileCheck2 size={14}/> Evidence provenance</label><p>{activeEvidence ? selected.changeset.evidence.filter(value => value.revision_id === currentRevision?.id && value.status === "active").map(value => value.sha256 || value.uri).join(", ") : "Evidence is generated automatically from a passing evaluation report."}</p><span className="org-role">{activeEvidence ? "Verified artifact" : "Awaiting passing evaluation"}</span></div>
-        <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.assignReview(organization.id, selected.changeset.id, reviewerID, reviewComment), "Review assigned to an active organization member."); setReviewerID(""); setReviewComment(""); }}>
-          <div><label><ShieldCheck size={14}/> Assign review (active member ID)</label><Input required value={reviewerID} onChange={event => setReviewerID(event.target.value)} placeholder="reviewer user ID"/><Input value={reviewComment} onChange={event => setReviewComment(event.target.value)} placeholder="Review context (optional)"/></div>
-          <Button className="button secondary" disabled={busy || !activeEvidence || !!selected.changeset.merge}>Assign review</Button>
-        </form>
-        {currentReview && <div><label><ShieldCheck size={14}/> Review decision</label><p>Assigned to {currentReview.reviewer} · {currentReview.status}{currentReview.comment ? " · " + currentReview.comment : ""}</p>{currentReview.reviewer === accountUserID && currentReview.status === "pending" && <div className="org-actions"><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, selected.changeset.id, currentReview.id, true, decisionComment), "Review approved.")}>Approve</Button><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, selected.changeset.id, currentReview.id, false, decisionComment), "Changes requested.")}>Request changes</Button></div>}<Input value={decisionComment} onChange={event => setDecisionComment(event.target.value)} placeholder="Decision comment"/></div>}
-        <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.merge(organization.id, selected.changeset.id, targetRef), "Git merge completed and persisted."); }}>
-          <div><label><GitMerge size={14}/> Merge target</label><Input required value={targetRef} onChange={event => setTargetRef(event.target.value)} placeholder="main"/></div>
-          <Button className="button primary" disabled={busy || !canMerge}>Merge changeset</Button>
-        </form>
-      </div>
-      {selected.changeset.merge && <div className="changeset-merge-result"><CheckCircle2 size={15}/> Merged as <code>{selected.changeset.merge.commit_sha}</code> into {selected.changeset.merge.target_ref}</div>}
-      {selected.changeset.audit.length > 0 && <div className="changeset-audit"><h4>Lifecycle audit</h4>{selected.changeset.audit.slice().reverse().map(event => <div key={event.sequence}><span>{event.operation}</span><small>{event.actor} · {dateTime(event.at)}</small></div>)}</div>}
-    </div>}
   </section>;
 }
