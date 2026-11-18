@@ -26,7 +26,9 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [directory, setDirectory] = useState("");
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
   const [previewCommit, setPreviewCommit] = useState("");
-  const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);\n  const [history, setHistory] = useState<RepositoryCommit[]>([]);\n  const [historyError, setHistoryError] = useState("");
+  const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
+  const [history, setHistory] = useState<RepositoryCommit[]>([]);
+  const [historyError, setHistoryError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
@@ -125,7 +127,8 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> Close</Button>
       </header>
       {tree && <p className="changeset-hint">Pinned commit: <code>{tree.commit_sha}</code></p>}
-      {previewError && <div className="org-error" role="alert">{previewError}</div>}\n      {historyError && <div className="org-error" role="alert">{historyError}</div>}
+      {previewError && <div className="org-error" role="alert">{previewError}</div>}
+      {historyError && <div className="org-error" role="alert">{historyError}</div>}
       {history.length > 0 && <div style={{ marginTop: 12, padding: 12, border: "1px solid var(--border-subtle, #ddd)", borderRadius: 6 }}>
         <h3 style={{ margin: "0 0 8px" }}>Commit history</h3>
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
