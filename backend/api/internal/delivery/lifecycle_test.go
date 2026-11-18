@@ -102,6 +102,54 @@ func TestChangesetLifecycleStatus(t *testing.T) {
 	})
 }
 
+// A changeset persisted before the one-active-review rule can hold an approved review and a later
+// review on the same revision: the released API allowed assigning a review after an approval. The
+// merge gate accepts such a changeset (an approved review of the current revision exists), so the
+// reported status must not contradict the gate.
+func TestChangesetLifecycleAgreesWithTheMergeGateOnALegacySecondReview(t *testing.T) {
+	now := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+	const sha = "0123456789012345678901234567890123456789"
+
+	for _, tc := range []struct {
+		name  string
+		later Status
+	}{
+		{"a second pending review", ReviewPending},
+		{"a second rejected review", ReviewRejected},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := NewChangeset("cs-legacy", "org/repo", "Legacy state", "author", now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := c.AddGitRevision("rev-1", "feature", sha, "base", "author", now); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.RecordEvaluation("eval-1", "rev-1", EvaluationPassed, "", "worker", now); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.AttachEvidence("ev-1", "rev-1", "eval-1", "report", "artifact://sha256", "worker", now); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.AssignReview("review-1", "rev-1", "bob", "author", "", now); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.DecideReview("review-1", true, "bob", "approved", now); err != nil {
+				t.Fatal(err)
+			}
+			// The state the released API could persist: a second review assigned after the approval.
+			c.Reviews = append(c.Reviews, Review{ID: "review-2", RevisionID: "rev-1", Reviewer: "carol", Status: tc.later, CreatedAt: now})
+
+			if err := c.ValidateMerge(); err != nil {
+				t.Fatalf("ValidateMerge() = %v, want nil: the current revision has an approved review", err)
+			}
+			if got := c.Lifecycle(); got != LifecycleReadyToMerge {
+				t.Fatalf("Lifecycle() = %q, want ready_to_merge: the merge gate accepts this changeset", got)
+			}
+		})
+	}
+}
+
 func TestChangesetLifecycleValid(t *testing.T) {
 	for _, value := range []string{"draft", "evaluation_pending", "evaluation_failed", "evidence_required", "review_required", "in_review", "changes_requested", "ready_to_merge", "merged"} {
 		if !Lifecycle(value).Valid() {

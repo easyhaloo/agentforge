@@ -45,16 +45,21 @@ func (c *Changeset) Lifecycle() Lifecycle {
 	if !c.hasActiveEvidence(revisionID) {
 		return LifecycleEvidenceRequired
 	}
+	// The merge gate accepts a changeset whose current revision has an approved review, so the
+	// reported status must use the same predicate. A changeset persisted before the one-active-review
+	// rule can hold an approved review and a later review on the same revision; judging it by the
+	// latest review alone would report a status the merge gate contradicts.
+	if c.hasApprovedReview(revisionID) {
+		return LifecycleReadyToMerge
+	}
 	review, ok := c.latestReview(revisionID)
 	switch {
 	case !ok:
 		return LifecycleReviewRequired
 	case review.Status == ReviewRejected:
 		return LifecycleChangesRequested
-	case review.Status != ReviewApproved:
-		return LifecycleInReview
 	}
-	return LifecycleReadyToMerge
+	return LifecycleInReview
 }
 
 func (c *Changeset) latestReview(revisionID ID) (Review, bool) {
