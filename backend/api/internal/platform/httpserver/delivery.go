@@ -52,6 +52,7 @@ type DeliveryDependencies struct {
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer
 	Catalog delivery.RepositoryCatalog
+	Preview delivery.RepositoryPreviewReader
 	Locker delivery.ChangesetLocker
 }
 
