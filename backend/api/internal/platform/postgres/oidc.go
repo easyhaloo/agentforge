@@ -193,36 +193,50 @@ func upsertExternalIdentityTx(ctx context.Context, tx pgx.Tx, issuer, subject, e
 		return "", fmt.Errorf("lookup external identity: %w", err)
 	}
 
-	// Identity doesn't exist - check if user with this email exists
+	// Identity doesn't exist - check if we can link to existing user
 	email = strings.TrimSpace(email)
 	if email != "" {
-		err = tx.QueryRow(ctx, "SELECT id FROM users WHERE email = $1", email).Scan(&userID)
+		var existingUserID string
+		err = tx.QueryRow(ctx, "SELECT id FROM users WHERE email = $1", email).Scan(&existingUserID)
 		if err == nil {
-			// User exists, link new external identity to existing user
-			identityID, err := newSessionID()
+			// User exists - check if they already have an identity from this issuer
+			var hasIssuer bool
+			err = tx.QueryRow(ctx,
+				"SELECT EXISTS(SELECT 1 FROM external_identities WHERE user_id = $1 AND issuer = $2)",
+				existingUserID, issuer).Scan(&hasIssuer)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("check existing issuer: %w", err)
 			}
-			// Update display name if provided
-			if displayName != "" {
-				_, err = tx.Exec(ctx, `
-					UPDATE users
-					SET display_name = $2, updated_at = now()
-					WHERE id = $1
-				`, userID, displayName)
+
+			// Only link if user doesn't have this issuer
+			// (same issuer with different subject means different person)
+			if !hasIssuer {
+				identityID, err := newSessionID()
 				if err != nil {
-					return "", fmt.Errorf("update existing user profile: %w", err)
+					return "", err
 				}
+				// Update display name if provided
+				if displayName != "" {
+					_, err = tx.Exec(ctx, `
+						UPDATE users
+						SET display_name = $2, updated_at = now()
+						WHERE id = $1
+					`, existingUserID, displayName)
+					if err != nil {
+						return "", fmt.Errorf("update existing user profile: %w", err)
+					}
+				}
+				// Link new external identity
+				if _, err := tx.Exec(ctx, "INSERT INTO external_identities (id, user_id, issuer, subject) VALUES ($1, $2, $3, $4)", identityID, existingUserID, issuer, subject); err != nil {
+					return "", fmt.Errorf("link external identity to existing user: %w", err)
+				}
+				return existingUserID, nil
 			}
-			// Link new external identity
-			if _, err := tx.Exec(ctx, "INSERT INTO external_identities (id, user_id, issuer, subject) VALUES ($1, $2, $3, $4)", identityID, userID, issuer, subject); err != nil {
-				return "", fmt.Errorf("link external identity to existing user: %w", err)
-			}
-			return userID, nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
+			// If hasIssuer is true, continue to create new user below
+		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("lookup user by email: %w", err)
 		}
+		// If email not found, continue to create new user below
 	}
 
 	// No existing user found, create new user

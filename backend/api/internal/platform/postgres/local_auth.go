@@ -205,7 +205,7 @@ func (s *Store) CreateOrUpdateLocalUser(ctx context.Context, email, password, di
 		_, err = tx.Exec(ctx, `
 			INSERT INTO external_identities (id, user_id, issuer, subject, created_at)
 			VALUES ($1, $2, 'platform:internal', $3, now())
-			ON CONFLICT (user_id, issuer, subject) DO NOTHING
+			ON CONFLICT (issuer, subject) DO NOTHING
 		`, identityID, existingUserID, existingUserID)
 		if err != nil {
 			return "", "", fmt.Errorf("ensure platform identity: %w", err)
