@@ -11,12 +11,11 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
-	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 )
 
 // mockIdentityRepo implements both delivery.Repository and IdentityManagementRepository for testing
 type mockIdentityRepo struct {
-	identities          []postgres.UserIdentityRecord
+	identities          []identity.UserIdentityRecord
 	identityCount       int
 	hasPlatformCreds    bool
 	deleteErr           error
@@ -27,7 +26,7 @@ type mockIdentityRepo struct {
 }
 
 // Identity management methods
-func (m *mockIdentityRepo) ListUserIdentities(ctx context.Context, userID string) ([]postgres.UserIdentityRecord, error) {
+func (m *mockIdentityRepo) ListUserIdentities(ctx context.Context, userID string) ([]identity.UserIdentityRecord, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -86,7 +85,7 @@ func (m *mockAccountRepo) CurrentAccount(ctx context.Context, sessionToken strin
 func TestListIdentities(t *testing.T) {
 	now := time.Now().UTC()
 	mockRepo := &mockIdentityRepo{
-		identities: []postgres.UserIdentityRecord{
+		identities: []identity.UserIdentityRecord{
 			{
 				ID:          "id-platform",
 				UserID:      "user-123",

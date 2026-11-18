@@ -8,12 +8,11 @@ import (
 	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
-	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 )
 
 // IdentityManagementRepository defines methods for managing user identities.
 type IdentityManagementRepository interface {
-	ListUserIdentities(ctx context.Context, userID string) ([]postgres.UserIdentityRecord, error)
+	ListUserIdentities(ctx context.Context, userID string) ([]identity.UserIdentityRecord, error)
 	GetUserIdentityCount(ctx context.Context, userID string) (int, error)
 	DeleteUserIdentity(ctx context.Context, userID, identityID string) error
 	ChangeUserPassword(ctx context.Context, userID, currentPassword, newPassword string) error

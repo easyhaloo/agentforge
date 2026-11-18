@@ -5,26 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
 
-// UserIdentityRecord represents a user's connected identity (OIDC or platform).
-// This type is exported for use by HTTP handlers.
-type UserIdentityRecord struct {
-	ID          string
-	UserID      string
-	Issuer      string
-	Subject     string
-	Email       string
-	DisplayName string
-	CreatedAt   time.Time
-}
-
 // ListUserIdentities returns all identities connected to a user account.
-func (s *Store) ListUserIdentities(ctx context.Context, userID string) ([]UserIdentityRecord, error) {
+func (s *Store) ListUserIdentities(ctx context.Context, userID string) ([]identity.UserIdentityRecord, error) {
 	if strings.TrimSpace(userID) == "" {
 		return nil, errors.New("user ID is required")
 	}
@@ -42,14 +29,14 @@ func (s *Store) ListUserIdentities(ctx context.Context, userID string) ([]UserId
 	}
 	defer rows.Close()
 
-	var identities []UserIdentityRecord
+	var identities []identity.UserIdentityRecord
 	for rows.Next() {
-		var identity UserIdentityRecord
-		if err := rows.Scan(&identity.ID, &identity.UserID, &identity.Issuer, &identity.Subject,
-			&identity.Email, &identity.DisplayName, &identity.CreatedAt); err != nil {
+		var record identity.UserIdentityRecord
+		if err := rows.Scan(&record.ID, &record.UserID, &record.Issuer, &record.Subject,
+			&record.Email, &record.DisplayName, &record.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan identity: %w", err)
 		}
-		identities = append(identities, identity)
+		identities = append(identities, record)
 	}
 
 	if err := rows.Err(); err != nil {
