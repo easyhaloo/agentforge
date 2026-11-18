@@ -179,3 +179,81 @@ func (p *LocalGitProvider) Compare(ctx context.Context, organizationID, reposito
 	}
 	return string(output), nil
 }
+
+
+type RepositoryFileHistoryReader interface {
+	ListFileHistory(context.Context, string, string, string, string, int) ([]RepositoryCommit, error)
+}
+
+func (p *LocalGitProvider) ListFileHistory(ctx context.Context, organizationID, repository, commitSHA, filePath string, limit int) ([]RepositoryCommit, error) {
+	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" || limit < 1 || limit > 100 {
+		return nil, ErrPreviewPathInvalid
+	}
+	repoPath, err := p.repositoryPath(organizationID, repository)
+	if err != nil { return nil, err }
+	format := "%H%x00%P%x00%an%x00%aI%x00%s"
+	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--", filePath)
+	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
+	if err != nil { return nil, fmt.Errorf("%w: %v", ErrRepositoryInvalid, err) }
+	fields := bytes.Split(output, []byte{0})
+	commits := make([]RepositoryCommit, 0, limit)
+	for i := 0; i+4 < len(fields); i += 5 {
+		if len(fields[i]) == 0 { continue }
+		sha := string(fields[i])
+		if !validGitObjectID(sha) { return nil, ErrRepositoryInvalid }
+		parents := strings.Fields(string(fields[i+1]))
+		commits = append(commits, RepositoryCommit{SHA:sha, Parents:parents, Author:string(fields[i+2]), AuthoredAt:string(fields[i+3]), Subject:string(fields[i+4])})
+	}
+	return commits, nil
+}
+
+type RepositoryBlameLine struct {
+	Line int `json:"line"`
+	CommitSHA string `json:"commit_sha"`
+	Author string `json:"author"`
+	AuthoredAt string `json:"authored_at"`
+	Summary string `json:"summary"`
+	Content string `json:"content"`
+}
+
+type RepositoryBlameReader interface {
+	Blame(context.Context, string, string, string, string, int, int) ([]RepositoryBlameLine, error)
+}
+
+func (p *LocalGitProvider) Blame(ctx context.Context, organizationID, repository, commitSHA, filePath string, startLine, endLine int) ([]RepositoryBlameLine, error) {
+	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" || startLine < 1 || endLine < startLine || endLine-startLine >= 500 {
+		return nil, ErrPreviewPathInvalid
+	}
+	repoPath, err := p.repositoryPath(organizationID, repository)
+	if err != nil { return nil, err }
+	output, err := p.runPreview(ctx, repoPath, 1<<20, "blame", "--line-porcelain", "-L", strconv.Itoa(startLine)+","+strconv.Itoa(endLine), commitSHA, "--", filePath)
+	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
+	if err != nil { return nil, fmt.Errorf("%w: %v", ErrRepositoryInvalid, err) }
+	lines := strings.Split(string(output), "\n")
+	result := make([]RepositoryBlameLine, 0, endLine-startLine+1)
+	for i := 0; i < len(lines); {
+		header := strings.Fields(lines[i])
+		if len(header) < 3 || !validGitObjectID(header[0]) { return nil, ErrRepositoryInvalid }
+		lineNumber, parseErr := strconv.Atoi(header[2])
+		if parseErr != nil { return nil, ErrRepositoryInvalid }
+		item := RepositoryBlameLine{Line:lineNumber, CommitSHA:header[0]}
+		i++
+		for i < len(lines) && !strings.HasPrefix(lines[i], "\t") {
+			key, value, ok := strings.Cut(lines[i], " ")
+			if ok {
+				switch key {
+				case "author": item.Author = value
+				case "author-time": item.AuthoredAt = value
+				case "summary": item.Summary = value
+				}
+			}
+			i++
+		}
+		if i >= len(lines) { break }
+		item.Content = strings.TrimPrefix(lines[i], "\t")
+		result = append(result, item)
+		i++
+		if len(result) > 500 { return nil, ErrPreviewTooLarge }
+	}
+	return result, nil
+}
