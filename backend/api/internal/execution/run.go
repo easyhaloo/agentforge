@@ -14,6 +14,7 @@ var ErrInputs = errors.New("invalid run inputs")
 var ErrQuota = errors.New("active run quota reached")
 
 type Webhook struct {
+	Ref          string `json:"ref,omitempty"`
 	Hook         string `json:"hook"`
 	Delivery     string `json:"delivery"`
 	Digest       string `json:"digest"`
@@ -31,7 +32,18 @@ type Integration struct {
 	delivery.MergePreview
 }
 
+type TriggerSource struct {
+	Kind        string     `json:"kind"`
+	BindingID   string     `json:"bindingId"`
+	ScheduledAt *time.Time `json:"scheduledAt,omitempty"`
+	Repository  string     `json:"repository,omitempty"`
+	ChangesetID string     `json:"changesetId,omitempty"`
+	RevisionID  string     `json:"revisionId,omitempty"`
+	SHA         string     `json:"sha,omitempty"`
+}
+
 type Run struct {
+	Trigger     *TriggerSource             `json:"trigger,omitempty"`
 	Integration *Integration               `json:"integration,omitempty"`
 	Webhook     *Webhook                   `json:"webhook,omitempty"`
 	ID          string                     `json:"id"`
