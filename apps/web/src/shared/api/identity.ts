@@ -130,12 +130,15 @@ export type StoredChangeset = {
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryMetadata = { organization_id: string; slug: string; default_branch: string; created_by: string; created_at: string; updated_at: string };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
-export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };\nexport type RepositoryPreviewRefs = { repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };\nexport type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
+export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
+export type RepositoryPreviewRefs = { repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
+export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
-export const repositoryPreviewAPI = {\n  refs: (organizationID: string, repository: string) => {\n    const [owner, name] = repository.split("/");\n    return request<RepositoryPreviewRefs>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/refs`);\n  },
+export const repositoryPreviewAPI = {
+  refs: (organizationID: string, repository: string) => {\n    const [owner, name] = repository.split("/");\n    return request<RepositoryPreviewRefs>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/refs`);\n  },
   tree: (organizationID: string, repository: string, path = "", ref = "") => {
     const [owner, name] = repository.split("/");
     const query = new URLSearchParams();
