@@ -190,3 +190,19 @@ The Native Git Hosting workstream now follows the decisions in [Source Control E
 6. Evaluate a Scion-style Changeset WAL only through a separate ADR backed by measured workload, import/export fidelity, shadow-read parity and rollback proof.
 
 Do not implement two complete storage engines or dual-write speculative Changeset logs in the initial delivery. Performance figures published by OpenAI or Anthropic are reference context, not AgentForge targets or guarantees.
+
+
+## Repository Preview and extensible WebIDE
+
+The target architecture and acceptance criteria are defined in [Repository Preview and WebIDE](../architecture/repository-preview-and-webide.md), with ADR-014 and ADR-015.
+
+Delivery is deliberately separated into independently useful increments:
+
+1. Repository Preview: commit-pinned tree/blob/README/history/diff APIs, read-only browser, sanitization, pagination and repository/directory authorization.
+2. Rich inspection: blame, compare, stable permalinks and derived-data acceleration.
+3. WebIDE shell: isolated workspace lifecycle, Monaco editor, explorer, tabs, search, diff and Changeset handoff.
+4. Execution/preview: isolated task workers, terminal/build/test, SSE and sandboxed preview origins.
+5. Extension SDK: versioned manifest, sandboxed extension host, capability grants, first-party extensions and organization-private distribution.
+6. Ecosystem: curated registry and optional Open VSX compatibility only after isolation, signing and revocation controls are proven.
+
+Repository Preview must not require a workspace. WebIDE must not bypass Changeset, review, CI or merge gates. Do not execute untrusted repository code in the API process or trusted browser origin. These stages are planned, not marked implemented.
