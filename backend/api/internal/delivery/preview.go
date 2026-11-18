@@ -89,7 +89,7 @@ func (p *LocalGitProvider) runPreview(ctx context.Context, repoPath string, maxO
 	commandCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	command := exec.CommandContext(commandCtx, "git", append([]string{"-C", repoPath}, args...)...)
-	command.Env = []string{"PATH="+os.Getenv("PATH"), "HOME="+os.TempDir(), "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}
+	command.Env = []string{"PATH="+os.Getenv("PATH"), "HOME="+os.TempDir(), "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_OPTIONAL_LOCKS=0", "GIT_NO_REPLACE_OBJECTS=1"}
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &boundedBuffer{buffer:&stdout, limit:maxOutput}
 	command.Stderr = &boundedBuffer{buffer:&stderr, limit:64<<10}
