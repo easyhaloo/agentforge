@@ -33,12 +33,13 @@ var (
 )
 
 func (p *LocalGitProvider) ListTree(ctx context.Context, organizationID, repository, commitSHA, directory string) ([]PreviewEntry, error) {
+	if !validGitObjectID(commitSHA) || !validRepositoryPath(directory) { return nil, ErrPreviewPathInvalid }
 	repoPath, err := p.repositoryPath(organizationID, repository)
 	if err != nil { return nil, err }
-	if !validGitObjectID(commitSHA) || !validRepositoryPath(directory) { return nil, ErrPreviewPathInvalid }
 	treeish := commitSHA
 	if directory != "" { treeish += ":" + directory }
 	output, err := p.runPreview(ctx, repoPath, 2<<20, "ls-tree", "-z", "--long", treeish)
+	if errors.Is(err, ErrPreviewTooLarge) { return nil, ErrPreviewTooLarge }
 	if err != nil { return nil, ErrRepositoryInvalid }
 	records := bytes.Split(output, []byte{0})
 	entries := make([]PreviewEntry, 0, len(records))
@@ -63,9 +64,9 @@ func (p *LocalGitProvider) ListTree(ctx context.Context, organizationID, reposit
 }
 
 func (p *LocalGitProvider) ReadBlob(ctx context.Context, organizationID, repository, commitSHA, filePath string, maxBytes int64) ([]byte, string, error) {
+	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" { return nil, "", ErrPreviewPathInvalid }
 	repoPath, err := p.repositoryPath(organizationID, repository)
 	if err != nil { return nil, "", err }
-	if !validGitObjectID(commitSHA) || !validRepositoryPath(filePath) || filePath == "" { return nil, "", ErrPreviewPathInvalid }
 	if maxBytes <= 0 || maxBytes > 2<<20 { maxBytes = 1 << 20 }
 	object, err := p.run(ctx, repoPath, "rev-parse", "--verify", "--end-of-options", commitSHA+":"+filePath)
 	if err != nil || !validGitObjectID(object) { return nil, "", ErrRepositoryInvalid }
