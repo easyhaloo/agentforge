@@ -137,3 +137,17 @@ Organizations get a unique, human-readable slug besides their opaque `id`, so cl
 - **Format.** 1-39 characters from `a-z`, `0-9` and `-`, starting and ending with a letter or digit. `current` is reserved (clients use it as an alias for the selected organization) and is never assigned.
 - **Backfill.** Migration `007_organization_slug.sql` derives slugs for existing organizations from their names (lowercase, other characters become `-`, `-2`, `-3`, ... on collisions, oldest organization first). The API has no way to rename a slug yet.
 - **Bootstrap.** Set the optional `BOOTSTRAP_ORGANIZATION_SLUG`; otherwise the slug is derived from `BOOTSTRAP_ORGANIZATION_NAME`. An invalid or reserved slug aborts the bootstrap with an error. When the organization is created, so does a slug that is already used or that equals another organization's id, or an id that equals another organization's slug, ignoring case. An existing organization is never modified and keeps its slug.
+
+### Organization pipelines
+
+Open **CI / CD** in the organization sidebar to create a workflow, edit its JSON draft and publish a version. Members can create and edit. Owners and admins can also publish and archive. Viewers can read definitions and version history. The initial capability is `control/approval@v1`. Pipeline execution belongs to the durable worker phase.
+
+The API is rooted at `/api/v1/organizations/{organizationID}/pipelines`. Saving a draft, publishing and archiving require the current `revision`. A `409` means the lifecycle or revision changed. Reload and compare the saved draft before retrying. Archiving preserves published versions. A version's checksum is SHA-256 over its stored UTF-8 JSON bytes. Migration `008_pipelines.sql` creates `pipelines`, `pipeline_versions` and `pipeline_audit`. Each successful mutation writes the actor and revision to the audit table in the same transaction.
+
+Each stage with omitted or null `dependsOn` follows the previous stage. An empty array explicitly selects an independent stage. Node IDs must be unique across the workflow. Runtime parameter overrides require `override: true`. Secret parameters accept `secret://name` references. `POST /{id}/versions/{number}/validate-inputs` accepts an object keyed by parameter name and returns `204` for valid overrides of that published version.
+
+The OpenAPI contract imports the same v1 JSON Schema that the API embeds. Regenerate frontend types from the repository root when changing it.
+
+```sh
+npx --yes openapi-typescript@7.10.1 contracts/openapi/pipelines.yaml -o apps/web/src/shared/api/pipeline-contract.d.ts
+```
