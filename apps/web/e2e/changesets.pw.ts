@@ -56,3 +56,13 @@ test("a page the server sends no row for says the filters matched nothing", asyn
 
   await expect(page.getByText("No changesets match the filters.")).toBeVisible();
 });
+
+test("a changeset has its own detail page", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets");
+  await page.getByRole("cell").getByText("Browser test baseline").click();
+
+  await expect(page).toHaveURL(/\/orgs\/demo\/changesets\/CS-E2E-01$/);
+  await expect(page.getByRole("heading", { name: "Browser test baseline" })).toBeVisible();
+  // The list is not rendered next to it.
+  await expect(page.getByRole("cell")).toHaveCount(0);
+});

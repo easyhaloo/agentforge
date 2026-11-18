@@ -53,8 +53,14 @@ describe("route table", () => {
     expect(leafOf("/orgs/current/changesets")?.params.org).toBe("current");
   });
 
+  it("serves the changeset detail page under the organization", () => {
+    const leaf = leafOf("/orgs/demo/changesets/CS-1");
+    expect(leaf?.params).toMatchObject({ org: "demo", id: "CS-1" });
+    expect(leaf?.route.handle).toEqual({ label: "Changeset" });
+  });
+
   it("sends every other path to the catch-all, including backend paths and partial organization paths", () => {
-    for (const pathname of ["/nope", "/orgs", "/orgs/x", "/orgs/x/", "/orgs/x/nope", "/orgs/x/changesets/extra", "/projects/extra", "/dev", "/api/v1/me", "/auth/oidc/login"]) {
+    for (const pathname of ["/nope", "/orgs", "/orgs/x", "/orgs/x/", "/orgs/x/nope", "/orgs/x/changesets/extra/other", "/projects/extra", "/dev", "/api/v1/me", "/auth/oidc/login"]) {
       const leaf = leafOf(pathname);
       expect(leaf?.route.path, pathname).toBe("*");
       expect(leaf?.route.handle, pathname).toEqual({ label: "Page not found" });
