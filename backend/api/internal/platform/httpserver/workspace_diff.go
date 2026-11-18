@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
@@ -18,16 +20,20 @@ type workspaceDiffEntry struct {
 	Version       int64  `json:"version"`
 }
 
-func workspaceDiffStatus(readErr error, baseBlobSHA string) (string, string, error) {
+func workspaceDiffStatus(readErr error, baseContent []byte, baseBlobSHA, workspaceSHA string) (string, string, bool, error) {
 	switch {
 	case readErr == nil:
-		return "modified", baseBlobSHA, nil
+		digest := sha256.Sum256(baseContent)
+		if hex.EncodeToString(digest[:]) == workspaceSHA {
+			return "", baseBlobSHA, false, nil
+		}
+		return "modified", baseBlobSHA, true, nil
 	case errors.Is(readErr, delivery.ErrRepositoryInvalid):
-		return "added", "", nil
+		return "added", "", true, nil
 	case errors.Is(readErr, delivery.ErrPreviewTooLarge):
-		return "modified", "", nil
+		return "modified", "", true, nil
 	default:
-		return "", "", readErr
+		return "", "", false, readErr
 	}
 }
 
@@ -53,12 +59,15 @@ func (d DeliveryDependencies) getWorkspaceDiff(w http.ResponseWriter, r *http.Re
 	}
 	entries := make([]workspaceDiffEntry, 0, len(files))
 	for _, file := range files {
-		_, baseBlobSHA, readErr := d.Preview.ReadBlob(diffContext, principal.OrganizationID, item.Repository, item.BaseCommitSHA, file.Path, workspace.MaxFileBytes)
+		baseContent, baseBlobSHA, readErr := d.Preview.ReadBlob(diffContext, principal.OrganizationID, item.Repository, item.BaseCommitSHA, file.Path, workspace.MaxFileBytes)
 		entry := workspaceDiffEntry{Path: file.Path, Status: "modified", WorkspaceSHA: file.SHA256, Version: file.Version}
-		status, baseSHA, statusErr := workspaceDiffStatus(readErr, baseBlobSHA)
+		status, baseSHA, changed, statusErr := workspaceDiffStatus(readErr, baseContent, baseBlobSHA, file.SHA256)
 		if statusErr != nil {
 			writeProblem(w, http.StatusInternalServerError, "Workspace diff unavailable", "A base file could not be compared safely")
 			return
+		}
+		if !changed {
+			continue
 		}
 		entry.Status = status
 		entry.BaseBlobSHA = baseSHA
