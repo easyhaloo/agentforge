@@ -38,7 +38,7 @@ func (p *LocalGitProvider) ListTree(ctx context.Context, organizationID, reposit
 	if !validGitObjectID(commitSHA) || !validRepositoryPath(directory) { return nil, ErrPreviewPathInvalid }
 	treeish := commitSHA
 	if directory != "" { treeish += ":" + directory }
-	output, err := p.runPreview(ctx, repoPath, 2<<20, "ls-tree", "-z", "--long", "--full-tree", treeish)
+	output, err := p.runPreview(ctx, repoPath, 2<<20, "ls-tree", "-z", "--long", treeish)
 	if err != nil { return nil, ErrRepositoryInvalid }
 	records := bytes.Split(output, []byte{0})
 	entries := make([]PreviewEntry, 0, len(records))
