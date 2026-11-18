@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ChevronLeft, Code2, FileText, Folder, Plus, RefreshCw, X } from "lucide-react";
+import { ChevronLeft, Code2, FileText, Folder, GitCommit, Plus, RefreshCw, X } from "lucide-react";
 import {
   repositoryAPI,
   repositoryPreviewAPI,
   type OrganizationSummary,
   type RepositoryMetadata,
-  type RepositoryPreviewBlob,
+  type RepositoryCommit,\n  type RepositoryPreviewBlob,
   type RepositoryPreviewEntry,
   type RepositoryPreviewTree,
 } from "../../shared/api/identity";
@@ -25,7 +25,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [directory, setDirectory] = useState("");
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
   const [previewCommit, setPreviewCommit] = useState("");
-  const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
+  const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);\n  const [history, setHistory] = useState<RepositoryCommit[]>([]);\n  const [historyError, setHistoryError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const canRegister = organization.role === "owner" || organization.role === "admin";
@@ -53,6 +53,16 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     } finally { setPreviewLoading(false); }
   }, [organization.id, selectedRepository, directory, previewCommit]);
   useEffect(() => { void loadTree(); }, [loadTree]);
+
+  useEffect(() => {
+    if (!selectedRepository || !previewCommit) { setHistory([]); return; }
+    let active = true;
+    setHistoryError("");
+    void repositoryPreviewAPI.history(organization.id, selectedRepository, previewCommit)
+      .then(result => { if (active) setHistory(result.items); })
+      .catch(cause => { if (active) setHistoryError(cause instanceof Error ? cause.message : "Unable to load commit history"); });
+    return () => { active = false; };
+  }, [organization.id, selectedRepository, previewCommit]);
 
   const register = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError("");
@@ -114,7 +124,20 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> Close</Button>
       </header>
       {tree && <p className="changeset-hint">Pinned commit: <code>{tree.commit_sha}</code></p>}
-      {previewError && <div className="org-error" role="alert">{previewError}</div>}
+      {previewError && <div className="org-error" role="alert">{previewError}</div>}\n      {historyError && <div className="org-error" role="alert">{historyError}</div>}
+      {history.length > 0 && <div style={{ marginTop: 12, padding: 12, border: "1px solid var(--border-subtle, #ddd)", borderRadius: 6 }}>
+        <h3 style={{ margin: "0 0 8px" }}>Commit history</h3>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+          {history.map(commit => <li key={commit.sha} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <GitCommit size={15} style={{ marginTop: 3, flexShrink: 0 }}/>
+            <div style={{ minWidth: 0 }}>
+              <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); }}>{commit.subject || "(no subject)"}</Button>
+              <div className="changeset-hint">{commit.author} · {new Date(commit.authored_at).toLocaleString()} · <code>{commit.sha.slice(0, 12)}</code></div>
+            </div>
+          </li>)}
+        </ul>
+      </div>}
+
       {previewLoading && <p role="status">Loading repository content…</p>}
       {!previewLoading && tree && !selectedFile && <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0" }}>
