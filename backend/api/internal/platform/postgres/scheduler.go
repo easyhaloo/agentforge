@@ -41,7 +41,7 @@ func (s *Store) ClaimTask(ctx context.Context, worker string) (*execution.Task, 
 	defer tx.Rollback(ctx)
 	var task execution.Task
 	var expired bool
-	err = tx.QueryRow(ctx, `SELECT r.id,r.organization_id,r.pipeline_id,r.deadline,r.deadline<=now() FROM pipeline_runs r WHERE r.status IN ('queued','running') AND (r.deadline<=now() OR EXISTS(SELECT 1`+runnableTasks+`)) ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`).Scan(&task.RunID, &task.OrganizationID, &task.PipelineID, &task.Deadline, &expired)
+	err = tx.QueryRow(ctx, `SELECT r.id,r.organization_id,r.pipeline_id,r.deadline,r.deadline<=now(),r.integration FROM pipeline_runs r WHERE r.status IN ('queued','running') AND (r.deadline<=now() OR EXISTS(SELECT 1`+runnableTasks+`)) ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`).Scan(&task.RunID, &task.OrganizationID, &task.PipelineID, &task.Deadline, &expired, &task.Integration)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
