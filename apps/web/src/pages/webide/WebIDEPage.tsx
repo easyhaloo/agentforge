@@ -39,6 +39,7 @@ export function WebIDEPage({ organization, onNotify }: Props) {
       setWorkspace(result.workspace);
       setDirectory("");
       await loadTree(result.workspace.id);
+      await loadDiff(result.workspace.id);
       onNotify("Isolated workspace created.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create workspace");
@@ -68,6 +69,7 @@ export function WebIDEPage({ organization, onNotify }: Props) {
       const saved = await workspaceAPI.writeFile(organization.id, workspace.id, selected.path, content, selected.version);
       setSelected(saved); setDirty(false);
       await loadTree(workspace.id, directory);
+      await loadDiff(workspace.id);
       onNotify("Workspace file saved.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Save failed. Reload the file before retrying.");
@@ -81,11 +83,13 @@ export function WebIDEPage({ organization, onNotify }: Props) {
       <div><h2>WebIDE</h2><p>{repository} · isolated workspace editor</p></div>
       <span className="org-role">{workspace?.status ?? "not started"}</span>
       {!workspace && <Button className="button primary" disabled={loading} onClick={() => void createWorkspace()}>Create workspace</Button>}
-      <Button className="button secondary" disabled={!workspace || loading} onClick={() => setShowDiff(value => !value)}> {showDiff ? "Hide diff" : "Workspace diff"} ({diffItems.length})</Button>\n      <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> Save</Button>
+      <Button className="button secondary" disabled={!workspace || loading} onClick={() => setShowDiff(value => !value)}> {showDiff ? "Hide diff" : "Workspace diff"} ({diffItems.length})</Button>
+      <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> Save</Button>
       <Link className="button secondary" to={`/orgs/${organization.slug}/repositories`}><ArrowLeft size={14}/> Repositories</Link>
     </div>
     {workspace && <p className="changeset-hint">Workspace <code>{workspace.id}</code> · base <code>{workspace.base_commit_sha.slice(0, 12)}</code> · expires {new Date(workspace.expires_at).toLocaleString()}</p>}
-    {error && <div className="org-error" role="alert">{error}</div>}\n    {showDiff && <div className="card" style={{padding:12,marginBottom:12}}><h3>Workspace changes</h3>{diffItems.length ? <ul>{diffItems.map(item=><li key={item.path}><code>{item.path}</code> · {item.status} · v{item.version}</li>)}</ul> : <p className="changeset-hint">No saved workspace changes.</p>}</div>}
+    {error && <div className="org-error" role="alert">{error}</div>}
+    {showDiff && <div className="card" style={{padding:12,marginBottom:12}}><h3>Workspace changes</h3>{diffItems.length ? <ul>{diffItems.map(item=><li key={item.path}><code>{item.path}</code> · {item.status} · v{item.version}</li>)}</ul> : <p className="changeset-hint">No saved workspace changes.</p>}</div>}
     <div className="card" style={{display:"grid",gridTemplateColumns:"minmax(220px, 28%) minmax(0,1fr)",minHeight:520,overflow:"hidden"}}>
       <aside style={{borderRight:"1px solid var(--border, #ddd)",padding:12,minWidth:0}}>
         <div style={{display:"flex",gap:8,alignItems:"center"}}><Search size={14}/><Input aria-label="Search files" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Filter files" style={{width:"100%"}}/></div>
