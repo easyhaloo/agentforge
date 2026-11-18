@@ -312,6 +312,202 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createRepositoryWorkspace
+      summary: Create a workspace pinned to a repository commit
+      description: Requires active organization write membership and a registered repository. The base ref is resolved once to an immutable commit SHA. Workspaces expire after eight hours. This endpoint does not execute repository code.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                base_ref: { type: string, maxLength: 256 }
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace]
+                properties:
+                  workspace: { $ref: "#/components/schemas/Workspace" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getWorkspace
+      summary: Get workspace metadata
+      description: Access is limited to the workspace owner and organization owners or administrators.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Workspace metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace]
+                properties:
+                  workspace: { $ref: "#/components/schemas/Workspace" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/tree:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listWorkspaceTree
+      summary: List the pinned base tree merged with workspace overlays
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: path
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        "200":
+          description: Stable directory listing with base or workspace source labels
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, base_commit_sha, path, items]
+                properties:
+                  workspace_id: { type: string }
+                  base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, path, kind, source]
+                      properties:
+                        name: { type: string }
+                        path: { type: string }
+                        kind: { type: string, enum: [file, tree, symlink, commit, blob] }
+                        source: { type: string, enum: [base, workspace] }
+                        version: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: readWorkspaceFile
+      summary: Read a file from the workspace overlay or pinned base commit
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 1024 }
+      responses:
+        "200":
+          description: File content and optimistic version; zero denotes the immutable base file
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, path, content, sha256, version, source]
+                properties:
+                  workspace_id: { type: string }
+                  path: { type: string }
+                  content: { type: string }
+                  sha256: { type: string }
+                  version: { type: integer, minimum: 0 }
+                  source: { type: string, enum: [base, workspace] }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: writeWorkspaceFile
+      summary: Create or update a workspace file using optimistic version control
+      description: Content is limited to 2 MiB. expected_version must match the current workspace overlay version; zero creates the overlay.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, content, expected_version]
+              additionalProperties: false
+              properties:
+                path: { type: string, minLength: 1, maxLength: 1024 }
+                content: { type: string, maxLength: 2097152 }
+                expected_version: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Persisted workspace file and new version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, path, content, sha256, version, source]
+                properties:
+                  workspace_id: { type: string }
+                  path: { type: string }
+                  content: { type: string }
+                  sha256: { type: string }
+                  version: { type: integer, minimum: 1 }
+                  source: { type: string, const: workspace }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree:
     parameters:
       - in: path
