@@ -12,6 +12,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
 // The CI PostgreSQL service includes matching pg_dump and pg_restore clients.
@@ -27,6 +28,7 @@ func TestBackupRestoresCandidateAndQueue(t *testing.T) {
 	lockMust(t, err)
 	entry, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview})
 	lockMust(t, err)
+	token := registerTestRunner(t, s, org, pipeline.ContainerCheck)
 	s.Close()
 	destination := slugScratchDatabase(t, os.Getenv("DATABASE_URL"), 2)
 	databaseCommand := func(dsn, script string) *exec.Cmd {
@@ -74,7 +76,7 @@ func TestBackupRestoresCandidateAndQueue(t *testing.T) {
 	if _, err = os.Stat(path); err != nil {
 		t.Fatal(err)
 	}
-	task, err := restored.ClaimTask(ctx, "recovery")
+	task, err := restored.ClaimTask(ctx, token)
 	lockMust(t, err)
 	if task == nil || task.RunID != entry.RunID {
 		t.Fatal("restored execution is not claimable")

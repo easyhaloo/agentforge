@@ -38,7 +38,7 @@ func TestMergeQueueRecoveryAfterPromotionCommitFailure(t *testing.T) {
 	if len(before) != 2 || before[1].RunID == "" {
 		t.Fatalf("expected a built tail, got %+v", before)
 	}
-	task, err := s.ClaimTask(ctx, "worker")
+	task, err := s.ClaimTask(ctx, registerTestRunner(t, s, org, pipeline.ContainerCheck))
 	lockMust(t, err)
 	if task == nil || task.RunID != head.RunID {
 		t.Fatalf("expected head task, got %+v", task)
