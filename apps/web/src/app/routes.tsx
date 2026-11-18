@@ -53,6 +53,10 @@ export const routes: RouteObject[] = [
             children: [
               organizationPage("changesets", "Changesets", <ChangesetsRoute />),
               changesetDetail("overview"),
+              changesetDetail("revisions"),
+              changesetDetail("evaluation"),
+              changesetDetail("review"),
+              changesetDetail("merge"),
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),
               organizationPage("review", "Review", <ChangesetsRoute />),
