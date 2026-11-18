@@ -157,7 +157,7 @@ const (
 	maxWorkspaceRevisionBytes = 32 << 20
 )
 
-func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organizationID, repository, baseSHA, changesetID, revisionID string, files []WorkspaceRevisionFile) (GitRevision, error) {
+func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organizationID, repository, baseSHA, changesetID, revisionID, actor string, files []WorkspaceRevisionFile) (GitRevision, error) {
 	repositoryPath, err := p.repositoryPath(organizationID, repository)
 	if err != nil {
 		return GitRevision{}, err
@@ -214,7 +214,7 @@ func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organiza
 	if err != nil || !validCommitObjectID(treeSHA) {
 		return GitRevision{}, errors.Join(err, ErrRepositoryInvalid)
 	}
-	actor := strings.TrimSpace(organizationID)
+	actor = strings.TrimSpace(actor)
 	if actor == "" || strings.ContainsAny(actor, "\x00\r\n") {
 		return GitRevision{}, ErrRepositoryInvalid
 	}
