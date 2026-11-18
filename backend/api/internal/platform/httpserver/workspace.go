@@ -3,6 +3,7 @@ package httpserver
 import (
 	"crypto/rand"
 	"encoding/json"
+	"io"
 	"encoding/hex"
 	"errors"
 	"net/http"
@@ -135,7 +136,7 @@ func decodeWorkspaceJSON(w http.ResponseWriter, r *http.Request, target any) boo
 		writeProblem(w, http.StatusBadRequest, "Invalid workspace request body", "The request must be valid JSON and no larger than 3 MiB")
 		return false
 	}
-	if err := decoder.Decode(new(any)); err == nil {
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		writeProblem(w, http.StatusBadRequest, "Invalid workspace request body", "Only one JSON value is allowed")
 		return false
 	}
