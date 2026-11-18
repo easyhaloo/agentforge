@@ -419,6 +419,53 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "413": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/compare:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: base
+        required: true
+        description: Base branch, tag or commit, resolved to an immutable commit SHA.
+        schema: { type: string, minLength: 1, maxLength: 256 }
+      - in: query
+        name: head
+        required: true
+        description: Head branch, tag or commit, resolved to an immutable commit SHA.
+        schema: { type: string, minLength: 1, maxLength: 256 }
+    get:
+      operationId: compareRepositoryCommits
+      summary: Compare two immutable repository commits
+      description: Requires active organization membership and a registered repository. Both refs are resolved server-side before a bounded, non-renamed, non-external diff is generated. Output is limited to 1 MiB.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit comparison patch
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, base_sha, head_sha, patch]
+                properties:
+                  repository: { type: string }
+                  base_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  head_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  patch: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob:
     parameters:
       - in: path
