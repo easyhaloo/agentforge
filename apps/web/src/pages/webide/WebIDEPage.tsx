@@ -81,7 +81,7 @@ export function WebIDEPage({ organization, onNotify }: Props) {
     {error && <div className="org-error" role="alert">{error}</div>}
     <div className="card" style={{display:"grid",gridTemplateColumns:"minmax(220px, 28%) minmax(0,1fr)",minHeight:520,overflow:"hidden"}}>
       <aside style={{borderRight:"1px solid var(--border, #ddd)",padding:12,minWidth:0}}>
-        <label style={{display:"flex",gap:8,alignItems:"center"}}><Search size={14}/><Input aria-label="Search files" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Filter files" style={{width:"100%"}}/></label>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}><Search size={14}/><Input aria-label="Search files" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Filter files" style={{width:"100%"}}/></div>
         <div style={{marginTop:12,display:"grid",gap:4}}>
           {directory && <Button className="button link" onClick={()=>{const parent=directory.split("/").slice(0,-1).join("/");setDirectory(parent);if(workspace)void loadTree(workspace.id,parent);}}>..</Button>}
           {visible.map(item=><Button key={item.path} className="button link" onClick={()=>void openFile(item)} style={{justifyContent:"flex-start",overflowWrap:"anywhere"}}>
