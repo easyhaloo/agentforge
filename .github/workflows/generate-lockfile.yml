@@ -1,51 +1,24 @@
-name: Generate npm lockfile
-# Sync the lockfile on the same-repository feature branch, then dispatch the regular CI workflow.
+name: Validate npm lockfile
 
 on:
   pull_request:
     branches: [main]
     paths:
       - 'apps/web/package.json'
+      - 'package-lock.json'
       - '.github/workflows/generate-lockfile.yml'
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 jobs:
   lockfile:
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Generate workspace lockfile
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Validate lockfile with clean install
+          cache: npm
+      - name: Validate committed workspace lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Commit generated lockfile to the PR branch
-        id: lockfile
-        env:
-          BRANCH: ${{ github.head_ref }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "chore: sync npm lockfile"
-            git push origin "HEAD:refs/heads/$BRANCH"
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Dispatch regular CI for the updated PR branch
-        if: steps.lockfile.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.head_ref }}
-        run: gh workflow run ci.yml --ref "$BRANCH"
