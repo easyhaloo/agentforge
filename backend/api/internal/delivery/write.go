@@ -50,8 +50,17 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	}
 	repo, err := p.repositoryPath(ctx, org, repository)
 	if err != nil { return result, err }
-	_, actualBlob, err := p.ReadBlob(ctx, org, repository, baseCommit, filePath, 1<<20)
-	if err != nil || actualBlob != baseBlob { return result, ErrWriteConflict }
+	objectRaw, err := w.git("rev-parse", "--verify", "--end-of-options", baseCommit+":"+filePath)
+	object := strings.TrimSpace(string(objectRaw))
+	if err != nil || !objectID.MatchString(object) { return result, ErrWriteConflict }
+	objectType, err := w.git("cat-file", "-t", object)
+	if err != nil || strings.TrimSpace(string(objectType)) != "blob" { return result, ErrWriteInvalid }
+	objectSize, err := w.git("cat-file", "-s", object)
+	if err != nil { return result, ErrProviderUnavailable }
+	if strings.TrimSpace(string(objectSize)) == "" { return result, ErrRepositoryInvalid }
+	if object != baseBlob { return result, ErrWriteConflict }
+	blobContent, err := w.git("cat-file", "blob", object)
+	if err != nil || len(blobContent) > 1<<20 || !utf8.Valid(blobContent) { return result, ErrWriteInvalid }
 	// Refuse symlinks, submodules and non-regular tree entries even if their target resolves to a blob.
 	entry, err := previewGit(ctx, repo, "ls-tree", "-z", baseCommit, "--", filePath)
 	if err != nil { return result, ErrRepositoryInvalid }
@@ -70,8 +79,8 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	blob := strings.TrimSpace(string(blobRaw))
 	if !objectID.MatchString(blob) { return result, ErrProviderUnavailable }
 	if _, err = isolatedGit(ctx, repo, nil, env, "read-tree", baseCommit); err != nil { return result, ErrProviderUnavailable }
-	cache := "100644," + blob + "," + filePath
-	if _, err = isolatedGit(ctx, repo, nil, env, "update-index", "--add", "--cacheinfo", cache); err != nil { return result, ErrWriteInvalid }
+	indexInfo := "100644 " + blob + "\\t" + filePath + "\\n"
+	if _, err = isolatedGit(ctx, repo, strings.NewReader(indexInfo), env, "update-index", "--add", "--index-info"); err != nil { return result, ErrWriteInvalid }
 	treeRaw, err := isolatedGit(ctx, repo, nil, env, "write-tree")
 	if err != nil { return result, ErrProviderUnavailable }
 	tree := strings.TrimSpace(string(treeRaw))
@@ -121,8 +130,8 @@ func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, c
 	blob := strings.TrimSpace(string(blobRaw))
 	if !objectID.MatchString(blob) { return result, ErrProviderUnavailable }
 	if _, err = isolatedGit(w.ctx, w.dir, nil, env, "read-tree", baseCommit); err != nil { return result, ErrProviderUnavailable }
-	cache := "100644," + blob + "," + filePath
-	if _, err = isolatedGit(w.ctx, w.dir, nil, env, "update-index", "--add", "--cacheinfo", cache); err != nil { return result, ErrWriteInvalid }
+	indexInfo := "100644 " + blob + "\\t" + filePath + "\\n"
+	if _, err = isolatedGit(w.ctx, w.dir, strings.NewReader(indexInfo), env, "update-index", "--add", "--index-info"); err != nil { return result, ErrWriteInvalid }
 	treeRaw, err := isolatedGit(w.ctx, w.dir, nil, env, "write-tree")
 	if err != nil { return result, ErrProviderUnavailable }
 	tree := strings.TrimSpace(string(treeRaw))
