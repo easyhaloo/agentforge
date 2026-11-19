@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import { Button, Select } from "../../shared/ui/components";
 import { RadioGroup } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type UserPreferences } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
 // Common timezones for the select dropdown
@@ -63,8 +64,7 @@ export function AppearanceSettingsPage() {
         }
       } catch (err) {
         if (mounted) {
-          const message = err instanceof Error ? err.message : "Failed to load preferences";
-          setError(message);
+          setError(translateError(err, t, "settings:errors.loadPreferencesFailed"));
         }
       } finally {
         if (mounted) {
@@ -125,8 +125,7 @@ export function AppearanceSettingsPage() {
       setIsDirty(false);
       notify(t("appearance.saveSuccess"));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save preferences";
-      setError(message);
+      setError(translateError(err, t, "settings:errors.savePreferencesFailed"));
     } finally {
       setSaving(false);
     }
@@ -191,6 +190,7 @@ export function AppearanceSettingsPage() {
           {/* Theme Selection */}
           <RadioGroup
             label={t("appearance.theme")}
+            hint={t("appearance.themeDescription")}
             name="theme"
             value={preferences.theme}
             options={themeOptions}
@@ -200,6 +200,7 @@ export function AppearanceSettingsPage() {
           {/* Language Selection */}
           <Select
             label={t("appearance.language")}
+            hint={t("appearance.languageDescription")}
             name="language"
             value={preferences.language}
             options={languageOptions}
@@ -209,6 +210,7 @@ export function AppearanceSettingsPage() {
           {/* Timezone Selection */}
           <Select
             label={t("appearance.timezone")}
+            hint={t("appearance.timezoneDescription")}
             name="timezone"
             value={preferences.timezone}
             options={COMMON_TIMEZONES}

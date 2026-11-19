@@ -1,6 +1,17 @@
 {
   "metrics": {
-    "ariaLabel": "Workspace metrics"
+    "ariaLabel": "Workspace metrics",
+    "items": {
+      "activeChangesets": "Active changesets",
+      "verificationPassRate": "Verification pass rate",
+      "openTrails": "Open trails",
+      "agentHoursSaved": "Agent hours saved"
+    },
+    "deltas": {
+      "atRisk_one": "{{count}} at risk",
+      "atRisk_other": "{{count}} at risk",
+      "thisMonth": "This month"
+    }
   },
   "recentChangesets": {
     "title": "Recent changesets",
@@ -37,7 +48,27 @@
   "activityFeed": {
     "title": "Activity stream",
     "description": "Latest events across your workspace",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "events": {
+      "verified": {
+        "title": "Changeset verified",
+        "description_one": "{{changeset}} passed all {{count}} checks",
+        "description_other": "{{changeset}} passed all {{count}} checks"
+      },
+      "reviewRequested": {
+        "title": "Review requested",
+        "description": "{{reviewer}} requested review on {{changeset}}"
+      },
+      "trailAtRisk": {
+        "title": "Trail at risk",
+        "description_one": "{{name}} is waiting on {{count}} dependency",
+        "description_other": "{{name}} is waiting on {{count}} dependencies"
+      },
+      "workspaceCreated": {
+        "title": "Workspace created",
+        "description": "Agent workspace {{workspace}} is ready"
+      }
+    }
   },
   "changeVelocity": {
     "title": "Change velocity",
@@ -54,5 +85,12 @@
       "sat": "Sat",
       "sun": "Sun"
     }
+  },
+  "selectedChangeset": {
+    "label": "Selected changeset",
+    "summary": "Revision r{{revision}} · Base {{base}} · {{files}} files changed · {{checks}} checks",
+    "evidenceCurrent": "Evidence current",
+    "openDetails": "Open details",
+    "prototypeNotice": "Changeset detail view is a prototype interaction."
   }
 }

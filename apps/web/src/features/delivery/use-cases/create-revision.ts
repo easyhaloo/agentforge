@@ -20,7 +20,7 @@ export function resolveCurrentRevision(change: Change, revisions: Revision[]): R
     number,
     baseCommitSha: null,
     headCommitSha: null,
-    createdAt: "Restored from local state",
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -41,7 +41,7 @@ export function createNextRevision(
     number,
     baseCommitSha: null,
     headCommitSha: null,
-    createdAt: "Just now",
+    createdAt: new Date().toISOString(),
   };
   const nextReview: Review = {
     id: reviewId("REV-" + (891 + number)),

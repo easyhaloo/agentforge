@@ -12,6 +12,9 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     ...devices["Desktop Chrome"],
+    // The interface language follows the browser, so pin it: the assertions below read English
+    // labels, and a machine whose browser reports another language would otherwise fail them.
+    locale: "en-US",
     // Hermetic: every host except the local dev server fails to resolve at once, so no test waits on (or depends on)
     // the network, e.g. the Google Fonts @import in styles/index.css.
     launchOptions: { args: ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost"] },

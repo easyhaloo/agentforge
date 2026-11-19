@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { settingsAPI } from "./settings";
+import { APIError } from "./errors";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -318,11 +319,15 @@ describe("settings API client", () => {
       await expect(settingsAPI.getProfile()).rejects.toThrow("Invalid input");
     });
 
-    it("throws generic error when response parsing fails", async () => {
+    it("throws an API error carrying the status when response parsing fails", async () => {
       const fetchMock = vi.fn().mockResolvedValue(new Response("", { status: 500 }));
       vi.stubGlobal("fetch", fetchMock);
 
-      await expect(settingsAPI.getProfile()).rejects.toThrow("HTTP error 500");
+      // The status is what the interface turns into a translated message.
+      await settingsAPI.getProfile().catch((error: unknown) => {
+        expect(error).toBeInstanceOf(APIError);
+        expect((error as APIError).status).toBe(500);
+      });
     });
   });
 });

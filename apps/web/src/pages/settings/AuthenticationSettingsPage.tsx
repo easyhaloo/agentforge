@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ExternalLink } from "lucide-react";
 import { Button } from "../../shared/ui/components";
 import { settingsAPI, type AuthenticationInfo } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
+import { formatDateTime } from "../../shared/i18n/format";
 
 export function AuthenticationSettingsPage() {
   const { t } = useTranslation("settings");
@@ -25,8 +27,7 @@ export function AuthenticationSettingsPage() {
         }
       } catch (err) {
         if (mounted) {
-          const message = err instanceof Error ? err.message : "Failed to load authentication information";
-          setError(message);
+          setError(translateError(err, t, "settings:errors.loadAuthenticationFailed"));
         }
       } finally {
         if (mounted) {
@@ -64,21 +65,11 @@ export function AuthenticationSettingsPage() {
           <p className="settings-page-description">{t("authentication.description")}</p>
         </header>
         <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          {error || "Failed to load authentication information"}
+          {error || t("errors.loadAuthenticationFailed")}
         </div>
       </div>
     );
   }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const handleManageAtProvider = () => {
     window.open(authInfo.oidc_provider_url, "_blank", "noopener,noreferrer");
@@ -100,8 +91,23 @@ export function AuthenticationSettingsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {/* Provider */}
             <div className="settings-field-readonly">
-              <label className="settings-field-readonly-label">{t("authentication.provider")}</label>
-              <div className="settings-field-readonly-value">{authInfo.oidc_provider}</div>
+              <label className="settings-field-readonly-label">{t("authentication.oidcProvider")}</label>
+              <div className="settings-field-readonly-value">
+                {authInfo.oidc_provider}
+                <span
+                  style={{
+                    marginLeft: "8px",
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    backgroundColor: "var(--color-primary-bg)",
+                    color: "var(--color-primary)",
+                  }}
+                >
+                  {t("authentication.oidcConnected")}
+                </span>
+              </div>
             </div>
 
             {/* Login Email */}
@@ -113,7 +119,7 @@ export function AuthenticationSettingsPage() {
             {/* Last Login */}
             <div className="settings-field-readonly">
               <label className="settings-field-readonly-label">{t("authentication.lastLogin")}</label>
-              <div className="settings-field-readonly-value">{formatDate(authInfo.last_login_at)}</div>
+              <div className="settings-field-readonly-value">{formatDateTime(authInfo.last_login_at)}</div>
             </div>
           </div>
         </section>

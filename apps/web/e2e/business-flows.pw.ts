@@ -65,8 +65,8 @@ test("Organization role changes are sent to the API and reflected in the member 
   await page.getByRole("link", { name: "Organization", exact: true }).click();
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   const role = page.getByRole("combobox", { name: "Role for Alex Developer" });
-  await selectOption(page, role, "viewer");
-  await expect(role.locator(".af-select-trigger__label")).toHaveText("viewer");
+  await selectOption(page, role, "Viewer");
+  await expect(role.locator(".af-select-trigger__label")).toHaveText("Viewer");
 });
 
 test("Organization invitations can be created and displayed", async ({ page }) => {
@@ -75,7 +75,7 @@ test("Organization invitations can be created and displayed", async ({ page }) =
   await page.getByRole("textbox", { name: "Email address" }).fill("new-member@example.test");
   await selectOption(page, page.getByRole("combobox", { name: "Role" }), "Member");
   await page.getByRole("button", { name: "Create invitation" }).click();
-  await expect(page.getByText("Invitation created")).toBeVisible();
+  await expect(page.getByText("Invitation created", { exact: true })).toBeVisible();
   await expect(page.getByText("new-member@example.test")).toBeVisible();
   await expect(page.getByText("https://agentforge.example.test/invite/e2e-token")).toBeVisible();
 });

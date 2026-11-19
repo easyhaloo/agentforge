@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { translateError } from "../../shared/api/errors";
 import { pipelines, type QueueEntry } from "../../shared/api/pipelines";
 import { Button, Input } from "../../shared/ui";
 
@@ -21,7 +22,7 @@ export function MergeQueuePanel({ org, pipeline, version, canStart, canPromote, 
     try {
       await operation?.();
       setEntries((await pipelines.queue(org, repo, target)).items);
-    } catch (e) { setError(e instanceof Error ? e.message : t("requestFailed")); }
+    } catch (e) { setError(translateError(e, t, "pipelines:errors.queueFailed")); }
     finally { setBusy(false); }
   }
   return <details><summary>{t("mergeQueue")}</summary><fieldset disabled={busy}>

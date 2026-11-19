@@ -26,7 +26,10 @@ export function selectEvaluationViews(
   }));
 }
 
-export function selectReviewViews(reviews: Review[], revisions: Revision[]): ReviewView[] {
+export function selectReviewViews(
+  reviews: Review[],
+  revisions: Revision[],
+): ReviewView[] {
   const revisionNumbers = new Map(revisions.map((revision) => [revision.id, revision.number]));
   return reviews.map((review) => ({
     ...review,
@@ -47,13 +50,25 @@ export type ChangeMigration = {
   migrated: boolean;
 };
 
+/**
+ * A timestamp today at the given time of day.
+ *
+ * The demo records carry a real timestamp so the interface can show it with the shared
+ * date helper, which formats it in the language the interface is rendered in.
+ */
+export function todayAt(hours: number, minutes: number): string {
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date.toISOString();
+}
+
 export const initialRevisions: Revision[] = [{
   id: revisionId("CS-2481@r3"),
   changesetId: changesetId("CS-2481"),
   number: 3,
   baseCommitSha: null,
   headCommitSha: null,
-  createdAt: "Today, 10:30",
+  createdAt: todayAt(10, 30),
 }];
 
 export const initialChange: Change = {
@@ -149,7 +164,7 @@ export function migrateChangeState(
     number: revisionNumber,
     baseCommitSha: null,
     headCommitSha: null,
-    createdAt: "Restored from local state",
+    createdAt: new Date().toISOString(),
   });
 
   if (!activeRevision) {
@@ -182,7 +197,7 @@ export const initialEvaluations: Evaluation[] = [{
   revisionId: initialRevisions[0].id,
   status: "Passed",
   checks: 38,
-  createdAt: "Today, 10:42",
+  createdAt: todayAt(10, 42),
 }];
 
 export const initialReviews: Review[] = [{
@@ -192,9 +207,12 @@ export const initialReviews: Review[] = [{
   reviewer: "Mina",
 }];
 
+/** The stages the delivery flow walks through. The wording lives in the locale file. */
 export const stages = [
-  { id: "Changesets", label: "Changeset", desc: "Revisioned change" },
-  { id: "Eval", label: "Eval", desc: "Verification evidence" },
-  { id: "Review", label: "Review", desc: "Human decision" },
-  { id: "Trails", label: "Trail", desc: "Delivery outcome" },
-];
+  { id: "Changesets" },
+  { id: "Eval" },
+  { id: "Review" },
+  { id: "Trails" },
+] as const;
+
+export type Stage = (typeof stages)[number];

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { User, Settings, Palette, Bell, Lock, Key, Monitor, Bot } from "lucide-react";
+import { settingsNavGroups, settingsNavItems } from "./settings-nav";
 
 interface SettingsSidebarProps {
   username: string;
@@ -8,45 +8,8 @@ interface SettingsSidebarProps {
   avatarUrl?: string;
 }
 
-interface NavItem {
-  to: string;
-  labelKey: string;
-  icon: React.ComponentType<{ size?: number }>;
-}
-
-interface NavGroup {
-  titleKey: string;
-  items: NavItem[];
-}
-
 export function SettingsSidebar({ username, displayName, avatarUrl }: SettingsSidebarProps) {
   const { t } = useTranslation("settings");
-
-  // Personal settings (no group title)
-  const personalItems: NavItem[] = [
-    { to: "/settings/profile", labelKey: "nav.profile", icon: User },
-    { to: "/settings/account", labelKey: "nav.account", icon: Settings },
-    { to: "/settings/appearance", labelKey: "nav.appearance", icon: Palette },
-    { to: "/settings/notifications", labelKey: "nav.notifications", icon: Bell },
-  ];
-
-  // Grouped settings
-  const groups: NavGroup[] = [
-    {
-      titleKey: "nav.groupAccess",
-      items: [
-        { to: "/settings/authentication", labelKey: "nav.authentication", icon: Lock },
-        { to: "/settings/keys", labelKey: "nav.keys", icon: Key },
-        { to: "/settings/sessions", labelKey: "nav.sessions", icon: Monitor },
-      ],
-    },
-    {
-      titleKey: "nav.groupCode",
-      items: [
-        { to: "/settings/agents", labelKey: "nav.agents", icon: Bot },
-      ],
-    },
-  ];
 
   return (
     <div className="settings-sidebar-inner">
@@ -70,7 +33,7 @@ export function SettingsSidebar({ username, displayName, avatarUrl }: SettingsSi
 
       {/* Personal Settings (no group title) */}
       <nav className="settings-nav-section">
-        {personalItems.map((item) => {
+        {settingsNavItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -89,7 +52,7 @@ export function SettingsSidebar({ username, displayName, avatarUrl }: SettingsSi
       </nav>
 
       {/* Grouped Settings */}
-      {groups.map((group) => (
+      {settingsNavGroups.map((group) => (
         <div key={group.titleKey} className="settings-nav-group">
           <h3 className="settings-nav-group-title">{t(group.titleKey)}</h3>
           <nav className="settings-nav-section">

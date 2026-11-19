@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { identityManagementAPI, APIError, type Identity } from "../../shared/api/identities";
+import { identityManagementAPI, type Identity } from "../../shared/api/identities";
+import { translateError } from "../../shared/api/errors";
 import { Button } from "../../shared/ui/components";
 import { IdentityCard } from "./IdentityCard";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
@@ -25,11 +26,7 @@ export function IdentitiesPage() {
       setLoadState("ready");
     } catch (err: unknown) {
       setLoadState("error");
-      if (err instanceof APIError) {
-        setError(err.message || t("identities.error.loadFailed"));
-      } else {
-        setError(t("identities.error.loadFailed"));
-      }
+      setError(translateError(err, t, "settings:identities.error.loadFailed"));
     }
   };
 
@@ -46,16 +43,12 @@ export function IdentitiesPage() {
       // Clear notification after 3 seconds
       setTimeout(() => setNotification(""), 3000);
     } catch (err: unknown) {
-      if (err instanceof APIError) {
-        setError(err.message || t("identities.error.unlinkFailed"));
-      } else {
-        setError(t("identities.error.unlinkFailed"));
-      }
+      setError(translateError(err, t, "settings:identities.error.unlinkFailed"));
     }
   };
 
   const handlePasswordChangeSuccess = () => {
-    setNotification(t("changePassword.success"));
+    setNotification(t("authentication.passwordChanged"));
     setTimeout(() => setNotification(""), 3000);
   };
 

@@ -1,0 +1,62 @@
+{
+  "footer": {
+    "prototype": "AgentForge Prototype",
+    "version": "v0.1.0",
+    "operational": "All systems operational",
+    "mockEnvironment": "Mock environment"
+  },
+  "notFound": {
+    "title": "Nothing is served at {{pathname}}.",
+    "goToOverview": "Go to Overview"
+  },
+  "pageError": {
+    "title": "Something went wrong",
+    "description": "This page could not be displayed. Try again later, or go back to the overview.",
+    "goToOverview": "Go to Overview"
+  },
+  "rootError": {
+    "title": "Something went wrong",
+    "description": "AgentForge could not be displayed. Reload the page to try again.",
+    "reload": "Reload AgentForge"
+  },
+  "organizationGate": {
+    "loading": "Loading authenticated account and organizations…",
+    "continueWithSSO": "Continue with SSO",
+    "retry": "Retry",
+    "noOrganization": "No active organization",
+    "noOrganizationHandle": "No organization \"{{handle}}\" is available to this account.",
+    "organization": {
+      "signedOutTitle": "Sign in to manage your organization",
+      "signedOutBody": "Organization settings require an authenticated AgentForge session.",
+      "unavailableTitle": "Organization service unavailable",
+      "noOrganization": "This account has no active organization membership. Ask an organization owner for an invitation."
+    },
+    "pipelines": {
+      "signedOutTitle": "Sign in to view pipelines",
+      "signedOutBody": "Workflows belong to your organization.",
+      "unavailableTitle": "Pipeline service unavailable",
+      "noOrganization": "This account has no active organization membership."
+    },
+    "changesets": {
+      "signedOutTitle": "Sign in to view changesets",
+      "signedOutBody": "Changesets are scoped to an authenticated organization.",
+      "unavailableTitle": "Changeset service unavailable",
+      "noOrganization": "This account has no active organization membership."
+    },
+    "repositories": {
+      "signedOutTitle": "Sign in to view repositories",
+      "signedOutBody": "Repositories are scoped to an authenticated organization.",
+      "unavailableTitle": "Repository service unavailable",
+      "noOrganization": "This account has no active organization membership."
+    }
+  },
+  "errors": {
+    "accountLoadFailed": "Unable to load account context",
+    "signOutFailed": "Unable to sign out",
+    "authUnavailableTitle": "Unable to verify authentication",
+    "authUnavailableBody": "The authentication service is temporarily unavailable. Please try again."
+  },
+  "notify": {
+    "signedOut": "You have signed out."
+  }
+}
