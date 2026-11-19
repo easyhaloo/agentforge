@@ -16,8 +16,8 @@ import { Button, Select, TextArea } from "../../shared/ui";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
 function lineDiff(before: string, after: string): DiffLine[] {
-  const oldLines = before.split("\\n");
-  const newLines = after.split("\\n");
+  const oldLines = before.split("\n");
+  const newLines = after.split("\n");
   let prefix = 0;
   while (prefix < oldLines.length && prefix < newLines.length && oldLines[prefix] === newLines[prefix]) prefix++;
   let suffix = 0;
@@ -236,7 +236,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
           {!selectedChangeset && <p className="webide-hint">Select a Changeset for isolated editing. The repository branch remains read-only.</p>}
           {dirty && <p className="webide-hint">Unsaved changes · Save creates a new commit on the Changeset branch, never on the default branch.</p>}
           <TextArea aria-label="File content" value={draft} onChange={event => setDraft(event.target.value)} rows={24} disabled={!selectedChangeset || saving}/>
-          {dirty && <details className="webide-diff"><summary>Review changes ({draft.split("\n").length} current lines)</summary><pre>{draft.split("\n").map((line, index) => <span key={index}>+ {line}\n</span>)}</pre></details>}
+          {dirty && <details className="webide-diff"><summary>Review changes ({draft.split("\n").length} current lines)</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}
           {conflict && <div className="webide-conflict"><AlertCircle size={15}/> Your buffer is preserved. Reload the latest Changeset revision and reapply your edits before saving again.</div>}
         </> : <div className="webide-empty"><Code2 size={28}/><strong>Select a file to edit</strong><span>Choose a Changeset to enable safe text editing. Writes are isolated to its dedicated branch.</span></div>}
       </section>
