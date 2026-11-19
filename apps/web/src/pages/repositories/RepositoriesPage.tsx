@@ -14,6 +14,7 @@ import {
 import { Button, DataTable, Input, Select } from "../../shared/ui";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
+import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
 import { formatRepositoryFileSize } from "./repositoryFileUtils";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -195,6 +196,17 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     } finally { setBusy(false); }
   };
 
+  const openMarkdownPath = async (path: string) => {
+    if (!selectedRepository) return;
+    setFileHistory([]); setBlameLines([]); setFileInspectionError("");
+    setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
+    try {
+      setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, path, previewCommit));
+    } catch (cause) {
+      setPreviewError(cause instanceof Error ? cause.message : "Unable to open linked repository file");
+    } finally { setPreviewLoading(false); }
+  };
+
   const openEntry = async (entry: RepositoryPreviewEntry) => {
     if (entry.kind === "tree") {
       setDirectory(entry.path);
@@ -269,7 +281,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       {comparePatch !== "" && <section aria-label="Commit comparison" style={{ marginTop: 12 }}>
         <h3>Commit comparison</h3>
         <p className="changeset-hint">Base commit <code>{compareBase.slice(0, 12)}</code> · head commit <code>{previewCommit.slice(0, 12)}</code></p>
-        <pre style={{ overflow: "auto", maxHeight: 480, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre" }}><code>{comparePatch || "No changes."}</code></pre>
+        <RepositoryDiffViewer patch={comparePatch}/>
       </section>}
       {previewLoading && <p role="status">Loading repository content…</p>}
       {!previewLoading && tree && !selectedFile && <div>
@@ -293,7 +305,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           {tree.items.length === 0 && <li className="changeset-hint">This directory is empty.</li>}
           {tree.items.length > 0 && visibleEntries.length === 0 && <li className="changeset-hint">No files match “{entryQuery}”.</li>}
         </ul>
-        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content}/></section>}
+        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content} sourcePath={rootReadme.path} onOpenPath={openMarkdownPath}/></section>}
         {readmeError && !tree.path && <p className="changeset-hint" role="status">{readmeError}</p>}
       </div>}
       {selectedFile && <div style={{ marginTop: 12 }}>
@@ -314,7 +326,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360, display: "grid", gap: 4 }}>{blameLines.map(line => <div key={line.line} style={{ display: "grid", gridTemplateColumns: "42px 88px minmax(100px, 180px) 1fr", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border-subtle, #ddd)" }}>
           <code>{line.line}</code><code>{line.commit_sha.slice(0, 8)}</code><span>{line.author}</span><code style={{ overflowWrap: "anywhere" }}>{line.content}</code>
         </div>)}</div></section>}
-        {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
+        {/\\.md$|\\.markdown$/i.test(selectedFile.path) ? <RepositoryReadme content={selectedFile.content} sourcePath={selectedFile.path} onOpenPath={openMarkdownPath}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
       </div>}
     </section>}
   </section>;

@@ -282,3 +282,16 @@
 .repository-tree-tools .changeset-hint{margin-left:auto;white-space:nowrap}
 .repository-tree-entry-meta{display:inline-block;margin-left:10px;color:var(--text-muted,#8290a8);font-size:11px}
 @media(max-width:600px){.repository-tree-entry-meta{display:block;margin:3px 0 0 28px}.repository-tree-tools .changeset-hint{margin-left:0}}
+
+/* Repository Markdown and unified diff presentation */
+.repository-readme a{color:var(--accent,#a99bff);text-decoration:underline;text-underline-offset:2px}
+.repository-diff{display:grid;gap:14px;overflow:auto;max-height:560px}
+.repository-diff__file{border:1px solid var(--border-subtle,#303a50);border-radius:7px;overflow:hidden}
+.repository-diff__file h4{margin:0;padding:9px 12px;background:var(--surface-subtle,#141c2b);font:600 12px/1.5 'DM Mono',monospace}
+.repository-diff__hunk{padding:6px 10px;background:#252343;color:#c5bcff;font:11px/1.5 'DM Mono',monospace}
+.repository-diff__line{display:grid;grid-template-columns:42px 42px minmax(0,1fr);font:11px/1.6 'DM Mono',monospace;white-space:pre}
+.repository-diff__line>span{padding:0 7px;text-align:right;color:#7f8aa2;border-right:1px solid #303a50;user-select:none}
+.repository-diff__line code{padding:0 9px;overflow-x:auto}
+.repository-diff__line--add{background:#123225;color:#b8e7c7}
+.repository-diff__line--remove{background:#3a2028;color:#f0b8c0}
+.repository-diff__line--meta{color:#8995aa;background:#111827}
