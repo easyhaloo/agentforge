@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import en from "../locales/en-US/navigation.json";
+import zh from "../locales/zh-CN/navigation.json";
+import { groupToNavKey, labelToNavKey } from "./navigation-labels";
 import { itemHref, navigationGroups, navigationItems } from "./navigation";
 
 // Pre-refactor values, copied as literals from the old navigation.ts (`groups`).
@@ -13,6 +16,13 @@ const legacyGroups = [
 
 
 describe("navigation data source", () => {
+  it.each([en, zh])("translates every sidebar entry", (locale) => {
+    for (const group of navigationGroups) {
+      expect({ navigation: locale }).toHaveProperty(groupToNavKey(group.label).replace(":", "."));
+      for (const item of group.items) expect({ navigation: locale }).toHaveProperty(labelToNavKey(item.label).replace(":", "."));
+    }
+  });
+
   it("keeps the group labels, item labels and their order", () => {
     expect(navigationGroups.map((group) => ({ label: group.label, items: group.items.map((item) => item.label) }))).toEqual(legacyGroups);
   });

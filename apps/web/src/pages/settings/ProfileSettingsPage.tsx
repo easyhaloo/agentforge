@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
+import { AccountAvatar } from "../../shared/ui/components/AccountAvatar";
 import { Button, Input } from "../../shared/ui/components";
 import { TextArea } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type UserProfile } from "../../shared/api/settings";
@@ -32,7 +33,7 @@ function isValidURL(url: string): boolean {
 
 export function ProfileSettingsPage() {
   const { t } = useTranslation("settings");
-  const { notify } = useOutletContext<SettingsOutletContext>();
+  const { notify, updateDisplayName } = useOutletContext<SettingsOutletContext>();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -63,10 +64,8 @@ export function ProfileSettingsPage() {
             website: "", // Website not in current API response
           });
         }
-      } catch (err) {
-        if (mounted) {
-          notify(translateError(err, t, "settings:errors.loadProfileFailed"));
-        }
+      } catch {
+        if (mounted) setProfile(null);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -79,7 +78,7 @@ export function ProfileSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, []);
 
   const validateForm = (): FormErrors => {
     const newErrors: FormErrors = {};
@@ -133,6 +132,7 @@ export function ProfileSettingsPage() {
         location: formData.location,
       });
       setProfile(updated);
+      updateDisplayName?.(updated.display_name);
       setIsDirty(false);
       notify(t("profile.saveSuccess"));
     } catch (err) {
@@ -142,109 +142,71 @@ export function ProfileSettingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="settings-page">
-        <header className="settings-page-header">
-          <h1 className="settings-page-title">{t("profile.title")}</h1>
-          <p className="settings-page-description">{t("profile.description")}</p>
-        </header>
-        <div className="settings-placeholder">
-          {t("common:status.loading", { ns: "common" })}
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="settings-page">
-        <header className="settings-page-header">
-          <h1 className="settings-page-title">{t("profile.title")}</h1>
-          <p className="settings-page-description">{t("profile.description")}</p>
-        </header>
-        <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          {t("errors.loadProfileFailed")}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="settings-page">
+    <div className="settings-page settings-profile">
       <header className="settings-page-header">
         <h1 className="settings-page-title">{t("profile.title")}</h1>
-        <p className="settings-page-description">{t("profile.description")}</p>
       </header>
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          {/* Display Name */}
-          <Input
-            label={t("profile.displayName")}
-            name="display_name"
-            value={formData.display_name}
-            onChange={(e) => handleChange("display_name", e.target.value)}
-            error={errors.display_name}
-            hint={t("profile.displayNameHint")}
-            required
-            maxLength={100}
-          />
-
-          {/* Bio */}
-          <div>
-            <TextArea
-              label={t("profile.bio")}
-              name="bio"
-              value={formData.bio}
-              onChange={(e) => handleChange("bio", e.target.value)}
-              error={errors.bio}
-              placeholder={t("profile.bioPlaceholder")}
-              rows={4}
-              maxLength={500}
+      {loading || !profile ? (
+        <div className="settings-placeholder" role={loading ? "status" : "alert"}>
+          {loading ? t("common:status.loading") : t("profile.loadError")}
+        </div>
+      ) : (
+        <div className="settings-profile-grid">
+          <form className="settings-profile-form" onSubmit={handleSubmit}>
+            {/* Display Name */}
+            <Input
+              label={t("profile.displayName")}
+              name="display_name"
+              value={formData.display_name}
+              onChange={(e) => handleChange("display_name", e.target.value)}
+              error={errors.display_name}
+              hint={t("profile.displayNameHint")}
+              required
+              maxLength={100}
             />
-            <div style={{ textAlign: "right", fontSize: "12px", color: "var(--color-text-tertiary)", marginTop: "4px" }}>
-              {formData.bio.length} / 500
+
+            {/* Bio */}
+            <div>
+              <TextArea
+                label={t("profile.bio")}
+                name="bio"
+                value={formData.bio}
+                onChange={(e) => handleChange("bio", e.target.value)}
+                error={errors.bio}
+                placeholder={t("profile.bioPlaceholder")}
+                rows={4}
+                maxLength={500}
+              />
+              <div style={{ textAlign: "right", fontSize: "12px", color: "var(--color-text-tertiary)", marginTop: "4px" }}>
+                {formData.bio.length} / 500
+              </div>
             </div>
-          </div>
 
-          {/* Location */}
-          <Input
-            label={t("profile.location")}
-            name="location"
-            value={formData.location}
-            onChange={(e) => handleChange("location", e.target.value)}
-            error={errors.location}
-            placeholder={t("profile.locationPlaceholder")}
-            maxLength={100}
-          />
+            {/* Location */}
+            <Input
+              label={t("profile.location")}
+              name="location"
+              value={formData.location}
+              onChange={(e) => handleChange("location", e.target.value)}
+              error={errors.location}
+              placeholder={t("profile.locationPlaceholder")}
+              maxLength={100}
+            />
 
-          {/* Website */}
-          <Input
-            label={t("profile.website")}
-            name="website"
-            value={formData.website}
-            onChange={(e) => handleChange("website", e.target.value)}
-            error={errors.website}
-            placeholder={t("profile.websitePlaceholder")}
-            hint={t("profile.websiteComingSoon")}
-            disabled
-            maxLength={100}
-          />
+            {/* Website */}
+            <Input
+              label={t("profile.website")}
+              name="website"
+              value={formData.website}
+              onChange={(e) => handleChange("website", e.target.value)}
+              error={errors.website}
+              placeholder={t("profile.websitePlaceholder")}
+              hint={t("profile.websiteComingSoon")}
+              disabled
+              maxLength={100}
+            />
 
-          {/* Avatar Upload Note */}
-          <div style={{
-            padding: "12px",
-            backgroundColor: "var(--color-bg-hover)",
-            borderRadius: "6px",
-            fontSize: "14px",
-            color: "var(--color-text-secondary)"
-          }}>
-            <strong>{t("profile.avatar")}</strong>: {t("profile.avatarComingSoon")}
-          </div>
-
-          {/* Save Button */}
-          <div style={{ paddingTop: "8px" }}>
             <Button
               type="submit"
               variant="primary"
@@ -253,9 +215,14 @@ export function ProfileSettingsPage() {
             >
               {saving ? t("common:status.saving", { ns: "common" }) : t("common:actions.save", { ns: "common" })}
             </Button>
-          </div>
+          </form>
+          <figure className="settings-profile-picture">
+            <figcaption>{t("profile.avatar")}</figcaption>
+            <AccountAvatar userId={profile.user_id} src={profile.avatar_url} size={200} />
+            <small>{t("profile.avatarComingSoon")}</small>
+          </figure>
         </div>
-      </form>
+      )}
     </div>
   );
 }

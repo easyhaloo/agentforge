@@ -10,15 +10,25 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
-// Preferences handlers
-
-type preferencesGetter interface {
+type SettingsRepository interface {
+	GetUserProfile(context.Context, string) (identity.UserProfile, error)
+	UpdateUserProfile(context.Context, string, *string, *string, *string) (identity.UserProfile, error)
 	GetUserPreferences(context.Context, string) (identity.UserPreferences, error)
+	UpdateUserPreferences(context.Context, string, identity.UserPreferencesPatch) (identity.UserPreferences, error)
+	GetNotificationPreferences(context.Context, string) (identity.NotificationPreferences, error)
+	UpdateNotificationPreferences(context.Context, string, identity.NotificationPreferencesPatch) (identity.NotificationPreferences, error)
+	GetAuthenticationInfo(context.Context, string) (identity.AuthenticationInfo, error)
+	ListSSHKeys(context.Context, string) ([]identity.SSHKey, error)
+	AddSSHKey(context.Context, string, string, string) (identity.SSHKey, error)
+	DeleteSSHKey(context.Context, string, string) error
+	ListSessions(context.Context, string, string) ([]identity.SessionInfo, error)
+	RevokeSessionByID(context.Context, string, string) error
+	RevokeAllOtherSessions(context.Context, string, string) (int, error)
+	GetAgentPreferences(context.Context, string) (identity.AgentPreferences, error)
+	UpdateAgentPreferences(context.Context, string, identity.AgentPreferencesPatch) (identity.AgentPreferences, error)
 }
 
-type preferencesUpdater interface {
-	UpdateUserPreferences(context.Context, string, string, string, string) (identity.UserPreferences, error)
-}
+// Preferences handlers
 
 func (d DeliveryDependencies) getPreferences(w http.ResponseWriter, r *http.Request) {
 	userID, ok := d.authenticateUser(w, r)
@@ -26,13 +36,7 @@ func (d DeliveryDependencies) getPreferences(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	repo, ok := d.Repository.(preferencesGetter)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Preferences unavailable", "Preferences repository is not configured")
-		return
-	}
-
-	prefs, err := repo.GetUserPreferences(r.Context(), userID)
+	prefs, err := d.Settings.GetUserPreferences(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load preferences", err.Error())
 		return
@@ -47,23 +51,13 @@ func (d DeliveryDependencies) updatePreferences(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req struct {
-		Theme    string `json:"theme"`
-		Language string `json:"language"`
-		Timezone string `json:"timezone"`
-	}
+	var req identity.UserPreferencesPatch
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")
 		return
 	}
 
-	repo, ok := d.Repository.(preferencesUpdater)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Preferences unavailable", "Preferences repository is not configured")
-		return
-	}
-
-	prefs, err := repo.UpdateUserPreferences(r.Context(), userID, req.Theme, req.Language, req.Timezone)
+	prefs, err := d.Settings.UpdateUserPreferences(r.Context(), userID, req)
 	if err != nil {
 		writeProblem(w, http.StatusBadRequest, "Failed to update preferences", err.Error())
 		return
@@ -74,27 +68,13 @@ func (d DeliveryDependencies) updatePreferences(w http.ResponseWriter, r *http.R
 
 // Notification preferences handlers
 
-type notificationPreferencesGetter interface {
-	GetNotificationPreferences(context.Context, string) (identity.NotificationPreferences, error)
-}
-
-type notificationPreferencesUpdater interface {
-	UpdateNotificationPreferences(context.Context, string, identity.EmailNotificationSettings, bool, string) (identity.NotificationPreferences, error)
-}
-
 func (d DeliveryDependencies) getNotificationPreferences(w http.ResponseWriter, r *http.Request) {
 	userID, ok := d.authenticateUser(w, r)
 	if !ok {
 		return
 	}
 
-	repo, ok := d.Repository.(notificationPreferencesGetter)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Notification preferences unavailable", "Notification preferences repository is not configured")
-		return
-	}
-
-	prefs, err := repo.GetNotificationPreferences(r.Context(), userID)
+	prefs, err := d.Settings.GetNotificationPreferences(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load notification preferences", err.Error())
 		return
@@ -109,23 +89,13 @@ func (d DeliveryDependencies) updateNotificationPreferences(w http.ResponseWrite
 		return
 	}
 
-	var req struct {
-		EmailNotifications    identity.EmailNotificationSettings `json:"email_notifications"`
-		WebPushEnabled        bool                               `json:"web_push_enabled"`
-		NotificationFrequency string                             `json:"notification_frequency"`
-	}
+	var req identity.NotificationPreferencesPatch
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")
 		return
 	}
 
-	repo, ok := d.Repository.(notificationPreferencesUpdater)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Notification preferences unavailable", "Notification preferences repository is not configured")
-		return
-	}
-
-	prefs, err := repo.UpdateNotificationPreferences(r.Context(), userID, req.EmailNotifications, req.WebPushEnabled, req.NotificationFrequency)
+	prefs, err := d.Settings.UpdateNotificationPreferences(r.Context(), userID, req)
 	if err != nil {
 		writeProblem(w, http.StatusBadRequest, "Failed to update notification preferences", err.Error())
 		return
@@ -136,23 +106,13 @@ func (d DeliveryDependencies) updateNotificationPreferences(w http.ResponseWrite
 
 // Authentication info handler
 
-type authenticationInfoGetter interface {
-	GetAuthenticationInfo(context.Context, string) (identity.AuthenticationInfo, error)
-}
-
 func (d DeliveryDependencies) getAuthenticationInfo(w http.ResponseWriter, r *http.Request) {
 	userID, ok := d.authenticateUser(w, r)
 	if !ok {
 		return
 	}
 
-	repo, ok := d.Repository.(authenticationInfoGetter)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Authentication info unavailable", "Authentication info repository is not configured")
-		return
-	}
-
-	info, err := repo.GetAuthenticationInfo(r.Context(), userID)
+	info, err := d.Settings.GetAuthenticationInfo(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load authentication info", err.Error())
 		return
@@ -163,31 +123,13 @@ func (d DeliveryDependencies) getAuthenticationInfo(w http.ResponseWriter, r *ht
 
 // SSH keys handlers
 
-type sshKeysLister interface {
-	ListSSHKeys(context.Context, string) ([]identity.SSHKey, error)
-}
-
-type sshKeyAdder interface {
-	AddSSHKey(context.Context, string, string, string) (identity.SSHKey, error)
-}
-
-type sshKeyDeleter interface {
-	DeleteSSHKey(context.Context, string, string) error
-}
-
 func (d DeliveryDependencies) listSSHKeys(w http.ResponseWriter, r *http.Request) {
 	userID, ok := d.authenticateUser(w, r)
 	if !ok {
 		return
 	}
 
-	repo, ok := d.Repository.(sshKeysLister)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "SSH keys unavailable", "SSH keys repository is not configured")
-		return
-	}
-
-	keys, err := repo.ListSSHKeys(r.Context(), userID)
+	keys, err := d.Settings.ListSSHKeys(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load SSH keys", err.Error())
 		return
@@ -222,13 +164,7 @@ func (d DeliveryDependencies) addSSHKey(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	repo, ok := d.Repository.(sshKeyAdder)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "SSH keys unavailable", "SSH keys repository is not configured")
-		return
-	}
-
-	key, err := repo.AddSSHKey(r.Context(), userID, req.Title, req.PublicKey)
+	key, err := d.Settings.AddSSHKey(r.Context(), userID, req.Title, req.PublicKey)
 	if err != nil {
 		writeProblem(w, http.StatusBadRequest, "Failed to add SSH key", err.Error())
 		return
@@ -249,13 +185,7 @@ func (d DeliveryDependencies) deleteSSHKey(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	repo, ok := d.Repository.(sshKeyDeleter)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "SSH keys unavailable", "SSH keys repository is not configured")
-		return
-	}
-
-	if err := repo.DeleteSSHKey(r.Context(), userID, keyID); err != nil {
+	if err := d.Settings.DeleteSSHKey(r.Context(), userID, keyID); err != nil {
 		writeProblem(w, http.StatusBadRequest, "Failed to delete SSH key", err.Error())
 		return
 	}
@@ -265,31 +195,13 @@ func (d DeliveryDependencies) deleteSSHKey(w http.ResponseWriter, r *http.Reques
 
 // Sessions handlers
 
-type sessionsLister interface {
-	ListSessions(context.Context, string, string) ([]identity.SessionInfo, error)
-}
-
-type sessionRevoker interface {
-	RevokeSessionByID(context.Context, string, string) error
-}
-
-type allSessionsRevoker interface {
-	RevokeAllOtherSessions(context.Context, string, string) (int, error)
-}
-
 func (d DeliveryDependencies) listSessions(w http.ResponseWriter, r *http.Request) {
 	userID, sessionToken, ok := d.authenticateUserWithToken(w, r)
 	if !ok {
 		return
 	}
 
-	repo, ok := d.Repository.(sessionsLister)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Sessions unavailable", "Sessions repository is not configured")
-		return
-	}
-
-	sessions, err := repo.ListSessions(r.Context(), userID, sessionToken)
+	sessions, err := d.Settings.ListSessions(r.Context(), userID, sessionToken)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load sessions", err.Error())
 		return
@@ -312,13 +224,7 @@ func (d DeliveryDependencies) revokeSession(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	repo, ok := d.Repository.(sessionRevoker)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Sessions unavailable", "Sessions repository is not configured")
-		return
-	}
-
-	if err := repo.RevokeSessionByID(r.Context(), userID, sessionID); err != nil {
+	if err := d.Settings.RevokeSessionByID(r.Context(), userID, sessionID); err != nil {
 		writeProblem(w, http.StatusBadRequest, "Failed to revoke session", err.Error())
 		return
 	}
@@ -332,13 +238,7 @@ func (d DeliveryDependencies) revokeAllOtherSessions(w http.ResponseWriter, r *h
 		return
 	}
 
-	repo, ok := d.Repository.(allSessionsRevoker)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Sessions unavailable", "Sessions repository is not configured")
-		return
-	}
-
-	count, err := repo.RevokeAllOtherSessions(r.Context(), userID, sessionToken)
+	count, err := d.Settings.RevokeAllOtherSessions(r.Context(), userID, sessionToken)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to revoke sessions", err.Error())
 		return
@@ -351,27 +251,13 @@ func (d DeliveryDependencies) revokeAllOtherSessions(w http.ResponseWriter, r *h
 
 // Agent preferences handlers
 
-type agentPreferencesGetter interface {
-	GetAgentPreferences(context.Context, string) (identity.AgentPreferences, error)
-}
-
-type agentPreferencesUpdater interface {
-	UpdateAgentPreferences(context.Context, string, identity.AgentPreferences) (identity.AgentPreferences, error)
-}
-
 func (d DeliveryDependencies) getAgentPreferences(w http.ResponseWriter, r *http.Request) {
 	userID, ok := d.authenticateUser(w, r)
 	if !ok {
 		return
 	}
 
-	repo, ok := d.Repository.(agentPreferencesGetter)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Agent preferences unavailable", "Agent preferences repository is not configured")
-		return
-	}
-
-	prefs, err := repo.GetAgentPreferences(r.Context(), userID)
+	prefs, err := d.Settings.GetAgentPreferences(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load agent preferences", err.Error())
 		return
@@ -386,19 +272,13 @@ func (d DeliveryDependencies) updateAgentPreferences(w http.ResponseWriter, r *h
 		return
 	}
 
-	var prefs identity.AgentPreferences
+	var prefs identity.AgentPreferencesPatch
 	if err := json.NewDecoder(r.Body).Decode(&prefs); err != nil {
 		writeProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")
 		return
 	}
 
-	repo, ok := d.Repository.(agentPreferencesUpdater)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Agent preferences unavailable", "Agent preferences repository is not configured")
-		return
-	}
-
-	updated, err := repo.UpdateAgentPreferences(r.Context(), userID, prefs)
+	updated, err := d.Settings.UpdateAgentPreferences(r.Context(), userID, prefs)
 	if err != nil {
 		writeProblem(w, http.StatusBadRequest, "Failed to update agent preferences", err.Error())
 		return
@@ -408,19 +288,10 @@ func (d DeliveryDependencies) updateAgentPreferences(w http.ResponseWriter, r *h
 }
 
 func (d DeliveryDependencies) clearAgentMemory(w http.ResponseWriter, r *http.Request) {
-	userID, ok := d.authenticateUser(w, r)
-	if !ok {
+	if _, ok := d.authenticateUser(w, r); !ok {
 		return
 	}
-
-	// For now, this is a no-op since we don't have an agent memory store yet
-	// In the future, this would clear agent context/memory for the user
-	_ = userID
-
-	writeJSON(w, http.StatusOK, struct {
-		Success bool   `json:"success"`
-		Message string `json:"message"`
-	}{Success: true, Message: "Agent memory cleared"})
+	writeProblem(w, http.StatusNotImplemented, "Agent memory unavailable", "Agent memory storage is not implemented")
 }
 
 // Account settings handler
@@ -431,18 +302,7 @@ func (d DeliveryDependencies) getAccount(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get user account information
-	type accountGetter interface {
-		GetUserProfile(context.Context, string) (identity.UserProfile, error)
-	}
-
-	repo, ok := d.Repository.(accountGetter)
-	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "Account repository is not configured")
-		return
-	}
-
-	profile, err := repo.GetUserProfile(r.Context(), userID)
+	profile, err := d.Settings.GetUserProfile(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Failed to load account", err.Error())
 		return
@@ -487,14 +347,14 @@ func (d DeliveryDependencies) authenticateUser(w http.ResponseWriter, r *http.Re
 }
 
 func (d DeliveryDependencies) authenticateUserWithToken(w http.ResponseWriter, r *http.Request) (string, string, bool) {
-	if d.Account == nil {
-		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "The account repository is not configured")
-		return "", "", false
-	}
-
 	cookie, err := r.Cookie(identity.SessionCookieName)
 	if err != nil || cookie.Value == "" {
 		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
+		return "", "", false
+	}
+
+	if d.Account == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "The account repository is not configured")
 		return "", "", false
 	}
 
@@ -508,5 +368,9 @@ func (d DeliveryDependencies) authenticateUserWithToken(w http.ResponseWriter, r
 		return "", "", false
 	}
 
+	if account.UserID == "" || d.Settings == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Settings unavailable", "The account or settings repository is unavailable")
+		return "", "", false
+	}
 	return account.UserID, cookie.Value, true
 }

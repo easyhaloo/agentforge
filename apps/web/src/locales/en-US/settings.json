@@ -1,5 +1,6 @@
 {
   "nav": {
+    "switchContext": "Switch settings context",
     "profile": "Public profile",
     "account": "Account",
     "appearance": "Appearance",
@@ -9,8 +10,7 @@
     "sessions": "Sessions",
     "agents": "Agent Interactions",
     "groupAccess": "ACCESS",
-    "groupCode": "CODE",
-    "userAccountType": "User Account"
+    "groupCode": "CODE"
   },
   "profile": {
     "title": "Public profile",
@@ -31,9 +31,12 @@
     "websiteComingSoon": "Saving a website is not available yet.",
     "avatar": "Avatar",
     "avatarComingSoon": "Avatar upload coming soon",
-    "saveSuccess": "Profile updated successfully"
+    "saveSuccess": "Profile updated successfully",
+    "loadError": "Could not load your profile."
   },
   "account": {
+    "details": "Account details",
+    "editProfile": "Edit public profile",
     "title": "Account",
     "description": "Manage your account settings and preferences",
     "username": "Username",
@@ -78,7 +81,8 @@
     "frequencyRealTime": "Real-time",
     "frequencyHourly": "Hourly digest",
     "frequencyDaily": "Daily digest",
-    "saveSuccess": "Notification settings saved"
+    "saveSuccess": "Notification settings saved",
+    "loadError": "Could not load notification preferences."
   },
   "authentication": {
     "title": "Password and authentication",
@@ -101,11 +105,13 @@
       "currentIncorrect": "The current password is incorrect.",
       "validation": "Please complete every field before saving.",
       "generic": "The password could not be changed."
-    }
+    },
+    "provider": "Provider",
+    "localAccount": "Local account"
   },
   "keys": {
     "title": "SSH and GPG keys",
-    "description": "Manage your SSH and GPG keys for secure access",
+    "description": "Manage your SSH keys for secure access",
     "sshKeys": "SSH keys",
     "addSSHKey": "Add SSH key",
     "keyTitle": "Title",
@@ -124,12 +130,14 @@
     "neverUsed": "Never used",
     "noKeys": "No SSH keys yet",
     "gpgTitle": "GPG keys",
-    "gpgComingSoon": "GPG key management is coming soon.",
+    "gpgComingSoon": "GPG key management is currently unavailable.",
     "deleteKey": "Delete key",
     "deleteKeyTitle": "Delete SSH key",
     "deleteKeyConfirm": "Are you sure you want to delete this key?",
     "keyAdded": "SSH key added successfully",
-    "keyDeleted": "SSH key deleted successfully"
+    "keyDeleted": "SSH key deleted successfully",
+    "loadError": "Could not load SSH keys.",
+    "deleteSuccess": "SSH key deleted successfully"
   },
   "sessions": {
     "title": "Sessions",
@@ -158,7 +166,16 @@
     "revokeAllConfirm": "This will sign you out on all other devices",
     "sessionRevoked": "Session revoked successfully",
     "revokeAllSuccess_one": "{{count}} session revoked",
-    "revokeAllSuccess_other": "{{count}} sessions revoked"
+    "revokeAllSuccess_other": "{{count}} sessions revoked",
+    "loadError": "Could not load sessions.",
+    "revokeSuccess": "Session revoked successfully",
+    "activeNow": "Active now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
   },
   "agents": {
     "title": "Agent Interactions",
@@ -210,7 +227,9 @@
     "automationAggressiveDesc": "Agents act on anything inside the allowed boundaries.",
     "evaluationTitle": "Evaluation",
     "reviewTitle": "Agent review",
-    "saveSuccess": "Agent settings saved"
+    "saveSuccess": "Agent settings saved",
+    "loadError": "Could not load agent preferences.",
+    "memoryEnabled": "Enable cross-session memory"
   },
   "identities": {
     "title": "Login methods",
@@ -253,5 +272,20 @@
     "loadSessionsFailed": "Unable to load sessions",
     "revokeSessionFailed": "Unable to revoke the session",
     "revokeSessionsFailed": "Unable to revoke the sessions"
+  },
+  "changePassword": {
+    "title": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "submit": "Update password",
+    "cancel": "Cancel",
+    "error": {
+      "currentIncorrect": "Check your current password.",
+      "tooShort": "Password must be at least 8 characters",
+      "notMatch": "Passwords do not match",
+      "validation": "Check the fields above.",
+      "generic": "Could not update your password. Please try again."
+    }
   }
 }

@@ -70,3 +70,9 @@ export function webIDEPath(handle: string, params: {
   if (params.line) query.set("line", String(params.line));
   return `${base}?${query.toString()}`;
 }
+
+/** Only allow local paths as post-authentication destinations. */
+export function authReturnPath(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\u0000-\u001f]/.test(value)) return undefined;
+  return value;
+}

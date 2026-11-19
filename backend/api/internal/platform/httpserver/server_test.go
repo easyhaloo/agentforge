@@ -82,7 +82,6 @@ type fakeOIDCHandler struct{ accepted bool }
 
 func (f *fakeOIDCHandler) Login(http.ResponseWriter, *http.Request)    {}
 func (f *fakeOIDCHandler) Callback(http.ResponseWriter, *http.Request) {}
-func (f *fakeOIDCHandler) Logout(http.ResponseWriter, *http.Request)   {}
 func (f *fakeOIDCHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	f.accepted = true
 	http.Redirect(w, r, "/auth/oidc/login", http.StatusSeeOther)

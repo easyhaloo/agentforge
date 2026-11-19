@@ -112,7 +112,6 @@
     "root": "根目录",
     "parent": "上级目录",
     "editorAriaLabel": "文本编辑器",
-    "fileContentAriaLabel": "文件内容",
     "reviewChanges": "查看改动（当前 {{count}} 行）",
     "hintSelectChangeset": "选择一个变更集以启用隔离编辑。仓库分支保持只读。",
     "hintNeedsRevision": "该变更集需要一个初始 Git 修订，且必须保持未合并状态才能启用编辑。",

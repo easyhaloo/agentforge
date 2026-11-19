@@ -112,7 +112,6 @@
     "root": "root",
     "parent": "Parent",
     "editorAriaLabel": "Text editor",
-    "fileContentAriaLabel": "File content",
     "reviewChanges": "Review changes ({{count}} current lines)",
     "hintSelectChangeset": "Select a Changeset for isolated editing. The repository branch remains read-only.",
     "hintNeedsRevision": "This Changeset needs an initial Git revision and must remain unmerged before editing can be enabled.",

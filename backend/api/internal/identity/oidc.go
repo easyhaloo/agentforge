@@ -249,19 +249,6 @@ func (a *OIDCAuthenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.appOrigin, http.StatusSeeOther)
 }
 
-func (a *OIDCAuthenticator) Logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
-		if err := a.repository.RevokeSession(r.Context(), cookie.Value); err != nil && !errors.Is(err, ErrUnauthenticated) {
-			writeAuthProblem(w, http.StatusServiceUnavailable, "Logout temporarily unavailable", "The active session could not be revoked")
-			return
-		}
-	}
-	sessionCookie, csrfCookie := ClearSessionCookies()
-	http.SetCookie(w, sessionCookie)
-	http.SetCookie(w, csrfCookie)
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func setOIDCCookie(w http.ResponseWriter, name, value string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name: name, Value: value, Path: "/", Expires: expiresAt.UTC(),

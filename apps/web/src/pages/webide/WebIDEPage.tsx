@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, ChevronLeft, Code2, FileText, Folder, RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   changesetAPI,
@@ -13,7 +13,9 @@ import {
   type StoredChangeset,
 } from "../../shared/api/identity";
 import { useTranslation } from "react-i18next";
-import { Button, ConfirmDialog, Select, TextArea } from "../../shared/ui";
+import { Button, ConfirmDialog, Select } from "../../shared/ui";
+import { detectCodeLanguage } from "../../shared/code/languages";
+import { TextAreaEditorAdapter, type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
 import { translateError } from "../../shared/api/errors";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
@@ -38,7 +40,7 @@ function lineDiff(before: string, after: string): DiffLine[] {
   ];
 }
 
-export function WebIDEPage({ organization }: { organization: OrganizationSummary }) {
+export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEditorAdapter }: { organization: OrganizationSummary; editorAdapter?: EditorAdapter }) {
   const { t } = useTranslation("repositories");
   const initial = useMemo(() => new URLSearchParams(window.location.search), []);
   const [repositories, setRepositories] = useState<RepositoryMetadata[]>([]);
@@ -51,6 +53,8 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
   const [selectedPath, setSelectedPath] = useState(initial.get("path") ?? "");
   const [activeLine] = useState(() => Math.max(0, Number(initial.get("line") ?? 0) || 0));
+  const [editorController, setEditorController] = useState<EditorController | null>(null);
+  const handleEditorReady = useCallback((controller: EditorController | null) => setEditorController(controller), []);
   const [file, setFile] = useState<RepositoryPreviewBlob | null>(null);
   const [draft, setDraft] = useState("");
   const [original, setOriginal] = useState("");
@@ -63,6 +67,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   const canEdit = Boolean(selectedChangeset && selectedChangeset.changeset.revisions.length > 0 && !selectedChangeset.changeset.merge);
   const diffLines = useMemo(() => lineDiff(original, draft), [original, draft]);
   const dirty = Boolean(file && draft !== original);
+  const editorLanguage = file ? detectCodeLanguage(file.path) : undefined;
 
   const runIfClean = (action: () => void) => {
     if (dirty) { setPendingNavigation(() => action); return; }
@@ -139,17 +144,9 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   }, [organization.id, selectedRepository, selectedRef, selectedPath]);
 
   useEffect(() => {
-    if (!file || activeLine < 1) return;
-    const editor = document.querySelector<HTMLTextAreaElement>(".webide-editor textarea");
-    if (!editor) return;
-    const lines = draft.split("\\n");
-    const targetLine = Math.min(activeLine, lines.length);
-    const offset = lines.slice(0, targetLine - 1).reduce((total, line) => total + line.length + 1, 0);
-    editor.focus({ preventScroll: true });
-    editor.setSelectionRange(offset, offset);
-    const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight);
-    if (Number.isFinite(lineHeight)) editor.scrollTop = Math.max(0, (targetLine - 1) * lineHeight);
-  }, [file?.path, activeLine]);
+    if (!file || activeLine < 1 || !editorController) return;
+    editorController.focusLine(activeLine, draft);
+  }, [file?.path, activeLine, editorController]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -263,7 +260,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
       <section className="card webide-editor" aria-label={t("repositories:webide.editorAriaLabel")}>
         {file ? <>
           <div className="webide-editor__title">
-            <div><strong>{file.path}</strong><span>{file.commit_sha.slice(0,12)} · blob {file.blob_sha.slice(0,8)}</span></div>
+            <div><strong>{file.path}</strong><span>{editorLanguage?.label ?? "Plain text"} · {file.commit_sha.slice(0,12)} · blob {file.blob_sha.slice(0,8)}</span></div>
             <div className="webide-editor__actions">
               <Button className="button secondary" disabled={!dirty || saving} onClick={() => { setDraft(original); setError(""); setConflict(false); }}><Trash2 size={13}/> {t("repositories:webide.discard")}</Button>
               <Button className="button primary" disabled={!canEdit || !dirty || saving} onClick={() => void save()}>{saving ? <RefreshCw size={13}/> : <Save size={13}/>} {saving ? t("repositories:webide.saving") : t("repositories:webide.saveRevision")}</Button>
@@ -271,7 +268,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
           </div>
           {!selectedChangeset && <p className="webide-hint">{t("repositories:webide.hintSelectChangeset")}</p>}{selectedChangeset && !canEdit && <p className="webide-hint">{t("repositories:webide.hintNeedsRevision")}</p>}
           {dirty && <p className="webide-hint">{t("repositories:webide.hintUnsaved")}</p>}
-          <TextArea aria-label={t("repositories:webide.fileContentAriaLabel")} value={draft} onChange={event => setDraft(event.target.value)} rows={24} disabled={!canEdit || saving}/>
+          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine} onReady={handleEditorReady}/>
           {dirty && <details className="webide-diff"><summary>{t("repositories:webide.reviewChanges", { count: draft.split("\n").length })}</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}
           {conflict && <div className="webide-conflict"><AlertCircle size={15}/> {t("repositories:webide.conflictNotice")}</div>}
         </> : <div className="webide-empty"><Code2 size={28}/><strong>{t("repositories:webide.emptyTitle")}</strong><span>{t("repositories:webide.emptyDescription")}</span></div>}
