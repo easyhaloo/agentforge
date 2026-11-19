@@ -2258,7 +2258,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
       email: "alice@agentforge.dev",
       role: "Owner",
       avatar: "AS",
-      lastActive: "2024-01-20T10:30:00Z",
+      lastActive: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       type: "organization",
     },
     {
@@ -2267,7 +2267,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
       email: "bob@agentforge.dev",
       role: "Member",
       avatar: "BJ",
-      lastActive: "2024-01-19T15:45:00Z",
+      lastActive: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       type: "organization",
     },
     {
@@ -2276,7 +2276,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
       email: "carol@agentforge.dev",
       role: "Member",
       avatar: "CW",
-      lastActive: "2024-01-18T09:20:00Z",
+      lastActive: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       type: "organization",
     },
     {
@@ -2285,7 +2285,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
       email: "david@external.com",
       role: "External Collaborator",
       avatar: "DB",
-      lastActive: "2024-01-17T14:10:00Z",
+      lastActive: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
       type: "external",
     },
     {
@@ -2294,7 +2294,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
       email: "eve@external.com",
       role: "External Collaborator",
       avatar: "ED",
-      lastActive: "2024-01-16T11:00:00Z",
+      lastActive: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       type: "external",
     },
     {
@@ -2303,7 +2303,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
       email: "frank@agentforge.dev",
       role: "Member",
       avatar: "FM",
-      lastActive: "2024-01-15T16:30:00Z",
+      lastActive: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
       type: "organization",
     },
   ];
