@@ -12,7 +12,7 @@ describe("WebIDEPage", () => {
   });
 
   it("calculates one-based deep-link offsets using actual newline boundaries", () => {
-    const content = "alpha\\nbeta\\ngamma";
+    const content = "alpha\nbeta\ngamma";
     expect(lineStartOffset(content, 1)).toBe(0);
     expect(lineStartOffset(content, 2)).toBe(6);
     expect(lineStartOffset(content, 3)).toBe(11);
