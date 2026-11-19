@@ -20,7 +20,7 @@ function inline(text: string, sourcePath: string, onOpenPath?: (path: string) =>
       const label = image ? "Image: " + (link?.[1] || "untitled") : (link?.[1] || value);
       if (resolved.kind === "external") output.push(<a key={match.index} href={resolved.href} target="_blank" rel="noopener noreferrer">{label}</a>);
       else if (resolved.kind === "anchor") output.push(<a key={match.index} href={resolved.href}>{label}</a>);
-      else if (resolved.kind === "internal" && onOpenPath) output.push(<a key={match.index} href={"#repository-file-" + encodeURIComponent(resolved.path)} onClick={event => { event.preventDefault(); onOpenPath(resolved.path); }}>{label}</a>);
+      else if (resolved.kind === "internal" && onOpenPath && !image) output.push(<a key={match.index} href={"#repository-file-" + encodeURIComponent(resolved.path)} onClick={event => { event.preventDefault(); onOpenPath(resolved.path); }}>{label}</a>);
       else output.push(value);
     }
     cursor = match.index + value.length;
