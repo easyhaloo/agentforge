@@ -198,19 +198,22 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
       <span className="webide-mode">{selectedChangeset ? "CHANGESET EDIT" : "READ ONLY"}</span>
     </header>
     <section className="card webide-toolbar">
-      <Select aria-label="Repository" value={selectedRepository} onChange={event => runIfClean(() => {
+      <Select aria-label="Repository" value={selectedRepository} onChange={event => {
         const nextRepository = event.target.value;
+        runIfClean(() => {
         setSelectedRepository(nextRepository);
         const nextChangeset = changesets.find(item => item.changeset.repository === nextRepository);
         setSelectedChangesetID(nextChangeset?.changeset.id ?? "");
         const revision = nextChangeset?.changeset.revisions.at(-1);
         setSelectedRef(revision?.commit_sha ?? "");
         setDirectory(""); setSelectedPath(""); setTree(null); setFile(null);
-      })} options={repositories.map(repo => ({ value: repo.slug, label: repo.slug }))} />
+        });
+      }} options={repositories.map(repo => ({ value: repo.slug, label: repo.slug }))} />
       <Select aria-label="Changeset" value={selectedChangesetID} onChange={event => chooseChangeset(event.target.value)} options={changesetOptions}/>
-      <Select aria-label="Branch, tag, or pinned commit" value={selectedRef} onChange={event => runIfClean(() => {
-        setSelectedRef(event.target.value); setDirectory(""); setSelectedPath(""); setFile(null);
-      })} options={refOptions}/>
+      <Select aria-label="Branch, tag, or pinned commit" value={selectedRef} onChange={event => {
+        const nextRef = event.target.value;
+        runIfClean(() => { setSelectedRef(nextRef); setDirectory(""); setSelectedPath(""); setFile(null); });
+      }} options={refOptions}/>
       <Button className="button secondary" onClick={() => runIfClean(() => {
         setDirectory(""); setSelectedPath(""); setFile(null);
       })}><RefreshCw size={14}/> Reset</Button>
