@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Copy, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../shared/ui";
 import { codeLanguageLabel, detectCodeLanguage } from "../../shared/code/languages";
+import { highlightRepositorySource, type RepositorySyntaxResult } from "./repositorySyntax";
 
-type TokenKind = "keyword" | "string" | "number" | "comment";
-const KEYWORDS = new Set(["as","async","await","break","case","catch","class","const","continue","def","else","export","extends","false","for","from","func","function","if","import","in","interface","let","match","new","nil","null","package","pass","private","public","return","self","static","struct","switch","this","throw","true","try","type","var","while","yield"]);
 const MAX_HIGHLIGHT_BYTES = 256 * 1024;
 const MAX_HIGHLIGHT_LINES = 10_000;
 
@@ -20,46 +19,57 @@ export function shouldHighlightRepositorySource(path: string, content: string): 
   return content.split("\n").length <= MAX_HIGHLIGHT_LINES;
 }
 
-function tokenKind(value: string): TokenKind | null {
-  if (/^(?:\/\/|#|\/\*|\*)/.test(value)) return "comment";
-  if (/^(?:"|'|\x60)/.test(value)) return "string";
-  if (/^\d/.test(value)) return "number";
-  if (KEYWORDS.has(value)) return "keyword";
-  return null;
+function tokenStyle(token: RepositorySyntaxResult["tokens"][number][number]): CSSProperties {
+  const style: CSSProperties = {};
+  if (token.color) style.color = token.color;
+  if (token.fontStyle !== undefined) {
+    if (token.fontStyle & 1) style.fontStyle = "italic";
+    if (token.fontStyle & 2) style.fontWeight = 700;
+  }
+  return style;
 }
 
-function highlightLine(line: string) {
-  const pattern = /(\/\/.*|#.*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\x60[^\x60]*\x60|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b)/g;
-  const nodes = [];
-  let cursor = 0;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(line))) {
-    if (match.index > cursor) nodes.push(line.slice(cursor, match.index));
-    const value = match[0];
-    const kind = tokenKind(value);
-    nodes.push(kind ? <span key={match.index} className={`repository-code__token repository-code__token--${kind}`}>{value}</span> : value);
-    cursor = match.index + value.length;
-  }
-  if (cursor < line.length) nodes.push(line.slice(cursor));
-  return nodes;
+function renderTokens(tokens: RepositorySyntaxResult["tokens"][number] | undefined) {
+  if (!tokens?.length) return null;
+  return tokens.map((token, index) => token.color || token.fontStyle
+    ? <span key={index} className="repository-code__shiki-token" style={tokenStyle(token)}>{token.content}</span>
+    : <span key={index}>{token.content}</span>);
 }
 
 export function RepositorySourceViewer({ path, content, activeLine = 0 }: { path: string; content: string; activeLine?: number }) {
   const { t } = useTranslation("repositories");
   const [copied, setCopied] = useState(false);
-  const firstLine = content.split("\n", 1)[0] ?? "";
+  const [syntax, setSyntax] = useState<RepositorySyntaxResult | null>(null);
+  const [highlightFailed, setHighlightFailed] = useState(false);
+  const normalizedContent = content.replace(/\r\n?/g, "\n");
+  const firstLine = normalizedContent.split("\n", 1)[0] ?? "";
   const language = repositoryLanguage(path, firstLine);
-  const lines = content.replace(/\r\n?/g, "\n").split("\n");
-  const highlight = shouldHighlightRepositorySource(path, content);
+  const lines = normalizedContent.split("\n");
+  const highlight = shouldHighlightRepositorySource(path, normalizedContent);
+
+  useEffect(() => {
+    let current = true;
+    setSyntax(null);
+    setHighlightFailed(false);
+    if (!highlight) return () => { current = false; };
+
+    // Plain text is rendered immediately. Shiki and its grammar are loaded asynchronously.
+    void highlightRepositorySource(normalizedContent, detectCodeLanguage(path, firstLine)?.shiki ?? "")
+      .then(result => { if (current) setSyntax(result); })
+      .catch(() => { if (current) setHighlightFailed(true); });
+    return () => { current = false; };
+  }, [highlight, normalizedContent, path, firstLine]);
+
   const copy = async () => {
     try { await navigator.clipboard.writeText(content); setCopied(true); }
     catch { setCopied(false); }
   };
-  return <section className="repository-source" aria-label={t("repositories:source.ariaLabel")}>
+
+  return <section className="repository-source" aria-label={t("repositories:source.ariaLabel")} data-highlight-engine={syntax ? "shiki" : "plain-text"} data-highlight-failed={highlightFailed || undefined}>
     <header className="repository-source__toolbar">
       <div><strong>{path.split("/").at(-1)}</strong><span>{t("repositories:source.summary", { language, count: lines.length })}</span></div>
       <Button className="button secondary" onClick={() => void copy()} aria-label={t("repositories:source.copyAriaLabel")}>{copied ? <Check size={13}/> : <Copy size={13}/>} {copied ? t("repositories:source.copied") : t("repositories:source.copy")}</Button>
     </header>
-    <pre className="repository-source__code"><code>{lines.map((line,index) => <span className={"repository-source__line" + (activeLine === index + 1 ? " repository-source__line--active" : "")} id={"line-" + (index + 1)} key={index}><span className="repository-source__number" aria-hidden="true">{index+1}</span><span className="repository-source__text">{highlight ? highlightLine(line) : line}</span></span>)}</code></pre>
+    <pre className="repository-source__code"><code>{lines.map((line,index) => <span className={"repository-source__line" + (activeLine === index + 1 ? " repository-source__line--active" : "")} id={"line-" + (index + 1)} key={index}><span className="repository-source__number" aria-hidden="true">{index+1}</span><span className="repository-source__text">{highlight && syntax ? renderTokens(syntax.tokens[index]) ?? line : line}</span></span>)}</code></pre>
   </section>;
 }
