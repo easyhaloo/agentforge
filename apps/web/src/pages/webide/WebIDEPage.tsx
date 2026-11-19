@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, ChevronLeft, Code2, FileText, Folder, RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   changesetAPI,
@@ -14,7 +14,7 @@ import {
 } from "../../shared/api/identity";
 import { Button, ConfirmDialog, Select } from "../../shared/ui";
 import { detectCodeLanguage } from "../../shared/code/languages";
-import { TextAreaEditorAdapter, type EditorAdapter } from "../../shared/code/EditorAdapter";
+import { TextAreaEditorAdapter, type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
 
@@ -50,6 +50,8 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
   const [selectedPath, setSelectedPath] = useState(initial.get("path") ?? "");
   const [activeLine] = useState(() => Math.max(0, Number(initial.get("line") ?? 0) || 0));
+  const [editorController, setEditorController] = useState<EditorController | null>(null);
+  const handleEditorReady = useCallback((controller: EditorController | null) => setEditorController(controller), []);
   const [file, setFile] = useState<RepositoryPreviewBlob | null>(null);
   const [draft, setDraft] = useState("");
   const [original, setOriginal] = useState("");
@@ -139,15 +141,9 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   }, [organization.id, selectedRepository, selectedRef, selectedPath]);
 
   useEffect(() => {
-    if (!file || activeLine < 1) return;
-    const editor = document.querySelector<HTMLTextAreaElement>(".webide-editor textarea");
-    if (!editor) return;
-    const offset = lineStartOffset(draft, activeLine);
-    editor.focus({ preventScroll: true });
-    editor.setSelectionRange(offset, offset);
-    const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight);
-    if (Number.isFinite(lineHeight)) editor.scrollTop = Math.max(0, (activeLine - 1) * lineHeight);
-  }, [file?.path, activeLine]);
+    if (!file || activeLine < 1 || !editorController) return;
+    editorController.focusLine(activeLine, draft);
+  }, [file?.path, activeLine, editorController]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -269,7 +265,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
           </div>
           {!selectedChangeset && <p className="webide-hint">Select a Changeset for isolated editing. The repository branch remains read-only.</p>}{selectedChangeset && !canEdit && <p className="webide-hint">This Changeset needs an initial Git revision and must remain unmerged before editing can be enabled.</p>}
           {dirty && <p className="webide-hint">Unsaved changes · Save creates a new commit on the Changeset branch, never on the default branch.</p>}
-          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine}/>
+          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine} onReady={handleEditorReady}/>
           {dirty && <details className="webide-diff"><summary>Review changes ({draft.split("\n").length} current lines)</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}
           {conflict && <div className="webide-conflict"><AlertCircle size={15}/> Your buffer is preserved. Reload the latest Changeset revision and reapply your edits before saving again.</div>}
         </> : <div className="webide-empty"><Code2 size={28}/><strong>Select a file to edit</strong><span>Choose a Changeset to enable safe text editing. Writes are isolated to its dedicated branch.</span></div>}
