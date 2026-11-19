@@ -96,7 +96,8 @@
     "hide": "Hide",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "switchLanguage": "Switch language"
+    "switchLanguage": "Switch language",
+    "fileContentAriaLabel": "File content"
   },
   "delivery": {
     "banner": {
