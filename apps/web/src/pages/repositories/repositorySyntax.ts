@@ -7,6 +7,8 @@ export type RepositorySyntaxResult = {
 };
 
 const THEME = "github-dark";
+const THEME_FOREGROUND = "#e6edf3";
+const THEME_BACKGROUND = "#0d1117";
 let highlighterPromise: Promise<Highlighter> | undefined;
 const languageLoads = new Map<string, Promise<void>>();
 
@@ -34,7 +36,7 @@ export async function highlightRepositorySource(
   const result = highlighter.codeToTokens(source, { lang: language as BundledLanguage, theme: THEME });
   return {
     tokens: result.tokens,
-    foreground: result.fg,
-    background: result.bg,
+    foreground: result.fg ?? THEME_FOREGROUND,
+    background: result.bg ?? THEME_BACKGROUND,
   };
 }
