@@ -8,7 +8,7 @@ const languages = [
 ];
 
 export function LanguageSwitcher() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation("common");
   const currentLanguage = i18n.language;
 
   const toggleLanguage = () => {
@@ -22,7 +22,7 @@ export function LanguageSwitcher() {
     <Button
       className="button secondary language-switcher"
       onClick={toggleLanguage}
-      title="Switch language / 切换语言"
+      title={t("common:components.switchLanguage")}
     >
       <Globe size={14} />
       {currentLabel}

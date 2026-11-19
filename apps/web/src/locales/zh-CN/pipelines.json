@@ -37,15 +37,12 @@
   "version": "已发布版本",
   "runParams": "运行参数",
   "start": "开始运行",
-  "loadError": "无法加载版本",
-  "startError": "无法启动运行",
   "run": "运行 {{id}} · 版本 {{version}} · {{status}}",
   "title": "流水线",
   "workflow": "工作流",
   "selectWorkflow": "选择工作流",
   "newWorkflow": "新建工作流",
   "discard": "放弃未保存的更改？",
-  "requestFailed": "流水线请求失败",
   "fixJSON": "请修正工作流 JSON 后再打开可视化编辑器。",
   "editJSON": "编辑 JSON",
   "visual": "可视化编辑器",
@@ -85,5 +82,11 @@
   "succeeded": "已成功",
   "failed": "已失败",
   "cancelled": "已取消",
-  "timed_out": "已超时"
+  "timed_out": "已超时",
+  "errors": {
+    "requestFailed": "流水线请求失败",
+    "versionsFailed": "无法加载已发布版本",
+    "runFailed": "无法启动运行",
+    "queueFailed": "无法加载合并队列"
+  }
 }

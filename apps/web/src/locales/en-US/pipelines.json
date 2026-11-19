@@ -37,15 +37,12 @@
   "version": "Published version",
   "runParams": "Run parameters",
   "start": "Start run",
-  "loadError": "Could not load versions",
-  "startError": "Could not start run",
   "run": "Run {{id}} · Version {{version}} · {{status}}",
   "title": "Pipelines",
   "workflow": "Workflow",
   "selectWorkflow": "Select a workflow",
   "newWorkflow": "New workflow",
   "discard": "Discard unsaved changes?",
-  "requestFailed": "Pipeline request failed",
   "fixJSON": "Fix the workflow JSON before opening the visual editor.",
   "editJSON": "Edit JSON",
   "visual": "Visual editor",
@@ -85,5 +82,11 @@
   "succeeded": "Succeeded",
   "failed": "Failed",
   "cancelled": "Cancelled",
-  "timed_out": "Timed out"
+  "timed_out": "Timed out",
+  "errors": {
+    "requestFailed": "Pipeline request failed",
+    "versionsFailed": "Could not load versions",
+    "runFailed": "Could not start run",
+    "queueFailed": "Could not load the merge queue"
+  }
 }

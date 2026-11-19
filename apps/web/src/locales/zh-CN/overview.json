@@ -1,6 +1,17 @@
 {
   "metrics": {
-    "ariaLabel": "工作空间指标"
+    "ariaLabel": "工作空间指标",
+    "items": {
+      "activeChangesets": "活跃变更集",
+      "verificationPassRate": "验证通过率",
+      "openTrails": "进行中的 Trail",
+      "agentHoursSaved": "节省的 Agent 工时"
+    },
+    "deltas": {
+      "atRisk_one": "{{count}} 项存在风险",
+      "atRisk_other": "{{count}} 项存在风险",
+      "thisMonth": "本月"
+    }
   },
   "recentChangesets": {
     "title": "最近的变更集",
@@ -37,7 +48,27 @@
   "activityFeed": {
     "title": "活动流",
     "description": "工作空间中的最新事件",
-    "viewAll": "查看全部"
+    "viewAll": "查看全部",
+    "events": {
+      "verified": {
+        "title": "变更集已验证",
+        "description_one": "{{changeset}} 已通过全部 {{count}} 项检查",
+        "description_other": "{{changeset}} 已通过全部 {{count}} 项检查"
+      },
+      "reviewRequested": {
+        "title": "已请求评审",
+        "description": "{{reviewer}} 请求评审 {{changeset}}"
+      },
+      "trailAtRisk": {
+        "title": "Trail 存在风险",
+        "description_one": "{{name}} 还在等待 {{count}} 项依赖",
+        "description_other": "{{name}} 还在等待 {{count}} 项依赖"
+      },
+      "workspaceCreated": {
+        "title": "工作空间已创建",
+        "description": "Agent 工作空间 {{workspace}} 已就绪"
+      }
+    }
   },
   "changeVelocity": {
     "title": "变更速度",
@@ -54,5 +85,12 @@
       "sat": "周六",
       "sun": "周日"
     }
+  },
+  "selectedChangeset": {
+    "label": "已选中的变更集",
+    "summary": "修订版本 r{{revision}} · 基准 {{base}} · {{files}} 个文件变更 · {{checks}} 项检查",
+    "evidenceCurrent": "证据当前有效",
+    "openDetails": "查看详情",
+    "prototypeNotice": "变更集详情视图目前只是原型交互。"
   }
 }

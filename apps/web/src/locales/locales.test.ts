@@ -39,8 +39,8 @@ describe("i18n runtime", () => {
 
   it("selects the plural form that matches the count", async () => {
     await i18n.changeLanguage("en-US");
-    expect(i18n.t("settings:keys.daysAgo", { count: 1 })).toBe("1 day ago");
-    expect(i18n.t("settings:keys.daysAgo", { count: 5 })).toBe("5 days ago");
+    expect(i18n.t("settings:keys.keyBits", { count: 1 })).toBe("1 bit");
+    expect(i18n.t("settings:keys.keyBits", { count: 5 })).toBe("5 bits");
   });
 
   it("interpolates a value into the translation", async () => {

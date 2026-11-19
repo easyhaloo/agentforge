@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useState } from "react";
+import { translateError } from "../../shared/api/errors";
 import { type OrganizationSummary } from "../../shared/api/identity";
 import { pipelines, type Definition, type Pipeline, type Summary } from "../../shared/api/pipelines";
 import { Button, ConfirmDialog, Select, TextArea } from "../../shared/ui";
@@ -39,10 +40,10 @@ export function PipelinesPage({ organization }: { organization: OrganizationSumm
   useEffect(() => {
     let active = true;
     pipelines.list(org).then(({ items }) => { if (active) setItems(items); })
-      .catch((cause: Error) => { if (active) setError(cause.message); })
+      .catch((cause: unknown) => { if (active) setError(translateError(cause, t, "pipelines:errors.requestFailed")); })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [org]);
+  }, [org, t]);
   function display(p: Pipeline | null) {
     setVisual(false); select(p); edit(format(p?.definition ?? template)); setError("");
   }
@@ -51,7 +52,7 @@ export function PipelinesPage({ organization }: { organization: OrganizationSumm
     try {
       const p = await operation();
       display(p); setItems(list => [...list.filter(item => item.id !== p.id), p].sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : t("requestFailed")); }
+    } catch (cause) { setError(translateError(cause, t, "pipelines:errors.requestFailed")); }
     finally { setBusy(false); }
   }
   function leaveEditor(run: () => void) {

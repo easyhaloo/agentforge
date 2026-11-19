@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Identity } from "../../shared/api/identities";
+import { formatDate } from "../../shared/i18n/format";
 import { Button, ConfirmDialog } from "../../shared/ui/components";
 
 export interface IdentityCardProps {
@@ -15,7 +16,7 @@ export function IdentityCard({ identity, onChangePassword, onUnlink, isOnly }: I
   const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
 
   const isPlatformPassword = identity.issuer === "platform:internal";
-  const formattedDate = new Date(identity.created_at).toLocaleDateString();
+  const formattedDate = formatDate(identity.created_at);
 
   const getProviderIcon = () => {
     if (isPlatformPassword) {

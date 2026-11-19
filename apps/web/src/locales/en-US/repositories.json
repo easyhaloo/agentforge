@@ -21,6 +21,65 @@
   "feedback": {
     "loadFailed": "Unable to load repositories",
     "registered": "Repository registered.",
-    "registrationFailed": "Repository registration failed"
+    "registrationFailed": "Repository registration failed",
+    "permalinkCopied": "Commit-pinned permalink copied.",
+    "permalinkFailed": "Unable to open permalink",
+    "treeFailed": "Unable to load the repository tree",
+    "historyFailed": "Unable to load the commit history",
+    "readmeFailed": "Unable to load the README",
+    "inspectionFailed": "Unable to inspect the file history",
+    "compareFailed": "Unable to compare the commits",
+    "sourceFailed": "Unable to read the source file"
+  },
+  "preview": {
+    "ariaLabel": "Repository preview",
+    "title": "Repository preview",
+    "readOnly": "{{repository}} · read-only, no clone required",
+    "refLabel": "Ref",
+    "refAriaLabel": "Repository branch or tag",
+    "branchOption": "Branch · {{name}}",
+    "tagOption": "Tag · {{name}}",
+    "copyPermalink": "Copy permalink",
+    "close": "Close",
+    "pinnedCommit": "Pinned commit: {{commit}}",
+    "loading": "Loading repository content…",
+    "parent": "Parent",
+    "pathAriaLabel": "Repository path",
+    "root": "root",
+    "symlink": "· symbolic link (not followed)",
+    "emptyDirectory": "This directory is empty.",
+    "readmeAriaLabel": "Repository README",
+    "projectOverview": "Project overview"
+  },
+  "history": {
+    "title": "Commit history",
+    "noSubject": "(no subject)",
+    "compareToCurrent": "Compare to current"
+  },
+  "compare": {
+    "ariaLabel": "Commit comparison",
+    "title": "Commit comparison",
+    "comparing": "Comparing immutable commits…",
+    "range": "Base commit {{base}} · head commit {{head}}",
+    "noChanges": "No changes."
+  },
+  "file": {
+    "backToFiles": "Back to files",
+    "blobAndCommit": "Blob {{blob}} · commit {{commit}}",
+    "historyButton": "File history",
+    "blameButton": "Blame",
+    "historyAriaLabel": "File history",
+    "historyTitle": "File history",
+    "blameAriaLabel": "File blame",
+    "blameTitle": "Blame",
+    "loadingInspection": "Loading file inspection…"
+  },
+  "source": {
+    "ariaLabel": "Source code",
+    "summary_one": "{{language}} · {{count}} line",
+    "summary_other": "{{language}} · {{count}} lines",
+    "copyAriaLabel": "Copy source code",
+    "copy": "Copy",
+    "copied": "Copied"
   }
 }

@@ -12,6 +12,22 @@
     "audit": "Audit history",
     "ariaLabel": "Organization administration"
   },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member",
+    "viewer": "Viewer"
+  },
+  "statuses": {
+    "active": "Active",
+    "invited": "Invited",
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "suspended": "Suspended",
+    "removed": "Removed",
+    "revoked": "Revoked",
+    "expired": "Expired"
+  },
   "members": {
     "title": "Organization members",
     "description": "Role and status changes are enforced by the server.",
@@ -43,11 +59,6 @@
       "emailLabel": "Email address",
       "emailPlaceholder": "teammate@company.com",
       "roleLabel": "Role",
-      "roleOptions": {
-        "member": "Member",
-        "viewer": "Viewer",
-        "admin": "Admin"
-      },
       "createButton": "Create invitation",
       "creating": "Creating…"
     },
@@ -74,7 +85,14 @@
     "description": "Newest membership and invitation events first.",
     "actor": "Actor",
     "target": "Target",
-    "empty": "No audit events recorded yet."
+    "empty": "No audit events recorded yet.",
+    "actions": {
+      "role_changed": "Role changed",
+      "suspended": "Member suspended",
+      "reactivated": "Member reactivated",
+      "removed": "Member removed",
+      "invite_accepted": "Invitation accepted"
+    }
   },
   "feedback": {
     "loadFailed": "Unable to load organization data",

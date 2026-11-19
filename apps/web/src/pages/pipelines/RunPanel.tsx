@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
+import { translateError } from "../../shared/api/errors";
 import { pipelines, type Pipeline, type Version, type Run } from "../../shared/api/pipelines";
 import { Button, Select } from "../../shared/ui";
 
@@ -22,7 +23,7 @@ export function RunPanel({ org, pipeline, canStart, canPromote }: { org: string;
   async function load() {
     setBusy(true); setError("");
     try { setVersions((await pipelines.versions(org, pipeline.id)).items); }
-    catch (e) { setError(e instanceof Error ? e.message : t("loadError")); }
+    catch (e) { setError(translateError(e, t, "pipelines:errors.versionsFailed")); }
     finally { setBusy(false); }
   }
   function inputs() {
@@ -34,7 +35,7 @@ export function RunPanel({ org, pipeline, canStart, canPromote }: { org: string;
     setBusy(true); setError("");
     try {
       setRun(await pipelines.start(org, pipeline.id, number, inputs()));
-    } catch (e) { setError(e instanceof Error ? e.message : t("startError")); }
+    } catch (e) { setError(translateError(e, t, "pipelines:errors.runFailed")); }
     finally { setBusy(false); }
   }
   return <section><h3>{t("versions")}</h3>

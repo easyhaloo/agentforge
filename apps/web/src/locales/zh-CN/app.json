@@ -49,5 +49,14 @@
       "unavailableTitle": "代码仓库服务不可用",
       "noOrganization": "该账户没有所属的组织。"
     }
+  },
+  "errors": {
+    "accountLoadFailed": "无法加载账户信息",
+    "signOutFailed": "无法退出登录",
+    "authUnavailableTitle": "无法验证登录状态",
+    "authUnavailableBody": "认证服务暂时不可用，请稍后重试。"
+  },
+  "notify": {
+    "signedOut": "您已退出登录。"
   }
 }

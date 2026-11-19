@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import { Button } from "../../shared/ui/components";
 import { Checkbox, RadioGroup } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type NotificationPreferences } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
 export function NotificationsSettingsPage() {
@@ -28,7 +29,7 @@ export function NotificationsSettingsPage() {
         }
       } catch (err) {
         if (mounted) {
-          notify(err instanceof Error ? err.message : "Failed to load notification preferences");
+          notify(translateError(err, t, "settings:errors.loadNotificationsFailed"));
         }
       } finally {
         if (mounted) {
@@ -89,7 +90,7 @@ export function NotificationsSettingsPage() {
       setIsDirty(false);
       notify(t("notifications.saveSuccess"));
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to save notification preferences");
+      notify(translateError(err, t, "settings:errors.saveNotificationsFailed"));
     } finally {
       setSaving(false);
     }
@@ -117,14 +118,14 @@ export function NotificationsSettingsPage() {
           <p className="settings-page-description">{t("notifications.description")}</p>
         </header>
         <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          Failed to load notification preferences
+          {t("errors.loadNotificationsFailed")}
         </div>
       </div>
     );
   }
 
   const frequencyOptions = [
-    { label: t("notifications.frequencyRealtime"), value: "real-time" },
+    { label: t("notifications.frequencyRealTime"), value: "real-time" },
     { label: t("notifications.frequencyHourly"), value: "hourly" },
     { label: t("notifications.frequencyDaily"), value: "daily" },
   ];
@@ -143,6 +144,9 @@ export function NotificationsSettingsPage() {
             <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "var(--color-text-primary)" }}>
               {t("notifications.emailTitle")}
             </h2>
+            <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>
+              {t("notifications.emailDescription")}
+            </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <Checkbox
                 id="email-evaluation"
@@ -180,6 +184,9 @@ export function NotificationsSettingsPage() {
             <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "var(--color-text-primary)" }}>
               {t("notifications.webPushTitle")}
             </h2>
+            <p style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "12px" }}>
+              {t("notifications.webPushDescription")}
+            </p>
             <Checkbox
               id="web-push"
               name="web-push"
@@ -192,7 +199,7 @@ export function NotificationsSettingsPage() {
           {/* Notification Frequency Section */}
           <section>
             <RadioGroup
-              label={t("notifications.frequencyTitle")}
+              label={t("notifications.frequency")}
               name="notification-frequency"
               value={preferences.notification_frequency}
               options={frequencyOptions}

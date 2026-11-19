@@ -49,5 +49,14 @@
       "unavailableTitle": "Repository service unavailable",
       "noOrganization": "This account has no active organization membership."
     }
+  },
+  "errors": {
+    "accountLoadFailed": "Unable to load account context",
+    "signOutFailed": "Unable to sign out",
+    "authUnavailableTitle": "Unable to verify authentication",
+    "authUnavailableBody": "The authentication service is temporarily unavailable. Please try again."
+  },
+  "notify": {
+    "signedOut": "You have signed out."
   }
 }

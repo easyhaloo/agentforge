@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import { Button, Input } from "../../shared/ui/components";
 import { TextArea } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type UserProfile } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
 interface ProfileFormData {
@@ -64,7 +65,7 @@ export function ProfileSettingsPage() {
         }
       } catch (err) {
         if (mounted) {
-          notify(err instanceof Error ? err.message : "Failed to load profile");
+          notify(translateError(err, t, "settings:errors.loadProfileFailed"));
         }
       } finally {
         if (mounted) {
@@ -135,8 +136,7 @@ export function ProfileSettingsPage() {
       setIsDirty(false);
       notify(t("profile.saveSuccess"));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save profile";
-      setErrors({ display_name: message });
+      setErrors({ display_name: translateError(err, t, "settings:errors.saveProfileFailed") });
     } finally {
       setSaving(false);
     }
@@ -164,7 +164,7 @@ export function ProfileSettingsPage() {
           <p className="settings-page-description">{t("profile.description")}</p>
         </header>
         <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          Failed to load profile
+          {t("errors.loadProfileFailed")}
         </div>
       </div>
     );
@@ -216,6 +216,19 @@ export function ProfileSettingsPage() {
             onChange={(e) => handleChange("location", e.target.value)}
             error={errors.location}
             placeholder={t("profile.locationPlaceholder")}
+            maxLength={100}
+          />
+
+          {/* Website */}
+          <Input
+            label={t("profile.website")}
+            name="website"
+            value={formData.website}
+            onChange={(e) => handleChange("website", e.target.value)}
+            error={errors.website}
+            placeholder={t("profile.websitePlaceholder")}
+            hint={t("profile.websiteComingSoon")}
+            disabled
             maxLength={100}
           />
 

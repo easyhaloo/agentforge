@@ -1,4 +1,5 @@
 import { Play, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button, Input } from "../../../shared/ui";
 import type { RevisionId } from "../../../entities";
 import type { Change, Evaluation, EvaluationView, ReviewView } from "../model";
@@ -17,30 +18,41 @@ type Props = {
 };
 
 export function DeliveryWorkspace(props: Props) {
+  const { t } = useTranslation("common");
   const {
     change, currentRevisionNumber, title, evaluations, evaluationViews, reviews, currentRevisionId, evidenceCurrent, approved,
     trailDone, stackBase, onTitleChange, onTitleCommit, onCreateRevision,
     onRunEvaluation, onSelfHeal, onRestack, onDecide, onMerge,
   } = props;
 
+  // The status the API reports and the wording the interface shows.
+  const statusLabels: Record<string, string> = {
+    "Draft": t("delivery.status.draft"),
+    "Evaluating": t("delivery.status.evaluating"),
+    "Ready for review": t("delivery.status.readyForReview"),
+    "Changes requested": t("delivery.status.changesRequested"),
+    "Approved": t("delivery.status.approved"),
+    "Merged": t("delivery.status.merged"),
+  };
+
   return <section className="card flow-primary">
     <div className="flow-section-head">
-      <div><span className="eyebrow">ACTIVE CHANGESET</span><h3>{change.id} <span className="revision-chip">r{currentRevisionNumber}</span></h3>
-        <p>Changeset ID is stable across revisions; Git commit SHAs are separate objects.</p>
+      <div><span className="eyebrow">{t("delivery.workspace.eyebrow")}</span><h3>{change.id} <span className="revision-chip">r{currentRevisionNumber}</span></h3>
+        <p>{t("delivery.workspace.identityHint")}</p>
       </div>
-      <span className={"resource-status " + (change.status === "Merged" ? "flow-good" : "")}>{change.status}</span>
+      <span className={"resource-status " + (change.status === "Merged" ? "flow-good" : "")}>{statusLabels[change.status] ?? change.status}</span>
     </div>
-    <Input label="Change title" value={title} onChange={(event) => onTitleChange(event.target.value)} onBlur={onTitleCommit} />
+    <Input label={t("delivery.workspace.titleLabel")} value={title} onChange={(event) => onTitleChange(event.target.value)} onBlur={onTitleCommit} />
     <div className="flow-facts">
-      <div><span>Base branch</span><b>{change.base}</b></div>
-      <div><span>Changed files</span><b>{change.files}</b></div>
-      <div><span>Stack base</span><b>{stackBase}</b></div>
+      <div><span>{t("delivery.workspace.baseBranch")}</span><b>{change.base}</b></div>
+      <div><span>{t("delivery.workspace.changedFiles")}</span><b>{change.files}</b></div>
+      <div><span>{t("delivery.workspace.stackBase")}</span><b>{stackBase}</b></div>
     </div>
     <div className="flow-actions">
-      <Button variant="secondary" size="small" className="compact" onClick={onCreateRevision}><Plus size={14} /> New revision</Button>
-      <Button variant="primary" size="small" className="compact" onClick={onRunEvaluation}><Play size={14} /> Run Eval</Button>
-      <Button variant="secondary" size="small" className="compact" onClick={onSelfHeal}><Sparkles size={14} /> Self-heal</Button>
-      <Button variant="secondary" size="small" className="compact" onClick={onRestack}><RefreshCw size={14} /> Restack</Button>
+      <Button variant="secondary" size="small" className="compact" onClick={onCreateRevision}><Plus size={14} /> {t("delivery.workspace.newRevision")}</Button>
+      <Button variant="primary" size="small" className="compact" onClick={onRunEvaluation}><Play size={14} /> {t("delivery.workspace.runEvaluation")}</Button>
+      <Button variant="secondary" size="small" className="compact" onClick={onSelfHeal}><Sparkles size={14} /> {t("delivery.workspace.selfHeal")}</Button>
+      <Button variant="secondary" size="small" className="compact" onClick={onRestack}><RefreshCw size={14} /> {t("delivery.workspace.restack")}</Button>
     </div>
     <EvaluationEvidence evaluations={evaluationViews} evidenceCurrent={evidenceCurrent} />
     <ReviewDecision currentRevisionId={currentRevisionId} latestEvaluation={evaluations[0]} reviews={reviews} onDecide={onDecide} />

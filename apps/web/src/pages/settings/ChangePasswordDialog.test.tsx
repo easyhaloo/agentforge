@@ -7,17 +7,17 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
-        "changePassword.title": "Change Password",
-        "changePassword.currentPassword": "Current Password",
-        "changePassword.newPassword": "New Password",
-        "changePassword.confirmPassword": "Confirm New Password",
-        "changePassword.submit": "Update Password",
-        "changePassword.cancel": "Cancel",
-        "changePassword.success": "Password updated successfully",
-        "changePassword.error.currentIncorrect": "Current password is incorrect",
-        "changePassword.error.tooShort": "Password must be at least 8 characters",
-        "changePassword.error.notMatch": "Passwords do not match",
-        "changePassword.error.generic": "Failed to update password. Please try again.",
+        "authentication.changePassword": "Change password",
+        "authentication.currentPassword": "Current password",
+        "authentication.newPassword": "New password",
+        "authentication.confirmPassword": "Confirm new password",
+        "authentication.passwordRequirements": "Password must be at least 8 characters",
+        "authentication.passwordMismatch": "Passwords do not match",
+        "authentication.passwordChanged": "Password changed successfully",
+        "authentication.error.currentIncorrect": "The current password is incorrect.",
+        "authentication.error.validation": "Please complete every field before saving.",
+        "authentication.error.generic": "The password could not be changed.",
+        "common:actions.cancel": "Cancel",
       };
       return translations[key] || key;
     },
@@ -110,11 +110,10 @@ describe("ChangePasswordDialog", () => {
         <ChangePasswordDialog {...defaultProps} open={true} />
       );
 
-      expect(html).toContain("Change Password");
-      expect(html).toContain("Current Password");
-      expect(html).toContain("New Password");
-      expect(html).toContain("Confirm New Password");
-      expect(html).toContain("Update Password");
+      expect(html).toContain("Change password");
+      expect(html).toContain("Current password");
+      expect(html).toContain("New password");
+      expect(html).toContain("Confirm new password");
       expect(html).toContain("Cancel");
     });
 
@@ -170,7 +169,7 @@ describe("ChangePasswordDialog", () => {
 
       expect(html).toContain('type="submit"');
       expect(html).toContain('type="button"');
-      expect(html).toContain("Update Password");
+      expect(html).toContain("Change password");
       expect(html).toContain("Cancel");
     });
 
