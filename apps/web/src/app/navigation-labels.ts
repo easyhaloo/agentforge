@@ -12,6 +12,7 @@ export const routeKeyByLabel: Record<string, string> = {
   "Overview": "navigation:routes.overview",
   "Projects": "navigation:routes.projects",
   "Repositories": "navigation:routes.repositories",
+  "Repository": "navigation:routes.repository",
   "Changesets": "navigation:routes.changesets",
   "Changeset": "navigation:routes.changeset",
   "Workspaces": "navigation:routes.workspaces",

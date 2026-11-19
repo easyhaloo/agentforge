@@ -8,6 +8,7 @@ import { OrganizationManagementPage } from "../pages/organization/OrganizationMa
 import { OverviewPage } from "../pages/overview";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
@@ -82,6 +83,12 @@ export function RepositoriesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function RepositoryDetailRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { repositorySlug = "" } = useParams();
+  return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
 }
 
 export function WebIDERoute() {
