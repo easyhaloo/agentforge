@@ -12,7 +12,9 @@ import {
   type RepositoryPreviewTree,
   type StoredChangeset,
 } from "../../shared/api/identity";
-import { Button, ConfirmDialog, Select, TextArea } from "../../shared/ui";
+import { Button, ConfirmDialog, Select } from "../../shared/ui";
+import { detectCodeLanguage } from "../../shared/code/languages";
+import { TextAreaEditorAdapter, type EditorAdapter } from "../../shared/code/EditorAdapter";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
 
@@ -36,7 +38,7 @@ function lineDiff(before: string, after: string): DiffLine[] {
   ];
 }
 
-export function WebIDEPage({ organization }: { organization: OrganizationSummary }) {
+export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEditorAdapter }: { organization: OrganizationSummary; editorAdapter?: EditorAdapter }) {
   const initial = useMemo(() => new URLSearchParams(window.location.search), []);
   const [repositories, setRepositories] = useState<RepositoryMetadata[]>([]);
   const [changesets, setChangesets] = useState<StoredChangeset[]>([]);
@@ -60,6 +62,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   const canEdit = Boolean(selectedChangeset && selectedChangeset.changeset.revisions.length > 0 && !selectedChangeset.changeset.merge);
   const diffLines = useMemo(() => lineDiff(original, draft), [original, draft]);
   const dirty = Boolean(file && draft !== original);
+  const editorLanguage = file ? detectCodeLanguage(file.path, file.content.split("\\n", 1)[0] ?? "") : undefined;
 
   const runIfClean = (action: () => void) => {
     if (dirty) { setPendingNavigation(() => action); return; }
@@ -260,7 +263,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
       <section className="card webide-editor" aria-label="Text editor">
         {file ? <>
           <div className="webide-editor__title">
-            <div><strong>{file.path}</strong><span>{file.commit_sha.slice(0,12)} · blob {file.blob_sha.slice(0,8)}</span></div>
+            <div><strong>{file.path}</strong><span>{editorLanguage?.label ?? "Plain text"} · {file.commit_sha.slice(0,12)} · blob {file.blob_sha.slice(0,8)}</span></div>
             <div className="webide-editor__actions">
               <Button className="button secondary" disabled={!dirty || saving} onClick={() => { setDraft(original); setError(""); setConflict(false); }}><Trash2 size={13}/> Discard</Button>
               <Button className="button primary" disabled={!canEdit || !dirty || saving} onClick={() => void save()}>{saving ? <RefreshCw size={13}/> : <Save size={13}/>} {saving ? "Saving…" : "Save revision"}</Button>
@@ -268,7 +271,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
           </div>
           {!selectedChangeset && <p className="webide-hint">Select a Changeset for isolated editing. The repository branch remains read-only.</p>}{selectedChangeset && !canEdit && <p className="webide-hint">This Changeset needs an initial Git revision and must remain unmerged before editing can be enabled.</p>}
           {dirty && <p className="webide-hint">Unsaved changes · Save creates a new commit on the Changeset branch, never on the default branch.</p>}
-          <TextArea aria-label="File content" value={draft} onChange={event => setDraft(event.target.value)} rows={24} disabled={!canEdit || saving}/>
+          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine}/>
           {dirty && <details className="webide-diff"><summary>Review changes ({draft.split("\n").length} current lines)</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}
           {conflict && <div className="webide-conflict"><AlertCircle size={15}/> Your buffer is preserved. Reload the latest Changeset revision and reapply your edits before saving again.</div>}
         </> : <div className="webide-empty"><Code2 size={28}/><strong>Select a file to edit</strong><span>Choose a Changeset to enable safe text editing. Writes are isolated to its dedicated branch.</span></div>}
