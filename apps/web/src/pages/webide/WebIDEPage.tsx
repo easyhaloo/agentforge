@@ -18,7 +18,7 @@ type DiffLine = { kind: "same" | "removed" | "added"; text: string };
 
 export function lineStartOffset(content: string, oneBasedLine: number): number {
   const targetLine = Math.max(1, Math.floor(oneBasedLine));
-  return content.split("\\n").slice(0, targetLine - 1).reduce((offset, line) => offset + line.length + 1, 0);
+  return content.split("\n").slice(0, targetLine - 1).reduce((offset, line) => offset + line.length + 1, 0);
 }
 function lineDiff(before: string, after: string): DiffLine[] {
   const oldLines = before.split("\n");
