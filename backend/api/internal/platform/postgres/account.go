@@ -49,55 +49,20 @@ func (s *Store) CurrentAccount(ctx context.Context, sessionToken string) (identi
 	return account, nil
 }
 
-// GetUserProfile retrieves a user's profile information.
-// Fields not yet in the database schema (bio, location, avatar_url, username) return empty values.
-func (s *Store) GetUserProfile(ctx context.Context, userID string) (identity.UserProfile, error) {
-	var profile identity.UserProfile
-	err := s.pool.QueryRow(ctx, `
-		SELECT id, display_name, COALESCE(email, ''), created_at, updated_at
-		FROM users
-		WHERE id = $1`,
-		userID).Scan(&profile.UserID, &profile.DisplayName, &profile.Email, &profile.CreatedAt, &profile.UpdatedAt)
+const profileColumns = "id, display_name, COALESCE(email, ''), bio, location, created_at, updated_at"
 
-	if errors.Is(err, pgx.ErrNoRows) {
-		return identity.UserProfile{}, fmt.Errorf("user not found: %s", userID)
-	}
-	if err != nil {
-		return identity.UserProfile{}, fmt.Errorf("load user profile: %w", err)
-	}
-
-	// Set fields not yet in DB schema to empty values
-	profile.Username = ""   // TODO: Add username column to users table
-	profile.AvatarURL = nil // TODO: Add avatar_url column to users table
-	profile.Bio = ""        // TODO: Add bio column to users table
-	profile.Location = ""   // TODO: Add location column to users table
-
-	return profile, nil
+func scanProfile(row pgx.Row) (identity.UserProfile, error) {
+	var p identity.UserProfile
+	err := row.Scan(&p.UserID, &p.DisplayName, &p.Email, &p.Bio, &p.Location, &p.CreatedAt, &p.UpdatedAt)
+	return p, err
 }
 
-// UpdateUserProfile updates a user's profile information.
-// Currently only supports updating display_name. Other fields will be supported when DB schema is extended.
-func (s *Store) UpdateUserProfile(ctx context.Context, userID string, displayName string) (identity.UserProfile, error) {
-	var profile identity.UserProfile
-	err := s.pool.QueryRow(ctx, `
-		UPDATE users
-		SET display_name = $2, updated_at = now()
-		WHERE id = $1
-		RETURNING id, display_name, COALESCE(email, ''), created_at, updated_at`,
-		userID, displayName).Scan(&profile.UserID, &profile.DisplayName, &profile.Email, &profile.CreatedAt, &profile.UpdatedAt)
+func (s *Store) GetUserProfile(ctx context.Context, userID string) (identity.UserProfile, error) {
+	return scanProfile(s.pool.QueryRow(ctx, `SELECT `+profileColumns+` FROM users WHERE id = $1`, userID))
+}
 
-	if errors.Is(err, pgx.ErrNoRows) {
-		return identity.UserProfile{}, fmt.Errorf("user not found: %s", userID)
-	}
-	if err != nil {
-		return identity.UserProfile{}, fmt.Errorf("update user profile: %w", err)
-	}
-
-	// Set fields not yet in DB schema to empty values
-	profile.Username = ""
-	profile.AvatarURL = nil
-	profile.Bio = ""
-	profile.Location = ""
-
-	return profile, nil
+func (s *Store) UpdateUserProfile(ctx context.Context, userID string, displayName, bio, location *string) (identity.UserProfile, error) {
+	return scanProfile(s.pool.QueryRow(ctx, `UPDATE users SET display_name = COALESCE($2, display_name),
+		bio = COALESCE($3, bio), location = COALESCE($4, location), updated_at = now()
+		WHERE id = $1 RETURNING `+profileColumns, userID, displayName, bio, location))
 }

@@ -1,3 +1,4 @@
+import { authReturnPath } from "../../shared/routing";
 import { Navigate, Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect, type FormEvent } from "react";
@@ -60,11 +61,9 @@ export function RegisterPage() {
     }
   }, [password]);
 
-  // Redirect authenticated users
+  const returnPath = authReturnPath(searchParams.get("return"));
   if (authState === "authenticated" || registerSuccess) {
-    const returnUrl = searchParams.get("return");
-    const destination = (returnUrl && returnUrl.startsWith("/")) ? returnUrl : "/orgs/current/changesets";
-    return <Navigate to={destination} replace />;
+    return <Navigate to={returnPath ?? "/orgs/current/changesets"} replace />;
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -197,7 +196,7 @@ export function RegisterPage() {
         </form>
 
         <p className="auth-link">
-          {t("hasAccount")} <Link to="/login">{t("signInLink")}</Link>
+          {t("hasAccount")} <Link to={returnPath ? `/login?return=${encodeURIComponent(returnPath)}` : "/login"}>{t("signInLink")}</Link>
         </p>
 
         <div className="auth-divider">

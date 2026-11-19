@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
@@ -17,45 +16,29 @@ func (s *Store) ListSessions(ctx context.Context, userID, currentSessionToken st
 		return nil, errors.New("user ID is required")
 	}
 
-	// Hash the current session token to identify it in results
-	currentTokenHash := ""
-	if currentSessionToken != "" {
-		currentTokenHash = hashSessionToken(currentSessionToken)
-	}
-
 	rows, err := s.pool.Query(ctx, `
-		SELECT token_hash, user_id, created_at, expires_at,
+		SELECT left(token_hash, 16), user_id, created_at, token_hash = $2,
 		       COALESCE(user_agent, '') as user_agent,
 		       COALESCE(ip_address, '') as ip_address
 		FROM sessions
 		WHERE user_id = $1 AND expires_at > now() AND revoked_at IS NULL
 		ORDER BY created_at DESC
-	`, userID)
+	`, userID, identity.HashToken(currentSessionToken))
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
 	defer rows.Close()
 
-	var sessions []identity.SessionInfo
+	sessions := []identity.SessionInfo{}
 	for rows.Next() {
-		var tokenHash, userAgent, ipAddress string
-		var expiresAt time.Time
+		var userAgent string
 		var session identity.SessionInfo
 
-		if err := rows.Scan(&tokenHash, &session.UserID, &session.CreatedAt, &expiresAt, &userAgent, &ipAddress); err != nil {
+		if err := rows.Scan(&session.SessionID, &session.UserID, &session.CreatedAt, &session.IsCurrent, &userAgent, &session.IPAddress); err != nil {
 			return nil, fmt.Errorf("scan session: %w", err)
 		}
 
-		// Generate a stable session ID from token hash (first 16 chars)
-		if len(tokenHash) >= 16 {
-			session.SessionID = tokenHash[:16]
-		} else {
-			session.SessionID = tokenHash
-		}
-
-		session.IPAddress = ipAddress
 		session.LastActiveAt = session.CreatedAt // TODO: Track last activity separately if needed
-		session.IsCurrent = (currentTokenHash == tokenHash)
 
 		// Parse user agent to extract browser, OS, and device type
 		session.Browser, session.OS, session.DeviceType = parseUserAgent(userAgent)
@@ -70,19 +53,17 @@ func (s *Store) ListSessions(ctx context.Context, userID, currentSessionToken st
 	return sessions, nil
 }
 
-// RevokeSessionByID revokes a specific session by session ID (token hash prefix).
+// RevokeSessionByID revokes a specific session by its exact public handle.
 func (s *Store) RevokeSessionByID(ctx context.Context, userID, sessionID string) error {
 	if strings.TrimSpace(userID) == "" || strings.TrimSpace(sessionID) == "" {
 		return errors.New("user ID and session ID are required")
 	}
 
-	// Session ID is the first 16 chars of token_hash
-	// We need to find and revoke sessions where token_hash starts with sessionID
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE sessions
 		SET revoked_at = now()
 		WHERE user_id = $1
-		  AND token_hash LIKE $2 || '%'
+		  AND left(token_hash, 16) = $2
 		  AND revoked_at IS NULL
 		  AND expires_at > now()
 	`, userID, sessionID)
@@ -100,13 +81,8 @@ func (s *Store) RevokeSessionByID(ctx context.Context, userID, sessionID string)
 
 // RevokeAllOtherSessions revokes all sessions except the current one.
 func (s *Store) RevokeAllOtherSessions(ctx context.Context, userID, currentSessionToken string) (int, error) {
-	if strings.TrimSpace(userID) == "" {
-		return 0, errors.New("user ID is required")
-	}
-
-	currentTokenHash := ""
-	if currentSessionToken != "" {
-		currentTokenHash = hashSessionToken(currentSessionToken)
+	if strings.TrimSpace(userID) == "" || currentSessionToken == "" {
+		return 0, errors.New("user ID and current session are required")
 	}
 
 	tag, err := s.pool.Exec(ctx, `
@@ -116,18 +92,13 @@ func (s *Store) RevokeAllOtherSessions(ctx context.Context, userID, currentSessi
 		  AND token_hash != $2
 		  AND revoked_at IS NULL
 		  AND expires_at > now()
-	`, userID, currentTokenHash)
+	`, userID, identity.HashToken(currentSessionToken))
 
 	if err != nil {
 		return 0, fmt.Errorf("revoke other sessions: %w", err)
 	}
 
 	return int(tag.RowsAffected()), nil
-}
-
-// hashSessionToken hashes a session token using identity.HashToken.
-func hashSessionToken(token string) string {
-	return identity.HashToken(token)
 }
 
 // parseUserAgent extracts browser, OS, and device type from a User-Agent string.
@@ -191,7 +162,7 @@ func (s *Store) GetAuthenticationInfo(ctx context.Context, userID string) (ident
 	// Get primary identity and email
 	var issuer string
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.email, ei.issuer
+		SELECT COALESCE(u.email, ''), COALESCE(ei.issuer, '')
 		FROM users u
 		LEFT JOIN external_identities ei ON ei.user_id = u.id
 		WHERE u.id = $1

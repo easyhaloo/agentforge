@@ -109,7 +109,7 @@ Routes:
 - `GET /auth/oidc/callback` validates the provider response and creates the application session.
 - `POST /api/v1/auth/logout` revokes the current session and clears both session cookies. It requires the configured Origin and session-bound CSRF header/cookie.
 
-If OIDC configuration is absent or provider discovery fails, login returns `503`, protected routes remain unavailable, and `/readyz` remains `503`. A successful OIDC login creates or updates a local user by the immutable `(issuer, subject)` pair; it does not grant organization membership. An operator-controlled first-owner/bootstrap step is still required before the user can access tenant-scoped delivery resources.
+If OIDC configuration is absent or provider discovery fails, SSO login returns `503`. Local sessions can access their organizations and sign out. A successful OIDC login creates or updates a local user by the immutable `(issuer, subject)` pair; it does not grant organization membership. An operator-controlled first-owner/bootstrap step is still required before the user can access tenant-scoped delivery resources.
 
 ## First-owner bootstrap (operator-only)
 

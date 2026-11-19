@@ -1,3 +1,4 @@
+import { authReturnPath } from "../../shared/routing";
 import { Navigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect, type FormEvent } from "react";
@@ -53,14 +54,9 @@ export function LoginPage() {
       });
   }, []);
 
-  // Redirect authenticated users to return URL or default page
+  const returnPath = authReturnPath(location.state?.from ?? searchParams.get("return"));
   if (authState === "authenticated" || loginSuccess) {
-    // Support both location.state.from (from RequireAuth) and query param ?return=
-    const stateFrom = location.state?.from as string | undefined;
-    const queryReturn = searchParams.get("return");
-    const returnUrl = stateFrom || queryReturn;
-    const destination = (returnUrl && returnUrl.startsWith("/")) ? returnUrl : "/orgs/current/changesets";
-    return <Navigate to={destination} replace />;
+    return <Navigate to={returnPath ?? "/orgs/current/changesets"} replace />;
   }
 
   // Render provider-specific icon
@@ -172,7 +168,7 @@ export function LoginPage() {
         </form>
 
         <p className="auth-link">
-          {t("noAccount")} <Link to="/register">{t("createAccountLink")}</Link>
+          {t("noAccount")} <Link to={returnPath ? `/register?return=${encodeURIComponent(returnPath)}` : "/register"}>{t("createAccountLink")}</Link>
         </p>
 
         {!loadingProviders && ssoProviders.length > 0 && (

@@ -117,6 +117,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
   );
 });
 
+export function Radio(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  return <input {...props} type="radio" />;
+}
+
 export interface RadioOption {
   label: string;
   value: string;
@@ -148,9 +152,8 @@ export function RadioGroup({
           const optionId = `${groupId}-${index}`;
           return (
             <label className="af-choice" htmlFor={optionId} key={option.value}>
-              <input
+              <Radio
                 id={optionId}
-                type="radio"
                 name={name}
                 value={option.value}
                 checked={value === undefined ? undefined : value === option.value}

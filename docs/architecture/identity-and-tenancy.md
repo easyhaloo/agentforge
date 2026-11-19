@@ -27,7 +27,7 @@ The Go API is the OIDC relying party and owns the callback/session boundary.
 - Do not accept actor IDs, user IDs, roles, or organization IDs as authoritative request-body fields.
 - Do not enable a development identity shortcut in production.
 
-Configuration is explicit and all-or-nothing: OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URL, optional SESSION_TTL, and APP_ORIGIN. The API uses fixed host-only `__Host-agentforge_session` and `__Host-agentforge_csrf` cookie names. Missing or invalid configuration, or failed provider discovery, leaves protected routes unavailable. Non-loopback issuer, callback, and application origins must use HTTPS.
+Configuration is explicit and all-or-nothing: OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URL, optional SESSION_TTL, and APP_ORIGIN. The API uses fixed host-only `__Host-agentforge_session` and `__Host-agentforge_csrf` cookie names. With OIDC disabled or discovery unavailable, local sessions still use the same membership and CSRF checks. Non-loopback issuer, callback, and application origins must use HTTPS.
 
 ### 2. Principal and organization selection
 

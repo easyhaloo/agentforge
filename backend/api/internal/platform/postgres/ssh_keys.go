@@ -31,7 +31,7 @@ func (s *Store) ListSSHKeys(ctx context.Context, userID string) ([]identity.SSHK
 	}
 	defer rows.Close()
 
-	var keys []identity.SSHKey
+	keys := []identity.SSHKey{}
 	for rows.Next() {
 		var key identity.SSHKey
 		if err := rows.Scan(&key.KeyID, &key.UserID, &key.Title, &key.KeyType,

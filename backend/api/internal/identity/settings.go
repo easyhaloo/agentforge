@@ -87,3 +87,44 @@ type AuthenticationInfo struct {
 	LoginEmail      string     `json:"login_email"`
 	LastLoginAt     *time.Time `json:"last_login_at,omitempty"`
 }
+
+// Patch fields use nil for omitted values so explicit false is preserved.
+type UserPreferencesPatch struct {
+	Theme    *string `json:"theme"`
+	Language *string `json:"language"`
+	Timezone *string `json:"timezone"`
+}
+
+type EmailNotificationSettingsPatch struct {
+	EvaluationComplete *bool `json:"evaluation_complete"`
+	ReviewAssigned     *bool `json:"review_assigned"`
+	ChangesetStatus    *bool `json:"changeset_status"`
+	OrgInvitation      *bool `json:"org_invitation"`
+}
+
+type NotificationPreferencesPatch struct {
+	EmailNotifications    EmailNotificationSettingsPatch `json:"email_notifications"`
+	WebPushEnabled        *bool                          `json:"web_push_enabled"`
+	NotificationFrequency *string                        `json:"notification_frequency"`
+}
+
+type ReviewFocusPatch struct {
+	Security      *bool `json:"security,omitempty"`
+	Performance   *bool `json:"performance,omitempty"`
+	CodeStyle     *bool `json:"code_style,omitempty"`
+	TestCoverage  *bool `json:"test_coverage,omitempty"`
+	Documentation *bool `json:"documentation,omitempty"`
+}
+
+type AgentPreferencesPatch struct {
+	OutputVerbosity         *string          `json:"output_verbosity"`
+	ConfirmationStrategy    *string          `json:"confirmation_strategy"`
+	AutomationLevel         *string          `json:"automation_level"`
+	CrossSessionMemory      *bool            `json:"cross_session_memory_enabled"`
+	AutoEvaluateOnPush      *bool            `json:"auto_evaluate_on_push"`
+	NotifyEvaluationResults *bool            `json:"notify_evaluation_results"`
+	EvaluationStrictness    *string          `json:"evaluation_strictness"`
+	AgentReviewEnabled      *bool            `json:"agent_review_enabled"`
+	AgentCanApproveLowRisk  *bool            `json:"agent_can_approve_low_risk"`
+	ReviewFocus             ReviewFocusPatch `json:"review_focus"`
+}
