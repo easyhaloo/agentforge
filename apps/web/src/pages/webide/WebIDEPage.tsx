@@ -146,7 +146,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
     editor.focus({ preventScroll: true });
     editor.setSelectionRange(offset, offset);
     const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight);
-    if (Number.isFinite(lineHeight)) editor.scrollTop = Math.max(0, (targetLine - 1) * lineHeight);
+    if (Number.isFinite(lineHeight)) editor.scrollTop = Math.max(0, (activeLine - 1) * lineHeight);
   }, [file?.path, activeLine]);
 
   useEffect(() => {
