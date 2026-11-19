@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAppAccount } from "./account-context";
 
 interface RequireAuthProps {
@@ -11,6 +12,7 @@ interface RequireAuthProps {
  * Preserves the intended destination so the user can be redirected back after login.
  */
 export function RequireAuth({ children }: RequireAuthProps) {
+  const { t } = useTranslation("app");
   const { accountState } = useAppAccount();
   const location = useLocation();
 
@@ -33,9 +35,9 @@ export function RequireAuth({ children }: RequireAuthProps) {
         color: "var(--color-text-secondary)"
       }}>
         <h2 style={{ marginBottom: "12px", color: "var(--color-text-primary)" }}>
-          Unable to verify authentication
+          {t("app:errors.authUnavailableTitle")}
         </h2>
-        <p>The authentication service is temporarily unavailable. Please try again.</p>
+        <p>{t("app:errors.authUnavailableBody")}</p>
       </div>
     );
   }

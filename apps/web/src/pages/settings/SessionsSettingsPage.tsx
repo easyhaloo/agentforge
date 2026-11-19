@@ -4,6 +4,8 @@ import { useOutletContext } from "react-router-dom";
 import { Monitor, Smartphone, Tablet } from "lucide-react";
 import { Button } from "../../shared/ui/components";
 import { settingsAPI, type Session } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
+import { formatDate, formatRelativeTime } from "../../shared/i18n/format";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
 // Simple confirm dialog component (inline for now)
@@ -26,6 +28,8 @@ function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("settings");
+
   if (!open) return null;
 
   return (
@@ -58,7 +62,7 @@ function ConfirmDialog({
         <p style={{ margin: "0 0 24px 0", color: "var(--color-text-secondary)" }}>{description}</p>
         <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
           <Button variant="ghost" onClick={onCancel}>
-            {cancelText || "Cancel"}
+            {cancelText || t("common:actions.cancel")}
           </Button>
           <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
             {confirmText}
@@ -80,6 +84,52 @@ function getDeviceIcon(deviceType: Session["device_type"]) {
   }
 }
 
+/** The details of one session, with every label translated. */
+function SessionDetails({ session }: { session: Session }) {
+  const { t } = useTranslation("settings");
+
+  const deviceTypeLabel = (deviceType: Session["device_type"]) => {
+    switch (deviceType) {
+      case "mobile":
+        return t("sessions.deviceTypes.mobile");
+      case "tablet":
+        return t("sessions.deviceTypes.tablet");
+      case "desktop":
+        return t("sessions.deviceTypes.desktop");
+      default:
+        return t("sessions.deviceTypes.unknown");
+    }
+  };
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", fontSize: "14px" }}>
+      <div style={{ fontWeight: 500 }}>
+        {t("sessions.browser")}: {session.browser}
+      </div>
+      <div style={{ color: "var(--color-text-secondary)" }}>
+        {t("sessions.device")}: {deviceTypeLabel(session.device_type)}
+      </div>
+      <div style={{ color: "var(--color-text-secondary)" }}>
+        {t("sessions.os")}: {session.os}
+      </div>
+      <div style={{ color: "var(--color-text-secondary)" }}>
+        {t("sessions.ipAddress")}: {session.ip_address}
+      </div>
+      {session.location && (
+        <div style={{ color: "var(--color-text-secondary)" }}>
+          {t("sessions.location")}: {session.location}
+        </div>
+      )}
+      <div style={{ color: "var(--color-text-tertiary)" }}>
+        {t("sessions.createdAt")}: {formatDate(session.created_at)}
+      </div>
+      <div style={{ color: "var(--color-text-tertiary)" }}>
+        {t("sessions.lastActive")}: {formatRelativeTime(session.last_active_at)}
+      </div>
+    </div>
+  );
+}
+
 export function SessionsSettingsPage() {
   const { t } = useTranslation("settings");
   const { notify } = useOutletContext<SettingsOutletContext>();
@@ -96,7 +146,7 @@ export function SessionsSettingsPage() {
       const data = await settingsAPI.getSessions();
       setSessions(data);
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to load sessions");
+      notify(translateError(err, t, "settings:errors.loadSessionsFailed"));
     } finally {
       setLoading(false);
     }
@@ -112,10 +162,10 @@ export function SessionsSettingsPage() {
     setRevoking(true);
     try {
       await settingsAPI.revokeSession(session.session_id);
-      notify(t("sessions.revokeSuccess"));
+      notify(t("sessions.sessionRevoked"));
       await loadSessions();
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to revoke session");
+      notify(translateError(err, t, "settings:errors.revokeSessionFailed"));
     } finally {
       setRevoking(false);
       setSessionToRevoke(null);
@@ -129,33 +179,11 @@ export function SessionsSettingsPage() {
       notify(t("sessions.revokeAllSuccess", { count: result.revoked_count }));
       await loadSessions();
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to revoke sessions");
+      notify(translateError(err, t, "settings:errors.revokeSessionsFailed"));
     } finally {
       setRevoking(false);
       setShowRevokeAllDialog(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return t("sessions.activeNow");
-    if (diffMins < 60) return t("sessions.minutesAgo", { count: diffMins });
-    if (diffHours < 24) return t("sessions.hoursAgo", { count: diffHours });
-    if (diffDays < 7) return t("sessions.daysAgo", { count: diffDays });
-
-    return date.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (loading) {
@@ -194,18 +222,7 @@ export function SessionsSettingsPage() {
                 <div style={{ color: "var(--color-text-secondary)", marginTop: "2px" }}>
                   {getDeviceIcon(currentSession.device_type)}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, marginBottom: "4px" }}>
-                    {currentSession.browser} on {currentSession.os}
-                  </div>
-                  <div style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "4px" }}>
-                    {currentSession.ip_address}
-                    {currentSession.location && ` · ${currentSession.location}`}
-                  </div>
-                  <div style={{ fontSize: "14px", color: "var(--color-text-tertiary)" }}>
-                    {formatDate(currentSession.last_active_at)}
-                  </div>
-                </div>
+                <SessionDetails session={currentSession} />
                 <span
                   style={{
                     padding: "4px 8px",
@@ -236,7 +253,7 @@ export function SessionsSettingsPage() {
                 onClick={() => setShowRevokeAllDialog(true)}
                 disabled={revoking}
               >
-                {t("sessions.revokeAll")}
+                {t("sessions.revokeAllOther")}
               </Button>
             )}
           </div>
@@ -253,18 +270,7 @@ export function SessionsSettingsPage() {
                     <div style={{ color: "var(--color-text-secondary)", marginTop: "2px" }}>
                       {getDeviceIcon(session.device_type)}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 500, marginBottom: "4px" }}>
-                        {session.browser} on {session.os}
-                      </div>
-                      <div style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginBottom: "4px" }}>
-                        {session.ip_address}
-                        {session.location && ` · ${session.location}`}
-                      </div>
-                      <div style={{ fontSize: "14px", color: "var(--color-text-tertiary)" }}>
-                        {formatDate(session.last_active_at)}
-                      </div>
-                    </div>
+                    <SessionDetails session={session} />
                     <Button
                       variant="ghost"
                       size="small"
@@ -295,9 +301,9 @@ export function SessionsSettingsPage() {
       {/* Revoke All Sessions Dialog */}
       <ConfirmDialog
         open={showRevokeAllDialog}
-        title={t("sessions.revokeAllTitle")}
+        title={t("sessions.revokeAllOther")}
         description={t("sessions.revokeAllConfirm")}
-        confirmText={t("sessions.revokeAll")}
+        confirmText={t("sessions.revokeAllOther")}
         danger
         onConfirm={handleRevokeAll}
         onCancel={() => setShowRevokeAllDialog(false)}

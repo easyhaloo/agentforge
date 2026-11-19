@@ -21,6 +21,71 @@
   "feedback": {
     "loadFailed": "无法加载代码仓库",
     "registered": "代码仓库已注册。",
-    "registrationFailed": "代码仓库注册失败"
+    "registrationFailed": "代码仓库注册失败",
+    "permalinkCopied": "已复制固定到提交的永久链接。",
+    "permalinkFailed": "无法打开永久链接",
+    "treeFailed": "无法加载代码仓库目录树",
+    "historyFailed": "无法加载提交历史",
+    "readmeFailed": "无法加载 README",
+    "inspectionFailed": "无法查看文件历史",
+    "compareFailed": "无法比较提交",
+    "sourceFailed": "无法读取源文件"
+  },
+  "preview": {
+    "ariaLabel": "代码仓库预览",
+    "title": "代码仓库预览",
+    "readOnly": "{{repository}} · 只读，无需克隆",
+    "refLabel": "引用",
+    "refAriaLabel": "代码仓库分支或标签",
+    "branchOption": "分支 · {{name}}",
+    "tagOption": "标签 · {{name}}",
+    "copyPermalink": "复制永久链接",
+    "close": "关闭",
+    "pinnedCommit": "固定提交：{{commit}}",
+    "loading": "加载代码仓库内容中…",
+    "parent": "上级目录",
+    "pathAriaLabel": "代码仓库路径",
+    "root": "根目录",
+    "symlink": "· 符号链接（不会跟随）",
+    "emptyDirectory": "该目录为空。",
+    "readmeAriaLabel": "代码仓库 README",
+    "projectOverview": "项目概览",
+    "kindTree": "目录",
+    "kindFile": "文件",
+    "kindSymlink": "符号链接 · 不跟随",
+    "kindBlob": "二进制或不支持 · 无法预览",
+    "noMatch": "没有匹配 “{{query}}” 的文件。"
+  },
+  "history": {
+    "title": "提交历史",
+    "noSubject": "（无提交说明）",
+    "compareToCurrent": "与当前提交比较"
+  },
+  "compare": {
+    "ariaLabel": "提交对比",
+    "title": "提交对比",
+    "comparing": "正在对比不可变提交…",
+    "range": "基础提交 {{base}} · 目标提交 {{head}}",
+    "noChanges": "没有变更。"
+  },
+  "file": {
+    "backToFiles": "返回文件列表",
+    "blobAndCommit": "Blob {{blob}} · 提交 {{commit}}",
+    "historyButton": "文件历史",
+    "blameButton": "逐行追溯",
+    "historyAriaLabel": "文件历史",
+    "historyTitle": "文件历史",
+    "blameAriaLabel": "文件逐行追溯",
+    "blameTitle": "逐行追溯",
+    "loadingInspection": "加载文件追溯中…",
+    "openInWebIDE": "在 WebIDE 中打开"
+  },
+  "source": {
+    "ariaLabel": "源代码",
+    "summary_one": "{{language}} · {{count}} 行",
+    "summary_other": "{{language}} · {{count}} 行",
+    "copyAriaLabel": "复制源代码",
+    "copy": "复制",
+    "copied": "已复制"
   }
 }

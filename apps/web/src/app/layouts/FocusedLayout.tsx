@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../../shared/api/identity";
+import { translateError } from "../../shared/api/errors";
 import { flatPaths } from "../../shared/routing";
 import { AppAccountContext, type AccountState } from "../account-context";
 import { Topbar } from "../components/Topbar";
@@ -15,6 +17,7 @@ import { useNotify } from "../useNotify";
  * Handles authentication internally - redirects to login if user is not signed in.
  */
 export function FocusedLayout() {
+  const { t } = useTranslation("app");
   const notify = useNotify();
   const navigateTo = useNavigateTo();
   const location = useLocation();
@@ -35,7 +38,7 @@ export function FocusedLayout() {
       if (cause instanceof APIError && cause.status === 401) setAccountState("signed-out");
       else {
         setAccountState("unavailable");
-        setAccountError(cause instanceof Error ? cause.message : "Unable to load account context");
+        setAccountError(translateError(cause, t, "app:errors.accountLoadFailed"));
       }
     }
   };
@@ -50,9 +53,9 @@ export function FocusedLayout() {
       setAccount(null);
       setAccountState("signed-out");
       navigateTo(flatPaths.overview);
-      notify("You have signed out.");
+      notify(t("app:notify.signedOut"));
     } catch (cause) {
-      setAccountError(cause instanceof Error ? cause.message : "Unable to sign out");
+      setAccountError(translateError(cause, t, "app:errors.signOutFailed"));
       setAccountState("unavailable");
     }
   };
@@ -78,9 +81,9 @@ export function FocusedLayout() {
         color: "var(--color-text-secondary)"
       }}>
         <h2 style={{ marginBottom: "12px", color: "var(--color-text-primary)" }}>
-          Unable to verify authentication
+          {t("app:errors.authUnavailableTitle")}
         </h2>
-        <p>The authentication service is temporarily unavailable. Please try again.</p>
+        <p>{t("app:errors.authUnavailableBody")}</p>
       </div>
     );
   }

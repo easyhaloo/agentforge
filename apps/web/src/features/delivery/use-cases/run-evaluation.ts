@@ -20,6 +20,6 @@ export function createEvaluation(
     revisionId: revision.id,
     status,
     checks: 38,
-    createdAt: "Just now",
+    createdAt: new Date().toISOString(),
   };
 }

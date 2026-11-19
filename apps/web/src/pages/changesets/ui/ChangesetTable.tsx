@@ -1,19 +1,19 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { DataTable } from "../../../shared/ui";
-import type { StoredChangeset } from "../../../shared/api/identity";
-import { changesetStatusClass, changesetStatusLabels } from "../changeset-status";
+import type { ChangesetStatus, StoredChangeset } from "../../../shared/api/identity";
+import { formatDateTime } from "../../../shared/i18n/format";
+import { changesetStatusClass, changesetStatusLabel } from "../changeset-status";
 
 export type ChangesetRow = {
   id: string;
   title: string;
   repository: string;
-  status: string;
+  status: ChangesetStatus;
   revision: string;
   updated: string;
   version: string;
 };
-
-const dateTime = (value: string) => new Date(value).toLocaleString();
 
 /** One row per changeset the server sent: the browser never filters the list itself. */
 export function changesetRows(items: StoredChangeset[]): ChangesetRow[] {
@@ -21,9 +21,9 @@ export function changesetRows(items: StoredChangeset[]): ChangesetRow[] {
     id: changeset.id,
     title: changeset.title,
     repository: changeset.repository,
-    status: changesetStatusLabels[status],
+    status,
     revision: changeset.revisions.slice(-1)[0]?.commit_sha?.slice(0, 12) || "—",
-    updated: dateTime(updated_at),
+    updated: formatDateTime(updated_at),
     version: `v${version}`,
   }));
 }
@@ -41,16 +41,17 @@ type Props = {
 
 /** The changeset list: the rows the server sent for the current filters, with server-side paging. */
 export function ChangesetTable({ items, total, page, pageSize, emptyText, pathFor, onPageChange, onOpen }: Props) {
+  const { t } = useTranslation();
   const rows = changesetRows(items);
   return <DataTable<ChangesetRow>
     className="changesets-table"
     columns={[
-      { key: "title", title: "CHANGESET", render: (_value, row) => <div><b><Link to={pathFor(row.id)}>{row.title}</Link></b><small className="mono">{row.id}</small></div> },
-      { key: "repository", title: "REPOSITORY" },
-      { key: "status", title: "STATUS", render: value => <span className={changesetStatusClass(String(value))}>{String(value)}</span> },
-      { key: "revision", title: "REVISION" },
-      { key: "updated", title: "UPDATED" },
-      { key: "version", title: "VERSION" },
+      { key: "title", title: t("changesets:columns.changeset"), render: (_value, row) => <div><b><Link to={pathFor(row.id)}>{row.title}</Link></b><small className="mono">{row.id}</small></div> },
+      { key: "repository", title: t("changesets:columns.repository") },
+      { key: "status", title: t("changesets:columns.status"), render: (_value, row) => <span className={changesetStatusClass(row.status)}>{changesetStatusLabel(row.status, t)}</span> },
+      { key: "revision", title: t("changesets:columns.revision") },
+      { key: "updated", title: t("changesets:columns.updated") },
+      { key: "version", title: t("changesets:columns.version") },
     ]}
     data={rows} rowKey="id" showColumnVisibility={false} emptyText={emptyText}
     sortMode="server" filterMode="server"

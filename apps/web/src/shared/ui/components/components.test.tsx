@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import i18n from "../../../locales";
 import {
   Button,
   ConfirmDialog,
@@ -16,6 +17,10 @@ import {
 } from "./index";
 import { Checkbox, RadioGroup, Switch, TextArea } from "./form-controls";
 import { Alert, Empty, Loading, Skeleton, NotificationProvider } from "./feedback";
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en-US");
+});
 
 describe("shared UI primitives", () => {
   it("renders buttons with a stable type, variant and loading contract", () => {

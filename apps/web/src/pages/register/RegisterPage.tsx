@@ -243,7 +243,7 @@ export function RegisterPage() {
             viewBox="0 0 14 14"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            aria-label="Secure"
+            aria-label={t("common:a11y.secureIcon")}
           >
             <path
               d="M7 1L2 3.5V6.5C2 9.5 4 11.5 7 13C10 11.5 12 9.5 12 6.5V3.5L7 1Z"

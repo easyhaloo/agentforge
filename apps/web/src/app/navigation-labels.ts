@@ -1,47 +1,52 @@
 /**
- * Maps navigation labels to i18n keys.
- * This ensures the sidebar and other navigation components reference the correct translation keys.
+ * The translation keys behind the navigation labels and groups.
+ *
+ * The sidebar, the topbar, the page header and the command palette all render the same
+ * navigation, so they share one map: a label missing from it would surface as an untranslated
+ * key in four places at once. `architecture/i18n-keys.test.ts` checks every label in
+ * `navigation.ts` and every route label in `routes.tsx` against this map.
  */
 
-const labelToRouteKey: Record<string, string> = {
-  "Overview": "overview",
-  "Projects": "projects",
-  "Repositories": "repositories",
-  "Changesets": "changesets",
-  "Workspaces": "workspaces",
-  "Trails": "trails",
-  "Stacks": "stacks",
-  "Review": "review",
-  "Eval": "eval",
-  "Self-healing": "selfHealing",
-  "Memory": "memory",
-  "CI / CD": "cicd",
-  "WebIDE": "webide",
-  "UI Components": "uiComponents",
-  "Organization": "organization",
-  "Security": "security",
-  "Governance": "governance",
-  "Cost & Usage": "usage",
-  "Settings": "settings",
+/** Navigation item labels to their `navigation` namespace keys. */
+export const routeKeyByLabel: Record<string, string> = {
+  "Overview": "navigation:routes.overview",
+  "Projects": "navigation:routes.projects",
+  "Repositories": "navigation:routes.repositories",
+  "Changesets": "navigation:routes.changesets",
+  "Changeset": "navigation:routes.changeset",
+  "Workspaces": "navigation:routes.workspaces",
+  "Trails": "navigation:routes.trails",
+  "Stacks": "navigation:routes.stacks",
+  "Review": "navigation:routes.review",
+  "Eval": "navigation:routes.eval",
+  "Self-healing": "navigation:routes.selfHealing",
+  "Memory": "navigation:routes.memory",
+  "CI / CD": "navigation:routes.cicd",
+  "WebIDE": "navigation:routes.webide",
+  "UI Components": "navigation:routes.uiComponents",
+  "Organization": "navigation:routes.organization",
+  "Security": "navigation:routes.security",
+  "Governance": "navigation:routes.governance",
+  "Cost & Usage": "navigation:routes.usage",
+  "Settings": "navigation:routes.settings",
+  "Page not found": "navigation:routes.notFound",
 };
 
-/**
- * Convert a navigation group label to its i18n key.
- * Example: "WORKSPACE" → "groups.WORKSPACE"
- */
-export function groupToNavKey(groupLabel: string): string {
-  return `groups.${groupLabel}`;
+/** Navigation group names to their `navigation` namespace keys. */
+export const groupKeyByGroup: Record<string, string> = {
+  "WORKSPACE": "navigation:groups.WORKSPACE",
+  "COORDINATION": "navigation:groups.COORDINATION",
+  "INTELLIGENCE": "navigation:groups.INTELLIGENCE",
+  "DEVELOPER": "navigation:groups.DEVELOPER",
+  "CONTROL PLANE": "navigation:groups.CONTROL PLANE",
+};
+
+/** The translation key for a navigation item label. Unknown labels fall back to themselves. */
+export function labelToNavKey(label: string): string {
+  return routeKeyByLabel[label] ?? label;
 }
 
-/**
- * Convert a navigation item label to its i18n key.
- * Example: "Overview" → "routes.overview"
- */
-export function labelToNavKey(itemLabel: string): string {
-  const routeKey = labelToRouteKey[itemLabel];
-  if (!routeKey) {
-    console.warn(`Missing route key mapping for label: "${itemLabel}"`);
-    return `routes.${itemLabel.toLowerCase()}`;
-  }
-  return `routes.${routeKey}`;
+/** The translation key for a navigation group name. Unknown groups fall back to a derived key. */
+export function groupToNavKey(group: string): string {
+  return groupKeyByGroup[group] ?? `navigation:groups.${group}`;
 }

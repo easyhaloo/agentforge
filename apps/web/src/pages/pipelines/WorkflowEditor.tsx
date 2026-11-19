@@ -6,7 +6,8 @@ import { ParameterField, parameterTypes, parseValue, displayValue } from "./Para
 
 type Stage = Definition["stages"][number];
 type Capability = Stage["jobs"][number]["steps"][number]["uses"];
-const capabilities = [
+/** The capabilities a step can use. The label is a translation key, so the UI shows a translated name. */
+export const capabilities = [
   { value: "control/approval@v1", label: "approval" },
   { value: "container/check@v1", label: "container" },
 ] satisfies { value: Capability; label: string }[];

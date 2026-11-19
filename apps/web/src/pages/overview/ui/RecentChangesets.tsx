@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, ChevronDown, Code2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CURRENT_ORGANIZATION_HANDLE, orgPath } from "../../../shared/routing";
+import { formatRelativeTime } from "../../../shared/i18n/format";
 import { Button, DataTable, Empty, Input, Select } from "../../../shared/ui";
 import { recentChangesetSeeds } from "../data/overviewData";
 import type { CreatedChangeset, OverviewChangesetRow } from "../model/types";
@@ -26,15 +27,25 @@ export function RecentChangesets({ created, onNotify, onSelect, selectedId }: Pr
   const { t } = useTranslation("overview");
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("All");
+  // The filter holds the status the API reports, so the row data and the filter never
+  // depend on the language the labels are shown in.
+  const [filter, setFilter] = useState("");
 
-  const statuses = [
-    t("recentChangesets.statuses.all"),
-    t("recentChangesets.statuses.readyForReview"),
-    t("recentChangesets.statuses.evaluating"),
-    t("recentChangesets.statuses.changesRequested"),
-    t("recentChangesets.statuses.merged"),
-    t("recentChangesets.statuses.draft")
+  const statusLabels = useMemo<Record<string, string>>(() => ({
+    "Ready for review": t("recentChangesets.statuses.readyForReview"),
+    "Evaluating": t("recentChangesets.statuses.evaluating"),
+    "Changes requested": t("recentChangesets.statuses.changesRequested"),
+    "Merged": t("recentChangesets.statuses.merged"),
+    "Draft": t("recentChangesets.statuses.draft"),
+  }), [t]);
+
+  const statusFilters = [
+    { value: "", label: t("recentChangesets.statuses.all") },
+    { value: "Ready for review", label: statusLabels["Ready for review"] },
+    { value: "Evaluating", label: statusLabels["Evaluating"] },
+    { value: "Changes requested", label: statusLabels["Changes requested"] },
+    { value: "Merged", label: statusLabels["Merged"] },
+    { value: "Draft", label: statusLabels["Draft"] },
   ];
 
   const rows = useMemo<OverviewChangesetRow[]>(() => [
@@ -43,13 +54,15 @@ export function RecentChangesets({ created, onNotify, onSelect, selectedId }: Pr
       title,
       project: "agentforge-demo",
       status: "Draft",
-      updated: t("recentChangesets.justNow"),
+      // A changeset that was just created has no timestamp yet.
+      updatedAt: "",
     })),
     ...recentChangesetSeeds,
   ].filter((row) =>
-    (filter === statuses[0] || row.status === filter) &&
-    [row.id, row.title, row.project, row.status].join(" ").toLowerCase().includes(query.toLowerCase())
-  ), [created, filter, query, statuses, t]);
+    (filter === "" || row.status === filter) &&
+    [row.id, row.title, row.project, row.status, statusLabels[row.status] ?? ""]
+      .join(" ").toLowerCase().includes(query.toLowerCase())
+  ), [created, filter, query, statusLabels]);
 
   return (
     <section className="card table-panel">
@@ -73,11 +86,12 @@ export function RecentChangesets({ created, onNotify, onSelect, selectedId }: Pr
         </div>
         <Select
           aria-label={t("recentChangesets.filterAriaLabel")}
+          placeholder={t("recentChangesets.allStatuses")}
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          options={statuses.map((status, idx) => ({ label: idx === 0 ? t("recentChangesets.allStatuses") : status, value: status }))}
+          options={statusFilters}
         />
-        <Button size="small" onClick={() => { setQuery(""); setFilter(statuses[0]); }}>
+        <Button size="small" onClick={() => { setQuery(""); setFilter(""); }}>
           {t("recentChangesets.moreFilters")} <ChevronDown size={13} />
         </Button>
       </div>
@@ -88,8 +102,8 @@ export function RecentChangesets({ created, onNotify, onSelect, selectedId }: Pr
             { key: "id", title: t("recentChangesets.columns.identifier"), render: (_, row) => <span className="mono">{row.id}</span> },
             { key: "title", title: t("recentChangesets.columns.name"), render: (_, row) => <b>{row.title}</b> },
             { key: "project", title: t("recentChangesets.columns.project"), render: (_, row) => <span className="repo-tag"><Code2 size={12}/>{row.project}</span> },
-            { key: "status", title: t("recentChangesets.columns.status"), render: (_, row) => <span className={`status ${statusClass(row.status)}`}><i/>{row.status}</span> },
-            { key: "updated", title: t("recentChangesets.columns.updated"), render: (_, row) => <span className="muted-text">{row.updated}</span> },
+            { key: "status", title: t("recentChangesets.columns.status"), render: (_, row) => <span className={`status ${statusClass(row.status)}`}><i/>{statusLabels[row.status] ?? row.status}</span> },
+            { key: "updatedAt", title: t("recentChangesets.columns.updated"), render: (_, row) => <span className="muted-text">{row.updatedAt ? formatRelativeTime(row.updatedAt) : t("recentChangesets.justNow")}</span> },
             { key: "actions", title: "", render: (_, row) => <Button variant="ghost" size="small" className="more" type="button" aria-label={t("recentChangesets.moreActionsAriaLabel", { id: row.id })} onClick={(event) => { event.stopPropagation(); onNotify(t("recentChangesets.moreActionsNotice")); }}>···</Button> },
           ]}
           data={rows}

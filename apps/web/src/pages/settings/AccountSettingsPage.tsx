@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { settingsAPI, type UserProfile } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
+import { formatDateTime } from "../../shared/i18n/format";
 
 export function AccountSettingsPage() {
   const { t } = useTranslation("settings");
@@ -23,8 +25,7 @@ export function AccountSettingsPage() {
         }
       } catch (err) {
         if (mounted) {
-          const message = err instanceof Error ? err.message : "Failed to load account information";
-          setError(message);
+          setError(translateError(err, t, "settings:errors.loadAccountFailed"));
         }
       } finally {
         if (mounted) {
@@ -62,21 +63,11 @@ export function AccountSettingsPage() {
           <p className="settings-page-description">{t("account.description")}</p>
         </header>
         <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          {error || "Failed to load account information"}
+          {error || t("errors.loadAccountFailed")}
         </div>
       </div>
     );
   }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   return (
     <div className="settings-page">
@@ -99,12 +90,15 @@ export function AccountSettingsPage() {
             <div className="settings-field-readonly">
               <label className="settings-field-readonly-label">{t("account.email")}</label>
               <div className="settings-field-readonly-value">{profile.email}</div>
+              <div style={{ fontSize: "13px", color: "var(--color-text-tertiary)", marginTop: "4px" }}>
+                {t("account.emailDescription")}
+              </div>
             </div>
 
             {/* Account Created */}
             <div className="settings-field-readonly">
               <label className="settings-field-readonly-label">{t("account.createdAt")}</label>
-              <div className="settings-field-readonly-value">{formatDate(profile.created_at)}</div>
+              <div className="settings-field-readonly-value">{formatDateTime(profile.created_at)}</div>
             </div>
 
             {/* Account Type */}

@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
+import type { TFunction } from "i18next";
 import { Key, Plus, X } from "lucide-react";
 import { Button, Input } from "../../shared/ui/components";
 import { TextArea } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type SSHKey } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
+import { formatDate, formatRelativeTime } from "../../shared/i18n/format";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
 // Simple confirm dialog component (reused from Sessions)
@@ -27,6 +30,8 @@ function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("settings");
+
   if (!open) return null;
 
   return (
@@ -59,7 +64,7 @@ function ConfirmDialog({
         <p style={{ margin: "0 0 24px 0", color: "var(--color-text-secondary)" }}>{description}</p>
         <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
           <Button variant="ghost" onClick={onCancel}>
-            {cancelText || "Cancel"}
+            {cancelText || t("common:actions.cancel")}
           </Button>
           <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
             {confirmText}
@@ -70,23 +75,23 @@ function ConfirmDialog({
   );
 }
 
-function validateSSHKey(key: string): string | null {
+function validateSSHKey(key: string, t: TFunction): string | null {
   const trimmed = key.trim();
 
   if (!trimmed) {
-    return "SSH key is required";
+    return t("keys.keyRequired");
   }
 
   // Check if it starts with a supported type
   const validPrefixes = ["ssh-rsa", "ssh-ed25519", "ecdsa-sha2-"];
   if (!validPrefixes.some((prefix) => trimmed.startsWith(prefix))) {
-    return "Unsupported key type. Must be RSA, Ed25519, or ECDSA.";
+    return t("keys.unsupportedKeyType");
   }
 
   // Check format (at least 2 parts: type and key data)
   const parts = trimmed.split(/\s+/);
   if (parts.length < 2) {
-    return "Invalid SSH key format. Expected: <type> <key-data> [comment]";
+    return t("keys.invalidKeyFormat");
   }
 
   return null;
@@ -113,7 +118,7 @@ export function KeysSettingsPage() {
       const data = await settingsAPI.getSSHKeys();
       setKeys(data);
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to load SSH keys");
+      notify(translateError(err, t, "settings:errors.loadKeysFailed"));
     } finally {
       setLoading(false);
     }
@@ -132,7 +137,7 @@ export function KeysSettingsPage() {
       newErrors.title = t("keys.titleRequired");
     }
 
-    const keyValidation = validateSSHKey(publicKey);
+    const keyValidation = validateSSHKey(publicKey, t);
     if (keyValidation) {
       newErrors.publicKey = keyValidation;
     }
@@ -150,14 +155,13 @@ export function KeysSettingsPage() {
         title: title.trim(),
         public_key: publicKey.trim(),
       });
-      notify(t("keys.addSuccess"));
+      notify(t("keys.keyAdded"));
       setTitle("");
       setPublicKey("");
       setShowAddForm(false);
       await loadKeys();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add SSH key";
-      setErrors({ publicKey: message });
+      setErrors({ publicKey: translateError(err, t, "settings:errors.addKeyFailed") });
     } finally {
       setSubmitting(false);
     }
@@ -167,38 +171,19 @@ export function KeysSettingsPage() {
     setSubmitting(true);
     try {
       await settingsAPI.deleteSSHKey(key.key_id);
-      notify(t("keys.deleteSuccess"));
+      notify(t("keys.keyDeleted"));
       await loadKeys();
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to delete SSH key");
+      notify(translateError(err, t, "settings:errors.deleteKeyFailed"));
     } finally {
       setSubmitting(false);
       setKeyToDelete(null);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const formatLastUsed = (dateString: string | null) => {
-    if (!dateString) return t("keys.never");
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return t("keys.today");
-    if (diffDays === 1) return t("keys.yesterday");
-    if (diffDays < 7) return t("keys.daysAgo", { count: diffDays });
-    if (diffDays < 30) return t("keys.weeksAgo", { count: Math.floor(diffDays / 7) });
-
-    return formatDate(dateString);
+    if (!dateString) return t("keys.neverUsed");
+    return formatRelativeTime(dateString);
   };
 
   if (loading) {
@@ -227,7 +212,7 @@ export function KeysSettingsPage() {
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
             <h2 style={{ fontSize: "16px", fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>
-              {t("keys.sshTitle")}
+              {t("keys.sshKeys")}
             </h2>
             {!showAddForm && (
               <Button
@@ -237,7 +222,7 @@ export function KeysSettingsPage() {
                 style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
               >
                 <Plus size={16} />
-                {t("keys.addKey")}
+                {t("keys.addSSHKey")}
               </Button>
             )}
           </div>
@@ -259,7 +244,7 @@ export function KeysSettingsPage() {
                       if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }));
                     }}
                     error={errors.title}
-                    placeholder="e.g., Work Laptop"
+                    placeholder={t("keys.keyTitlePlaceholder")}
                     required
                   />
                   <TextArea
@@ -271,13 +256,13 @@ export function KeysSettingsPage() {
                       if (errors.publicKey) setErrors((prev) => ({ ...prev, publicKey: undefined }));
                     }}
                     error={errors.publicKey}
-                    placeholder="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc..."
+                    placeholder={t("keys.publicKeyPlaceholder")}
                     rows={4}
                     required
                   />
                   <div style={{ display: "flex", gap: "12px" }}>
                     <Button type="submit" variant="primary" disabled={submitting} loading={submitting}>
-                      {submitting ? t("common:status.saving", { ns: "common" }) : t("keys.addKey")}
+                      {submitting ? t("common:status.saving", { ns: "common" }) : t("keys.addSSHKey")}
                     </Button>
                     <Button
                       type="button"
@@ -314,7 +299,10 @@ export function KeysSettingsPage() {
                       <div style={{ fontWeight: 500, marginBottom: "8px" }}>{key.title}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "14px" }}>
                         <div style={{ color: "var(--color-text-secondary)" }}>
-                          {key.key_type} · {key.key_bits} bits
+                          {key.key_type} · {t("keys.keyBits", { count: key.key_bits })}
+                        </div>
+                        <div style={{ color: "var(--color-text-tertiary)", fontSize: "12px" }}>
+                          {t("keys.fingerprint")}
                         </div>
                         <div
                           style={{
@@ -328,7 +316,7 @@ export function KeysSettingsPage() {
                           {key.fingerprint}
                         </div>
                         <div style={{ color: "var(--color-text-tertiary)", fontSize: "13px" }}>
-                          {t("keys.added")}: {formatDate(key.created_at)} · {t("keys.lastUsed")}:{" "}
+                          {t("keys.created")}: {formatDate(key.created_at)} · {t("keys.lastUsed")}:{" "}
                           {formatLastUsed(key.last_used_at)}
                         </div>
                       </div>
@@ -338,6 +326,8 @@ export function KeysSettingsPage() {
                       size="small"
                       onClick={() => setKeyToDelete(key)}
                       disabled={submitting}
+                      title={t("keys.deleteKey")}
+                      aria-label={t("keys.deleteKey")}
                       style={{ color: "var(--color-error)" }}
                     >
                       <X size={16} />
@@ -362,7 +352,7 @@ export function KeysSettingsPage() {
       <ConfirmDialog
         open={keyToDelete !== null}
         title={t("keys.deleteKeyTitle")}
-        description={t("keys.deleteConfirm")}
+        description={t("keys.deleteKeyConfirm")}
         confirmText={t("keys.deleteKey")}
         danger
         onConfirm={() => keyToDelete && handleDeleteKey(keyToDelete)}

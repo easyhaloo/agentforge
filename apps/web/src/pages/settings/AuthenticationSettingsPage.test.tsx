@@ -3,6 +3,8 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { AuthenticationSettingsPage } from "./AuthenticationSettingsPage";
 
 vi.mock("react-i18next", () => ({
+  // The date helpers format in the interface language, which reaches the real i18next instance.
+  initReactI18next: { type: "3rdParty", init: () => {} },
   useTranslation: () => ({
     t: (key: string) => key,
   }),
