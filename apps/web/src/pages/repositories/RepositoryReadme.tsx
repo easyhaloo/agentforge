@@ -18,7 +18,8 @@ function inline(text: string, sourcePath: string, onOpenPath?: (path: string) =>
       const destination = link?.[2].trim();
       const resolved = destination ? resolveRepositoryMarkdownTarget(destination, sourcePath) : { kind: "unsafe" as const };
       const label = image ? "Image: " + (link?.[1] || "untitled") : (link?.[1] || value);
-      if (resolved.kind === "external") output.push(<a key={match.index} href={resolved.href} target="_blank" rel="noopener noreferrer">{label}</a>);
+      if (image && resolved.kind === "internal" && onOpenImage) output.push(<img key={match.index} src={onOpenImage(resolved.path)} alt={link?.[1] || "Repository image"} loading="lazy" referrerPolicy="no-referrer" />);
+      else if (resolved.kind === "external") output.push(<a key={match.index} href={resolved.href} target="_blank" rel="noopener noreferrer">{label}</a>);
       else if (resolved.kind === "anchor") output.push(<a key={match.index} href={resolved.href}>{label}</a>);
       else if (resolved.kind === "internal" && onOpenPath && !image) output.push(<a key={match.index} href={"#repository-file-" + encodeURIComponent(resolved.path)} onClick={event => { event.preventDefault(); onOpenPath(resolved.path); }}>{label}</a>);
       else output.push(value);
@@ -29,7 +30,7 @@ function inline(text: string, sourcePath: string, onOpenPath?: (path: string) =>
   return output;
 }
 
-export function RepositoryReadme({ content, sourcePath = "README.md", onOpenPath }: { content: string; sourcePath?: string; onOpenPath?: (path: string) => void }) {
+export function RepositoryReadme({ content, sourcePath = "README.md", onOpenPath, onOpenImage }: { content: string; sourcePath?: string; onOpenPath?: (path: string) => void; onOpenImage?: (path: string) => string }) {
   const renderInline = (value: string) => inline(value, sourcePath, onOpenPath);
   const fence = String.fromCharCode(96).repeat(3);
   const lines = content.replace(/\r\n?/g, "\n").split("\n");

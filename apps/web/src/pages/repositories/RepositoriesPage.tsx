@@ -307,7 +307,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           {tree.items.length === 0 && <li className="changeset-hint">This directory is empty.</li>}
           {tree.items.length > 0 && visibleEntries.length === 0 && <li className="changeset-hint">No files match “{entryQuery}”.</li>}
         </ul>
-        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content} sourcePath={rootReadme.path} onOpenPath={openMarkdownPath}/></section>}
+        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content} sourcePath={rootReadme.path} onOpenPath={openMarkdownPath} onOpenImage={path => repositoryPreviewAPI.imageURL(organization.id, selectedRepository, path, previewCommit)}/></section>}
         {readmeError && !tree.path && <p className="changeset-hint" role="status">{readmeError}</p>}
       </div>}
       {selectedFile && <div style={{ marginTop: 12 }}>
