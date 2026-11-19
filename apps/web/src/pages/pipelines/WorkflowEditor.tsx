@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Definition } from "../../shared/api/pipelines";
 import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
 
-import { ParameterField, parameterTypes, parseValue, displayValue } from "./ParameterField";
+import { manualInput, ParameterField, parameterTypes, parseValue, displayValue } from "./ParameterField";
 
 type Stage = Definition["stages"][number];
 type Capability = Stage["jobs"][number]["steps"][number]["uses"];
@@ -89,9 +89,13 @@ export function WorkflowEditor({ definition, update, outputNames }: { definition
             <Select label={t("parameterType")} value={p.type} options={parameterTypes.map(type => ({ value: type, label: type }))}
               onChange={e => set({ type: e.target.value as typeof p.type, default: undefined, choices: e.target.value === "choice" ? [] : undefined })} />
             {p.type === "choice" && <TextArea label={t("choices")} value={p.choices?.join("\n") ?? ""} onChange={e => set({ choices: e.target.value.split("\n") })} />}
-            <ParameterField parameter={p} label={t("default")} value={displayValue(p.default)} change={value => set({ default: parseValue(p.type, value) })} />
-            <Checkbox label={t("required")} checked={!!p.required} onChange={e => set({ required: e.target.checked })} />
-            <Checkbox label={t("override")} checked={!!p.override} onChange={e => set({ override: e.target.checked })} />
+            <Select label={t("inputMode")} value={manualInput(p) ? "manual" : "default"}
+              options={[{ value: "default", label: t("defaultMode") }, { value: "manual", label: t("manualMode") }]}
+              onChange={e => set(e.target.value === "manual" ? { required: true, override: true, default: undefined } : { required: false })} />
+            {!manualInput(p) && <>
+              <ParameterField parameter={p} label={t("default")} value={displayValue(p.default)} change={value => set({ default: parseValue(p.type, value) })} />
+              <Checkbox label={t("override")} checked={!!p.override} onChange={e => set({ override: e.target.checked })} />
+            </>}
             <Button onClick={() => change(d => { d.parameters!.splice(index, 1); updateBindings(d); })}>{t("removeParameter")}</Button>
           </fieldset>;
         })}

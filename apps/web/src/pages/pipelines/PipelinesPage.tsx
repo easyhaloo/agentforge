@@ -2,14 +2,15 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState, type ReactNode } from "react";
 import { translateError } from "../../shared/api/errors";
 import { type OrganizationSummary } from "../../shared/api/identity";
-import { pipelines, type Definition, type Pipeline, type Summary } from "../../shared/api/pipelines";
+import { pipelines, type Definition, type Pipeline, type Run, type Summary } from "../../shared/api/pipelines";
 import { Button, ConfirmDialog, DataTable, Empty, Input, Modal, RadioGroup } from "../../shared/ui";
 
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { organizationHandle, orgPath, pipelineEditPath } from "../../shared/routing";
 import { ArrowLeft, Workflow } from "lucide-react";
 import { WorkflowCanvas } from "./WorkflowCanvas";
-import { RunPanel } from "./RunPanel";
+import { MergeQueuePanel } from "./MergeQueuePanel";
+import { LiveRun, RunDialog, type RunVersion } from "./RunPanel";
 import { editable, outputNameError, workflowOutputNames, WorkflowEditor } from "./WorkflowEditor";
 
 const template: Definition = {
@@ -119,6 +120,8 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [cloning, setCloning] = useState(false);
+  const [runDialog, setRunDialog] = useState(false);
+  const [latestRun, setLatestRun] = useState<{ receipt: Run; version: RunVersion }>();
   const [archiving, setArchiving] = useState(false);
   const [retry, setRetry] = useState(0);
   const draft = edits ?? selected?.definition ?? template;
@@ -148,6 +151,21 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   const canPublish = organization.role === "owner" || organization.role === "admin";
   const validShape = editable(draft);
   const outputNames = validShape ? workflowOutputNames(draft) : [];
+  const canSave = validShape && !outputNames.some(name => outputNameError(name, outputNames));
+  const draftRun = selected && validShape && (dirty || selected.status === "draft") ? {
+    definition: draft,
+    publish: canPublish && canSave ? async () => {
+      let saved = selected;
+      if (dirty) {
+        saved = await pipelines.save(org, selected, draft);
+        select(saved);
+        setDraft(null);
+      }
+      const published = await pipelines.transition(org, saved, "publish");
+      select(published);
+      return published;
+    } : undefined,
+  } : undefined;
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
       <Link to={orgPath(organizationHandle(organization), "pipelines")}><ArrowLeft size={16}/>{t("backToList")}</Link>
@@ -158,7 +176,8 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
         {organization.role !== "viewer" && <Button disabled={busy || dirty || !validShape} onClick={() => setCloning(true)}>{t("clone")}</Button>}
         {canPublish && selected.status === "draft" && <Button disabled={busy || dirty} onClick={() => void apply(() => pipelines.transition(org, selected, "publish"))}>{t("publish")}</Button>}
         {canPublish && selected.status !== "archived" && <Button disabled={busy || dirty} onClick={() => setArchiving(true)}>{t("archive")}</Button>}
-        {canEdit && <Button variant="primary" disabled={busy || !validShape || !dirty || outputNames.some(name => outputNameError(name, outputNames))} onClick={() => void apply(() => pipelines.save(org, selected, draft))}>{t("save")}</Button>}
+        {canEdit && <Button variant={dirty ? "primary" : "secondary"} disabled={busy || !canSave || !dirty} onClick={() => void apply(() => pipelines.save(org, selected, draft))}>{t("save")}</Button>}
+        {canEdit && <Button variant="primary" disabled={busy || (selected.version === 0 && !draftRun?.publish)} onClick={() => setRunDialog(true)}>{t("runAction")}</Button>}
       </>}
     </header>
     {error && <p className="org-error" role="alert">{error} {!selected && <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button>}</p>}
@@ -167,7 +186,10 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
     {canEdit && validShape ? <div className="wf-editor-shell" inert={busy} aria-busy={busy}>
       <WorkflowEditor key={selected.revision} definition={draft} update={setDraft} outputNames={outputNames} />
     </div> : (validShape ? <WorkflowCanvas definition={draft}/> : <p>{t("invalidGraph")}</p>)}
-    {selected.version > 0 && <RunPanel key={`${selected.id}:${selected.version}`} org={org} pipeline={selected} canStart={canEdit} canPromote={canPublish} />}
+    {latestRun && <LiveRun key={latestRun.receipt.id} org={org} {...latestRun} />}
+    {selected.version > 0 && <MergeQueuePanel org={org} pipeline={selected} draft={draftRun} canStart={canEdit} canPromote={canPublish} />}
+    {canEdit && runDialog && <RunDialog org={org} pipeline={selected} draft={draftRun} onCancel={() => setRunDialog(false)}
+      onSubmit={async (version, inputs) => setLatestRun({ version, receipt: await pipelines.start(org, selected.id, version.number, inputs) })} />}
     {cloning && <CreatePipelineDialog organization={organization} copy={{ ...selected.definition, name: `${selected.name.slice(0, 59)}-copy` }} onClose={() => setCloning(false)} />}
     <ConfirmDialog open={archiving} title={t("confirmArchive", {name:selected.name})} description={t("versionsRemain")}
       onCancel={() => setArchiving(false)} onConfirm={() => { setArchiving(false); void apply(() => pipelines.transition(org, selected, "archive")); }} />

@@ -365,6 +365,7 @@ export interface ModalProps {
   onCancel: () => void;
   onOk?: () => void | Promise<void>;
   okText?: string;
+  okDisabled?: boolean;
   okVariant?: ButtonVariant;
   cancelText?: string;
   confirmLoading?: boolean;
@@ -378,6 +379,7 @@ export function Modal({
   onCancel,
   onOk,
   okText,
+  okDisabled = false,
   okVariant = "primary",
   cancelText,
   confirmLoading = false,
@@ -444,7 +446,7 @@ export function Modal({
   if (!open) return null;
 
   const handleOk = async () => {
-    if (!onOk || busy) return;
+    if (!onOk || busy || okDisabled) return;
     setSubmitError("");
     try {
       setSubmitting(true);
@@ -471,7 +473,7 @@ export function Modal({
         </div>
         <footer className="af-modal__footer">
           <Button onClick={onCancel} disabled={busy}>{cancelText ?? t("common:components.cancel")}</Button>
-          {onOk && <Button variant={okVariant} onClick={handleOk} loading={busy}>{okText ?? t("common:components.confirm")}</Button>}
+          {onOk && <Button variant={okVariant} disabled={okDisabled} onClick={handleOk} loading={busy}>{okText ?? t("common:components.confirm")}</Button>}
         </footer>
       </section>
     </div>
