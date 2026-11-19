@@ -59,7 +59,7 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	if err != nil { return result, ErrRepositoryInvalid }
 	fields := bytes.Split(bytes.TrimSuffix(entry, []byte{0}), []byte{0})
 	if len(fields) != 1 { return result, ErrWriteInvalid }
-	meta, found := bytes.Cut(fields[0], []byte{'\t'})
+	meta, _, found := bytes.Cut(fields[0], []byte{'\t'})
 	if !found || !bytes.HasPrefix(meta, []byte("100644 blob ")) && !bytes.HasPrefix(meta, []byte("100755 blob ")) { return result, ErrWriteInvalid }
 
 	temp, err := os.MkdirTemp("", "agentforge-edit-*")
@@ -123,7 +123,7 @@ func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, c
 	if err != nil { return result, ErrRepositoryInvalid }
 	fields := bytes.Split(bytes.TrimSuffix(entry, []byte{0}), []byte{0})
 	if len(fields) != 1 { return result, ErrWriteInvalid }
-	meta, found := bytes.Cut(fields[0], []byte{'\t'})
+	meta, _, found := bytes.Cut(fields[0], []byte{'\t'})
 	if !found || !bytes.HasPrefix(meta, []byte("100644 blob ")) && !bytes.HasPrefix(meta, []byte("100755 blob ")) { return result, ErrWriteInvalid }
 
 	temp := filepath.Join(w.dir, ".agentforge-edit-index")
