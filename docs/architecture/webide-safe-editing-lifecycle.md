@@ -79,10 +79,10 @@ A separate read endpoint is not required: the existing commit-pinned blob previe
 
 ## WebIDE behavior
 
-- Use a maintained editor component with a bounded UTF-8 text model; do not build a syntax editor from a textarea or custom token renderer.
+- The initial editing increment uses the shared bounded multiline text control for UTF-8 buffers; it is not yet a syntax-aware IDE editor. A maintained CodeMirror 6 integration remains a required follow-up before claiming language-aware editing, autocomplete, or diagnostics.
 - Keep per-file buffers keyed by repository, changeset, base commit, and path.
 - Track clean/dirty state and provide explicit Save and Discard actions.
-- Show a local diff against the loaded content before save.
+- Show a local line diff against the loaded content before save.
 - Disable save while the request is in flight; do not silently overwrite a newer buffer.
 - On HTTP 409, retain the user's buffer, fetch the latest revision/blob, show the conflict, and require an explicit reload or reapply action.
 - After save, replace the base content and commit/blob identities with the server response and clear dirty state.
