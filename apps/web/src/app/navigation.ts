@@ -28,6 +28,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { group: "COORDINATION", label: "Self-healing", icon: Activity, description: "Bounded repair loops that produce new revisions and re-run validation.", path: flatPaths.selfHealing },
   { group: "INTELLIGENCE", label: "Memory", icon: BrainCircuit, description: "Reusable engineering knowledge linked to sessions, code and decisions.", path: flatPaths.memory },
   { group: "INTELLIGENCE", label: "CI / CD", icon: Zap, description: "Pipelines, checks and release orchestration.", orgPath: inOrganization("pipelines") },
+  { group: "DEVELOPER", label: "WebIDE", icon: Code2, description: "Open repository files in a commit-pinned, read-only editor workspace.", orgPath: inOrganization("webide") },
   { group: "DEVELOPER", label: "UI Components", icon: PanelsTopLeft, description: "Explore the shared component system, interaction patterns and design tokens.", path: flatPaths.uiComponents },
   { group: "CONTROL PLANE", label: "Organization", icon: Users, description: "Manage organization members, invitations, roles and access history.", orgPath: inOrganization("settings") },
   { group: "CONTROL PLANE", label: "Security", icon: ShieldCheck, description: "Identity, secrets, supply-chain and runtime boundaries.", path: flatPaths.security },

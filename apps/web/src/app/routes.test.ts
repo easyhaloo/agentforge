@@ -39,7 +39,7 @@ describe("route table", () => {
   });
 
   it("serves the live pages and their aliases under /orgs/:org", () => {
-    const labels: Record<string, string> = { changesets: "Changesets", trails: "Trails", review: "Review", eval: "Eval", settings: "Organization" };
+    const labels: Record<string, string> = { webide: "WebIDE", changesets: "Changesets", trails: "Trails", review: "Review", eval: "Eval", settings: "Organization" };
     for (const [section, label] of Object.entries(labels)) {
       const leaf = leafOf(`/orgs/x/${section}`);
       expect(leaf?.params.org, section).toBe("x");

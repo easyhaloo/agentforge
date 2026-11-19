@@ -8,6 +8,11 @@ describe("RepositorySourceViewer", () => {
     expect(repositoryLanguage("config.yaml")).toBe("YAML");
     expect(repositoryLanguage("Dockerfile")).toBe("Dockerfile");
   });
+  it("marks the requested active line for editor deep links", () => {
+    const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"first\nsecond"} activeLine={2}/>);
+    expect(html).toContain("repository-source__line--active");
+    expect(html).toContain('id="line-2"');
+  });
   it("renders escaped source with line numbers and token classes", () => {
     const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={'const name = "AgentForge";\nreturn 42;\n<script>'} />);
     expect(html).toContain('class="repository-source__number"');
