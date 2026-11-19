@@ -191,6 +191,9 @@ export const repositoryAPI = {
     request<RepositoryMetadata>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`, {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch})}),
 };
 export const changesetAPI = {
+  list: (organizationID: string, limit = 100, offset = 0) => request<ChangesetPage>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?limit=${limit}&offset=${offset}`),
+  saveFile: (organizationID: string, id: string, input: { path: string; base_commit_sha: string; base_blob_sha: string; content: string }) => request<{ changeset: StoredChangeset; path: string; branch: string; commit_sha: string; blob_sha: string }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/files`, { method: "PUT", body: JSON.stringify(input) }),
+
   get: (organizationID: string, id: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}`),
   addRevision: (organizationID: string,id: string,ref: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/revisions`,{method:"POST",body:JSON.stringify({ref})}),
   evaluate: (organizationID: string,id: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/evaluations`,{method:"POST",body:JSON.stringify({})}),
