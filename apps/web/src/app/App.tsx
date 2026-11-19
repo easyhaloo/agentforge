@@ -99,9 +99,9 @@ function App() {
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
       <div className="shell">
-        <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} onSignOut={() => void signOut()} />
+        <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} />
         <main className="main">
-          <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} />
+          <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} onSignOut={() => void signOut()} />
           <div className="content">
             <PageHeader label={label} description={item?.description} onRefresh={item ? refresh : undefined} />
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}

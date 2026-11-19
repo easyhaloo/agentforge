@@ -1,4 +1,4 @@
-import { Navigate, Link, useSearchParams } from "react-router-dom";
+import { Navigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect, type FormEvent } from "react";
 import { Input } from "../../shared/ui/components";
@@ -13,6 +13,7 @@ type AuthCheckState = "checking" | "authenticated" | "unauthenticated";
 export function LoginPage() {
   const { t } = useTranslation("login");
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [authState, setAuthState] = useState<AuthCheckState>("unauthenticated");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +55,10 @@ export function LoginPage() {
 
   // Redirect authenticated users to return URL or default page
   if (authState === "authenticated" || loginSuccess) {
-    const returnUrl = searchParams.get("return");
+    // Support both location.state.from (from RequireAuth) and query param ?return=
+    const stateFrom = location.state?.from as string | undefined;
+    const queryReturn = searchParams.get("return");
+    const returnUrl = stateFrom || queryReturn;
     const destination = (returnUrl && returnUrl.startsWith("/")) ? returnUrl : "/orgs/current/changesets";
     return <Navigate to={destination} replace />;
   }

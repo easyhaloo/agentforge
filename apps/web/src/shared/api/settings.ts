@@ -3,7 +3,7 @@
  * All endpoints require authentication via session cookies.
  */
 
-const BASE_URL = "/api/v1/users/me";
+const BASE_URL = "/api/v1";
 
 /**
  * Base fetch wrapper with credentials and error handling

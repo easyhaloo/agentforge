@@ -1,0 +1,26 @@
+{
+  "page": {
+    "title": "已注册的代码仓库",
+    "description": "此组织可以在其中创建变更集的代码仓库",
+    "restrictedNotice": "只有组织所有者和管理员可以注册代码仓库。"
+  },
+  "form": {
+    "slugLabel": "代码仓库标识",
+    "slugPlaceholder": "team/repository",
+    "branchLabel": "默认分支",
+    "branchPlaceholder": "main",
+    "registerButton": "注册"
+  },
+  "columns": {
+    "repository": "代码仓库",
+    "branch": "默认分支",
+    "registeredBy": "注册者",
+    "registered": "注册时间"
+  },
+  "empty": "尚未注册代码仓库。",
+  "feedback": {
+    "loadFailed": "无法加载代码仓库",
+    "registered": "代码仓库已注册。",
+    "registrationFailed": "代码仓库注册失败"
+  }
+}

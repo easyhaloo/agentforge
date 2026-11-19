@@ -660,6 +660,115 @@ func (d DeliveryDependencies) currentAccount(w http.ResponseWriter,r *http.Reque
 	writeJSON(w,http.StatusOK,account)
 }
 
+// getProfile returns the current user's profile information
+func (d DeliveryDependencies) getProfile(w http.ResponseWriter, r *http.Request) {
+	if d.Account == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "The account repository is not configured")
+		return
+	}
+
+	// Get session cookie to extract user ID
+	cookie, err := r.Cookie(identity.SessionCookieName)
+	if err != nil || cookie.Value == "" {
+		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
+		return
+	}
+
+	// Validate session and get user ID
+	account, err := d.Account.CurrentAccount(r.Context(), cookie.Value)
+	if errors.Is(err, identity.ErrUnauthenticated) {
+		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "Could not load account context")
+		return
+	}
+
+	// Get profile using Repository (which is *postgres.Store)
+	type profileGetter interface {
+		GetUserProfile(context.Context, string) (identity.UserProfile, error)
+	}
+	repo, ok := d.Repository.(profileGetter)
+	if !ok {
+		writeProblem(w, http.StatusServiceUnavailable, "Profile unavailable", "Profile repository is not configured")
+		return
+	}
+
+	profile, err := repo.GetUserProfile(r.Context(), account.UserID)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Profile unavailable", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, profile)
+}
+
+// updateProfile updates the current user's profile information
+func (d DeliveryDependencies) updateProfile(w http.ResponseWriter, r *http.Request) {
+	if d.Account == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "The account repository is not configured")
+		return
+	}
+
+	// Get session cookie to extract user ID
+	cookie, err := r.Cookie(identity.SessionCookieName)
+	if err != nil || cookie.Value == "" {
+		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
+		return
+	}
+
+	// Validate session and get user ID
+	account, err := d.Account.CurrentAccount(r.Context(), cookie.Value)
+	if errors.Is(err, identity.ErrUnauthenticated) {
+		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "Could not load account context")
+		return
+	}
+
+	// Parse request body
+	var updateReq struct {
+		DisplayName string `json:"display_name"`
+		Bio         string `json:"bio"`          // TODO: Not yet supported in DB
+		Location    string `json:"location"`     // TODO: Not yet supported in DB
+	}
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
+		writeProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")
+		return
+	}
+
+	// Validate display_name
+	if strings.TrimSpace(updateReq.DisplayName) == "" {
+		writeProblem(w, http.StatusBadRequest, "Invalid request", "display_name is required")
+		return
+	}
+	if len(updateReq.DisplayName) > 100 {
+		writeProblem(w, http.StatusBadRequest, "Invalid request", "display_name must not exceed 100 characters")
+		return
+	}
+
+	// Update profile using Repository (which is *postgres.Store)
+	type profileUpdater interface {
+		UpdateUserProfile(context.Context, string, string) (identity.UserProfile, error)
+	}
+	repo, ok := d.Repository.(profileUpdater)
+	if !ok {
+		writeProblem(w, http.StatusServiceUnavailable, "Profile unavailable", "Profile repository is not configured")
+		return
+	}
+
+	profile, err := repo.UpdateUserProfile(r.Context(), account.UserID, updateReq.DisplayName)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Profile update failed", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, profile)
+}
+
 func writeDeliveryError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err,delivery.ErrRevisionNotCurrent),errors.Is(err,delivery.ErrEvaluationRequired),errors.Is(err,delivery.ErrEvidenceRequired),errors.Is(err,delivery.ErrReviewRequired),errors.Is(err,delivery.ErrAlreadyMerged):

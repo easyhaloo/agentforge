@@ -1,20 +1,22 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { CURRENT_ORGANIZATION_HANDLE, orgPath } from "../../../shared/routing";
 import { Button } from "../../../shared/ui";
 import { overviewActivity } from "../data/overviewData";
 
 export function ActivityFeed() {
+  const { t } = useTranslation("overview");
   const navigate = useNavigate();
   return (
     <section className="card panel activity-panel">
       <div className="panel-head">
         <div>
-          <h3>Activity stream</h3>
-          <p>Latest events across your workspace</p>
+          <h3>{t("activityFeed.title")}</h3>
+          <p>{t("activityFeed.description")}</p>
         </div>
         <Button variant="ghost" size="small" onClick={() => navigate(orgPath(CURRENT_ORGANIZATION_HANDLE, "trails"))}>
-          View all <ArrowRight size={14} />
+          {t("activityFeed.viewAll")} <ArrowRight size={14} />
         </Button>
       </div>
       {overviewActivity.map((event) => (

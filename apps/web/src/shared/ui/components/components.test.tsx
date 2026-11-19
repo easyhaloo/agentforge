@@ -36,10 +36,12 @@ describe("shared UI primitives", () => {
     expect(hint).toContain("Shown publicly");
   });
 
-  it("renders select options and disabled choices", () => {
+  it("renders custom select with proper accessibility attributes", () => {
     const html = renderToStaticMarkup(<Select aria-label="Environment" options={[{ label: "Development", value: "dev" }, { label: "Production", value: "prod", disabled: true }]} />);
-    expect(html).toContain('value="dev"');
-    expect(html).toContain('value="prod" disabled=""');
+    expect(html).toContain('af-select-trigger');
+    expect(html).toContain('aria-haspopup="listbox"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('type="button"');
   });
 
   it("preserves native form semantics for date, textarea and choice controls", () => {
