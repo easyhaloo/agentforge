@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, ChevronLeft, Code2, FileText, Folder, RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   changesetAPI,
@@ -15,7 +15,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Button, ConfirmDialog, Select } from "../../shared/ui";
 import { detectCodeLanguage } from "../../shared/code/languages";
-import { TextAreaEditorAdapter, type EditorAdapter } from "../../shared/code/EditorAdapter";
+import { TextAreaEditorAdapter, type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
 import { translateError } from "../../shared/api/errors";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
@@ -53,6 +53,8 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
   const [selectedPath, setSelectedPath] = useState(initial.get("path") ?? "");
   const [activeLine] = useState(() => Math.max(0, Number(initial.get("line") ?? 0) || 0));
+  const [editorController, setEditorController] = useState<EditorController | null>(null);
+  const handleEditorReady = useCallback((controller: EditorController | null) => setEditorController(controller), []);
   const [file, setFile] = useState<RepositoryPreviewBlob | null>(null);
   const [draft, setDraft] = useState("");
   const [original, setOriginal] = useState("");
@@ -142,15 +144,9 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   }, [organization.id, selectedRepository, selectedRef, selectedPath]);
 
   useEffect(() => {
-    if (!file || activeLine < 1) return;
-    const editor = document.querySelector<HTMLTextAreaElement>(".webide-editor textarea");
-    if (!editor) return;
-    const offset = lineStartOffset(draft, activeLine);
-    editor.focus({ preventScroll: true });
-    editor.setSelectionRange(offset, offset);
-    const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight);
-    if (Number.isFinite(lineHeight)) editor.scrollTop = Math.max(0, (activeLine - 1) * lineHeight);
-  }, [file?.path, activeLine]);
+    if (!file || activeLine < 1 || !editorController) return;
+    editorController.focusLine(activeLine, draft);
+  }, [file?.path, activeLine, editorController]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -272,7 +268,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
           </div>
           {!selectedChangeset && <p className="webide-hint">{t("repositories:webide.hintSelectChangeset")}</p>}{selectedChangeset && !canEdit && <p className="webide-hint">{t("repositories:webide.hintNeedsRevision")}</p>}
           {dirty && <p className="webide-hint">{t("repositories:webide.hintUnsaved")}</p>}
-          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine}/>
+          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine} onReady={handleEditorReady}/>
           {dirty && <details className="webide-diff"><summary>{t("repositories:webide.reviewChanges", { count: draft.split("\n").length })}</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}
           {conflict && <div className="webide-conflict"><AlertCircle size={15}/> {t("repositories:webide.conflictNotice")}</div>}
         </> : <div className="webide-empty"><Code2 size={28}/><strong>{t("repositories:webide.emptyTitle")}</strong><span>{t("repositories:webide.emptyDescription")}</span></div>}
