@@ -43,7 +43,7 @@ describe("TextAreaEditorAdapter", () => {
     );
     const controller = onReady.mock.calls[0]?.[0];
     expect(controller).toBeTruthy();
-    const editor = screen.getByRole("textbox", { name: /file content/i }) as HTMLTextAreaElement;
+    const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
     const focus = vi.spyOn(editor, "focus");
     controller?.focusLine(2, "first\nsecond\nthird");
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
