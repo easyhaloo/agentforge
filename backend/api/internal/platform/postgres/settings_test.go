@@ -264,6 +264,7 @@ func TestAgentPreferences(t *testing.T) {
 			ConfirmationStrategy: "always",
 			AutomationLevel:      "conservative",
 			CrossSessionMemory:   false,
+			EvaluationStrictness: "standard",
 			ReviewFocus: identity.ReviewFocus{
 				Security:      true,
 				Performance:   false,
@@ -318,15 +319,23 @@ func TestSessionsManagement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate session: %v", err)
 	}
+	csrf1, err := identity.GenerateToken()
+	if err != nil {
+		t.Fatalf("failed to generate csrf token: %v", err)
+	}
+	csrf2, err := identity.GenerateToken()
+	if err != nil {
+		t.Fatalf("failed to generate csrf token: %v", err)
+	}
 
 	expiresAt := time.Now().Add(24 * time.Hour)
 
-	_, err = store.CreateSession(ctx, userID, session1, "csrf1", expiresAt)
+	_, err = store.CreateSession(ctx, userID, session1, csrf1, expiresAt)
 	if err != nil {
 		t.Fatalf("failed to create session 1: %v", err)
 	}
 
-	_, err = store.CreateSession(ctx, userID, session2, "csrf2", expiresAt)
+	_, err = store.CreateSession(ctx, userID, session2, csrf2, expiresAt)
 	if err != nil {
 		t.Fatalf("failed to create session 2: %v", err)
 	}
