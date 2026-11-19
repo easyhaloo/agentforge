@@ -1,0 +1,18 @@
+{
+  "badRequest": "请求格式不正确。",
+  "unauthorized": "请先登录后再继续。",
+  "forbidden": "您没有访问权限。",
+  "notFound": "该资源不存在。",
+  "methodNotAllowed": "此处不允许该操作。",
+  "conflict": "该操作与当前状态冲突。",
+  "payloadTooLarge": "请求内容过大。",
+  "invalidRequest": "部分信息未通过校验。",
+  "tooManyRequests": "尝试过于频繁，请稍后再试。",
+  "serverError": "服务端出现问题。",
+  "notImplemented": "该功能尚未提供。",
+  "badGateway": "无法连接到服务端。",
+  "serviceUnavailable": "服务暂时不可用。",
+  "gatewayTimeout": "服务端响应超时。",
+  "network": "无法连接到服务端。",
+  "unknown": "出了点问题。"
+}

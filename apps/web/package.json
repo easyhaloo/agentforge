@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:i18n": "vitest run src/architecture/i18n-keys.test.ts src/locales/locales.test.ts"
   },
   "dependencies": {
     "i18next": "^27.1.5",

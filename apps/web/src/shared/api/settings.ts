@@ -3,6 +3,8 @@
  * All endpoints require authentication via session cookies.
  */
 
+import { APIError } from "./errors";
+
 const BASE_URL = "/api/v1/users/me";
 
 /**
@@ -18,10 +20,13 @@ async function fetchAPI<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({
-      message: `HTTP error ${response.status}`
-    }));
-    throw new Error(error.message || `API error: ${response.status}`);
+    // The status is what the interface shows a message for; the API's English prose stays here.
+    let detail: string | undefined;
+    try {
+      const problem = await response.json() as { detail?: string; title?: string; message?: string };
+      detail = problem.detail || problem.title || problem.message;
+    } catch { /* response may not contain JSON */ }
+    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail);
   }
 
   return response.json();

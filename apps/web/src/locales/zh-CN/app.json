@@ -1,0 +1,53 @@
+{
+  "footer": {
+    "prototype": "AgentForge 原型",
+    "version": "v0.1.0",
+    "operational": "所有系统运行正常",
+    "mockEnvironment": "模拟环境"
+  },
+  "notFound": {
+    "title": "{{pathname}} 上没有可访问的内容。",
+    "goToOverview": "返回概览"
+  },
+  "pageError": {
+    "title": "出了点问题",
+    "description": "该页面无法显示。请稍后重试，或返回概览。",
+    "goToOverview": "返回概览"
+  },
+  "rootError": {
+    "title": "出了点问题",
+    "description": "AgentForge 无法显示。请重新加载页面后重试。",
+    "reload": "重新加载 AgentForge"
+  },
+  "organizationGate": {
+    "loading": "正在加载账户与组织…",
+    "continueWithSSO": "使用 SSO 继续",
+    "retry": "重试",
+    "noOrganization": "没有可用的组织",
+    "noOrganizationHandle": "该账户无法访问组织 “{{handle}}”。",
+    "organization": {
+      "signedOutTitle": "登录后可管理组织",
+      "signedOutBody": "组织设置需要已登录的 AgentForge 会话。",
+      "unavailableTitle": "组织服务不可用",
+      "noOrganization": "该账户没有所属的组织。可向组织所有者申请邀请。"
+    },
+    "pipelines": {
+      "signedOutTitle": "登录后可查看流水线",
+      "signedOutBody": "工作流归属于您的组织。",
+      "unavailableTitle": "流水线服务不可用",
+      "noOrganization": "该账户没有所属的组织。"
+    },
+    "changesets": {
+      "signedOutTitle": "登录后可查看变更集",
+      "signedOutBody": "变更集归属于已认证的组织。",
+      "unavailableTitle": "变更集服务不可用",
+      "noOrganization": "该账户没有所属的组织。"
+    },
+    "repositories": {
+      "signedOutTitle": "登录后可查看代码仓库",
+      "signedOutBody": "代码仓库归属于已认证的组织。",
+      "unavailableTitle": "代码仓库服务不可用",
+      "noOrganization": "该账户没有所属的组织。"
+    }
+  }
+}

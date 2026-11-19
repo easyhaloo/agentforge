@@ -10,34 +10,18 @@ const legacyGroups = [
   { label: "DEVELOPER", items: ["UI Components"] },
   { label: "CONTROL PLANE", items: ["Organization", "Security", "Governance", "Cost & Usage", "Settings"] },
 ];
-const legacyDescriptions: Record<string, string> = {
-  Overview: "A live map of changes, verification and delivery across your engineering system.",
-  Projects: "Organize repositories, teams and delivery boundaries.",
-  Repositories: "Git-compatible repositories backed by a canonical object graph.",
-  Changesets: "Reviewable, revisioned units of change — distinct from Git commits.",
-  Workspaces: "Isolated environments for agents and human contributors.",
-  Trails: "Cross-repository delivery goals with traceable evidence.",
-  Stacks: "Compose dependent changesets into a navigable change graph.",
-  Review: "Human decisions grounded in revision-specific evidence.",
-  Eval: "Evaluate changes against quality, policy and product expectations.",
-  "Self-healing": "Bounded repair loops that produce new revisions and re-run validation.",
-  Memory: "Reusable engineering knowledge linked to sessions, code and decisions.",
-  "CI / CD": "Pipelines, checks and release orchestration.",
-  Organization: "Manage organization members, invitations, roles and access history.",
-  Security: "Identity, secrets, supply-chain and runtime boundaries.",
-  Governance: "Policies, approvals and organization-wide controls.",
-  "Cost & Usage": "Understand agent, model and compute consumption.",
-  Settings: "Configure your organization and developer experience.",
-  "UI Components": "Explore the shared component system, interaction patterns and design tokens.",
-};
 
 describe("navigation data source", () => {
   it("keeps the group labels, item labels and their order", () => {
     expect(navigationGroups.map((group) => ({ label: group.label, items: group.items.map((item) => item.label) }))).toEqual(legacyGroups);
   });
 
-  it("keeps every description byte for byte", () => {
-    expect(Object.fromEntries(navigationItems.map((item) => [item.label, item.description]))).toEqual(legacyDescriptions);
+  it("points every item at a description key instead of a hardcoded sentence", () => {
+    // The English wording lives in the locale files now, so the description is a key the
+    // `architecture/i18n-keys.test.ts` check resolves in every shipped language.
+    for (const item of navigationItems) {
+      expect(item.descriptionKey, item.label).toMatch(/^navigation:descriptions\./);
+    }
   });
 
   it("tags every item with the group it is listed under", () => {

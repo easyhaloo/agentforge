@@ -24,9 +24,10 @@
   },
   "groups": {
     "WORKSPACE": "Workspace",
-    "COLLABORATION": "Collaboration",
-    "TOOLS": "Developer Tools",
-    "MANAGEMENT": "Management"
+    "COORDINATION": "Coordination",
+    "INTELLIGENCE": "Intelligence",
+    "DEVELOPER": "Developer",
+    "CONTROL PLANE": "Control plane"
   },
   "descriptions": {
     "overview": "A live map of changes, verification and delivery across your engineering system.",

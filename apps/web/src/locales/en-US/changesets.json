@@ -1,9 +1,10 @@
 {
   "page": {
     "title": "Changesets",
-    "summary": "{{count}} persisted changesets",
     "description": "Organization-scoped Git lifecycle · PostgreSQL state",
-    "loadingMessage": "Loading changesets…"
+    "loadingMessage": "Loading changesets…",
+    "summary_one": "{{count}} persisted changeset",
+    "summary_other": "{{count}} persisted changesets"
   },
   "create": {
     "title": "Create changeset",
@@ -33,8 +34,9 @@
     "myPendingReviews": "My pending reviews",
     "emptyFiltered": "No changesets match the filters.",
     "emptyDefault": "No changesets yet.",
-    "footer": "{{count}} of {{total}} changesets",
-    "dataSource": "Data from organization API"
+    "dataSource": "Data from organization API",
+    "footer_one": "{{count}} of {{total}} changeset",
+    "footer_other": "{{count}} of {{total}} changesets"
   },
   "empty": {
     "noRepositories": "No repositories registered",

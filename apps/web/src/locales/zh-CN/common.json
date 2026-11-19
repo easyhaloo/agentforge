@@ -25,7 +25,8 @@
     "loading": "加载中...",
     "completed": "已完成",
     "pending": "待处理",
-    "failed": "失败"
+    "failed": "失败",
+    "saving": "保存中..."
   },
   "pagination": {
     "page": "第",
@@ -41,5 +42,16 @@
     "networkError": "网络错误",
     "unauthorized": "未授权访问",
     "notFound": "未找到资源"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "today": "今天",
+    "yesterday": "昨天",
+    "minutesAgo_one": "{{count}} 分钟前",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_one": "{{count}} 小时前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_one": "{{count}} 天前",
+    "daysAgo_other": "{{count}} 天前"
   }
 }

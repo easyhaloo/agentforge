@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link, useLocation, useOutletContext, useParams, useRouteError } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
 import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
@@ -87,10 +88,11 @@ export function OrganizationRoute() {
 
 export function NotFound() {
   const { pathname } = useLocation();
+  const { t } = useTranslation("app");
   return (
     <section className="card org-auth-state">
-      <p>Nothing is served at {pathname}.</p>
-      <Link className="button primary" to={flatPaths.overview}>Go to Overview</Link>
+      <p>{t("app:notFound.title", { pathname })}</p>
+      <Link className="button primary" to={flatPaths.overview}>{t("app:notFound.goToOverview")}</Link>
     </section>
   );
 }
@@ -104,11 +106,12 @@ function useLogRouteError() {
 /** Replaces only the page area when a page fails, so the sidebar and topbar stay usable. */
 export function PageError() {
   useLogRouteError();
+  const { t } = useTranslation("app");
   return (
     <section className="card org-auth-state" role="alert">
-      <h2>Something went wrong</h2>
-      <p>This page could not be displayed. Try again later, or go back to the overview.</p>
-      <Link className="button primary" to={flatPaths.overview}>Go to Overview</Link>
+      <h2>{t("app:pageError.title")}</h2>
+      <p>{t("app:pageError.description")}</p>
+      <Link className="button primary" to={flatPaths.overview}>{t("app:pageError.goToOverview")}</Link>
     </section>
   );
 }
@@ -116,12 +119,13 @@ export function PageError() {
 /** Last resort for errors thrown by the root layout itself, when there is no shell to keep. */
 export function RootError() {
   useLogRouteError();
+  const { t } = useTranslation("app");
   return (
     <div className="content">
       <section className="card org-auth-state" role="alert">
-        <h2>Something went wrong</h2>
-        <p>AgentForge could not be displayed. Reload the page to try again.</p>
-        <a className="button primary" href="/">Reload AgentForge</a>
+        <h2>{t("app:rootError.title")}</h2>
+        <p>{t("app:rootError.description")}</p>
+        <a className="button primary" href="/">{t("app:rootError.reload")}</a>
       </section>
     </div>
   );

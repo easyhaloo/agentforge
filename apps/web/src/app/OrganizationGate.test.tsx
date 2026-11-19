@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { AccountContext, OrganizationSummary } from "../shared/api/identity";
+import i18n from "../locales";
 import { AppAccountContext, type AppAccount } from "./account-context";
 import { OrganizationGate } from "./OrganizationGate";
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en-US");
+});
 
 const demo: OrganizationSummary = { id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "owner" };
 const labs: OrganizationSummary = { id: "org-labs", slug: "Labs", name: "AgentForge Labs", role: "admin" };

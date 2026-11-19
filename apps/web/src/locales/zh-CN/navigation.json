@@ -24,9 +24,10 @@
   },
   "groups": {
     "WORKSPACE": "工作区",
-    "COLLABORATION": "协作",
-    "TOOLS": "开发工具",
-    "MANAGEMENT": "管理"
+    "COORDINATION": "协作",
+    "INTELLIGENCE": "智能",
+    "DEVELOPER": "开发者",
+    "CONTROL PLANE": "管控"
   },
   "descriptions": {
     "overview": "跨工程系统的变更、验证和交付实时视图。",

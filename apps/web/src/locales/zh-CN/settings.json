@@ -38,7 +38,12 @@
     "email": "电子邮件地址",
     "emailDescription": "用于接收通知和账户恢复的主要邮箱",
     "deleteAccount": "删除账户",
-    "deleteAccountWarning": "此操作无法撤销"
+    "deleteAccountWarning": "此操作无法撤销",
+    "username": "用户名",
+    "createdAt": "创建时间",
+    "accountType": "账户类型",
+    "accountTypeDesc": "此账户登录 AgentForge 的方式",
+    "provider": "提供商"
   },
   "appearance": {
     "title": "外观",
@@ -51,7 +56,10 @@
     "language": "语言",
     "languageDescription": "选择您偏好的语言",
     "timezone": "时区",
-    "timezoneDescription": "设置您的时区以显示准确的时间戳"
+    "timezoneDescription": "设置您的时区以显示准确的时间戳",
+    "languageEN": "English",
+    "languageZH": "简体中文",
+    "saveSuccess": "设置已保存"
   },
   "notifications": {
     "title": "通知",
@@ -67,7 +75,13 @@
     "frequency": "通知频率",
     "frequencyRealTime": "实时",
     "frequencyHourly": "每小时汇总",
-    "frequencyDaily": "每日汇总"
+    "frequencyDaily": "每日汇总",
+    "emailTitle": "电子邮件通知",
+    "webPushTitle": "网页推送通知",
+    "webPushEnabled": "启用网页推送",
+    "frequencyTitle": "频率",
+    "frequencyRealtime": "实时",
+    "saveSuccess": "通知设置已保存"
   },
   "authentication": {
     "title": "密码与身份验证",
@@ -82,7 +96,11 @@
     "oidcProvider": "OIDC 提供商",
     "oidcConnected": "已连接",
     "loginEmail": "登录邮箱",
-    "lastLogin": "上次登录"
+    "lastLogin": "上次登录",
+    "provider": "提供商",
+    "oidcInfo": "单点登录",
+    "manageAtProvider": "在提供商处管理此账户",
+    "providerNote": "单点登录账户的密码由您的身份提供商管理。"
   },
   "keys": {
     "title": "SSH 和 GPG 密钥",
@@ -98,9 +116,26 @@
     "lastUsed": "上次使用",
     "neverUsed": "从未使用",
     "deleteKey": "删除密钥",
-    "deleteKeyConfirm": "确定要删除此密钥吗？",
     "keyAdded": "SSH 密钥添加成功",
-    "keyDeleted": "SSH 密钥删除成功"
+    "keyDeleted": "SSH 密钥删除成功",
+    "sshTitle": "SSH 密钥",
+    "addKey": "添加密钥",
+    "addSuccess": "SSH 密钥添加成功",
+    "titleRequired": "标题为必填项",
+    "added": "添加时间",
+    "never": "从未",
+    "today": "今天",
+    "yesterday": "昨天",
+    "daysAgo_one": "{{count}} 天前",
+    "daysAgo_other": "{{count}} 天前",
+    "weeksAgo_one": "{{count}} 周前",
+    "weeksAgo_other": "{{count}} 周前",
+    "noKeys": "暂无 SSH 密钥",
+    "gpgTitle": "GPG 密钥",
+    "gpgComingSoon": "GPG 密钥管理功能即将推出。",
+    "deleteKeyTitle": "删除 SSH 密钥",
+    "deleteConfirm": "确定要删除此密钥吗？",
+    "deleteSuccess": "SSH 密钥删除成功"
   },
   "sessions": {
     "title": "会话",
@@ -120,7 +155,21 @@
     "revokeConfirm": "确定要撤销此会话吗？",
     "revokeAllConfirm": "这将在所有其他设备上退出登录",
     "sessionRevoked": "会话已撤销",
-    "allSessionsRevoked": "所有其他会话已撤销"
+    "allSessionsRevoked": "所有其他会话已撤销",
+    "current": "当前",
+    "revokeAll": "撤销所有其他会话",
+    "revokeAllTitle": "撤销所有其他会话",
+    "revokeConfirmTitle": "撤销会话",
+    "revokeSuccess": "会话已撤销",
+    "revokeAllSuccess_one": "已撤销 {{count}} 个会话",
+    "revokeAllSuccess_other": "已撤销 {{count}} 个会话",
+    "activeNow": "当前活跃",
+    "minutesAgo_one": "{{count}} 分钟前",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_one": "{{count}} 小时前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_one": "{{count}} 天前",
+    "daysAgo_other": "{{count}} 天前"
   },
   "agents": {
     "title": "Agent 交互",
@@ -161,6 +210,70 @@
     "focusDocumentation": "文档",
     "clearMemory": "清除 Agent 记忆",
     "clearMemoryConfirm": "这将重置所有 Agent 上下文和偏好设置",
-    "memoryCleared": "Agent 记忆已清除"
+    "memoryCleared": "Agent 记忆已清除",
+    "verbosityTitle": "输出详细程度",
+    "verbosityConciseDesc": "只给简短、只含有效信息的回答。",
+    "verbosityStandardDesc": "详略得当，在影响结果的地方补充上下文。",
+    "verbosityVerboseDesc": "给出完整推理、示例和注意事项。",
+    "confirmTitle": "确认策略",
+    "confirmAlwaysDesc": "每个操作前都询问，包括安全操作。",
+    "confirmBatchDesc": "对一批相似操作只询问一次。",
+    "confirmAutoDesc": "仅在操作超出安全范围时才询问。",
+    "automationTitle": "自动化级别",
+    "automationConservativeDesc": "Agent 在每个重要决策点都停下来等待确认。",
+    "automationBalancedDesc": "Agent 自行处理日常事务，其余情况暂停等待。",
+    "automationAggressiveDesc": "Agent 在允许的边界内自主执行所有操作。",
+    "memoryTitle": "跨会话记忆",
+    "memoryEnabled": "在会话之间记住上下文",
+    "clearMemoryTitle": "清除 Agent 记忆",
+    "clearMemoryWarning": "清除记忆会重置所有 Agent 上下文和偏好设置。",
+    "evaluationTitle": "评估",
+    "strictness": "严格程度",
+    "agentApprove": "自动批准低风险变更",
+    "reviewFocusTitle": "审核重点领域",
+    "reviewTitle": "Agent 审核",
+    "focusStyle": "代码风格",
+    "focusTests": "测试覆盖率",
+    "focusDocs": "文档",
+    "saveSuccess": "Agent 设置已保存"
+  },
+  "changePassword": {
+    "title": "更改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "submit": "更改密码",
+    "cancel": "取消",
+    "success": "密码更改成功",
+    "error": {
+      "currentIncorrect": "当前密码不正确。",
+      "tooShort": "密码至少需要 8 个字符。",
+      "notMatch": "两次输入的密码不一致。",
+      "validation": "请先填写完整再保存。",
+      "generic": "密码更改失败。"
+    }
+  },
+  "identities": {
+    "title": "登录方式",
+    "description": "管理您可以用来登录的账户和提供商",
+    "loading": "正在加载登录方式…",
+    "retry": "重试",
+    "myLoginMethods": "您的登录方式",
+    "noIdentities": "暂无登录方式",
+    "noIdentitiesHint": "连接提供商后可免密登录。",
+    "addNew": "添加登录方式",
+    "addNewHint": "选择要连接的提供商。",
+    "platformPassword": "密码",
+    "changePassword": "更改密码",
+    "connectedAt": "连接时间",
+    "unlink": "解除关联",
+    "unlinkConfirm": "确定要解除此登录方式吗？",
+    "unlinkDescription": "您将无法再使用 {{provider}} 登录。",
+    "cannotUnlinkLast": "您无法解除唯一的登录方式。",
+    "unlinkSuccess": "登录方式已解除",
+    "error": {
+      "loadFailed": "无法加载您的登录方式",
+      "unlinkFailed": "无法解除此登录方式"
+    }
   }
 }

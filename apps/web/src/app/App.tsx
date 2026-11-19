@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { AppAccountContext, type AccountState } from "./account-context";
@@ -13,6 +14,7 @@ import { useNotify } from "./useNotify";
 
 /** Root layout: loads the account once and renders the shell around the page the URL selects. */
 function App() {
+  const { t } = useTranslation("app");
   const [commandOpen, setCommandOpen] = useState(false);
   const notify = useNotify();
   const navigateTo = useNavigateTo();
@@ -103,11 +105,11 @@ function App() {
         <main className="main">
           <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} onSignOut={() => void signOut()} />
           <div className="content">
-            <PageHeader label={label} description={item?.description} onRefresh={item ? refresh : undefined} />
+            <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             <footer>
-              <span>AgentForge Prototype <b>v0.1.0</b></span>
-              <span><i className="live-dot" /> All systems operational <span className="footer-sep">·</span> Mock environment</span>
+              <span>{t("app:footer.prototype")} <b>{t("app:footer.version")}</b></span>
+              <span><i className="live-dot" /> {t("app:footer.operational")} <span className="footer-sep">·</span> {t("app:footer.mockEnvironment")}</span>
             </footer>
           </div>
         </main>

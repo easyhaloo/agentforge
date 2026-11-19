@@ -1,9 +1,10 @@
 {
   "page": {
     "title": "变更集",
-    "summary": "{{count}} 个持久化变更集",
     "description": "组织级 Git 生命周期 · PostgreSQL 状态",
-    "loadingMessage": "加载变更集中…"
+    "loadingMessage": "加载变更集中…",
+    "summary_one": "{{count}} 个持久化变更集",
+    "summary_other": "{{count}} 个持久化变更集"
   },
   "create": {
     "title": "创建变更集",
@@ -33,8 +34,9 @@
     "myPendingReviews": "我的待审查项",
     "emptyFiltered": "没有符合筛选条件的变更集。",
     "emptyDefault": "暂无变更集。",
-    "footer": "{{count}} / {{total}} 个变更集",
-    "dataSource": "来自组织 API 的数据"
+    "dataSource": "来自组织 API 的数据",
+    "footer_one": "{{count}} / {{total}} 个变更集",
+    "footer_other": "{{count}} / {{total}} 个变更集"
   },
   "empty": {
     "noRepositories": "未注册代码仓库",
