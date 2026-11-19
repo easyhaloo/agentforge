@@ -33,11 +33,12 @@ describe("RepositorySourceViewer", () => {
     expect(html).toContain("repository-source__line--active");
     expect(html).toContain('id="line-2"');
   });
-  it("renders escaped source with line numbers and token classes", () => {
+  it("renders escaped plaintext immediately before asynchronous Shiki highlighting", () => {
     const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={'const name = "AgentForge";\nreturn 42;\n<script>'} />);
     expect(html).toContain('class="repository-source__number"');
-    expect(html).toContain('repository-code__token--keyword');
-    expect(html).toContain('repository-code__token--string');
+    expect(html).toContain("const name");
+    expect(html).toContain('data-highlight-engine="plain-text"');
+    expect(html).not.toContain("repository-code__token--");
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
   });
