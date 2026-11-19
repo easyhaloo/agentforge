@@ -1,4 +1,4 @@
-import type { BundledLanguage, ThemedToken } from "shiki";
+import type { BundledLanguage, Highlighter, ThemedToken } from "shiki";
 
 export type RepositorySyntaxResult = {
   tokens: ThemedToken[][];
@@ -7,10 +7,10 @@ export type RepositorySyntaxResult = {
 };
 
 const THEME = "github-dark";
-let highlighterPromise: Promise<import("shiki").HighlighterGeneric<BundledLanguage, "github-dark" | "github-light">> | undefined;
+let highlighterPromise: Promise<Highlighter> | undefined;
 const languageLoads = new Map<string, Promise<void>>();
 
-async function getRepositoryHighlighter() {
+async function getRepositoryHighlighter(): Promise<Highlighter> {
   highlighterPromise ??= import("shiki").then(({ getSingletonHighlighter }) =>
     getSingletonHighlighter({ langs: [], themes: [THEME] }),
   );
