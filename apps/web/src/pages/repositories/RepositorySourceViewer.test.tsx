@@ -9,7 +9,7 @@ describe("RepositorySourceViewer", () => {
     expect(repositoryLanguage("Dockerfile")).toBe("Dockerfile");
   });
   it("marks the requested active line for editor deep links", () => {
-    const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"first\\nsecond"} activeLine={2}/>);
+    const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"first\nsecond"} activeLine={2}/>);
     expect(html).toContain("repository-source__line--active");
     expect(html).toContain('id="line-2"');
   });
