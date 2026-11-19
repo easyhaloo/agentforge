@@ -284,7 +284,6 @@ func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "default_branch": repository.DefaultBranch, "resolved_commit_sha": commitSHA, "items": refs})
 }
 
-
 // repositoryImageContentType deliberately recognizes only passive raster formats.
 // SVG is excluded because it can contain active content when navigated or embedded.
 func repositoryImageContentType(content []byte) string {
