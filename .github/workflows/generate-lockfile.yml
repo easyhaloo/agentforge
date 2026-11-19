@@ -1,4 +1,5 @@
 name: Generate npm lockfile
+# Regenerate lockfile artifact for the pinned Shiki dependency.
 
 on:
   pull_request:
