@@ -172,6 +172,12 @@ export const repositoryPreviewAPI = {
     if (ref) query.set("ref", ref);
     return request<{ repository: string; commit_sha: string; path: string; start: number; end: number; items: RepositoryBlameLine[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blame?${query.toString()}`);
   },
+  imageURL: (organizationID: string, repository: string, path: string, ref = "") => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ path });
+    if (ref) query.set("ref", ref);
+    return `/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/image?${query.toString()}`;
+  },
   blob: (organizationID: string, repository: string, path: string, ref = "") => {
     const [owner, name] = repository.split("/");
     const query = new URLSearchParams({ path });

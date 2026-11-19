@@ -305,3 +305,5 @@
 .webide-empty span{max-width:360px;font-size:11px}
 .repository-source__line--active{background:#292746;outline:1px solid #5d5495}
 @media(max-width:760px){.webide-layout{grid-template-columns:1fr}.webide-explorer{max-height:260px}.webide-heading{align-items:flex-start;flex-direction:column}}
+
+.repository-readme img{display:block;max-width:100%;height:auto;max-height:640px;object-fit:contain;margin:12px 0;border-radius:8px}

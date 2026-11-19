@@ -5,7 +5,7 @@
 - Repository Markdown is rendered by a bounded React renderer; raw HTML remains escaped text and is never injected as markup.
 - External destinations are limited to `https:`, `http:`, and `mailto:`. Scheme-relative URLs, executable schemes, absolute filesystem paths, malformed escapes, and paths escaping the repository root are inert.
 - Relative links resolve against the directory containing the Markdown file and open through the authenticated, organization-scoped repository blob preview at the currently pinned commit.
-- Relative images are currently rendered as inert textual image references. The preview API exposes UTF-8 text blobs only; binary image delivery is intentionally not inferred or routed through an unauthenticated third-party URL. A future binary/blob endpoint must preserve organization authorization, commit pinning, size limits, content-type allow-listing, and `nosniff`.
+- Relative images are served through an authenticated, organization-scoped image endpoint pinned to the same immutable commit as the Markdown document. The endpoint enforces a 2 MiB limit, verifies PNG/JPEG/GIF/WebP signatures instead of trusting file extensions or Git metadata, returns `private, no-store` with `X-Content-Type-Options: nosniff`, and rejects SVG, HTML, and unknown formats. External images remain inert to avoid third-party tracking and credential leakage.
 
 ## Unified diff
 
