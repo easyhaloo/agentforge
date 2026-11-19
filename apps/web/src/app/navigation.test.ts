@@ -65,7 +65,7 @@ describe("navigation data source", () => {
       Eval: "/orgs/demo/eval",
       "Self-healing": "/self-healing",
       Memory: "/memory",
-      "CI / CD": "/pipelines",
+      "CI / CD": "/orgs/demo/pipelines",
       "UI Components": "/dev/ui",
       Organization: "/orgs/demo/settings",
       Security: "/security",

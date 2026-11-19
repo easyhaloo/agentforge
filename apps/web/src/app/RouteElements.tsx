@@ -5,6 +5,7 @@ import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
+import { PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
@@ -65,6 +66,11 @@ export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
   const { id = "" } = useParams();
   const notify = useNotify();
   return <ChangesetDetailPage key={`${organization.id}:${id}:${tab}`} organization={organization} accountUserID={account.user_id} changesetID={id} tab={tab} onNotify={notify} />;
+}
+
+export function PipelinesRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  return <PipelinesPage key={organization.id} organization={organization} />;
 }
 
 export function RepositoriesRoute() {

@@ -137,3 +137,68 @@ Organizations get a unique, human-readable slug besides their opaque `id`, so cl
 - **Format.** 1-39 characters from `a-z`, `0-9` and `-`, starting and ending with a letter or digit. `current` is reserved (clients use it as an alias for the selected organization) and is never assigned.
 - **Backfill.** Migration `007_organization_slug.sql` derives slugs for existing organizations from their names (lowercase, other characters become `-`, `-2`, `-3`, ... on collisions, oldest organization first). The API has no way to rename a slug yet.
 - **Bootstrap.** Set the optional `BOOTSTRAP_ORGANIZATION_SLUG`; otherwise the slug is derived from `BOOTSTRAP_ORGANIZATION_NAME`. An invalid or reserved slug aborts the bootstrap with an error. When the organization is created, so does a slug that is already used or that equals another organization's id, or an id that equals another organization's slug, ignoring case. An existing organization is never modified and keeps its slug.
+
+### Organization pipelines
+
+Open **CI / CD** in the organization sidebar to start from an approval or check-then-approve template, clone a workflow, edit stages, jobs, steps and typed parameters visually or as JSON, and publish the saved draft. Members can create and edit. Owners and admins can also publish and archive. Viewers can read definitions and version history. Use the published version selector to start an immutable version with runtime overrides. Clearing a runtime control restores the published default or omits the optional input.
+
+The API is rooted at `/api/v1/organizations/{organizationID}/pipelines`. Saving a draft, publishing and archiving require the current `revision`. A `409` means the lifecycle or revision changed. Reload and compare the saved draft before retrying. Archiving preserves published versions. A version's checksum is SHA-256 over its stored UTF-8 JSON bytes. Migration `008_pipelines.sql` creates `pipelines`, `pipeline_versions` and `pipeline_audit`. Each successful mutation writes the actor and revision to the audit table in the same transaction.
+
+Each stage with omitted or null `dependsOn` follows the previous stage. An empty array explicitly selects an independent stage. Node IDs must be unique across the workflow. Runtime parameter overrides require `override: true`. Secret parameters accept `secret://name` references. `POST /{id}/versions/{number}/validate-inputs` accepts an object keyed by parameter name and returns `204` for valid overrides of that published version.
+
+The OpenAPI contract imports the same v1 JSON Schema that the API embeds. Regenerate frontend types from the repository root when changing it.
+
+```sh
+npx --yes openapi-typescript@7.10.1 contracts/openapi/pipelines.yaml -o apps/web/src/shared/api/pipeline-contract.d.ts
+```
+
+### Starting and observing a pipeline run
+
+Post a JSON object of parameter overrides to `/api/v1/organizations/{org}/pipelines/{id}/versions/{number}/runs`. The response includes the run ID, actor, immutable published version, resolved defaults and a one-hour deadline. Each organization can have 16 active runs. Archived pipelines reject new runs. Read status at `/api/v1/organizations/{org}/pipeline-runs/{run}`. Its `/events` endpoint replays up to 128 audit events over SSE and resumes from `Last-Event-ID`. Members can post to `/cancel`. Owners and admins can post `{"approved":true}` or `{"approved":false}` to `/steps/{step}/decision` when an approval is waiting.
+
+Start the separate worker with `go run ./cmd/pipeline-worker` from the API module. Provide `DATABASE_URL`, `PIPELINE_CHECK_IMAGE` and a registered `PIPELINE_RUNNER_TOKEN` in its environment. See [runner registration, quotas and revocation](../../docs/operations/pipeline-runners.md). Use a dedicated Docker runner with a preloaded operator-controlled digest-pinned image containing `/usr/bin/timeout` and an executable `/usr/local/bin/agentforge-check`. The `container/check@v1` step invokes that check as an unprivileged user with a read-only filesystem, disabled networking and a two-minute time limit. Each worker claims one step at a time. A lost lease becomes available after 30 seconds. Three abandoned attempts fail the run. The worker captures up to 8 KiB of stdout for checks without secret references. With [object storage](../../docs/operations/pipeline-storage.md) enabled, the run records a log reference and an outcome artifact. Otherwise, permitted output is stored inline in run events. Checks receive no host credentials or user-supplied environment.
+
+For a container step, `secretParams` lists up to 16 parameters of type `secretRef`. Bind each parameter in the visual editor or the workflow JSON. Provision UTF-8 values of up to 16 KiB through an external secret manager mounted read-only at `PIPELINE_SECRETS_DIR/{organizationID}/{pipelineID}/{stepID}/{name}` on the worker. The operator controls all directories. Missing or inaccessible references fail the step. The check receives a JSON object on stdin keyed by parameter name. The worker discards output from checks that receive secrets and records a `secret_refs_requested` event for the attempt. The API and run snapshot contain reference names only.
+
+### GitHub webhook triggers
+
+For a release tag, configure `event` as `push` and set `tag` to the exact short tag name. Supply exactly one of `tag` and `branch`. The signed event must name the matching full ref. Deleted tags are rejected. Retries reuse the same run and its pinned SHA.
+
+Set `PIPELINE_WEBHOOKS_DIR` on the API to an absolute, operator-controlled directory mounted from your secret manager. Provision `{hook}.json` with `organizationID`, `pipelineID`, `version` (published version number), `actorID` (an active member allowed to start runs), numeric GitHub `repositoryID`, `branch` or `tag`, `event` and `secret`. Use an independent random secret of at least 32 bytes for each hook. Configure GitHub to send JSON to `POST /hooks/github/{hook}` over HTTPS with that secret. Rotate the binding and GitHub secret together. Remove the binding to disable delivery.
+
+Choose `push` for updates to the named branch, or `pull_request` for same-repository PRs targeting that branch on open, reopen or synchronize. Fork PRs are rejected. The handler verifies the raw-body HMAC, then checks the repository and branch before queuing the configured version with its published defaults. A run records the signed event's head SHA. A `202` acknowledges both accepted deliveries and retries. Duplicate delivery IDs or identical signed bodies cannot create another run. A `409` indicates a reused delivery ID with different contents or a workflow configuration conflict. Check the binding and required defaults before retrying. A `429` can be retried once an organization run slot becomes available.
+
+### Timers and Changeset revisions
+
+Operators provision bindings on the database. Each binding names an organization, a published workflow version and a member who can start runs. For example, use these parameterized statements for an hourly timer and a repository revision subscription, respectively.
+
+```sql
+INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,every_seconds,next_due)
+VALUES ($1,$2,$3,$4,3600,$5::timestamptz) RETURNING id;
+INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,repository)
+VALUES ($1,$2,$3,$4,$5) RETURNING id;
+```
+
+Timers use fixed intervals of at least 60 seconds. `next_due` anchors the cadence. After downtime the API coalesces missed ticks into the latest elapsed slot. A revision subscription captures future Git-backed revisions in the same transaction as the Changeset write. Each run records the binding and either the scheduled time or the repository, Changeset ID, Revision ID and full commit SHA.
+
+Set `enabled=false` to disable a binding. Provision a new binding to change its destination or actor. Pending deliveries recheck authorization and use the published input defaults. Quota pressure defers admission. Inspect `pipeline_trigger_events` by `binding_id` for pending (`outcome IS NULL`), `queued` (with `run_id`), `disabled`, `denied` or `invalid` deliveries. Each API process dispatches up to one event per second.
+
+### Ordered merge previews
+
+Provision each registered repository and its Git metadata under the owning organization's directory. Operators own Git configuration, object stores and alternates. Keep this storage separate from runner write mounts. Query `GET /api/v1/organizations/{organizationID}/merge-preview/capabilities` to discover `orderedMergePreview`. The local adapter requires the modern `git merge-tree --write-tree` interface with NUL-delimited conflict paths (Git 2.38+). The capability is probed on the API host.
+
+Owners, admins and members can POST `{"repository":"owner/repo","target":"main","sources":["topic-a","topic-b"]}` with the usual session and CSRF headers to `/api/v1/organizations/{organizationID}/merge-preview`. Supply short branch names or full commit IDs, in integration order. The response includes the pinned target and all sources. A conflict returns HTTP 200, `status: conflict`, the zero-based `conflictAt` index and affected paths. A clean response includes a deterministic candidate commit and tree SHA. Previews use an expendable bare clone and do not retain candidate objects. They run no builds or submodule fetches. Unsupported Git or operational failures return 503. Each API process allows one preview at a time (429 while busy), up to 32 sources and 1 MiB of output per Git command. Put the API temporary directory on a size-limited volume.
+
+### Candidate builds and promotion
+
+For [remote integration Git](../../docs/deployment/remote-integration-git.md), configure the upstream bindings on both the API and worker. For local Git, set `GIT_REPOSITORY_ROOT` on the API and worker to their respective views of the same repositories. The API needs write access. The worker reads the retained commit into a temporary checkout. The Docker daemon must be able to bind mount the worker's temporary directory at the same path. Place a disk quota on the temporary volume. The pinned check receives a read-only `/workspace` with the candidate files and `AGENTFORGE_REVISION_SHA`. Submodules are not populated.
+
+POST a preview request plus optional workflow `inputs` to `/api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/integration-runs`. A clean integration returns a run with immutable target, ordered sources, strategy, tree and commit. The published workflow must include a container check. Use `merge-commit` (default) for an ordered series of merge commits, or `ff-only` to require that each successive source descends from the previous tip. Conflicts return 409 before scheduling a build.
+
+To promote, an owner or admin posts `{"candidateSHA":"<reviewed commit>"}` to `/api/v1/organizations/{organizationID}/pipeline-runs/{run}/promote`. The local target must be the registered default branch in an operator-managed bare repository where AgentForge owns promotion policy. The API checks the successful run and every included Changeset's current revision, evaluation against the same base, evidence and approval. It advances the branch with an expected-old-SHA update and creates a receipt at `refs/agentforge/promotions/<run-id>` in one Git transaction. The database records the actor, resulting SHA and Changeset merges. Retry the same request following a lost response. A moved target needs a fresh build and approval. Back up the Git object store and its `refs/agentforge/` namespace with the database. Retained candidate objects count toward repository disk usage.
+
+### Operating a merge queue
+
+Open a published workflow version on the organization’s Pipelines page, expand **Merge queue**, enter the registered repository and its default branch, then refresh. Members can enqueue a single source branch or commit with the selected version and inputs. Admission pins the source SHA. The active queue holds up to 32 distinct source commits per organization, repository and target. Entries keep their original FIFO positions through rebuilds. Each build tests the ordered source prefix through that entry.
+
+Only the head can advance the branch. An owner or admin approves its exact successful candidate. Earlier entries waiting for approval can block later entries indefinitely. Review or remove a stalled head to resume progress. Removal, failed checks and successful promotion invalidate later builds. An external branch update requires fresh builds. The queue releases superseded workers’ leases and records transitions in `merge_queue_events`. Use **Refresh queue** to see the new order, build state and candidate SHA. Queue positions and tasks survive process restarts in PostgreSQL. Restore the corresponding Git objects and AgentForge refs along with the database.

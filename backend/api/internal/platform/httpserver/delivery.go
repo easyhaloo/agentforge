@@ -17,6 +17,8 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+ "github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
 type Principal = identity.Principal
@@ -54,10 +56,15 @@ type DeliveryDependencies struct {
 	Membership    MembershipRepository
 	Account       AccountRepository
 	Git delivery.GitProvider
+	IntegrationGit delivery.IntegrationGitProvider
 	Evaluator delivery.Evaluator
 	Evidence delivery.EvidenceStore
 	Reviewers ReviewerAuthorizer
+	WebhookDirectory string
+	Runs execution.Store
+	Pipelines pipeline.Store
 	Catalog delivery.RepositoryCatalog
+	Preview delivery.RepositoryPreviewReader
 	Locker delivery.ChangesetLocker
 }
 
@@ -90,6 +97,9 @@ type problemResponse struct {
 
 func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
+	deps.pipelineRoutes(mux)
+	deps.executionRoutes(mux)
+	deps.mergePreviewRoutes(mux)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)
@@ -98,6 +108,13 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs", deps.listRepositoryRefs)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob", deps.readRepositoryBlob)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history", deps.listRepositoryHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/compare", deps.compareRepositoryCommits)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/file-history", deps.listRepositoryFileHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blame", deps.blameRepositoryFile)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories", deps.registerRepository)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)

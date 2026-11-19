@@ -1,0 +1,724 @@
+openapi: 3.1.0
+info:
+  title: Pipeline API
+  version: 1.0.0
+paths:
+  /api/v1/organizations/{organizationID}/merge-queue:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: listMergeQueue
+      summary: List active entries in promotion order
+      security: [{sessionCookie: []}]
+      parameters:
+        - {name: repository, in: query, required: true, schema: {type: string}}
+        - {name: target, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Current train
+          content: {application/json: {schema: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/QueueEntry'}}}}}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+      - {name: entry, in: path, required: true, schema: {type: integer, minimum: 1}}
+    post:
+      operationId: cancelMergeQueueEntry
+      summary: Remove an entry and invalidate its successors
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      responses:
+        '204': {description: Removed}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/merge-queue:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+      - {name: id, in: path, required: true, schema: {type: string}}
+      - {name: number, in: path, required: true, schema: {type: integer, minimum: 1}}
+    post:
+      operationId: enqueueMergeCandidate
+      summary: Admit one pinned source to the default branch queue
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repository, target, sources]
+              additionalProperties: false
+              properties:
+                repository: {type: string}
+                target: {type: string}
+                sources: {type: array, minItems: 1, maxItems: 1, items: {type: string}}
+                strategy: {type: string, const: merge-commit}
+                inputs: {type: object, additionalProperties: true}
+      responses:
+        '201':
+          description: Queue entry
+          content: {application/json: {schema: {$ref: '#/components/schemas/QueueEntry'}}}
+        '409':
+          description: Conflict or duplicate entry
+          content: {application/json: {schema: {$ref: './merge-preview.yaml#/components/schemas/MergePreview'}}, application/problem+json: {schema: {$ref: './openapi.yaml#/components/schemas/Problem'}}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /hooks/github/{hook}:
+    post:
+      operationId: triggerPipelineWebhook
+      summary: Queue the pinned workflow for a signed GitHub event
+      security:
+      - webhookSignature: []
+      parameters:
+      - {in: path, name: hook, required: true, schema: {type: string}}
+      - {in: header, name: X-GitHub-Delivery, required: true, schema: {type: string}}
+      - {in: header, name: X-GitHub-Event, required: true, schema: {type: string, enum: [push, pull_request]}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '202': {description: Enqueued or previously accepted}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipelines:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: listPipelines
+      summary: List pipelines in the organization
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Summary'
+                additionalProperties: false
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+    post:
+      operationId: createPipeline
+      summary: Create a validated draft
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Definition'
+  /api/v1/organizations/{organizationID}/pipelines/{id}:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: getPipeline
+      summary: Read the current workflow
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/draft:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    put:
+      operationId: savePipelineDraft
+      summary: Save a draft at the supplied revision
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              - definition
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+                definition:
+                  $ref: '#/components/schemas/Definition'
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/publish:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: publishPipeline
+      summary: Publish an immutable checksummed version (owner or admin)
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/archive:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: archivePipeline
+      summary: Archive a pipeline (owner or admin)
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions:
+    parameters:
+    - &id001
+      in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - &id002
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: getPipelineVersions
+      summary: Read the published version history
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Version'
+                additionalProperties: false
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/validate-inputs:
+    parameters:
+    - *id001
+    - *id002
+    - in: path
+      name: number
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    post:
+      operationId: validatePipelineInputs
+      summary: Validate runtime overrides for one published version
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '204':
+          description: Inputs match the published version
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/runs:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: number
+      required: true
+      schema:
+        type: integer
+    post:
+      operationId: createRun
+      summary: Queue a published version
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: getRun
+      summary: Read a run and its input snapshot
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/cancel:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: cancelRun
+      summary: Cancel a run
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '204':
+          description: Success
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/steps/{step}/decision:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: step
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: decideRunStep
+      summary: Decide a waiting approval
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '204':
+          description: Success
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - approved
+              properties:
+                approved:
+                  type: boolean
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/events:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: run
+      required: true
+      schema:
+        type: string
+    - in: header
+      name: Last-Event-ID
+      schema:
+        type: integer
+        minimum: 0
+    get:
+      operationId: runEvents
+      summary: Replay run events after Last-Event-ID
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+components:
+  schemas:
+    QueueEntry:
+      type: object
+      required: [id, repository, target, source, sourceSHA, status]
+      properties:
+        id: {type: integer, minimum: 1}
+        repository: {type: string}
+        target: {type: string}
+        source: {type: string}
+        sourceSHA: {type: string}
+        status: {type: string, enum: [queued, building, ready]}
+        runId: {type: string}
+        candidateSHA: {type: string}
+    Run:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        integration:
+          allOf:
+            - {$ref: './merge-preview.yaml#/components/schemas/MergePreview'}
+            - type: object
+              required: [repository, strategy, candidateSHA, treeSHA]
+              properties:
+                queueEntry: {type: integer, minimum: 1}
+                repository: {type: string}
+                strategy: {type: string, enum: [merge-commit, ff-only]}
+        trigger:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, bindingId, scheduledAt]
+              properties:
+                kind: {type: string, enum: [schedule]}
+                bindingId: {type: string, format: uuid}
+                scheduledAt: {type: string, format: date-time}
+            - type: object
+              additionalProperties: false
+              required: [kind, bindingId, repository, changesetId, revisionId, sha]
+              properties:
+                kind: {type: string, enum: [changeset_revision]}
+                bindingId: {type: string, format: uuid}
+                repository: {type: string}
+                changesetId: {type: string}
+                revisionId: {type: string}
+                sha: {type: string, pattern: '^([a-f0-9]{40}|[a-f0-9]{64})$'}
+        webhook:
+          type: object
+          additionalProperties: false
+          required: [hook, delivery, digest, repositoryId, event, sha]
+          properties:
+            hook: {type: string}
+            delivery: {type: string}
+            digest: {type: string, pattern: '^[a-f0-9]{64}$'}
+            repositoryId: {type: integer}
+            event: {type: string, enum: [push, pull_request]}
+            ref: {type: string, description: Bound branch or tag ref. For pull requests this is the target branch.}
+            sha: {type: string, pattern: '^[a-f0-9]{40}$'}
+        stepStatuses:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [queued, leased, waiting, succeeded, failed, cancelled, timed_out]
+        pipelineId:
+          type: string
+        actorId:
+          type: string
+        status:
+          enum:
+          - queued
+          - running
+          - succeeded
+          - failed
+          - cancelled
+          - timed_out
+        createdAt:
+          type: string
+        deadline:
+          type: string
+        version:
+          type: integer
+        inputs:
+          type: object
+          additionalProperties: true
+      required:
+      - id
+      - pipelineId
+      - actorId
+      - status
+      - createdAt
+      - deadline
+      - version
+      - inputs
+    Definition:
+      $ref: ../../backend/api/internal/pipeline/workflow.schema.json
+    Summary:
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - revision
+      - version
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          pattern: ^[A-Za-z][A-Za-z0-9_-]{0,63}$
+        status:
+          enum:
+          - draft
+          - published
+          - archived
+        revision:
+          type: integer
+          minimum: 1
+        version:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    Pipeline:
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - revision
+      - version
+      - definition
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          pattern: ^[A-Za-z][A-Za-z0-9_-]{0,63}$
+        status:
+          enum:
+          - draft
+          - published
+          - archived
+        revision:
+          type: integer
+          minimum: 1
+        version:
+          type: integer
+          minimum: 0
+        definition:
+          $ref: '#/components/schemas/Definition'
+      additionalProperties: false
+    Version:
+      type: object
+      required:
+      - number
+      - checksum
+      - publishedAt
+      - definition
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        checksum:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        publishedAt:
+          type: string
+          format: date-time
+        definition:
+          $ref: '#/components/schemas/Definition'
+      additionalProperties: false
+  securitySchemes:
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-Hub-Signature-256
+      description: HMAC-SHA256 of the raw request body, prefixed with sha256=.
+    sessionCookie:
+      $ref: ./openapi.yaml#/components/securitySchemes/sessionCookie
+    csrfCookie:
+      $ref: ./openapi.yaml#/components/securitySchemes/csrfCookie
+    csrfToken:
+      $ref: ./openapi.yaml#/components/securitySchemes/csrfToken

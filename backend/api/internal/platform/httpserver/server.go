@@ -45,6 +45,7 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("PATCH /api/v1/agent-preferences", deps.updateAgentPreferences)
 	mux.HandleFunc("POST /api/v1/agent-memory/clear", deps.clearAgentMemory)
 	mux.HandleFunc("GET /api/v1/account", deps.getAccount)
+	mux.HandleFunc("POST /hooks/github/{hook}", deps.githubPipelineHook)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeHealth(w, http.StatusOK, "ok")
 	})

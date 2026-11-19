@@ -303,31 +303,24 @@ export function SearchInput({
 }: SearchInputProps) {
   const onSearchRef = useRef(onSearch);
   const timerRef = useRef<number | undefined>(undefined);
-  const initialRender = useRef(true);
-  const skipDebounceValue = useRef<string | null>(null);
+  const lastSearchValue = useRef(value);
 
   useEffect(() => {
     onSearchRef.current = onSearch;
   }, [onSearch]);
 
   useEffect(() => {
-    if (initialRender.current) {
-      initialRender.current = false;
-      return;
-    }
-    if (skipDebounceValue.current === value) {
-      skipDebounceValue.current = null;
-      return;
-    }
-    skipDebounceValue.current = null;
-    window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => onSearchRef.current(value.trim()), debounceMs);
+    if (lastSearchValue.current === value) return;
+    timerRef.current = window.setTimeout(() => {
+      lastSearchValue.current = value;
+      onSearchRef.current(value.trim());
+    }, debounceMs);
     return () => window.clearTimeout(timerRef.current);
   }, [value, debounceMs]);
 
   const submitImmediately = () => {
     window.clearTimeout(timerRef.current);
-    skipDebounceValue.current = value;
+    lastSearchValue.current = value;
     onSearchRef.current(value.trim());
   };
 
@@ -344,7 +337,7 @@ export function SearchInput({
           if (event.key === "Enter") submitImmediately();
         }}
       />
-      {value && <button type="button" aria-label="Clear search" onClick={() => { skipDebounceValue.current = ""; onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
+      {value && <button type="button" aria-label="Clear search" onClick={() => { lastSearchValue.current = ""; onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
     </div>
   );
 }

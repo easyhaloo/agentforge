@@ -116,8 +116,12 @@ func TestPostgresStorePersistsWithOrganizationIsolation(t *testing.T) {
 	if err := store.pool.QueryRow(ctx, "SELECT count(*) FROM schema_migrations").Scan(&migrationCount); err != nil {
 		t.Fatal(err)
 	}
-	if migrationCount != 7 {
-		t.Fatalf("migration count = %d, want 7", migrationCount)
+	expected, err := migrations.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if migrationCount != len(expected) {
+		t.Fatalf("migration count = %d, want %d", migrationCount, len(expected))
 	}
 }
 

@@ -75,6 +75,76 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     ? { user_id: "user-owner", display_name: "Taylor Owner", email: "owner@example.test", organizations }
     : null;
 
+  // Mock /auth/* endpoints (local auth)
+  await page.route("**/auth/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const method = request.method();
+
+    // Helper to return JSON responses
+    const json = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+
+    // POST /auth/local/login
+    if (path === "/auth/local/login" && method === "POST") {
+      const body = request.postDataJSON() as { email: string; password: string };
+
+      // Success scenario
+      if (body.email === "test@example.com" && body.password === "password123") {
+        const user = {
+          user_id: "user-test-123",
+          email: body.email,
+          display_name: "Test User"
+        };
+        // Update authentication state after successful login
+        isAuthenticated = true;
+        currentUser = { ...user, organizations };
+        return json(user, 200);
+      }
+
+      // Failure scenario - invalid credentials
+      return json({
+        type: "about:blank",
+        title: "Unauthorized",
+        status: 401,
+        detail: "Invalid email or password"
+      }, 401);
+    }
+
+    // POST /auth/local/register
+    if (path === "/auth/local/register" && method === "POST") {
+      const body = request.postDataJSON() as {
+        email: string;
+        password: string;
+        display_name: string
+      };
+
+      // Email already exists scenario
+      if (body.email === "existing@example.com") {
+        return json({
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "This email is already registered"
+        }, 409);
+      }
+
+      // Success registration scenario
+      const user = {
+        user_id: "user-new-" + Date.now(),
+        email: body.email,
+        display_name: body.display_name
+      };
+      // Update authentication state after successful registration
+      isAuthenticated = true;
+      currentUser = { ...user, organizations };
+      return json(user, 201);
+    }
+
+    return json({ title: "Unexpected test API request", detail: method + " " + path }, 404);
+  });
+
+  // Mock /api/v1/* endpoints
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -101,6 +171,18 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       };
       repositories = [...repositories, added];
       return json(added, 201);
+    }
+    if (path.endsWith("/repositories/easyhaloo/agentforge/tree") && method === "GET") {
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), path: "", items: [{ name: "README.md", path: "README.md", kind: "file", mode: "100644", sha: "b".repeat(40), size: 12 }] });
+    }
+    if (path.endsWith("/repositories/easyhaloo/agentforge/history") && method === "GET") {
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), items: [{ sha: "a".repeat(40), parents: ["b".repeat(40)], author: "Test Author", authored_at: now, subject: "Latest commit" }, { sha: "b".repeat(40), parents: [], author: "Test Author", authored_at: now, subject: "Initial commit" }] });
+    }
+    if (path.endsWith("/repositories/easyhaloo/agentforge/compare") && method === "GET") {
+      return json({ repository: "team/repo", base_sha: "b".repeat(40), head_sha: "a".repeat(40), patch: "diff --git a/README.md b/README.md\\n-before\\n+after\\n" });
+    }
+    if (path.endsWith("/repositories/easyhaloo/agentforge/blob") && method === "GET") {
+      return json({ repository: "team/repo", commit_sha: "a".repeat(40), blob_sha: "b".repeat(40), path: "README.md", encoding: "utf-8", content: "# Hello\n" });
     }
     if (path.endsWith("/members") && method === "GET") {
       return json({ items: members, limit: 100, offset: 0 });

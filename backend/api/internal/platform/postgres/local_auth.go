@@ -197,6 +197,20 @@ func (s *Store) CreateOrUpdateLocalUser(ctx context.Context, email, password, di
 			return "", "", fmt.Errorf("update platform credentials: %w", err)
 		}
 
+		// Ensure platform:internal identity exists
+		identityID, err := newSessionID()
+		if err != nil {
+			return "", "", fmt.Errorf("generate identity ID: %w", err)
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO external_identities (id, user_id, issuer, subject, created_at)
+			VALUES ($1, $2, 'platform:internal', $3, now())
+			ON CONFLICT (issuer, subject) DO NOTHING
+		`, identityID, existingUserID, existingUserID)
+		if err != nil {
+			return "", "", fmt.Errorf("ensure platform identity: %w", err)
+		}
+
 		// Get the organization ID
 		var orgID string
 		err = tx.QueryRow(ctx, `
