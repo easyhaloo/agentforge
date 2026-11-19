@@ -25,6 +25,7 @@ describe("RepositorySourceViewer", () => {
     expect(shouldHighlightRepositorySource("src/main.ts", "const value = 1;")).toBe(true);
     expect(shouldHighlightRepositorySource("assets/data.unknown", "const value = 1;")).toBe(false);
     expect(shouldHighlightRepositorySource("src/main.ts", "x".repeat(256 * 1024 + 1))).toBe(false);
+    expect(shouldHighlightRepositorySource("src/main.ts", "é".repeat(128 * 1024 + 1))).toBe(false);
     expect(shouldHighlightRepositorySource("src/main.ts", Array.from({ length: 10_001 }, () => "x").join("\n"))).toBe(false);
   });
   it("marks the requested active line for editor deep links", () => {
