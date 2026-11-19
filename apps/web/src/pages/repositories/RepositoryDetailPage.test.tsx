@@ -707,17 +707,9 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
     await user.click(pullsTab);
 
-    await waitFor(() => {
-      const authorSelect = document.querySelector(".filter-select");
-      expect(authorSelect).toBeInTheDocument();
-    });
-
-    const authorSelects = document.querySelectorAll(".filter-select");
-    const authorSelect = Array.from(authorSelects).find((select) =>
-      select.querySelector("option[value='alice-dev']")
-    ) as HTMLSelectElement;
-
-    await user.selectOptions(authorSelect, "alice-dev");
+    const authorSelect = await screen.findByRole("combobox", { name: "Filter pull requests by author" });
+    await user.click(authorSelect);
+    await user.click(screen.getByRole("option", { name: "alice-dev" }));
 
     await waitFor(() => {
       expect(screen.getByText("Add support for multi-agent coordination workflows")).toBeInTheDocument();
@@ -772,16 +764,14 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
     await user.click(pullsTab);
 
-    await waitFor(() => {
-      const sortSelects = document.querySelectorAll(".filter-select");
-      const sortSelect = Array.from(sortSelects).find((select) =>
-        select.querySelector("option[value='newest']")
-      );
-      expect(sortSelect).toBeInTheDocument();
-    });
+    const sortSelect = await screen.findByRole("combobox", { name: "Sort pull requests by" });
+    await user.click(sortSelect);
+    await user.click(screen.getByRole("option", { name: /^Newest/ }));
 
-    const prItems = document.querySelectorAll(".pr-item");
-    expect(prItems[0]?.textContent).toContain("Add support for multi-agent coordination workflows");
+    await waitFor(() => {
+      const prItems = document.querySelectorAll(".pr-item");
+      expect(prItems[0]?.textContent).toContain("Add support for multi-agent coordination workflows");
+    });
   });
 
   it("sorts PRs by most commented", async () => {
@@ -791,17 +781,9 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
     await user.click(pullsTab);
 
-    await waitFor(() => {
-      const sortSelects = document.querySelectorAll(".filter-select");
-      expect(sortSelects.length).toBeGreaterThan(0);
-    });
-
-    const sortSelects = document.querySelectorAll(".filter-select");
-    const sortSelect = Array.from(sortSelects).find((select) =>
-      select.querySelector("option[value='most-commented']")
-    ) as HTMLSelectElement;
-
-    await user.selectOptions(sortSelect, "most-commented");
+    const sortSelect = await screen.findByRole("combobox", { name: "Sort pull requests by" });
+    await user.click(sortSelect);
+    await user.click(screen.getByRole("option", { name: "Most commented" }));
 
     await waitFor(() => {
       const prItems = document.querySelectorAll(".pr-item");
@@ -835,9 +817,10 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     await user.click(pullsTab);
 
     await waitFor(() => {
-      expect(screen.getByText("enhancement")).toBeInTheDocument();
-      expect(screen.getByText("bug")).toBeInTheDocument();
-      expect(screen.getByText("security")).toBeInTheDocument();
+      // Several pull requests carry the same label, so the labels are counted, not matched once.
+      expect(screen.getAllByText("enhancement").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("bug").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("security").length).toBeGreaterThan(0);
     });
   });
 
@@ -848,17 +831,9 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
     await user.click(pullsTab);
 
-    await waitFor(() => {
-      const labelSelects = document.querySelectorAll(".filter-select");
-      expect(labelSelects.length).toBeGreaterThan(0);
-    });
-
-    const labelSelects = document.querySelectorAll(".filter-select");
-    const labelSelect = Array.from(labelSelects).find((select) =>
-      select.querySelector("option[value='bug']")
-    ) as HTMLSelectElement;
-
-    await user.selectOptions(labelSelect, "bug");
+    const labelSelect = await screen.findByRole("combobox", { name: "Filter pull requests by label" });
+    await user.click(labelSelect);
+    await user.click(screen.getByRole("option", { name: "bug" }));
 
     await waitFor(() => {
       expect(screen.getByText("Fix memory leak in agent task executor")).toBeInTheDocument();
@@ -874,8 +849,8 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     await user.click(pullsTab);
 
     await waitFor(() => {
-      expect(screen.getByText("✓ Approved")).toBeInTheDocument();
-      expect(screen.getByText("⚠ Changes requested")).toBeInTheDocument();
+      expect(screen.getAllByText("✓ Approved").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("⚠ Changes requested").length).toBeGreaterThan(0);
     });
   });
 
@@ -1271,7 +1246,7 @@ describe("RepositoryDetailPage - Settings Tab", () => {
     await user.click(settingsTab);
 
     await waitFor(() => {
-      expect(screen.getByText("General")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "General" })).toBeInTheDocument();
       expect(screen.getByText("Manage repository settings including name, description, and visibility")).toBeInTheDocument();
       expect(screen.getByText("Repository Name")).toBeInTheDocument();
     });
@@ -1293,8 +1268,8 @@ describe("RepositoryDetailPage - Settings Tab", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Manage branch protection rules and default branch")).toBeInTheDocument();
-      expect(screen.getByText("Default Branch")).toBeInTheDocument();
-      expect(screen.getByText("Branch Protection Rules")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Default Branch" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Branch Protection Rules" })).toBeInTheDocument();
     });
   });
 
@@ -1314,8 +1289,8 @@ describe("RepositoryDetailPage - Settings Tab", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Configure GitHub Actions permissions and settings")).toBeInTheDocument();
-      expect(screen.getByText("Actions Permissions")).toBeInTheDocument();
-      expect(screen.getByText("Workflow Permissions")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Actions Permissions" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Workflow Permissions" })).toBeInTheDocument();
     });
   });
 

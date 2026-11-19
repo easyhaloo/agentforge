@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, ChevronRight, ChevronDown, File, Folder, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Search, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
+import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, ChevronRight, ChevronDown, File, Folder, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
 import type { OrganizationSummary, RepositoryPreviewEntry, RepositoryPreviewBlob } from "../../shared/api/identity";
 import { repositoryPreviewAPI } from "../../shared/api/identity";
-import { Button, SearchInput, Select, DataTable } from "../../shared/ui";
+import { Button, SearchInput, Select, DataTable, Tabs } from "../../shared/ui";
 import type { DataTableColumn } from "../../shared/ui";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
@@ -62,20 +62,16 @@ export function RepositoryDetailPage({ organization, repositorySlug }: Repositor
       </header>
 
       {/* Tab Navigation */}
-      <nav className="repository-tabs" role="tablist">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`repository-tab ${activeTab === tab.id ? "active" : ""}`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      <Tabs
+        className="repository-tabs"
+        ariaLabel="Repository sections"
+        value={activeTab}
+        onChange={(key) => setActiveTab(key as TabType)}
+        items={tabs.map((tab) => ({
+          key: tab.id,
+          label: <>{tab.icon}<span>{tab.label}</span></>,
+        }))}
+      />
 
       {/* Tab Content */}
       <div className="repository-content">
@@ -874,14 +870,14 @@ function WikiTabContent() {
           <h3>Wiki Pages</h3>
           <nav className="wiki-nav">
             {mockWikiPages.map((page) => (
-              <button
+              <Button
                 key={page.id}
                 onClick={() => setSelectedPage(page.id)}
                 className={`wiki-nav-item ${selectedPage === page.id ? "active" : ""}`}
               >
                 <BookOpen size={14} />
                 <span>{page.title}</span>
-              </button>
+              </Button>
             ))}
           </nav>
         </aside>
@@ -1212,36 +1208,36 @@ function IssuesTabContent() {
         <aside className="issues-sidebar">
           <h3>Filters</h3>
           <nav className="issues-nav">
-            <button
+            <Button
               onClick={() => setActiveFilter("open")}
               className={`issues-nav-item ${activeFilter === "open" ? "active" : ""}`}
             >
               <AlertCircle size={14} />
               <span>Open issues</span>
               <span className="issue-count">{openCount}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setActiveFilter("closed")}
               className={`issues-nav-item ${activeFilter === "closed" ? "active" : ""}`}
             >
               <CheckCircle2 size={14} />
               <span>Closed issues</span>
               <span className="issue-count">{closedCount}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setActiveFilter("assigned")}
               className={`issues-nav-item ${activeFilter === "assigned" ? "active" : ""}`}
             >
               <User size={14} />
               <span>Assigned to me</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setActiveFilter("created")}
               className={`issues-nav-item ${activeFilter === "created" ? "active" : ""}`}
             >
               <User size={14} />
               <span>Created by me</span>
-            </button>
+            </Button>
           </nav>
         </aside>
         <main className="issues-main">
@@ -1474,18 +1470,18 @@ function PullRequestsTabContent() {
   return (
     <div className="pulls-tab-content">
       <div className="pulls-sub-tabs">
-        <button
+        <Button
           className={`pulls-sub-tab ${activeSubTab === "repository" ? "active" : ""}`}
           onClick={() => setActiveSubTab("repository")}
         >
           This Repository
-        </button>
-        <button
+        </Button>
+        <Button
           className={`pulls-sub-tab ${activeSubTab === "related" ? "active" : ""}`}
           onClick={() => setActiveSubTab("related")}
         >
           Related
-        </button>
+        </Button>
       </div>
 
       <div className="pulls-tab-layout">
@@ -1495,92 +1491,84 @@ function PullRequestsTabContent() {
           <div className="filter-group">
             <h4>Status</h4>
             <div className="filter-options">
-              <button
+              <Button
                 className={`filter-option ${statusFilter === "all" ? "active" : ""}`}
                 onClick={() => setStatusFilter("all")}
               >
                 All ({statusCounts.all})
-              </button>
-              <button
+              </Button>
+              <Button
                 className={`filter-option ${statusFilter === "open" ? "active" : ""}`}
                 onClick={() => setStatusFilter("open")}
               >
                 Open ({statusCounts.open})
-              </button>
-              <button
+              </Button>
+              <Button
                 className={`filter-option ${statusFilter === "merged" ? "active" : ""}`}
                 onClick={() => setStatusFilter("merged")}
               >
                 Merged ({statusCounts.merged})
-              </button>
-              <button
+              </Button>
+              <Button
                 className={`filter-option ${statusFilter === "closed" ? "active" : ""}`}
                 onClick={() => setStatusFilter("closed")}
               >
                 Closed ({statusCounts.closed})
-              </button>
+              </Button>
             </div>
           </div>
 
           <div className="filter-group">
             <h4>Author</h4>
-            <select
-              className="filter-select"
+            <Select
+              aria-label="Filter pull requests by author"
               value={authorFilter}
-              onChange={(e) => setAuthorFilter(e.target.value)}
-            >
-              <option value="all">All authors</option>
-              {uniqueAuthors.map((author) => (
-                <option key={author} value={author}>
-                  {author}
-                </option>
-              ))}
-            </select>
+              onChange={(event) => setAuthorFilter(event.target.value)}
+              options={[
+                { label: "All authors", value: "all" },
+                ...uniqueAuthors.map((author) => ({ label: author, value: author })),
+              ]}
+            />
           </div>
 
           <div className="filter-group">
             <h4>Labels</h4>
-            <select
-              className="filter-select"
+            <Select
+              aria-label="Filter pull requests by label"
               value={labelFilter}
-              onChange={(e) => setLabelFilter(e.target.value)}
-            >
-              <option value="all">All labels</option>
-              {uniqueLabels.map((label) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onChange={(event) => setLabelFilter(event.target.value)}
+              options={[
+                { label: "All labels", value: "all" },
+                ...uniqueLabels.map((label) => ({ label, value: label })),
+              ]}
+            />
           </div>
 
           <div className="filter-group">
             <h4>Sort by</h4>
-            <select
-              className="filter-select"
+            <Select
+              aria-label="Sort pull requests by"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as PRSortOption)}
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="most-commented">Most commented</option>
-              <option value="recently-updated">Recently updated</option>
-            </select>
+              onChange={(event) => setSortBy(event.target.value as PRSortOption)}
+              options={[
+                { label: "Newest", value: "newest" },
+                { label: "Oldest", value: "oldest" },
+                { label: "Most commented", value: "most-commented" },
+                { label: "Recently updated", value: "recently-updated" },
+              ]}
+            />
           </div>
         </aside>
 
         <main className="pulls-list-container">
           <div className="pulls-search-bar">
-            <div className="search-input-wrapper">
-              <Search size={16} />
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search pull requests by title, number, or author..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSearch={setSearchQuery}
+              placeholder="Search pull requests by title, number, or author..."
+              className="pulls-search"
+            />
           </div>
 
           <div className="pulls-list">
@@ -1962,14 +1950,14 @@ function SettingsTabContent() {
           <h3>Repository Settings</h3>
           <nav className="settings-nav">
             {settingsNavItems.map((item) => (
-              <button
+              <Button
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
                 className={`settings-nav-item ${activeSection === item.id ? "active" : ""}`}
               >
                 {item.icon}
                 <span>{item.label}</span>
-              </button>
+              </Button>
             ))}
           </nav>
         </aside>
@@ -2366,38 +2354,38 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
         <aside className="members-sidebar">
           <h3>Filters</h3>
           <nav className="members-filter-nav">
-            <button
+            <Button
               onClick={() => setSelectedFilter("all")}
               className={`members-filter-item ${selectedFilter === "all" ? "active" : ""}`}
             >
               <Users size={14} />
               <span>All Members</span>
               <span className="members-filter-count">{mockMembers.length}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setSelectedFilter("organization")}
               className={`members-filter-item ${selectedFilter === "organization" ? "active" : ""}`}
             >
               <User size={14} />
               <span>Organization Members</span>
               <span className="members-filter-count">{orgMembersCount}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setSelectedFilter("external")}
               className={`members-filter-item ${selectedFilter === "external" ? "active" : ""}`}
             >
               <Bot size={14} />
               <span>External Collaborators</span>
               <span className="members-filter-count">{externalCount}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setSelectedFilter("pending")}
               className={`members-filter-item ${selectedFilter === "pending" ? "active" : ""}`}
             >
               <Clock size={14} />
               <span>Pending Invitations</span>
               <span className="members-filter-count">{pendingCount}</span>
-            </button>
+            </Button>
           </nav>
         </aside>
         <main className="members-list">
