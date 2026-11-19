@@ -114,6 +114,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}", deps.getChangeset)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/revisions", deps.addRevision)
+	mux.HandleFunc("PUT /api/v1/organizations/{organizationID}/changesets/{id}/files", deps.saveChangesetFile)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evaluations", deps.recordEvaluation)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evidence", deps.attachEvidence)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
@@ -266,6 +267,70 @@ func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request
 	if err=stored.Changeset.AddGitRevision(delivery.ID(id),revision.Ref,revision.CommitSHA,revision.ParentSHA,principal.UserID,time.Now().UTC());err!=nil { writeDeliveryError(w,err); return }
 	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version); if err!=nil { writeRepositoryError(w,err); return }
 	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok { return }
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked { return }
+	defer unlock()
+	writer, supported := d.Git.(delivery.RepositoryFileWriter)
+	if !supported { writeProblem(w, http.StatusServiceUnavailable, "Repository editing unavailable", "The configured Git provider does not support safe changeset writes"); return }
+	if d.Preview == nil { writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A trusted repository preview reader is required to verify the base blob"); return }
+	var input struct {
+		Path string `json:"path"`
+		BaseCommitSHA string `json:"base_commit_sha"`
+		BaseBlobSHA string `json:"base_blob_sha"`
+		Content string `json:"content"`
+	}
+	if !decodeJSON(w, r, &input) { return }
+	if len(input.Content) > 1<<20 || !utf8.ValidString(input.Content) {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "File content too large or invalid", "WebIDE accepts UTF-8 text files up to 1 MiB")
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok { return }
+	if stored.Changeset.Merge != nil { writeProblem(w, http.StatusConflict, "Changeset already merged", "A merged changeset cannot receive additional file revisions"); return }
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists || revision.CommitSHA == "" { writeProblem(w, http.StatusConflict, "Revision required", "Resolve an initial Git revision before editing files"); return }
+	if input.BaseCommitSHA != revision.CommitSHA {
+		writeProblem(w, http.StatusConflict, "Stale editor revision", "The changeset revision advanced; reload the file before saving")
+		return
+	}
+	_, currentBlob, readErr := d.Preview.ReadBlob(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.Path, 1<<20)
+	if readErr != nil || currentBlob != input.BaseBlobSHA {
+		writeProblem(w, http.StatusConflict, "Stale file content", "The file changed or is not a regular text blob at the current changeset revision")
+		return
+	}
+	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content))
+	if errors.Is(err, delivery.ErrWriteConflict) {
+		writeProblem(w, http.StatusConflict, "Concurrent file update", "The changeset branch or file changed while saving; reload and reapply your edits")
+		return
+	}
+	if errors.Is(err, delivery.ErrWriteInvalid) {
+		writeProblem(w, http.StatusBadRequest, "Invalid file update", "Only normalized paths to existing regular UTF-8 text files up to 1 MiB can be edited")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Unable to save file", "The trusted Git provider could not complete the lease-protected write")
+		return
+	}
+	id, err := newID()
+	if err != nil { writeProblem(w, http.StatusInternalServerError, "Unable to record file revision", "An identifier could not be generated"); return }
+	if err = stored.Changeset.AddGitRevision(delivery.ID(id), result.Branch, result.CommitSHA, revision.CommitSHA, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil { writeRepositoryError(w, err); return }
+	writeJSON(w, http.StatusOK, map[string]any{
+		"changeset": toChangesetResponse(updated),
+		"path": input.Path,
+		"branch": result.Branch,
+		"commit_sha": result.CommitSHA,
+		"blob_sha": result.BlobSHA,
+	})
 }
 
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {

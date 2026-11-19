@@ -307,3 +307,18 @@
 @media(max-width:760px){.webide-layout{grid-template-columns:1fr}.webide-explorer{max-height:260px}.webide-heading{align-items:flex-start;flex-direction:column}}
 
 .repository-readme img{display:block;max-width:100%;height:auto;max-height:640px;object-fit:contain;margin:12px 0;border-radius:8px}
+
+.webide-editor__title>div{display:flex;align-items:center;gap:10px;min-width:0}
+.webide-editor__actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.webide-editor__title .button{min-height:30px;padding:5px 9px;font-size:10px}
+.webide-editor textarea{width:100%;min-height:460px;resize:vertical;border:1px solid #2b3850;border-radius:7px;padding:14px;background:#0b1320;color:#d6deeb;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;white-space:pre;overflow:auto}
+.webide-notice{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #2e5c48;border-radius:7px;background:#10251e;color:#a9dec1;font-size:11px}
+.webide-hint{margin:8px 0;color:#9aa8bd;font-size:11px}
+.webide-diff{margin-top:12px;border:1px solid #2b3850;border-radius:7px;padding:10px;color:#b9c4d5;font-size:11px}
+.webide-diff pre{max-height:220px;overflow:auto;margin:8px 0 0;color:#9bd6a4;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.webide-conflict{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:10px;border:1px solid #76533b;border-radius:7px;background:#2a1e16;color:#f1c69c;font-size:11px}
+@media(max-width:600px){.webide-editor__title{align-items:flex-start;flex-direction:column}.webide-editor__title>div{align-items:flex-start;flex-direction:column}.webide-editor__actions{width:100%}.webide-editor__actions .button{flex:1}}
+
+.webide-diff__line--added{display:block;color:#a6d9a0;background:#14251d}
+.webide-diff__line--removed{display:block;color:#f0a5a5;background:#2b191e}
+.webide-diff__line--same{display:block;color:#8290a8}
