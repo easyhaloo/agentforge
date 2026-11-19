@@ -12,7 +12,7 @@ import {
   type RepositoryPreviewTree,
   type StoredChangeset,
 } from "../../shared/api/identity";
-import { Button, Select, TextArea } from "../../shared/ui";
+import { Button, ConfirmDialog, Select, TextArea } from "../../shared/ui";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
 function lineDiff(before: string, after: string): DiffLine[] {
@@ -49,18 +49,21 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
   const selectedChangeset = changesets.find(item => item.changeset.id === selectedChangesetID);
   const canEdit = Boolean(selectedChangeset && selectedChangeset.changeset.revisions.length > 0 && !selectedChangeset.changeset.merge);
   const diffLines = useMemo(() => lineDiff(original, draft), [original, draft]);
   const dirty = Boolean(file && draft !== original);
 
-  const confirmDiscard = () => !dirty || window.confirm("Discard unsaved changes and continue?");
-  const selectFile = (path: string) => {
-    if (!confirmDiscard()) return;
+  const runIfClean = (action: () => void) => {
+    if (dirty) { setPendingNavigation(() => action); return; }
+    action();
+  };
+  const selectFile = (path: string) => runIfClean(() => {
     setSelectedPath(path);
     setError("");
     setConflict(false);
-  };
+  });
 
   useEffect(() => {
     let active = true;
@@ -139,11 +142,11 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
 
   const entries = tree?.items ?? [];
   const openEntry = (entry: RepositoryPreviewEntry) => {
-    if (entry.kind === "tree") {
-      if (!confirmDiscard()) return;
+    if (entry.kind === "tree") runIfClean(() => {
       setDirectory(entry.path);
       setSelectedPath("");
-    } else if (entry.kind === "file") selectFile(entry.path);
+    });
+    else if (entry.kind === "file") selectFile(entry.path);
   };
   const refOptions = [
     ...(selectedRef && !refs.some(ref => ref.name === selectedRef) ? [{ value: selectedRef, label: "Pinned commit · " + selectedRef.slice(0, 12) }] : []),
@@ -196,8 +199,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
       <span className="webide-mode">{selectedChangeset ? "CHANGESET EDIT" : "READ ONLY"}</span>
     </header>
     <section className="card webide-toolbar">
-      <Select aria-label="Repository" value={selectedRepository} onChange={event => {
-        if (!confirmDiscard()) return;
+      <Select aria-label="Repository" value={selectedRepository} onChange={event => runIfClean(() => {
         const nextRepository = event.target.value;
         setSelectedRepository(nextRepository);
         const nextChangeset = changesets.find(item => item.changeset.repository === nextRepository);
@@ -205,24 +207,23 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
         const revision = nextChangeset?.changeset.revisions.at(-1);
         setSelectedRef(revision?.commit_sha ?? "");
         setDirectory(""); setSelectedPath(""); setTree(null); setFile(null);
-      }} options={repositories.map(repo => ({ value: repo.slug, label: repo.slug }))} />
+      })} options={repositories.map(repo => ({ value: repo.slug, label: repo.slug }))} />
       <Select aria-label="Changeset" value={selectedChangesetID} onChange={event => chooseChangeset(event.target.value)} options={changesetOptions}/>
-      <Select aria-label="Branch, tag, or pinned commit" value={selectedRef} onChange={event => {
-        if (!confirmDiscard()) return;
+      <Select aria-label="Branch, tag, or pinned commit" value={selectedRef} onChange={event => runIfClean(() => {
         setSelectedRef(event.target.value); setDirectory(""); setSelectedPath(""); setFile(null);
-      }} options={refOptions}/>
-      <Button className="button secondary" onClick={() => {
-        if (!confirmDiscard()) return;
+      })} options={refOptions}/>
+      <Button className="button secondary" onClick={() => runIfClean(() => {
         setDirectory(""); setSelectedPath(""); setFile(null);
-      }}><RefreshCw size={14}/> Reset</Button>
+      })}><RefreshCw size={14}/> Reset</Button>
     </section>
     {error && <div className={conflict ? "org-error" : "webide-notice"} role={conflict ? "alert" : "status"}>{conflict && <AlertCircle size={14}/>} {error}</div>}
     {loading && <p role="status">Loading repository content…</p>}
+    <ConfirmDialog open={Boolean(pendingNavigation)} title="Discard unsaved changes?" description="Your current editor buffer has unsaved changes. Continue and discard this buffer?" confirmText="Discard changes" onCancel={() => setPendingNavigation(null)} onConfirm={() => { const action = pendingNavigation; setPendingNavigation(null); action?.(); }}/>
     <div className="webide-layout">
       <aside className="card webide-explorer" aria-label="Repository explorer">
         <div className="webide-explorer__title"><strong>Explorer</strong><span>{entries.length} items</span></div>
-        <div className="webide-breadcrumb"><Button className="button link" onClick={() => { if (confirmDiscard()) { setDirectory(""); setSelectedPath(""); } }}>root</Button>{directory.split("/").filter(Boolean).map((part, index, parts) => <span key={index}> / <Button className="button link" onClick={() => { if (confirmDiscard()) { setDirectory(parts.slice(0,index+1).join("/")); setSelectedPath(""); } }}>{part}</Button></span>)}</div>
-        {directory && <Button className="button secondary" onClick={() => { if (confirmDiscard()) setDirectory(directory.split("/").slice(0,-1).join("/")); }}><ChevronLeft size={13}/> Parent</Button>}
+        <div className="webide-breadcrumb"><Button className="button link" onClick={() => runIfClean(() => { setDirectory(""); setSelectedPath(""); })}>root</Button>{directory.split("/").filter(Boolean).map((part, index, parts) => <span key={index}> / <Button className="button link" onClick={() => runIfClean(() => { setDirectory(parts.slice(0,index+1).join("/")); setSelectedPath(""); })}>{part}</Button></span>)}</div>
+        {directory && <Button className="button secondary" onClick={() => runIfClean(() => setDirectory(directory.split("/").slice(0,-1).join("/")))}><ChevronLeft size={13}/> Parent</Button>}
         <ul>{entries.map(entry => <li key={entry.path}><Button className="button link" disabled={entry.kind !== "tree" && entry.kind !== "file"} onClick={() => openEntry(entry)}>{entry.kind === "tree" ? <Folder size={14}/> : <FileText size={14}/>} {entry.name}</Button></li>)}</ul>
       </aside>
       <section className="card webide-editor" aria-label="Text editor">
