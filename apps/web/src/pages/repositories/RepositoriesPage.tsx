@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
 import {
   repositoryAPI,
@@ -23,6 +24,7 @@ type EntrySort = "name" | "size";
 
 /** Registered repositories and a zero-clone, read-only source browser. */
 export function RepositoriesPage({ organization, onNotify }: Props) {
+  const navigate = useNavigate();
   const [items, setItems] = useState<RepositoryMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -315,6 +317,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         </div>
         <p className="changeset-hint">Blob <code>{selectedFile.blob_sha}</code> · commit <code>{selectedFile.commit_sha}</code></p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0" }}>
+          <Button className="button secondary" onClick={() => navigate(`/orgs/${encodeURIComponent(organization.slug || organization.id)}/webide?${new URLSearchParams({ repository: selectedRepository, commit: previewCommit, path: selectedFile.path }).toString()}`)}>Open in WebIDE</Button>
           <Button className="button secondary" onClick={() => void inspectFile("history")} disabled={fileInspectionLoading}>File history</Button>
           <Button className="button secondary" onClick={() => void inspectFile("blame")} disabled={fileInspectionLoading}>Blame</Button>
         </div>

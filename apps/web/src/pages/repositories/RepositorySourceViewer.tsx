@@ -35,7 +35,7 @@ function highlightLine(line: string) {
   return nodes;
 }
 
-export function RepositorySourceViewer({ path, content }: { path: string; content: string }) {
+export function RepositorySourceViewer({ path, content, activeLine = 0 }: { path: string; content: string; activeLine?: number }) {
   const [copied, setCopied] = useState(false);
   const language = repositoryLanguage(path);
   const lines = content.replace(/\r\n?/g, "\n").split("\n");
@@ -48,6 +48,6 @@ export function RepositorySourceViewer({ path, content }: { path: string; conten
       <div><strong>{path.split("/").at(-1)}</strong><span>{language} · {lines.length} lines</span></div>
       <Button className="button secondary" onClick={() => void copy()} aria-label="Copy source code">{copied ? <Check size={13}/> : <Copy size={13}/>} {copied ? "Copied" : "Copy"}</Button>
     </header>
-    <pre className="repository-source__code"><code>{lines.map((line,index) => <span className="repository-source__line" key={index}><span className="repository-source__number" aria-hidden="true">{index+1}</span><span className="repository-source__text">{highlightLine(line)}</span></span>)}</code></pre>
+    <pre className="repository-source__code"><code>{lines.map((line,index) => <span className={"repository-source__line" + (activeLine === index + 1 ? " repository-source__line--active" : "")} id={"line-" + (index + 1)} key={index}><span className="repository-source__number" aria-hidden="true">{index+1}</span><span className="repository-source__text">{highlightLine(line)}</span></span>)}</code></pre>
   </section>;
 }

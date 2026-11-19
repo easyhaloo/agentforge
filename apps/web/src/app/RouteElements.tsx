@@ -7,6 +7,7 @@ import { OrganizationManagementPage } from "../pages/organization/OrganizationMa
 import { OverviewPage } from "../pages/overview";
 import { PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
@@ -77,6 +78,11 @@ export function RepositoriesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function WebIDERoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  return <WebIDEPage key={organization.id} organization={organization} />;
 }
 
 export function OrganizationRoute() {

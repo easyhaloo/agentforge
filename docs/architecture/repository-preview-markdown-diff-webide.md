@@ -15,4 +15,4 @@
 
 ## WebIDE boundary
 
-The current repository preview remains read-only. No dedicated WebIDE route or editor dependency is assumed by this change. File navigation is kept behind a callback boundary so a future editor shell can reuse the repository, commit, path, and line context without changing Markdown URL resolution. Editing, save, and write-back are not claimed as supported.
+An organization-scoped `/orgs/:org/webide` shell now reuses the repository catalog, refs, tree, and blob APIs. It supports repository/ref selection, directory navigation, commit-pinned file preview, and `path`/`line` deep links. The repository preview exposes an “Open in WebIDE” handoff that preserves repository, commit, and file path. The shell is explicitly read-only: no Monaco/CodeMirror dependency, editing buffer, save, or write-back API is present. A future editor adapter can replace the source viewer while retaining the existing authorization and commit-pinning boundary.

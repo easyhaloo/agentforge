@@ -7,7 +7,7 @@ const legacyGroups = [
   { label: "WORKSPACE", items: ["Overview", "Projects", "Repositories", "Changesets", "Workspaces"] },
   { label: "COORDINATION", items: ["Trails", "Stacks", "Review", "Eval", "Self-healing"] },
   { label: "INTELLIGENCE", items: ["Memory", "CI / CD"] },
-  { label: "DEVELOPER", items: ["UI Components"] },
+  { label: "DEVELOPER", items: ["WebIDE", "UI Components"] },
   { label: "CONTROL PLANE", items: ["Organization", "Security", "Governance", "Cost & Usage", "Settings"] },
 ];
 const legacyDescriptions: Record<string, string> = {
@@ -28,6 +28,7 @@ const legacyDescriptions: Record<string, string> = {
   Governance: "Policies, approvals and organization-wide controls.",
   "Cost & Usage": "Understand agent, model and compute consumption.",
   Settings: "Configure your organization and developer experience.",
+  WebIDE: "Open repository files in a commit-pinned, read-only editor workspace.",
   "UI Components": "Explore the shared component system, interaction patterns and design tokens.",
 };
 
@@ -66,6 +67,7 @@ describe("navigation data source", () => {
       "Self-healing": "/self-healing",
       Memory: "/memory",
       "CI / CD": "/orgs/demo/pipelines",
+      WebIDE: "/orgs/demo/webide",
       "UI Components": "/dev/ui",
       Organization: "/orgs/demo/settings",
       Security: "/security",
