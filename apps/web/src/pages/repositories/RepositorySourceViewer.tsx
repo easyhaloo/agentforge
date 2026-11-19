@@ -6,7 +6,7 @@ import { codeLanguageLabel, detectCodeLanguage } from "../../shared/code/languag
 
 type TokenKind = "keyword" | "string" | "number" | "comment";
 const KEYWORDS = new Set(["as","async","await","break","case","catch","class","const","continue","def","else","export","extends","false","for","from","func","function","if","import","in","interface","let","match","new","nil","null","package","pass","private","public","return","self","static","struct","switch","this","throw","true","try","type","var","while","yield"]);
-const MAX_HIGHLIGHT_CHARACTERS = 256 * 1024;
+const MAX_HIGHLIGHT_BYTES = 256 * 1024;
 const MAX_HIGHLIGHT_LINES = 10_000;
 
 export function repositoryLanguage(path: string, firstLine = ""): string {
@@ -15,20 +15,21 @@ export function repositoryLanguage(path: string, firstLine = ""): string {
 
 export function shouldHighlightRepositorySource(path: string, content: string): boolean {
   if (!detectCodeLanguage(path, content.split("\n", 1)[0] ?? "")) return false;
-  if (content.length > MAX_HIGHLIGHT_CHARACTERS) return false;
+  if (content.length > MAX_HIGHLIGHT_BYTES) return false;
+  if (new TextEncoder().encode(content).byteLength > MAX_HIGHLIGHT_BYTES) return false;
   return content.split("\n").length <= MAX_HIGHLIGHT_LINES;
 }
 
 function tokenKind(value: string): TokenKind | null {
   if (/^(?:\/\/|#|\/\*|\*)/.test(value)) return "comment";
-  if (/^(?:"|'|`)/.test(value)) return "string";
+  if (/^(?:"|'|\x60)/.test(value)) return "string";
   if (/^\d/.test(value)) return "number";
   if (KEYWORDS.has(value)) return "keyword";
   return null;
 }
 
 function highlightLine(line: string) {
-  const pattern = /(\/\/.*|#.*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b)/g;
+  const pattern = /(\/\/.*|#.*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\x60[^\x60]*\x60|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b)/g;
   const nodes = [];
   let cursor = 0;
   let match: RegExpExecArray | null;
