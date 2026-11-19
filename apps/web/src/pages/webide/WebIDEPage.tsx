@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, ChevronLeft, Code2, FileText, Folder, RefreshCw, Save, Trash2 } from "lucide-react";
+import { AlertCircle, ChevronLeft, Code2, FileText, Folder, RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   changesetAPI,
   repositoryAPI,
@@ -83,7 +83,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
     const next = changesets.find(item => item.changeset.repository === selectedRepository);
     setSelectedChangesetID(next?.changeset.id ?? "");
     const revision = next?.changeset.revisions.at(-1);
-    if (revision?.commit_sha) setSelectedRef(revision.commit_sha);
+    setSelectedRef(revision?.commit_sha ?? "");
   }, [selectedRepository, changesets, selectedChangesetID]);
 
   useEffect(() => {
