@@ -31,6 +31,8 @@ type LocalAuthRepository interface {
 	HasActiveMembership(context.Context, string) (bool, error)
 	CreateSession(context.Context, string, string, string, time.Time) (string, error)
 	RevokeSession(context.Context, string) error
+	EmailExists(context.Context, string) (bool, error)
+	CreateLocalUser(context.Context, string, string, string) (string, error)
 }
 
 type LocalAuthenticator struct {
@@ -45,6 +47,18 @@ type loginRequest struct {
 }
 
 type loginResponse struct {
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+}
+
+type registerRequest struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	DisplayName string `json:"display_name"`
+}
+
+type registerResponse struct {
 	UserID      string `json:"user_id"`
 	Email       string `json:"email"`
 	DisplayName string `json:"display_name"`
@@ -170,5 +184,115 @@ func (a *LocalAuthenticator) Login(w http.ResponseWriter, r *http.Request) {
 		UserID:      user.ID,
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
+	})
+}
+
+// isValidEmail performs basic email validation.
+func isValidEmail(email string) bool {
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return false
+	}
+	// Basic validation: must contain @ with non-empty local and domain parts
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+	local, domain := parts[0], parts[1]
+	return strings.TrimSpace(local) != "" && strings.TrimSpace(domain) != ""
+}
+
+func (a *LocalAuthenticator) Register(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type
+	if r.Header.Get("Content-Type") != "application/json" {
+		writeAuthProblem(w, http.StatusBadRequest, "Invalid content type", "Request must be application/json")
+		return
+	}
+
+	// Parse request body
+	var req registerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeAuthProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")
+		return
+	}
+
+	// Trim and validate inputs
+	req.Email = strings.TrimSpace(req.Email)
+	req.Password = strings.TrimSpace(req.Password)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+
+	// Validate email format
+	if !isValidEmail(req.Email) {
+		writeAuthProblem(w, http.StatusBadRequest, "Invalid email", "Email must be a valid email address")
+		return
+	}
+
+	// Validate password length
+	if req.Password == "" {
+		writeAuthProblem(w, http.StatusBadRequest, "Missing password", "Password is required")
+		return
+	}
+	if len(req.Password) < 8 {
+		writeAuthProblem(w, http.StatusBadRequest, "Password too short", "Password must be at least 8 characters")
+		return
+	}
+
+	// Validate display name
+	if req.DisplayName == "" {
+		writeAuthProblem(w, http.StatusBadRequest, "Missing display name", "Display name is required")
+		return
+	}
+
+	// Check if email already exists
+	exists, err := a.repository.EmailExists(r.Context(), req.Email)
+	if err != nil {
+		writeAuthProblem(w, http.StatusInternalServerError, "Registration failed", "Could not verify email availability")
+		return
+	}
+	if exists {
+		writeAuthProblem(w, http.StatusConflict, "Email already registered", "This email is already registered")
+		return
+	}
+
+	// Hash password
+	passwordHash, err := HashPassword(req.Password)
+	if err != nil {
+		writeAuthProblem(w, http.StatusInternalServerError, "Registration failed", "Could not process password")
+		return
+	}
+
+	// Create user
+	userID, err := a.repository.CreateLocalUser(r.Context(), req.Email, passwordHash, req.DisplayName)
+	if err != nil {
+		writeAuthProblem(w, http.StatusInternalServerError, "Registration failed", "Could not create user account")
+		return
+	}
+
+	// Generate session credentials for auto-login
+	credentials, err := GenerateCredentials()
+	if err != nil {
+		writeAuthProblem(w, http.StatusInternalServerError, "Session creation failed", "Secure session credentials could not be generated")
+		return
+	}
+
+	// Create session
+	expiresAt := time.Now().UTC().Add(a.sessionTTL)
+	if _, err := a.repository.CreateSession(r.Context(), userID, credentials.SessionToken, credentials.CSRFToken, expiresAt); err != nil {
+		writeAuthProblem(w, http.StatusServiceUnavailable, "Session creation failed", "The authenticated session could not be persisted")
+		return
+	}
+
+	// Set session cookies
+	sessionCookie, csrfCookie := SessionCookies(credentials, expiresAt)
+	http.SetCookie(w, sessionCookie)
+	http.SetCookie(w, csrfCookie)
+
+	// Return user info with 201 Created
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(registerResponse{
+		UserID:      userID,
+		Email:       req.Email,
+		DisplayName: req.DisplayName,
 	})
 }

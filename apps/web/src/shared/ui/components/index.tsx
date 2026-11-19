@@ -91,24 +91,192 @@ export interface SelectOption {
   label: string;
   value: string;
   disabled?: boolean;
+  icon?: React.ComponentType<{ size?: number }>;
 }
-export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
+export interface SelectProps {
   label?: string;
   options: SelectOption[];
   controlSize?: "small" | "middle" | "large";
   placeholder?: string;
+  hint?: string;
+  error?: string;
+  id?: string;
+  className?: string;
+  name?: string;
+  value?: string;
+  defaultValue?: string;
+  onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  disabled?: boolean;
+  required?: boolean;
+  autoFocus?: boolean;
+  form?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
 }
-export function Select({ label, options, controlSize = "middle", placeholder, id, className = "", ...props }: SelectProps) {
+export function Select({ label, options, controlSize = "middle", placeholder, hint, error, id, className = "", value, defaultValue, onChange, disabled, name, required, autoFocus, form, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy }: SelectProps) {
   const generatedId = useId();
-  const selectId = id ?? props.name ?? generatedId;
+  const selectId = id ?? name ?? generatedId;
+  const [open, setOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? "");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const isControlled = value !== undefined;
+  const currentValue = isControlled ? value : uncontrolledValue;
+  const selectedOption = options.find((opt) => opt.value === currentValue);
+  const displayText = selectedOption?.label ?? placeholder ?? "Select...";
+  const enabledOptions = options.map((opt, idx) => opt.disabled ? -1 : idx).filter((idx) => idx >= 0);
+
+  useEffect(() => {
+    if (!open) {
+      setHighlightedIndex(-1);
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(event.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+
+      if (!enabledOptions.length) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        const currentPos = enabledOptions.indexOf(highlightedIndex);
+        const nextIndex = currentPos < 0 ? enabledOptions[0] : enabledOptions[(currentPos + 1) % enabledOptions.length];
+        setHighlightedIndex(nextIndex);
+        optionRefs.current[nextIndex]?.focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        const currentPos = enabledOptions.indexOf(highlightedIndex);
+        const prevIndex = currentPos <= 0 ? enabledOptions[enabledOptions.length - 1] : enabledOptions[currentPos - 1];
+        setHighlightedIndex(prevIndex);
+        optionRefs.current[prevIndex]?.focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        const firstIndex = enabledOptions[0];
+        setHighlightedIndex(firstIndex);
+        optionRefs.current[firstIndex]?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        const lastIndex = enabledOptions[enabledOptions.length - 1];
+        setHighlightedIndex(lastIndex);
+        optionRefs.current[lastIndex]?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+
+    // Focus first selected or first enabled option when opened
+    const initialIndex = selectedOption ? options.indexOf(selectedOption) : enabledOptions[0] ?? -1;
+    if (initialIndex >= 0) {
+      setHighlightedIndex(initialIndex);
+      requestAnimationFrame(() => optionRefs.current[initialIndex]?.focus());
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, highlightedIndex, enabledOptions, options, selectedOption]);
+
+  const handleSelect = (option: SelectOption) => {
+    if (option.disabled) return;
+
+    if (!isControlled) {
+      setUncontrolledValue(option.value);
+    }
+
+    onChange?.({ target: { value: option.value, name } } as React.ChangeEvent<HTMLSelectElement>);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const triggerClasses = [
+    "af-select-trigger",
+    `af-select-trigger--${controlSize}`,
+    error ? "af-select-trigger--error" : "",
+    className,
+  ].filter(Boolean).join(" ");
+
   return (
-    <label className="af-field" htmlFor={selectId}>
-      {label && <span className="af-field__label">{label}</span>}
-      <select {...props} id={selectId} className={`af-select af-select--${controlSize} ${className}`.trim()}>
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-      </select>
-    </label>
+    <div className="af-field">
+      {label && <label className="af-field__label" htmlFor={selectId}>{label}</label>}
+      <div className="af-select">
+        <button
+          ref={triggerRef}
+          id={selectId}
+          type="button"
+          role="combobox"
+          className={triggerClasses}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          form={form}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy || (label ? undefined : ariaLabel ? undefined : selectId)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-invalid={Boolean(error) || undefined}
+          aria-required={required || undefined}
+          aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
+          onClick={() => setOpen(!open)}
+        >
+          <span className="af-select-trigger__label">{displayText}</span>
+          <span className="af-select-trigger__icon" aria-hidden="true">{open ? "▲" : "▼"}</span>
+        </button>
+        {open && (
+          <div ref={menuRef} className="af-select-dropdown" role="listbox" aria-labelledby={selectId}>
+            {placeholder && (
+              <button
+                type="button"
+                role="option"
+                className={`af-select-option ${currentValue === "" ? "af-select-option--selected" : ""}`}
+                aria-selected={currentValue === ""}
+                onClick={() => handleSelect({ label: placeholder, value: "" })}
+              >
+                <span>{placeholder}</span>
+              </button>
+            )}
+            {options.map((option, index) => {
+              const Icon = option.icon;
+              const isSelected = option.value === currentValue;
+              return (
+                <button
+                  key={option.value}
+                  ref={(el) => { optionRefs.current[index] = el; }}
+                  type="button"
+                  role="option"
+                  className={`af-select-option ${isSelected ? "af-select-option--selected" : ""} ${highlightedIndex === index ? "af-select-option--highlighted" : ""}`.trim()}
+                  aria-selected={isSelected}
+                  disabled={option.disabled}
+                  onClick={() => handleSelect(option)}
+                  onFocus={() => setHighlightedIndex(index)}
+                >
+                  {Icon && <Icon size={14} />}
+                  <span>{option.label}</span>
+                  {isSelected && <span className="af-select-option__check">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {error ? <span className="af-field__error" id={`${selectId}-error`}>{error}</span> : hint ? <span className="af-field__hint" id={`${selectId}-hint`}>{hint}</span> : null}
+    </div>
   );
 }
 

@@ -25,7 +25,7 @@ export function LanguageSwitcher() {
       title="Switch language / 切换语言"
     >
       <Globe size={14} />
-      {currentLabel}
+      <span className="language-switcher__label">{currentLabel}</span>
     </Button>
   );
 }

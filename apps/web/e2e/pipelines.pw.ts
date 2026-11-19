@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installApiMocks } from "./support/api-mocks";
+import { selectOption } from "./support/select-option";
 import type { Pipeline } from "../src/shared/api/pipelines";
 
 test("an owner creates, edits and publishes the saved workflow revision", async ({ page }) => {
@@ -59,22 +60,22 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
   await expect(page.getByRole("checkbox", { name:"Depends on stage1" })).toBeDisabled();
   await page.getByRole("button", { name: "Add parameter" }).click();
   await page.getByLabel("Parameter name").fill("attempts");
-  await page.getByLabel("Parameter type").selectOption("integer");
+  await selectOption(page, page.getByLabel("Parameter type"), "integer");
   await page.getByRole("button", { name: "Add parameter" }).click();
   await page.getByLabel("Parameter name").last().fill("enabled");
-  await page.getByLabel("Parameter type").last().selectOption("boolean");
-  await page.getByLabel("Capability for step1").selectOption("container/check@v1");
+  await selectOption(page, page.getByLabel("Parameter type").last(), "boolean");
+  await selectOption(page, page.getByLabel("Capability for step1"), /container/);
   await page.getByRole("button", { name:"Create draft" }).click();
   await page.getByRole("button", { name:"Publish version" }).click();
   await page.getByRole("button", { name:"View published versions" }).click();
-  await page.getByRole("combobox", { name: "Published version", exact: true }).selectOption("1");
-  await page.getByRole("combobox", { name: "enabled", exact: true }).selectOption("true");
-  await page.getByRole("combobox", { name: "enabled", exact: true }).selectOption("");
+  await selectOption(page, page.getByRole("combobox", { name: "Published version", exact: true }), /^1 · /);
+  await selectOption(page, page.getByRole("combobox", { name: "enabled", exact: true }), "true");
+  await selectOption(page, page.getByRole("combobox", { name: "enabled", exact: true }), "Select a value");
   await page.getByRole("spinbutton", { name: "attempts", exact: true }).fill("3");
   await page.getByRole("button", { name:"Start run" }).click();
   await expect(page.getByRole("status").filter({ hasText:"Run run-1 · Version 1 · queued" })).toBeVisible();
   const canvas = page.getByRole("region", { name: "Run graph" });
-  await page.getByRole("combobox", { name: "Published version", exact: true }).selectOption("2");
+  await selectOption(page, page.getByRole("combobox", { name: "Published version", exact: true }), /^2 · /);
   await expect(canvas.locator("header")).not.toContainText("second-version");
   snapshot = {status:"running", stepStatuses:{approve:"waiting", step1:"queued"}};
   await expect(canvas.getByText("Waiting for approval").first()).toBeVisible();
@@ -88,7 +89,7 @@ test("a template opens in the editor and malformed dependencies leave the JSON i
   await installApiMocks(page);
   await page.route("**/pipelines", route => route.request().resourceType() === "document" ? route.continue() : route.fulfill({ json: { items: [] } }));
   await page.goto("/orgs/demo/pipelines");
-  await page.getByLabel("Workflow template").selectOption("check");
+  await selectOption(page, page.getByLabel("Workflow template"), /Check then approve/);
   await expect(page.getByLabel("Workflow name")).toHaveValue("check-and-approve");
   await page.getByRole("button", { name: "Edit JSON" }).click();
   const editor = page.getByLabel("Workflow definition (JSON)");
@@ -118,7 +119,7 @@ test("queue promotion is offered only for the ready head", async ({ page }) => {
     entries.splice(0); return route.fulfill({ json: { promotedSHA: "1".repeat(40) } });
   });
   await page.goto("/orgs/demo/pipelines");
-  await page.getByRole("combobox", { name: "Workflow", exact: true }).selectOption("checks");
+  await selectOption(page, page.getByRole("combobox", { name: "Workflow", exact: true }), /^checks/);
   await page.getByRole("button", { name: "View published versions" }).click();
   await page.getByText("Merge queue", { exact: true }).click();
   await page.getByLabel("Registered repository").fill("team/repo");

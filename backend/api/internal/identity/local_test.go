@@ -111,6 +111,14 @@ func (m *mockLocalAuthRepository) RevokeSession(ctx context.Context, sessionToke
 	return nil
 }
 
+func (m *mockLocalAuthRepository) EmailExists(ctx context.Context, email string) (bool, error) {
+	return false, nil
+}
+
+func (m *mockLocalAuthRepository) CreateLocalUser(ctx context.Context, email, passwordHash, displayName string) (string, error) {
+	return "", nil
+}
+
 func TestLocalAuthenticatorLoginSuccess(t *testing.T) {
 	passwordHash, _ := HashPassword("correct-password")
 

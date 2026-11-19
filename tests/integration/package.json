@@ -1,0 +1,19 @@
+{
+  "name": "@agentforge/integration-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "setup": "./setup.sh",
+    "teardown": "./teardown.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "dotenv": "^16.4.7",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

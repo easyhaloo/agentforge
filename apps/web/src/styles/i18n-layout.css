@@ -1,0 +1,215 @@
+/**
+ * i18n Layout Optimization
+ *
+ * Prevents layout shift when switching between languages (especially EN ↔ ZH-CN)
+ * by setting proper constraints on text containers and handling overflow gracefully.
+ */
+
+/* Sidebar - maintain stable width across language changes */
+.sidebar {
+  min-width: 240px;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+}
+
+/* Navigation items - prevent text overflow and wrapping */
+.nav-item span,
+.nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-group .nav-label {
+  min-height: 24px;
+  font-weight: 500;
+}
+
+/* Settings navigation - stable container */
+.settings-nav-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Button text - prevent button size jumps */
+.af-button {
+  min-width: fit-content;
+  transition: all 0.15s ease;
+}
+
+.af-button:not(.icon-button) {
+  min-height: 32px;
+  padding-inline: 12px;
+}
+
+/* Table headers - stable column widths */
+.af-table th {
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+/* Breadcrumbs and page titles */
+.breadcrumbs,
+.page-title,
+.panel-head h3,
+.metric-top {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Form labels - maintain consistent spacing */
+.af-form-item label,
+.af-label {
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* Topbar search placeholder */
+.searchbox {
+  min-width: 200px;
+  transition: width 0.2s ease;
+}
+
+/* User menu items */
+.user-menu-item span {
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tab labels - prevent jumping */
+.af-tabs button {
+  white-space: nowrap;
+  min-width: fit-content;
+  padding: 8px 16px;
+}
+
+/* Organization switcher */
+.org-switch {
+  min-height: 60px;
+  transition: height 0.2s ease;
+}
+
+.org-switch__select b,
+.org-switch__select small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+/* Card titles and descriptions */
+.card h2,
+.card h3,
+.card h4 {
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Status badges - maintain stable width */
+.status,
+.org-role {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+/* Notification text */
+.af-toast,
+.af-alert {
+  min-width: 280px;
+  max-width: 500px;
+  word-wrap: break-word;
+}
+
+/* Empty state text */
+.af-empty h2,
+.af-empty p,
+.org-admin-empty h2,
+.org-admin-empty p {
+  text-wrap: balance;
+  max-width: 500px;
+}
+
+/* Prevent font flash on load */
+@font-face {
+  font-family: 'Inter';
+  font-display: swap;
+}
+
+/* Smooth transitions for dynamic content */
+.nav-item,
+.settings-nav-item,
+.user-menu-item,
+.af-button {
+  will-change: auto;
+}
+
+/* Metrics and dashboard cards */
+.metric {
+  min-height: 120px;
+  transition: transform 0.2s ease;
+}
+
+.metric strong {
+  display: block;
+  min-height: 32px;
+}
+
+/* Command palette */
+.command-palette-content h2,
+.command-palette-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Responsive - maintain layout integrity on smaller screens */
+@media (max-width: 768px) {
+  .sidebar {
+    min-width: 200px;
+  }
+
+  .org-switch__select b,
+  .org-switch__select small {
+    max-width: 120px;
+  }
+
+  .breadcrumbs {
+    font-size: 0.9em;
+  }
+}
+
+/* High contrast mode - ensure text remains readable */
+@media (prefers-contrast: high) {
+  .nav-item span,
+  .nav-label,
+  .settings-nav-item span {
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+
+/* Reduced motion - disable transitions for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .af-button,
+  .searchbox,
+  .org-switch,
+  .nav-item,
+  .settings-nav-item,
+  .user-menu-item,
+  .metric {
+    transition: none;
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "page": {
+    "title": "Registered repositories",
+    "description": "Repositories this organization may create changesets in",
+    "restrictedNotice": "Only organization owners and admins can register a repository."
+  },
+  "form": {
+    "slugLabel": "Repository slug",
+    "slugPlaceholder": "team/repository",
+    "branchLabel": "Default branch",
+    "branchPlaceholder": "main",
+    "registerButton": "Register"
+  },
+  "columns": {
+    "repository": "REPOSITORY",
+    "branch": "DEFAULT BRANCH",
+    "registeredBy": "REGISTERED BY",
+    "registered": "REGISTERED"
+  },
+  "empty": "No repositories registered yet.",
+  "feedback": {
+    "loadFailed": "Unable to load repositories",
+    "registered": "Repository registered.",
+    "registrationFailed": "Repository registration failed"
+  }
+}

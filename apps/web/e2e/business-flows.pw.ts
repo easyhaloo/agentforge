@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installApiMocks } from "./support/api-mocks";
+import { selectOption } from "./support/select-option";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
@@ -12,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 test("Overview search, status filtering, selection and navigation work together", async ({ page }) => {
   await page.getByRole("textbox", { name: "Search overview changesets" }).fill("CS-2481");
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
-  await page.getByRole("combobox", { name: "Filter changesets by status" }).selectOption("Ready for review");
+  await selectOption(page, page.getByRole("combobox", { name: "Filter changesets by status" }), "Ready for review");
   await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
   await page.locator(".table-panel").getByRole("button", { name: "View all" }).click();
   await expect(page.getByRole("main").locator(".page-heading h1")).toHaveText("Changesets");
@@ -36,7 +37,7 @@ test("Resources supports search, status filtering, inspection and creation", asy
   await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Search Projects" }).fill("Commerce");
   await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
-  await page.getByRole("combobox", { name: "Filter by status" }).selectOption("At risk");
+  await selectOption(page, page.getByRole("combobox", { name: "Filter by status" }), "At risk");
   await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
   await page.getByRole("button", { name: "Create project" }).click();
   await page.getByRole("textbox", { name: "New Projects name" }).fill("E2E Project");
@@ -52,7 +53,7 @@ test("Changesets loads organization records, searches and persists a new changes
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByPlaceholder("Search ID, title or repository").fill("");
   // The list carries a repository filter as well, so the create form's select is matched exactly.
-  await page.getByRole("combobox", { name: "Repository", exact: true }).selectOption("easyhaloo/agentforge");
+  await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), /^easyhaloo\/agentforge \· main$/);
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("E2E persisted changeset");
   const createResponse = page.waitForResponse((response) => response.url().includes("/api/v1/organizations/org-demo/changesets") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Create", exact: true }).click();
@@ -64,15 +65,15 @@ test("Organization role changes are sent to the API and reflected in the member 
   await page.getByRole("link", { name: "Organization", exact: true }).click();
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   const role = page.getByRole("combobox", { name: "Role for Alex Developer" });
-  await role.selectOption("viewer");
-  await expect(role).toHaveValue("viewer");
+  await selectOption(page, role, "viewer");
+  await expect(role.locator(".af-select-trigger__label")).toHaveText("viewer");
 });
 
 test("Organization invitations can be created and displayed", async ({ page }) => {
   await page.getByRole("link", { name: "Organization", exact: true }).click();
   await page.getByRole("tab", { name: /Invitations/ }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("new-member@example.test");
-  await page.getByRole("combobox", { name: "Role" }).selectOption("member");
+  await selectOption(page, page.getByRole("combobox", { name: "Role" }), "Member");
   await page.getByRole("button", { name: "Create invitation" }).click();
   await expect(page.getByText("Invitation created")).toBeVisible();
   await expect(page.getByText("new-member@example.test")).toBeVisible();

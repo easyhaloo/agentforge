@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   repositoryAPI,
   repositoryPreviewAPI,
@@ -24,6 +25,7 @@ type EntrySort = "name" | "size";
 
 /** Registered repositories and a zero-clone, read-only source browser. */
 export function RepositoriesPage({ organization, onNotify }: Props) {
+  const { t } = useTranslation("repositories");
   const navigate = useNavigate();
   const [items, setItems] = useState<RepositoryMetadata[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,9 +119,9 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     try {
       setItems((await repositoryAPI.list(organization.id)).items);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load repositories");
+      setError(cause instanceof Error ? cause.message : t("feedback.loadFailed"));
     } finally { setLoading(false); }
-  }, [organization.id]);
+  }, [organization.id, t]);
   useEffect(() => { void load(); }, [load]);
 
   const loadTree = useCallback(async () => {
@@ -192,9 +194,9 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       const added = await repositoryAPI.register(organization.id, slug.trim(), defaultBranch.trim());
       setItems(current => [...current, added]);
       setSlug("");
-      onNotify("Repository registered.");
+      onNotify(t("feedback.registered"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Repository registration failed");
+      setError(cause instanceof Error ? cause.message : t("feedback.registrationFailed"));
     } finally { setBusy(false); }
   };
 
@@ -227,29 +229,29 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   return <section className="org-admin">
     <div className="org-admin-summary card">
       <div className="org-admin-summary__icon"><Code2 size={19}/></div>
-      <div><h2>Registered repositories</h2><p>Repositories this organization may create changesets in</p></div>
+      <div><h2>{t("page.title")}</h2><p>{t("page.description")}</p></div>
       <span className="org-role">{organization.role}</span>
-      <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> Refresh</Button>
+      <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> {t("common:actions.refresh")}</Button>
     </div>
     {error && <div className="org-error" role="alert">{error}</div>}
     {canRegister && <form className="org-invite-form" onSubmit={register}>
-      <Input label="Repository slug" required pattern="[^/]+/[^/]+" value={slug} onChange={event => setSlug(event.target.value)} placeholder="team/repository"/>
-      <Input label="Default branch" required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder="main"/>
-      <Button className="button primary" type="submit" disabled={busy}><Plus size={14}/> Register</Button>
+      <Input label={t("form.slugLabel")} required pattern="[^/]+/[^/]+" value={slug} onChange={event => setSlug(event.target.value)} placeholder={t("form.slugPlaceholder")}/>
+      <Input label={t("form.branchLabel")} required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder={t("form.branchPlaceholder")}/>
+      <Button className="button primary" type="submit" disabled={busy}><Plus size={14}/> {t("form.registerButton")}</Button>
     </form>}
-    {!canRegister && <p className="changeset-hint">Only organization owners and admins can register a repository.</p>}
+    {!canRegister && <p className="changeset-hint">{t("page.restrictedNotice")}</p>}
     <DataTable
       className="org-table"
       columns={[
-        { key: "slug", title: "REPOSITORY", render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setSelectedRef(item.default_branch); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
-        { key: "default_branch", title: "DEFAULT BRANCH" },
-        { key: "created_by", title: "REGISTERED BY" },
-        { key: "created_at", title: "REGISTERED" },
+        { key: "slug", title: t("columns.repository"), render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setSelectedRef(item.default_branch); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
+        { key: "default_branch", title: t("columns.branch") },
+        { key: "created_by", title: t("columns.registeredBy") },
+        { key: "created_at", title: t("columns.registered") },
       ]}
       data={items}
       rowKey="slug"
       loading={loading}
-      emptyText="No repositories registered yet."
+      emptyText={t("empty")}
       showColumnVisibility={false}
     />
     {selectedRepository && <section className="card" aria-label="Repository preview" style={{ marginTop: 16, padding: 16 }}>

@@ -40,7 +40,7 @@ export function RunPanel({ org, pipeline, canStart, canPromote }: { org: string;
   return <section><h3>{t("versions")}</h3>
     {!version && <Button disabled={busy} onClick={() => void load()}>{t("viewVersions")}</Button>}
     {version && <>
-      <Select label={t("version")} value={number} options={versions.map(v => ({ value: String(v.number), label: `${v.number} · ${v.checksum.slice(0, 12)}` }))} disabled={busy}
+      <Select label={t("version")} value={String(number)} options={versions.map(v => ({ value: String(v.number), label: `${v.number} · ${v.checksum.slice(0, 12)}` }))} disabled={busy}
         onChange={e => { setNumber(Number(e.target.value)); setValues({}); setError(""); }} />
       <form onSubmit={e => { e.preventDefault(); void start(); }}><fieldset disabled={busy || !canStart}>
         <legend>{t("runParams")}</legend>

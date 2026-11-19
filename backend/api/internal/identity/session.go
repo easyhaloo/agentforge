@@ -1,9 +1,9 @@
 package identity
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -54,22 +54,22 @@ type Credentials struct {
 // HttpOnly; the CSRF value is intentionally readable by same-origin browser code.
 func SessionCookies(credentials Credentials, expiresAt time.Time) (*http.Cookie, *http.Cookie) {
 	return &http.Cookie{
-		Name: SessionCookieName, Value: credentials.SessionToken, Path: "/",
-		Expires: expiresAt.UTC(), Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
-	}, &http.Cookie{
-		Name: CSRFCookieName, Value: credentials.CSRFToken, Path: "/",
-		Expires: expiresAt.UTC(), Secure: true, HttpOnly: false, SameSite: http.SameSiteLaxMode,
-	}
+			Name: SessionCookieName, Value: credentials.SessionToken, Path: "/",
+			Expires: expiresAt.UTC(), Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		}, &http.Cookie{
+			Name: CSRFCookieName, Value: credentials.CSRFToken, Path: "/",
+			Expires: expiresAt.UTC(), Secure: true, HttpOnly: false, SameSite: http.SameSiteLaxMode,
+		}
 }
 
 func ClearSessionCookies() (*http.Cookie, *http.Cookie) {
 	return &http.Cookie{
-		Name: SessionCookieName, Value: "", Path: "/", MaxAge: -1,
-		Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
-	}, &http.Cookie{
-		Name: CSRFCookieName, Value: "", Path: "/", MaxAge: -1,
-		Secure: true, HttpOnly: false, SameSite: http.SameSiteLaxMode,
-	}
+			Name: SessionCookieName, Value: "", Path: "/", MaxAge: -1,
+			Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		}, &http.Cookie{
+			Name: CSRFCookieName, Value: "", Path: "/", MaxAge: -1,
+			Secure: true, HttpOnly: false, SameSite: http.SameSiteLaxMode,
+		}
 }
 
 func GenerateCredentials() (Credentials, error) {

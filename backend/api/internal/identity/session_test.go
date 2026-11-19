@@ -1,8 +1,8 @@
 package identity
 
 import (
-	"testing"
 	"net/http"
+	"testing"
 	"time"
 )
 

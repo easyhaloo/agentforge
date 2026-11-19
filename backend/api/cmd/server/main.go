@@ -103,6 +103,18 @@ func main() {
 		}
 	}
 
+	// Initialize local password authentication
+	localAuthConfig := identity.LocalAuthConfig{
+		SessionTTL: 24 * time.Hour,
+		AppOrigin:  configuration.AppOrigin,
+	}
+	localAuth, err := identity.NewLocalAuthenticator(localAuthConfig, store)
+	if err != nil {
+		logger.Error("local auth initialization failed", "error", err)
+		os.Exit(1)
+	}
+	deps.LocalAuth = localAuth
+
 	server := &http.Server{
 		Addr:              ":" + configuration.Port,
 		Handler:           httpserver.NewHandlerWithDependencies(deps),

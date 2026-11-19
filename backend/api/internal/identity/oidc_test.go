@@ -2,9 +2,9 @@ package identity
 
 import (
 	"context"
-	"encoding/json"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,12 +27,16 @@ func (r *oidcTestRepository) ConsumeOIDCAuthTransaction(context.Context, string)
 func (r *oidcTestRepository) UpsertExternalIdentity(context.Context, string, string, string, string) (string, error) {
 	return "user-1", nil
 }
-func (r *oidcTestRepository) HasActiveMembership(context.Context, string) (bool, error) { return true, nil }
+func (r *oidcTestRepository) HasActiveMembership(context.Context, string) (bool, error) {
+	return true, nil
+}
 func (r *oidcTestRepository) CreateSession(context.Context, string, string, string, time.Time) (string, error) {
 	return "session-1", nil
 }
 func (r *oidcTestRepository) RevokeSession(context.Context, string) error { return nil }
-func (r *oidcTestRepository) AcceptInvitation(context.Context, string, string, string) (string, error) { return "org-1", nil }
+func (r *oidcTestRepository) AcceptInvitation(context.Context, string, string, string) (string, error) {
+	return "org-1", nil
+}
 
 func TestOIDCLoginStartsPKCEFlowAndPersistsHashedState(t *testing.T) {
 	var issuer string
@@ -43,12 +47,12 @@ func TestOIDCLoginStartsPKCEFlowAndPersistsHashedState(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"issuer": issuer,
-			"authorization_endpoint": issuer + "/authorize",
-			"token_endpoint": issuer + "/token",
-			"jwks_uri": issuer + "/keys",
-			"response_types_supported": []string{"code"},
-			"subject_types_supported": []string{"public"},
+			"issuer":                                issuer,
+			"authorization_endpoint":                issuer + "/authorize",
+			"token_endpoint":                        issuer + "/token",
+			"jwks_uri":                              issuer + "/keys",
+			"response_types_supported":              []string{"code"},
+			"subject_types_supported":               []string{"public"},
 			"id_token_signing_alg_values_supported": []string{"RS256"},
 		})
 	}))
@@ -59,7 +63,7 @@ func TestOIDCLoginStartsPKCEFlowAndPersistsHashedState(t *testing.T) {
 	authenticator, err := NewOIDCAuthenticator(context.Background(), OIDCConfig{
 		IssuerURL: issuer, ClientID: "agentforge-test", ClientSecret: "test-secret",
 		RedirectURL: "http://localhost:8080/auth/oidc/callback",
-		SessionTTL: time.Hour, AppOrigin: "http://localhost:5173",
+		SessionTTL:  time.Hour, AppOrigin: "http://localhost:5173",
 	}, repository)
 	if err != nil {
 		t.Fatal(err)

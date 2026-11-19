@@ -15,6 +15,7 @@ import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
+import { FocusedLayout } from "./layouts/FocusedLayout";
 import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelinesRoute, RepositoriesRoute, WebIDERoute, ResourceRoute, RootError, SettingsRoute } from "./RouteElements";
 
 /**
@@ -49,7 +50,35 @@ export const routes: RouteObject[] = [
     errorElement: <RootError />,
   },
 
-  // All other routes - WITH shell
+  // Settings - Focused layout (independent page with its own navigation)
+  {
+    path: "/settings",
+    element: <FocusedLayout />,
+    errorElement: <RootError />,
+    children: [
+      {
+        errorElement: <PageError />,
+        children: [
+          {
+            element: <SettingsRoute />,
+            children: [
+              { index: true, handle: routeHandle("Settings"), element: <Navigate to="/settings/profile" replace /> },
+              { path: "profile", handle: routeHandle("Public profile"), element: <ProfileSettingsPage /> },
+              { path: "account", handle: routeHandle("Account"), element: <AccountSettingsPage /> },
+              { path: "appearance", handle: routeHandle("Appearance"), element: <AppearanceSettingsPage /> },
+              { path: "notifications", handle: routeHandle("Notifications"), element: <NotificationsSettingsPage /> },
+              { path: "authentication", handle: routeHandle("Password and authentication"), element: <AuthenticationSettingsPage /> },
+              { path: "keys", handle: routeHandle("SSH and GPG keys"), element: <KeysSettingsPage /> },
+              { path: "sessions", handle: routeHandle("Sessions"), element: <SessionsSettingsPage /> },
+              { path: "agents", handle: routeHandle("Agent Interactions"), element: <AgentSettingsPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // All other routes - WITH shell (main workspace layout)
   {
     path: "/",
     element: <App />,
@@ -68,21 +97,6 @@ export const routes: RouteObject[] = [
           resource("security", "Security"),
           resource("governance", "Governance"),
           resource("usage", "Cost & Usage"),
-          {
-            path: "settings",
-            element: <SettingsRoute />,
-            children: [
-              { index: true, handle: routeHandle("Settings"), element: <Navigate to="/settings/profile" replace /> },
-              { path: "profile", handle: routeHandle("Public profile"), element: <ProfileSettingsPage /> },
-              { path: "account", handle: routeHandle("Account"), element: <AccountSettingsPage /> },
-              { path: "appearance", handle: routeHandle("Appearance"), element: <AppearanceSettingsPage /> },
-              { path: "notifications", handle: routeHandle("Notifications"), element: <NotificationsSettingsPage /> },
-              { path: "authentication", handle: routeHandle("Password and authentication"), element: <AuthenticationSettingsPage /> },
-              { path: "keys", handle: routeHandle("SSH and GPG keys"), element: <KeysSettingsPage /> },
-              { path: "sessions", handle: routeHandle("Sessions"), element: <SessionsSettingsPage /> },
-              { path: "agents", handle: routeHandle("Agent Interactions"), element: <AgentSettingsPage /> },
-            ],
-          },
           { path: "dev/ui", handle: routeHandle("UI Components"), element: <UIShowcasePage /> },
           {
             element: <OrganizationGate variant="changesets" />,
