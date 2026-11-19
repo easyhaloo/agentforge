@@ -8,6 +8,6 @@ describe("WebIDEPage", () => {
     expect(html).toContain("WebIDE");
     expect(html).toContain("READ ONLY");
     expect(html).toContain("Select a file to edit");
-    expect(html).toContain("Select a Changeset to enable safe text editing");
+    expect(html).toContain("Choose a Changeset to enable safe text editing");
   });
 });
