@@ -94,7 +94,8 @@
     "decisionPlaceholder": "Decision comment",
     "mergeTargetLabel": "Merge target",
     "mergeButton": "Merge changeset",
-    "mergedAs": "Merged as {{commit}} into {{ref}}"
+    "mergedAs": "Merged as {{commit}} into {{ref}}",
+    "viewFilesInWebIDE": "View files in WebIDE"
   },
   "notify": {
     "revisionResolved": "Git revision resolved and persisted.",

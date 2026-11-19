@@ -6,13 +6,15 @@ import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
-import { PipelinesPage } from "../pages/pipelines/PipelinesPage";
+import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
+import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
 import { useNotify } from "./useNotify";
 import { LoginPage } from "../pages/login";
@@ -67,13 +69,26 @@ export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
 
 export function PipelinesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
-  return <PipelinesPage key={organization.id} organization={organization} />;
+  return <PipelinesPage key={organization.id} organization={organization} renderHeader={actions =>
+    <PageHeader label="CI / CD" descriptionKey="navigation:descriptions.cicd" {...actions} />} />;
+}
+
+export function PipelineEditorRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { id = "" } = useParams();
+  return <PipelineEditorPage key={`${organization.id}:${id}`} organization={organization} id={id} />;
 }
 
 export function RepositoriesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function RepositoryDetailRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { repositorySlug = "" } = useParams();
+  return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
 }
 
 export function WebIDERoute() {

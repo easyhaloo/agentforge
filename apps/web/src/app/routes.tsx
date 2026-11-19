@@ -16,7 +16,7 @@ import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelinesRoute, RepositoriesRoute, WebIDERoute, ResourceRoute, RootError, SettingsRoute } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelinesRoute, RepositoriesRoute, RepositoryDetailRoute, WebIDERoute, ResourceRoute, RootError, SettingsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -78,6 +78,13 @@ export const routes: RouteObject[] = [
     ],
   },
 
+  {
+    element: <FocusedLayout fullscreen />,
+    errorElement: <RootError />,
+    children: [{ element: <OrganizationGate variant="pipelines" />, errorElement: <PageError />,
+      children: [organizationPage("pipelines/:id/edit", "CI / CD", <PipelineEditorRoute />)] }],
+  },
+
   // All other routes - WITH shell (main workspace layout)
   {
     path: "/",
@@ -93,7 +100,17 @@ export const routes: RouteObject[] = [
           delivery("stacks", "Stacks"),
           delivery("self-healing", "Self-healing"),
           resource("memory", "Memory"),
-          { element: <OrganizationGate variant="repositories" />, children: [organizationPage("repositories", "Repositories", <RepositoriesRoute />)] },
+          {
+            element: <OrganizationGate variant="repositories" />,
+            children: [
+              organizationPage("repositories", "Repositories", <RepositoriesRoute />),
+              {
+                path: "orgs/:org/repositories/:repositorySlug",
+                handle: routeHandle("Repository"),
+                element: <RepositoryDetailRoute />,
+              },
+            ],
+          },
           { element: <OrganizationGate variant="pipelines" />, children: [organizationPage("pipelines", "CI / CD", <PipelinesRoute />)] },
           resource("security", "Security"),
           resource("governance", "Governance"),

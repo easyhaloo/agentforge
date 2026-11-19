@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, useParams } from "react-router-dom";
-import { CheckCircle2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Code2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { formatDateTime } from "../../shared/i18n/format";
-import { changesetPath, changesetTabs, organizationHandle, orgPath, type ChangesetTab } from "../../shared/routing";
+import { changesetPath, changesetTabs, organizationHandle, orgPath, webIDEPath, type ChangesetTab } from "../../shared/routing";
 import { Button, Input } from "../../shared/ui";
 import { auditEntryLabel, changesetLifecycleSteps, changesetLifecycleStepLabel, changesetReviewRefusal, changesetStatusClass, changesetStatusLabel, completedLifecycleSteps, reviewStatusLabel } from "./changeset-status";
 
@@ -16,6 +16,27 @@ type Props = {
   tab: ChangesetTab;
   onNotify: (message: string) => void;
 };
+
+/**
+ * The shared `Button` renders a real button element, so a link that looks like a button carries the
+ * button classes itself. They are the classes the shared button would have rendered.
+ */
+const webIDELinkClasses = "af-button af-button--secondary af-button--middle button secondary";
+
+/** The entry point into the WebIDE for the files of a changeset at its current revision. */
+function WebIDELink({ handle, changeset, revision }: {
+  handle: string;
+  changeset: StoredChangeset["changeset"];
+  revision: StoredChangeset["changeset"]["revisions"][number];
+}) {
+  const { t } = useTranslation();
+  return <Link
+    className={webIDELinkClasses}
+    to={webIDEPath(handle, { repository: changeset.repository, commit: revision.commit_sha, changeset: changeset.id })}
+  >
+    <Code2 size={14}/> {t("changesets:detail.viewFilesInWebIDE")}
+  </Link>;
+}
 
 /**
  * The changeset detail page. Every part of the lifecycle is a route, so each one can be linked to.
@@ -97,6 +118,9 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
           <div><label><GitBranch size={14}/> {t("changesets:detail.currentRevision")}</label><p>{revision ? `${revision.ref} · ${revision.commit_sha}` : t("changesets:detail.noRevision")}</p><span className="org-role">{revision ? formatDateTime(revision.created_at) : t("changesets:detail.resolveRefToStart")}</span></div>
           <div><label><ShieldCheck size={14}/> {t("changesets:detail.reviewer")}</label><p>{review ? `${review.reviewer} · ${reviewStatusLabel(review.status, t)}` : t("changesets:detail.noReviewAssigned")}</p><span className="org-role">{review?.comment || t("changesets:reviewRefusal.default")}</span></div>
         </div>
+        {revision && <div className="org-actions">
+          <WebIDELink handle={handle} changeset={changeset} revision={revision}/>
+        </div>}
         {changeset.audit.length > 0 && <div className="changeset-audit"><h4>{t("changesets:detail.auditTitle")}</h4>{changeset.audit.slice().reverse().map(event => <div key={event.sequence}><span>{auditEntryLabel(event.operation, event.outcome, t)}</span><small>{t("changesets:detail.auditEntry", { actor: event.actor, at: formatDateTime(event.at) })}</small></div>)}</div>}
       </>}
       {tab === "revisions" && <>
@@ -123,6 +147,9 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
           </form>
           {review && <div><label><ShieldCheck size={14}/> {t("changesets:detail.reviewDecisionTitle")}</label><p>{t("changesets:detail.reviewAssigned", { reviewer: review.reviewer, status: reviewStatusLabel(review.status, t) })}{review.comment ? " · " + review.comment : ""}</p>{review.reviewer === accountUserID && review.status === "pending" && <div className="org-actions"><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, true, decisionComment), t("changesets:notify.reviewApproved"))}>{t("changesets:detail.approveButton")}</Button><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, false, decisionComment), t("changesets:notify.changesRequested"))}>{t("changesets:detail.requestChangesButton")}</Button></div>}<Input value={decisionComment} onChange={event => setDecisionComment(event.target.value)} placeholder={t("changesets:detail.decisionPlaceholder")}/></div>}
         </div>
+        {revision && <div className="org-actions">
+          <WebIDELink handle={handle} changeset={changeset} revision={revision}/>
+        </div>}
       </>}
       {tab === "merge" && <>
         <div className="changeset-workflow">

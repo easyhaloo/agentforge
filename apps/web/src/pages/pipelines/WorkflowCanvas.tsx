@@ -1,10 +1,16 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, GitBranch, Layers, Workflow } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Definition, Run } from "../../shared/api/pipelines";
-import { dependencies } from "./WorkflowEditor";
+import { Button } from "../../shared/ui";
 import { pipelineStateKey } from "./pipeline-states";
 import "./canvas.css";
+
+export type NodePath = [] | [number] | [number, number] | [number, number, number];
+
+export function dependencies(stages: Definition["stages"], index: number): string[] {
+  return stages[index].dependsOn ?? (index ? [stages[index - 1].id] : []);
+}
 
 function layout(stages: Definition["stages"]) {
   const ids = new Map(stages.map((stage, i) => [stage.id, i]));
@@ -38,7 +44,9 @@ function stageState(states: StepStatus[]) {
   return states.includes("succeeded") ? "running" : "queued";
 }
 
-export function WorkflowCanvas({ definition, run }: { definition: Definition; run?: Run }) {
+export function WorkflowCanvas({ definition, run, selection, onSelect, toolbar }: {
+  definition: Definition; run?: Run; selection?: NodePath; onSelect?: (path: NodePath) => void; toolbar?: ReactNode;
+}) {
   const { t } = useTranslation("pipelines");
   const board = useRef<HTMLDivElement>(null);
   const marker = useId().replace(/:/g, "");
@@ -65,8 +73,12 @@ export function WorkflowCanvas({ definition, run }: { definition: Definition; ru
     return () => observer.disconnect();
   }, [graph]);
   const badge = (state: string) => <span className="wf-badge" data-state={state}>{t(pipelineStateKey(state))}</span>;
+  function node(path: NodePath, label: string, content: ReactNode) {
+    return onSelect ? <Button variant="ghost" className="wf-node" aria-label={label} aria-pressed={selection?.join("/") === path.join("/")}
+      onClick={() => onSelect(path)}>{content}</Button> : content;
+  }
   return <section className="wf-canvas" aria-label={t(run ? "executionCanvas" : "designCanvas")}>
-    <header><Workflow size={18}/><strong>{t(run ? "executionCanvas" : "designCanvas")}</strong><span>{definition.name}</span>{run && badge(run.status)}</header>
+    <header><Workflow size={18}/><strong>{t(run ? "executionCanvas" : "designCanvas")}</strong><span>{definition.name}</span>{run && badge(run.status)}{toolbar}</header>
     {!graph ? <p>{t("invalidGraph")}</p> : <div className="wf-scroll" tabIndex={0}>
       <div ref={board} className="wf-board">
         <svg aria-hidden="true"><defs><marker id={marker} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="#9d9fc1"/></marker></defs>
@@ -75,11 +87,16 @@ export function WorkflowCanvas({ definition, run }: { definition: Definition; ru
           const stage = definition.stages[i];
           const stateOf = (id: string) => run?.stepStatuses?.[id] ?? "queued";
           const steps = stage.jobs.flatMap(j => j.steps);
-          return <details open key={stage.id} data-node={i} className="wf-card">
-            <summary><Layers size={15}/><strong>{stage.id}</strong>{run ? badge(stageState(steps.map(s => stateOf(s.id)))) : <small>{steps.length}</small>}<ChevronDown size={14}/></summary>
-            <div className="wf-body">{stage.jobs.map(job => <div key={job.id}><b><GitBranch size={12}/>{job.id}</b>
-              {job.steps.map(step => <div className="wf-step" key={step.id}><span>{step.id}</span>{run ? badge(stateOf(step.id)) : <small>{t(step.uses === "control/approval@v1" ? "approval" : "container")}</small>}</div>)}
-            </div>)}{graph.parents[i].length > 0 && <small className="wf-deps">{t("depends", {id: dependencies(definition.stages, i).join(", ")})}</small>}</div>
+          const heading = <><Layers size={15}/><strong>{stage.id}</strong>{run ? badge(stageState(steps.map(s => stateOf(s.id)))) : <small>{steps.length}</small>}</>;
+          const body = <div className="wf-body">{stage.jobs.map((job, ji) => <div key={job.id}>
+            {node([i, ji], t("job", {id:job.id}), <b><GitBranch size={12}/>{job.id}</b>)}
+            {job.steps.map((step, pi) => <div key={step.id}>{node([i, ji, pi], t("step", {id:step.id}),
+              <span className="wf-step"><span>{step.id}</span>{run ? badge(stateOf(step.id)) : <small>{t(step.uses === "control/approval@v1" ? "approval" : "container")}</small>}</span>)}</div>)}
+          </div>)}{graph.parents[i].length > 0 && <small className="wf-deps">{t("depends", {id: dependencies(definition.stages, i).join(", ")})}</small>}</div>;
+          return onSelect ? <article key={stage.id} data-node={i} className="wf-card">
+            {node([i], t("stage", {id:stage.id}), <span className="wf-stage-title">{heading}</span>)}{body}
+          </article> : <details open key={stage.id} data-node={i} className="wf-card">
+            <summary>{heading}<ChevronDown size={14}/></summary>{body}
           </details>;
         })}</div>)}
       </div></div>}

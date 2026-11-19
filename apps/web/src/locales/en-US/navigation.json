@@ -15,6 +15,7 @@
     "changesets": "Changesets",
     "changeset": "Changeset",
     "repositories": "Repositories",
+    "repository": "Repository",
     "trails": "Trails",
     "review": "Review",
     "eval": "Eval",

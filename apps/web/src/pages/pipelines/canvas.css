@@ -24,3 +24,34 @@
 .wf-badge[data-state=succeeded] { color:#99dec1; background:#203b34; }
 .wf-badge:is([data-state=failed],[data-state=timed_out]) { color:#ffb4b4; background:#432a35; }
 .org-admin:has(.wf-canvas) { grid-template-columns:minmax(0,1fr); }
+.wf-editor-shell { min-width:0; margin:0; padding:0; border:0; }
+.wf-designer { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,300px); gap:12px; align-items:start; }
+.workflow-editor { min-width:0; border:1px solid #354059; border-radius:10px; padding:14px; }
+.workflow-editor,.workflow-editor fieldset { display:grid; gap:10px; }
+.workflow-editor fieldset { min-width:0; margin:0; }
+.wf-card .wf-node { display:block; padding:0 6px; width:100%; border:0; border-radius:5px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.wf-card .wf-node:hover,.wf-card .wf-node[aria-pressed=true] { background:#303956; }
+.wf-node:focus-visible { outline:2px solid #b6a8ff; outline-offset:-2px; }
+.wf-stage-title { display:flex; gap:8px; align-items:center; min-height:46px; padding:0 6px; }
+.wf-stage-title strong { flex:1; overflow-wrap:anywhere; }
+@media (max-width:900px) { .wf-designer { grid-template-columns:minmax(0,1fr); } }
+.wf-workspace { grid-template-columns:minmax(0,1fr); }
+.wf-editor-heading { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.wf-create-fields { display:grid; gap:18px; }
+.wf-fullscreen { box-sizing:border-box; min-height:100dvh; display:flex; flex-direction:column; gap:16px; padding:16px; }
+.wf-fullscreen .wf-editor-heading { min-height:56px; padding-bottom:12px; border-bottom:1px solid #30394e; }
+.wf-editor-heading a,.wf-workspace td a { color:#b6a8ff; text-decoration:none; }
+.wf-editor-heading a { display:inline-flex; align-items:center; gap:6px; }
+.wf-editor-heading a:hover,.wf-workspace td a:hover { text-decoration:underline; }
+.wf-editor-title { flex:1; min-width:180px; }
+.wf-editor-title h1 { margin:0; font-size:20px; overflow-wrap:anywhere; }
+.wf-editor-title span { font-size:12px; color:#a8b2c8; }
+.wf-fullscreen .wf-editor-shell { flex:1; display:grid; }
+.wf-fullscreen .wf-designer { align-items:stretch; }
+.wf-fullscreen .wf-canvas { display:flex; flex-direction:column; }
+.wf-fullscreen>.wf-canvas,.wf-fullscreen .wf-scroll { flex:1; }
+.wf-fullscreen .workflow-editor { align-content:start; background:#101725; }
+.wf-fullscreen .workflow-editor fieldset { border:0; padding:0; }
+.wf-fullscreen .workflow-editor legend { margin-bottom:12px; font-weight:600; }
+.wf-fullscreen .wf-card .wf-node[aria-pressed=true] { background:#303956; box-shadow:inset 2px 0 #b6a8ff; }
+@media (max-width:900px) { .wf-fullscreen .wf-designer { grid-template-rows:minmax(260px,1fr) auto; } }

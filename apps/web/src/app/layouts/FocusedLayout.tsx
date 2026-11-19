@@ -18,7 +18,7 @@ import { useNotify } from "../useNotify";
  *
  * Handles authentication internally - redirects to login if user is not signed in.
  */
-export function FocusedLayout() {
+export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) {
   const { t } = useTranslation("app");
   const notify = useNotify();
   const navigateTo = useNavigateTo();
@@ -99,7 +99,7 @@ export function FocusedLayout() {
 
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, updateDisplayName, selectedOrganization }}>
-      <AccountTheme key={account.user_id}>
+      {fullscreen ? <Outlet /> : <AccountTheme key={account.user_id}>
         <div className="focused-shell">
           <div className="focused-main">
             <Topbar
@@ -115,7 +115,7 @@ export function FocusedLayout() {
             </div>
           </div>
         </div>
-      </AccountTheme>
+      </AccountTheme>}
     </AppAccountContext.Provider>
   );
 }
