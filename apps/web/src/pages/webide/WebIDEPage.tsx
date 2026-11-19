@@ -157,16 +157,15 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
     label: item.changeset.title + " · " + item.status,
   }));
 
-  const chooseChangeset = (id: string) => {
-    if (!confirmDiscard()) return;
+  const chooseChangeset = (id: string) => runIfClean(() => {
     const next = changesets.find(item => item.changeset.id === id);
     setSelectedChangesetID(id);
     setDirectory("");
     setSelectedPath("");
     setFile(null);
     const revision = next?.changeset.revisions.at(-1);
-    if (revision?.commit_sha) setSelectedRef(revision.commit_sha);
-  };
+    setSelectedRef(revision?.commit_sha ?? "");
+  });
 
   const save = async () => {
     if (!file || !selectedChangeset || !dirty || saving) return;
