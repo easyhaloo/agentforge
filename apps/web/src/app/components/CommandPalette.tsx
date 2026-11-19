@@ -2,37 +2,13 @@ import { useState } from "react";
 import { ArrowRight, CircleDot, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { itemHref, navigationItems, type NavigationItem } from "../navigation";
+import { labelToNavKey } from "../navigation-labels";
 import { useAppAccount } from "../account-context";
 import { useNavigateTo } from "../useNavigateTo";
 import { CURRENT_ORGANIZATION_HANDLE, organizationHandle } from "../../shared/routing";
 import { Button, Input, Modal } from "../../shared/ui";
 
 type Props = { open: boolean; onClose: () => void };
-
-/** Maps navigation labels to translation keys */
-const labelToNavKey = (label: string): string => {
-  const keyMap: Record<string, string> = {
-    "Overview": "routes.overview",
-    "Projects": "routes.projects",
-    "Repositories": "routes.repositories",
-    "Changesets": "routes.changesets",
-    "Workspaces": "routes.workspaces",
-    "Trails": "routes.trails",
-    "Stacks": "routes.stacks",
-    "Review": "routes.review",
-    "Eval": "routes.eval",
-    "Self-healing": "routes.selfHealing",
-    "Memory": "routes.memory",
-    "CI / CD": "routes.cicd",
-    "UI Components": "routes.uiComponents",
-    "Organization": "routes.organization",
-    "Security": "routes.security",
-    "Governance": "routes.governance",
-    "Cost & Usage": "routes.usage",
-    "Settings": "routes.settings",
-  };
-  return keyMap[label] || label;
-};
 
 export function CommandPalette({ open, onClose }: Props) {
   const { t } = useTranslation("navigation");

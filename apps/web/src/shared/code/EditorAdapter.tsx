@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { useTranslation } from "react-i18next";
 import { TextArea } from "../ui";
 
 export type EditorAdapterProps = {
@@ -27,6 +28,7 @@ export function TextAreaEditorAdapter({
   readOnly,
   activeLine = 0,
 }: EditorAdapterProps) {
+  const { t } = useTranslation("common");
   return (
     <div
       className="webide-editor-adapter"
@@ -36,7 +38,7 @@ export function TextAreaEditorAdapter({
       data-active-line={activeLine || undefined}
     >
       <TextArea
-        aria-label="File content"
+        aria-label={t("common:components.fileContentAriaLabel")}
         value={value}
         onChange={event => onChange(event.target.value)}
         rows={24}

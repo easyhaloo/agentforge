@@ -67,6 +67,14 @@ test("a changeset has its own detail page", async ({ page }) => {
   await expect(page.getByRole("cell")).toHaveCount(0);
 });
 
+test("the audit trail shows the operations in words, not as the server's codes", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-04");
+  await expect(page.getByText("Changeset created")).toBeVisible();
+  await expect(page.getByText("Review decided \u00b7 Approved")).toBeVisible();
+  // The server's own codes never reach the reader.
+  await expect(page.getByText("review.decided")).toHaveCount(0);
+});
+
 test("every part of a changeset is a route with its own panel", async ({ page }) => {
   const tabs = page.getByRole("navigation", { name: "Changeset sections" });
 

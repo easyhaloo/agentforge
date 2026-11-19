@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import i18n from "../../locales";
 import { lineStartOffset, WebIDEPage } from "./WebIDEPage";
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en-US");
+});
 
 describe("WebIDEPage", () => {
   it("renders a changeset-aware editor shell without enabling writes before a changeset is selected", () => {

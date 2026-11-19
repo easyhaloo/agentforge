@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../shared/ui";
 import { codeLanguageLabel } from "../../shared/code/languages";
 
@@ -35,6 +36,7 @@ function highlightLine(line: string) {
 }
 
 export function RepositorySourceViewer({ path, content, activeLine = 0 }: { path: string; content: string; activeLine?: number }) {
+  const { t } = useTranslation("repositories");
   const [copied, setCopied] = useState(false);
   const language = repositoryLanguage(path, content.split("\n", 1)[0] ?? "");
   const lines = content.replace(/\r\n?/g, "\n").split("\n");
@@ -42,10 +44,10 @@ export function RepositorySourceViewer({ path, content, activeLine = 0 }: { path
     try { await navigator.clipboard.writeText(content); setCopied(true); }
     catch { setCopied(false); }
   };
-  return <section className="repository-source" aria-label="Source code">
+  return <section className="repository-source" aria-label={t("repositories:source.ariaLabel")}>
     <header className="repository-source__toolbar">
-      <div><strong>{path.split("/").at(-1)}</strong><span>{language} · {lines.length} lines</span></div>
-      <Button className="button secondary" onClick={() => void copy()} aria-label="Copy source code">{copied ? <Check size={13}/> : <Copy size={13}/>} {copied ? "Copied" : "Copy"}</Button>
+      <div><strong>{path.split("/").at(-1)}</strong><span>{t("repositories:source.summary", { language, count: lines.length })}</span></div>
+      <Button className="button secondary" onClick={() => void copy()} aria-label={t("repositories:source.copyAriaLabel")}>{copied ? <Check size={13}/> : <Copy size={13}/>} {copied ? t("repositories:source.copied") : t("repositories:source.copy")}</Button>
     </header>
     <pre className="repository-source__code"><code>{lines.map((line,index) => <span className={"repository-source__line" + (activeLine === index + 1 ? " repository-source__line--active" : "")} id={"line-" + (index + 1)} key={index}><span className="repository-source__number" aria-hidden="true">{index+1}</span><span className="repository-source__text">{highlightLine(line)}</span></span>)}</code></pre>
   </section>;

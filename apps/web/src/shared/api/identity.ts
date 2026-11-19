@@ -8,9 +8,8 @@ type Page<T> = { items: T[]; limit: number; offset: number };
 export type CreatedInvitation = { invitation: OrganizationInvitation; invitation_url: string; token: string };
 
 const API_BASE = ""; // Host-only __Host- cookies require a same-origin API reverse proxy.
-export class APIError extends Error {
-  constructor(message: string, readonly status: number) { super(message); this.name = "APIError"; }
-}
+export { APIError } from "./errors";
+import { APIError } from "./errors";
 function csrfCookie(): string {
   const prefix = "__Host-agentforge_csrf=";
   const entry = document.cookie.split("; ").find((part) => part.startsWith(prefix));
@@ -25,12 +24,14 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   }
   const response = await fetch(API_BASE + path, { ...init, headers, credentials: "include" });
   if (!response.ok) {
-    let message = `Request failed (${response.status})`;
+    // The API answers with RFC 7807 problem details. Its prose is English, so it is kept on the
+    // error for the console and the interface shows a message chosen from the status instead.
+    let detail: string | undefined;
     try {
       const problem = await response.json() as { detail?: string; title?: string };
-      message = problem.detail || problem.title || message;
+      detail = problem.detail || problem.title;
     } catch { /* response may not contain JSON */ }
-    throw new APIError(message, response.status);
+    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

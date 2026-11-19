@@ -3,6 +3,7 @@ import { ChevronDown, GitBranch, Layers, Workflow } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Definition, Run } from "../../shared/api/pipelines";
 import { dependencies } from "./WorkflowEditor";
+import { pipelineStateKey } from "./pipeline-states";
 import "./canvas.css";
 
 function layout(stages: Definition["stages"]) {
@@ -63,7 +64,7 @@ export function WorkflowCanvas({ definition, run }: { definition: Definition; ru
     nodes.forEach(n => observer.observe(n));
     return () => observer.disconnect();
   }, [graph]);
-  const badge = (state: string) => <span className="wf-badge" data-state={state}>{t(state === "leased" ? "running" : state)}</span>;
+  const badge = (state: string) => <span className="wf-badge" data-state={state}>{t(pipelineStateKey(state))}</span>;
   return <section className="wf-canvas" aria-label={t(run ? "executionCanvas" : "designCanvas")}>
     <header><Workflow size={18}/><strong>{t(run ? "executionCanvas" : "designCanvas")}</strong><span>{definition.name}</span>{run && badge(run.status)}</header>
     {!graph ? <p>{t("invalidGraph")}</p> : <div className="wf-scroll" tabIndex={0}>

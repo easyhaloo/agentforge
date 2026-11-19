@@ -3,6 +3,7 @@ import { Plus, RefreshCw, GitCommitHorizontal, GitBranch, AlertTriangle } from "
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, changesetStatuses, repositoryAPI, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../shared/api/identity";
+import { translateError } from "../../shared/api/errors";
 import { changesetPath, organizationHandle } from "../../shared/routing";
 import { Button, Input, SearchInput, Select } from "../../shared/ui";
 import { ChangesetTable, changesetRows } from "./ui/ChangesetTable";
@@ -43,9 +44,9 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
       ]);
       setItems(page.items); setTotal(page.total); setRepositories(repoPage.items);
       setRepository(current => current || repoPage.items[0]?.slug || "");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : t("changesets:errors.loadFailed")); }
+    } catch (cause) { setError(translateError(cause, t, "changesets:errors.listFailed")); }
     finally { setLoading(false); }
-  }, [organization.id, filters.q, filters.repository, filters.status, filters.reviewer, filters.limit, filters.offset, reloadToken]);
+  }, [organization.id, filters.q, filters.repository, filters.status, filters.reviewer, filters.limit, filters.offset, reloadToken, t]);
   useEffect(() => { void load(); }, [load]);
   // The URL owns the search term; the field is the edit buffer of the term the URL carries.
   useEffect(() => { setQueryDraft(filters.q); }, [filters.q]);
@@ -65,7 +66,7 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
         setSearchParams(writeChangesetFilters({ offset: 0 }, new URLSearchParams()), { replace: true });
       }
       setReloadToken(value => value + 1);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : t("changesets:create.errorMessage")); }
+    } catch (cause) { setError(translateError(cause, t, "changesets:create.errorMessage")); }
     finally { setBusy(false); }
   };
   return <section className="changesets-page">

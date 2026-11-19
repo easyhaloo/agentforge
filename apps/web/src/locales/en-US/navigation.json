@@ -20,13 +20,15 @@
     "eval": "Eval",
     "organization": "Organization",
     "uiComponents": "UI Components",
-    "notFound": "Page not found"
+    "notFound": "Page not found",
+    "webide": "WebIDE"
   },
   "groups": {
     "WORKSPACE": "Workspace",
-    "COLLABORATION": "Collaboration",
-    "TOOLS": "Developer Tools",
-    "MANAGEMENT": "Management"
+    "COORDINATION": "Coordination",
+    "INTELLIGENCE": "Intelligence",
+    "DEVELOPER": "Developer",
+    "CONTROL PLANE": "Control plane"
   },
   "descriptions": {
     "overview": "A live map of changes, verification and delivery across your engineering system.",
@@ -46,7 +48,8 @@
     "security": "Identity, secrets, supply-chain and runtime boundaries.",
     "governance": "Policies, approvals and organization-wide controls.",
     "usage": "Understand agent, model and compute consumption.",
-    "settings": "Configure your organization and developer experience."
+    "settings": "Configure your organization and developer experience.",
+    "webide": "Open repository files in a commit-pinned, read-only editor workspace."
   },
   "sidebar": {
     "brand": "agentforge",
