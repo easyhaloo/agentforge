@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import i18n from "../../locales";
 import { WebIDEPage } from "./WebIDEPage";
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en-US");
+});
 
 describe("WebIDEPage", () => {
   it("renders a read-only repository workspace shell", () => {

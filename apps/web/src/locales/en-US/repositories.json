@@ -87,5 +87,32 @@
     "copyAriaLabel": "Copy source code",
     "copy": "Copy",
     "copied": "Copied"
+  },
+  "webide": {
+    "eyebrow": "DEVELOPER WORKSPACE",
+    "description": "Repository-aware source workspace · read-only preview",
+    "readOnly": "READ ONLY",
+    "repositoryAriaLabel": "Repository",
+    "refAriaLabel": "Branch, tag, or pinned commit",
+    "reset": "Reset",
+    "loading": "Loading repository content…",
+    "explorerAriaLabel": "Repository explorer",
+    "explorer": "Explorer",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "root": "root",
+    "parent": "Parent",
+    "editorAriaLabel": "Editor preview",
+    "emptyTitle": "Select a file to preview",
+    "emptyDescription": "Choose a repository file from the explorer. Editing and write-back are not enabled.",
+    "pinnedCommit": "Pinned commit · {{ref}}",
+    "branchOption": "Branch · {{ref}}",
+    "tagOption": "Tag · {{ref}}",
+    "errors": {
+      "repositoriesFailed": "Unable to load repositories",
+      "refsFailed": "Unable to load repository refs",
+      "treeFailed": "Unable to load repository tree",
+      "fileFailed": "Unable to open source file"
+    }
   }
 }

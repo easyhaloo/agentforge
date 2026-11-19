@@ -87,5 +87,32 @@
     "copyAriaLabel": "复制源代码",
     "copy": "复制",
     "copied": "已复制"
+  },
+  "webide": {
+    "eyebrow": "开发者工作区",
+    "description": "面向代码仓库的源码工作区 · 只读预览",
+    "readOnly": "只读",
+    "repositoryAriaLabel": "代码仓库",
+    "refAriaLabel": "分支、标签或锁定提交",
+    "reset": "重置",
+    "loading": "正在加载仓库内容…",
+    "explorerAriaLabel": "仓库文件浏览器",
+    "explorer": "文件浏览器",
+    "itemCount_one": "{{count}} 个条目",
+    "itemCount_other": "{{count}} 个条目",
+    "root": "根目录",
+    "parent": "上级目录",
+    "editorAriaLabel": "编辑器预览",
+    "emptyTitle": "选择一个文件以预览",
+    "emptyDescription": "从文件浏览器中选择仓库文件。编辑与写回功能尚未启用。",
+    "pinnedCommit": "锁定提交 · {{ref}}",
+    "branchOption": "分支 · {{ref}}",
+    "tagOption": "标签 · {{ref}}",
+    "errors": {
+      "repositoriesFailed": "无法加载代码仓库",
+      "refsFailed": "无法加载仓库引用",
+      "treeFailed": "无法加载仓库目录树",
+      "fileFailed": "无法打开源码文件"
+    }
   }
 }
