@@ -38,7 +38,7 @@ func validEditablePath(path string) bool {
 		return false
 	}
 	for _, part := range strings.Split(path, "/") {
-		if part == "" || part == "." || part == ".." { return false }
+		if part == "" || part == "." || part == ".." || strings.EqualFold(part, ".git") { return false }
 	}
 	return true
 }
@@ -61,6 +61,8 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	if len(fields) != 1 { return result, ErrWriteInvalid }
 	meta, _, found := bytes.Cut(fields[0], []byte{'\t'})
 	if !found || !bytes.HasPrefix(meta, []byte("100644 blob ")) && !bytes.HasPrefix(meta, []byte("100755 blob ")) { return result, ErrWriteInvalid }
+	mode := "100644"
+	if bytes.HasPrefix(meta, []byte("100755 blob ")) { mode = "100755" }
 
 	temp, err := os.MkdirTemp("", "agentforge-edit-*")
 	if err != nil { return result, ErrProviderUnavailable }
@@ -125,6 +127,8 @@ func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, c
 	if len(fields) != 1 { return result, ErrWriteInvalid }
 	meta, _, found := bytes.Cut(fields[0], []byte{'\t'})
 	if !found || !bytes.HasPrefix(meta, []byte("100644 blob ")) && !bytes.HasPrefix(meta, []byte("100755 blob ")) { return result, ErrWriteInvalid }
+	mode := "100644"
+	if bytes.HasPrefix(meta, []byte("100755 blob ")) { mode = "100755" }
 
 	temp := filepath.Join(w.dir, ".agentforge-edit-index")
 	env := []string{"GIT_INDEX_FILE="+temp}
