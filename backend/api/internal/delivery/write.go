@@ -50,8 +50,9 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	}
 	repo, err := p.repositoryPath(ctx, org, repository)
 	if err != nil { return result, err }
-	_, actualBlob, err := p.ReadBlob(ctx, org, repository, baseCommit, filePath, 1<<20)
+	original, actualBlob, err := p.ReadBlob(ctx, org, repository, baseCommit, filePath, 1<<20)
 	if err != nil || actualBlob != baseBlob { return result, ErrWriteConflict }
+	if !utf8.Valid(original) { return result, ErrWriteInvalid }
 	// Refuse symlinks, submodules and non-regular tree entries even if their target resolves to a blob.
 	entry, err := previewGit(ctx, repo, "ls-tree", "-z", baseCommit, "--", filePath)
 	if err != nil { return result, ErrRepositoryInvalid }
