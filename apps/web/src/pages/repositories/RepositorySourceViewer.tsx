@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "../../shared/ui";
+import { codeLanguageLabel } from "../../shared/code/languages";
 
 type TokenKind = "keyword" | "string" | "number" | "comment";
 const KEYWORDS = new Set(["as","async","await","break","case","catch","class","const","continue","def","else","export","extends","false","for","from","func","function","if","import","in","interface","let","match","new","nil","null","package","pass","private","public","return","self","static","struct","switch","this","throw","true","try","type","var","while","yield"]);
 
-export function repositoryLanguage(path: string): string {
-  const extension = path.split(".").at(-1)?.toLowerCase() ?? "";
-  const languages: Record<string, string> = { c:"C",cc:"C++",cpp:"C++",cs:"C#",css:"CSS",go:"Go",h:"C",hpp:"C++",html:"HTML",java:"Java",js:"JavaScript",json:"JSON",jsx:"JSX",md:"Markdown",mdx:"MDX",py:"Python",rs:"Rust",sh:"Shell",sql:"SQL",toml:"TOML",ts:"TypeScript",tsx:"TSX",xml:"XML",yaml:"YAML",yml:"YAML" };
-  return languages[extension] ?? (path.split("/").at(-1) ?? "Text");
+export function repositoryLanguage(path: string, firstLine = ""): string {
+  return codeLanguageLabel(path, firstLine);
 }
 
 function tokenKind(value: string): TokenKind | null {
@@ -37,7 +36,7 @@ function highlightLine(line: string) {
 
 export function RepositorySourceViewer({ path, content, activeLine = 0 }: { path: string; content: string; activeLine?: number }) {
   const [copied, setCopied] = useState(false);
-  const language = repositoryLanguage(path);
+  const language = repositoryLanguage(path, content.split("\n", 1)[0] ?? "");
   const lines = content.replace(/\r\n?/g, "\n").split("\n");
   const copy = async () => {
     try { await navigator.clipboard.writeText(content); setCopied(true); }
