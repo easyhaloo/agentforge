@@ -33,10 +33,8 @@ export function parseRepositoryDiff(patch: string): RepositoryDiffFile[] {
       file.hunks.push(hunk);
       continue;
     }
-    if (!hunk) {
-      if (line) file.hunks.push({ header: line, lines: [{ kind: "meta", text: line }] });
-      continue;
-    }
+    // Git file headers and extended metadata precede the first hunk; keep them out of line rows.
+    if (!hunk) continue;
     if (line === "\\ No newline at end of file") hunk.lines.push({ kind: "meta", text: line });
     else if (line.startsWith("+") && !line.startsWith("+++")) hunk.lines.push({ kind: "add", text: line.slice(1), newLine: newLine++ });
     else if (line.startsWith("-") && !line.startsWith("---")) hunk.lines.push({ kind: "remove", text: line.slice(1), oldLine: oldLine++ });
