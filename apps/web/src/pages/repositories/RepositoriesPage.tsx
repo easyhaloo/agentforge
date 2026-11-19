@@ -326,7 +326,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360, display: "grid", gap: 4 }}>{blameLines.map(line => <div key={line.line} style={{ display: "grid", gridTemplateColumns: "42px 88px minmax(100px, 180px) 1fr", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border-subtle, #ddd)" }}>
           <code>{line.line}</code><code>{line.commit_sha.slice(0, 8)}</code><span>{line.author}</span><code style={{ overflowWrap: "anywhere" }}>{line.content}</code>
         </div>)}</div></section>}
-        {/\\.md$|\\.markdown$/i.test(selectedFile.path) ? <RepositoryReadme content={selectedFile.content} sourcePath={selectedFile.path} onOpenPath={openMarkdownPath}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
+        {(selectedFile.path.toLowerCase().endsWith(".md") || selectedFile.path.toLowerCase().endsWith(".markdown")) ? <RepositoryReadme content={selectedFile.content} sourcePath={selectedFile.path} onOpenPath={openMarkdownPath}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
       </div>}
     </section>}
   </section>;
