@@ -14,6 +14,22 @@ import {
 } from "../../shared/api/identity";
 import { Button, Select, TextArea } from "../../shared/ui";
 
+type DiffLine = { kind: "same" | "removed" | "added"; text: string };
+function lineDiff(before: string, after: string): DiffLine[] {
+  const oldLines = before.split("\\n");
+  const newLines = after.split("\\n");
+  let prefix = 0;
+  while (prefix < oldLines.length && prefix < newLines.length && oldLines[prefix] === newLines[prefix]) prefix++;
+  let suffix = 0;
+  while (suffix < oldLines.length - prefix && suffix < newLines.length - prefix && oldLines[oldLines.length - 1 - suffix] === newLines[newLines.length - 1 - suffix]) suffix++;
+  return [
+    ...oldLines.slice(0, prefix).map(text => ({ kind: "same" as const, text })),
+    ...oldLines.slice(prefix, oldLines.length - suffix).map(text => ({ kind: "removed" as const, text })),
+    ...newLines.slice(prefix, newLines.length - suffix).map(text => ({ kind: "added" as const, text })),
+    ...(suffix ? oldLines.slice(oldLines.length - suffix).map(text => ({ kind: "same" as const, text })) : []),
+  ];
+}
+
 export function WebIDEPage({ organization }: { organization: OrganizationSummary }) {
   const initial = useMemo(() => new URLSearchParams(window.location.search), []);
   const [repositories, setRepositories] = useState<RepositoryMetadata[]>([]);
@@ -34,6 +50,7 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
   const selectedChangeset = changesets.find(item => item.changeset.id === selectedChangesetID);
+  const diffLines = useMemo(() => lineDiff(original, draft), [original, draft]);
   const dirty = Boolean(file && draft !== original);
 
   const confirmDiscard = () => !dirty || window.confirm("Discard unsaved changes and continue?");
@@ -58,6 +75,16 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Unable to load changesets"); });
     return () => { active = false; };
   }, [organization.id]);
+
+  useEffect(() => {
+    if (!selectedRepository || changesets.length === 0) return;
+    const current = changesets.find(item => item.changeset.id === selectedChangesetID);
+    if (current?.changeset.repository === selectedRepository) return;
+    const next = changesets.find(item => item.changeset.repository === selectedRepository);
+    setSelectedChangesetID(next?.changeset.id ?? "");
+    const revision = next?.changeset.revisions.at(-1);
+    if (revision?.commit_sha) setSelectedRef(revision.commit_sha);
+  }, [selectedRepository, changesets, selectedChangesetID]);
 
   useEffect(() => {
     if (!selectedRepository) { setRefs([]); return; }
