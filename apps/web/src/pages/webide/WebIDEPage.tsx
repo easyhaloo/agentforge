@@ -15,6 +15,12 @@ import {
 import { Button, ConfirmDialog, Select, TextArea } from "../../shared/ui";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
+
+export function lineStartOffset(content: string, oneBasedLine: number): number {
+  const lines = content.split("\n");
+  const targetLine = Math.min(lines.length, Math.max(1, Math.floor(oneBasedLine)));
+  return lines.slice(0, targetLine - 1).reduce((offset, line) => offset + line.length + 1, 0);
+}
 function lineDiff(before: string, after: string): DiffLine[] {
   const oldLines = before.split("\n");
   const newLines = after.split("\n");
