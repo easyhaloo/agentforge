@@ -26,6 +26,15 @@ go run ./cmd/server
 
 The frontend lives in `apps/web`; root npm scripts delegate to the workspace. The Go API lives in `backend/api` and listens on `PORT` (default `8080`).
 
+### Git Hooks
+
+Git hooks are managed by [Husky](https://typicode.github.io/husky/) and are automatically installed when you run `npm install`. The following hooks are configured:
+
+- **pre-commit**: Runs `npm test` to ensure tests pass before committing
+- **pre-push**: Checks Go code formatting in `backend/api` using `gofmt` to prevent pushing unformatted code
+
+To bypass a hook temporarily (not recommended), use `git commit --no-verify` or `git push --no-verify`.
+
 ## Frontend architecture
 
 ```text

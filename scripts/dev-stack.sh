@@ -16,22 +16,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Install Git hooks automatically by copying from scripts/git-hooks/ to .git/hooks/
-if [ -d "$REPO_ROOT/scripts/git-hooks" ] && [ -d "$REPO_ROOT/.git/hooks" ]; then
-  for hook in "$REPO_ROOT/scripts/git-hooks"/*; do
-    if [ -f "$hook" ]; then
-      hook_name=$(basename "$hook")
-      target="$REPO_ROOT/.git/hooks/$hook_name"
-      # Copy if doesn't exist or source is newer
-      if [ ! -f "$target" ] || [ "$hook" -nt "$target" ]; then
-        cp "$hook" "$target"
-        chmod +x "$target"
-        printf '✅ Installed git hook: %s\n' "$hook_name" >&2
-      fi
-    fi
-  done
-fi
-
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-8080}"
 WEB_PORT="${WEB_PORT:-5173}"
