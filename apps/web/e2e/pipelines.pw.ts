@@ -87,6 +87,7 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
   await page.getByRole("button", { name: "Add parameter" }).click();
   await page.getByLabel("Parameter name").fill("attempts");
   await selectOption(page, page.getByLabel("Parameter type"), "integer");
+  await selectOption(page, page.getByLabel("Run input"), "Enter on every run");
   await page.getByRole("button", { name: "Add parameter" }).click();
   await page.getByLabel("Parameter name").last().fill("enabled");
   await selectOption(page, page.getByLabel("Parameter type").last(), "boolean");
@@ -96,15 +97,21 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
   await selectOption(page, page.getByLabel("Capability for step1"), /container/);
   await page.getByRole("button", { name:"Save draft" }).click();
   await page.getByRole("button", { name:"Publish version" }).click();
-  await page.getByRole("button", { name:"View published versions" }).click();
+  const openRun = page.locator(".wf-editor-heading").getByRole("button", { name:"Run", exact: true });
+  await openRun.click();
   await selectOption(page, page.getByRole("combobox", { name: "Published version", exact: true }), /^1 · /);
   await selectOption(page, page.getByRole("combobox", { name: "enabled", exact: true }), "true");
   await selectOption(page, page.getByRole("combobox", { name: "enabled", exact: true }), "Select a value");
+  await expect(page.getByRole("button", { name:"Start run" })).toBeDisabled();
   await page.getByRole("spinbutton", { name: "attempts", exact: true }).fill("3");
   await page.getByRole("button", { name:"Start run" }).click();
   await expect(page.getByRole("status").filter({ hasText:"Run run-1 · Version 1 · queued" })).toBeVisible();
   const canvas = page.getByRole("region", { name: "Run graph" });
-  await selectOption(page, page.getByRole("combobox", { name: "Published version", exact: true }), /^2 · /);
+  await openRun.click();
+  await expect(page.getByRole("combobox", { name: "Published version", exact: true })).toContainText("2 ·");
+  await selectOption(page, page.getByRole("combobox", { name: "Published version", exact: true }), /^1 · /);
+  await expect(page.getByRole("spinbutton", { name:"attempts" })).toHaveValue("");
+  await page.getByRole("button", { name:"Cancel", exact:true }).click();
   await expect(canvas.locator("header")).not.toContainText("second-version");
   snapshot = {status:"running", stepStatuses:{approve:"waiting", step1:"queued"}};
   await expect(canvas.getByText("Waiting for approval").first()).toBeVisible();
@@ -172,7 +179,6 @@ test("queue promotion is offered only for the ready head", async ({ page }) => {
   });
   await page.goto("/orgs/demo/pipelines");
   await page.getByRole("link", {name:"checks",exact:true}).click();
-  await page.getByRole("button", { name: "View published versions" }).click();
   await page.getByText("Merge queue", { exact: true }).click();
   await page.getByLabel("Registered repository").fill("team/repo");
   await page.getByRole("button", { name: "Refresh queue" }).click();
@@ -198,4 +204,117 @@ test("canvas lays out forward references, independent roots and an implicit depe
   await expect(canvas.locator("path[marker-end]")).toHaveCount(3);
   await canvas.locator("summary").first().press("Enter");
   await expect(canvas.locator("details").first().locator(".wf-body")).toBeHidden();
+});
+
+test("脚本模板在独立画布上保存脚本和输出变量", async ({ page }, testInfo) => {
+  await installApiMocks(page);
+  await page.addInitScript(() => localStorage.setItem("agentforge-language", "zh-CN"));
+  let pipeline: Pipeline;
+  await page.route("**/api/v1/organizations/org-demo/pipelines**", route => {
+    const req = route.request();
+    if (req.method() === "POST") {
+      const definition = req.postDataJSON();
+      pipeline = { id: "script", name: definition.name, definition, status: "draft", revision: 1, version: 0 };
+    } else if (req.method() === "PUT") {
+      pipeline.definition = req.postDataJSON().definition;
+      pipeline.revision++;
+    }
+    return route.fulfill({ json: req.url().endsWith("/pipelines") && req.method() === "GET" ? { items: [] } : pipeline });
+  });
+  await page.goto("/orgs/demo/pipelines");
+  await page.locator(".heading-actions").getByRole("button", { name: "创建", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "创建流水线" });
+  await dialog.getByRole("radio", { name: "脚本与变量传递" }).check();
+  await dialog.getByRole("button", { name: "创建", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/script\/edit$/);
+  const producer = page.getByRole("button", { name: "步骤 make-tag", exact: true });
+  const script = `printf 'TAG=v%s\\n' "$AF_PARAM_VERSION" >> "$FLOW_ENV"\nprintf 'CHANNEL=stable\\n' >> "$FLOW_ENV"`;
+  await producer.click();
+  await page.getByRole("textbox", { name: "Shell 脚本", exact: true }).fill(script);
+  const addVariable = page.getByRole("button", { name: "添加变量" });
+  const variables = page.getByRole("group", { name: "输出变量" });
+  const second = variables.getByRole("textbox", { name: "变量名 2" });
+  await addVariable.click();
+  await second.fill("TAG");
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  await second.fill("CHANNEL");
+  await addVariable.click();
+  await variables.getByRole("button", { name: "删除变量 3" }).click();
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "修订 2" })).toBeVisible();
+  await page.reload();
+  await producer.click();
+  await expect(page.getByRole("textbox", { name: "Shell 脚本", exact: true })).toHaveValue(script);
+  await expect(variables.getByRole("textbox")).toHaveCount(2);
+  await expect(variables.getByRole("textbox", { name: "变量名 1" })).toHaveValue("TAG");
+  await expect(second).toHaveValue("CHANNEL");
+  await page.screenshot({ path: testInfo.outputPath("output-variable-form.png"), fullPage: true });
+  await page.getByRole("button", { name: "步骤 read-tag", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Shell 脚本", exact: true })).toHaveValue(/\$AF_VAR_TAG/);
+  await page.screenshot({ path: testInfo.outputPath("script-consumer.png") });
+  await producer.click();
+  await selectOption(page, page.getByLabel("make-tag 的能力"), "人工审批");
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "修订 3" })).toBeVisible();
+  expect(pipeline!.definition.stages[0].jobs[0].steps[0]).toEqual({ id: "make-tag", uses: "control/approval@v1" });
+});
+
+test("画布参数联动运行弹窗并按所选版本执行", async ({ page }, testInfo) => {
+  await installApiMocks(page);
+  await page.addInitScript(() => localStorage.setItem("agentforge-language", "zh-CN"));
+  const definition = { apiVersion: "agentforge.dev/v1", name: "script-release", stages: [{ id: "build", jobs: [{ id: "package", steps: [{ id: "make-tag", uses: "container/script@v1", script: 'echo "$AF_PARAM_VERSION"' }] }] }],
+    parameters: [{ name: "VERSION", type: "string", default: "1.0.0", override: true }, { name: "ENV", type: "string", default: "staging" }, { name: "CHANNEL", type: "choice", choices: ["stable", "beta"], required: true, override: true }] };
+  let pipeline = { id: "script", name: definition.name, definition, version: 1, revision: 2, status: "published" };
+  const versions = [{ number: 1, checksum: "edede3e783b8", definition }];
+  await page.route("**/pipelines/script/draft", route => {
+    const body = route.request().postDataJSON();
+    expect(body.revision).toBe(2);
+    pipeline = { ...pipeline, definition: body.definition, revision: 3, status: "draft" };
+    return route.fulfill({ json: pipeline });
+  });
+  await page.route("**/pipelines/script/publish", route => {
+    expect(route.request().postDataJSON()).toEqual({ revision: 3 });
+    pipeline = { ...pipeline, revision: 4, version: 2, status: "published" };
+    versions.push({ number: 2, checksum: "713f2e20be18", definition: pipeline.definition });
+    return route.fulfill({ json: pipeline });
+  });
+  const receipt = { id: "run-2", version: 2, status: "queued" };
+  let attempts = 0;
+  await page.route("**/pipelines/script/versions/2/runs", route => {
+    expect(route.request().postDataJSON()).toEqual({ RELEASE: "2.4.7", CHANNEL: "beta" });
+    return ++attempts === 1 ? route.fulfill({ status: 503, json: {} }) : route.fulfill({ json: receipt });
+  });
+  await page.route("**/pipeline-runs/run-2", route => route.fulfill({ json: receipt }));
+  await page.route("**/pipelines/script", route => route.fulfill({ json: pipeline }));
+  await page.route("**/pipelines/script/versions", route => route.fulfill({ json: {items: versions} }));
+  await page.goto("/orgs/demo/pipelines/script/edit");
+  const launch = page.locator(".wf-editor-heading").getByRole("button", { name: "运行", exact: true });
+  const settings = page.getByRole("group", { name: "参数 VERSION", exact: true });
+  await settings.getByLabel("默认值", { exact: true }).fill("2.0.0");
+  await settings.getByLabel("参数名称").fill("RELEASE");
+  await page.screenshot({ path: testInfo.outputPath("linked-config.png") });
+  await launch.click();
+  const dialog = page.getByRole("dialog", { name: "运行流水线" });
+  const config = dialog.getByLabel("配置版本");
+  await expect(dialog.getByLabel("RELEASE", { exact: true })).toHaveValue("2.0.0");
+  await expect(dialog.getByLabel("VERSION", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByLabel("ENV", { exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "发布并运行" })).toBeDisabled();
+  await selectOption(page, config, /^1 · /);
+  await expect(dialog.getByLabel("VERSION", { exact: true })).toHaveValue("1.0.0");
+  await expect(dialog.getByLabel("RELEASE", { exact: true })).toHaveCount(0);
+  await selectOption(page, config, "当前画布（待发布）");
+  await selectOption(page, dialog.getByLabel("CHANNEL"), "beta");
+  await page.screenshot({ path: testInfo.outputPath("linked-draft.png") });
+  await dialog.getByLabel("RELEASE", { exact: true }).fill("2.4.7");
+  await dialog.getByRole("button", { name: "发布并运行" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByLabel("已发布版本")).toContainText("2 ·");
+  await expect(dialog.getByLabel("RELEASE", { exact: true })).toHaveValue("2.4.7");
+  await dialog.getByRole("button", { name: "开始运行" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "运行 run-2 · 版本 2" })).toBeVisible();
+  expect(versions).toHaveLength(2);
+  await launch.click();
+  await expect(dialog.getByLabel("RELEASE", { exact: true })).toHaveValue("2.0.0");
+  await expect(dialog.getByRole("button", { name: "开始运行" })).toBeDisabled();
 });

@@ -16,7 +16,9 @@ import (
 const APIVersion = "agentforge.dev/v1"
 const Approval = "control/approval@v1"
 const ContainerCheck = "container/check@v1"
+const ShellScript = "container/script@v1"
 
+var variableName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 var identifier = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 var ErrMissing = errors.New("pipeline not found")
 var ErrConflict = errors.New("pipeline revision or lifecycle conflict")
@@ -37,6 +39,8 @@ type Job struct {
 	Steps []Step `json:"steps"`
 }
 type Step struct {
+	Script       string   `json:"script,omitempty"`
+	Outputs      []string `json:"outputs,omitempty"`
 	ID           string   `json:"id"`
 	Uses         string   `json:"uses"`
 	SecretParams []string `json:"secretParams,omitempty"`
@@ -61,6 +65,7 @@ func (d Definition) Validate() error {
 	for _, p := range d.Parameters {
 		secretParams[p.Name] = p.Type == "secretRef"
 	}
+	outputs := map[string]bool{}
 	ids := map[string]bool{}
 	graph := map[string][]string{}
 	register := func(id string) bool {
@@ -84,8 +89,21 @@ func (d Definition) Validate() error {
 				return errors.New("invalid job ID or step count")
 			}
 			for _, step := range j.Steps {
-				if !register(step.ID) || (step.Uses != Approval && step.Uses != ContainerCheck) {
+				if !register(step.ID) || (step.Uses != Approval && step.Uses != ContainerCheck && step.Uses != ShellScript) {
 					return errors.New("invalid step ID or unknown capability")
+				}
+				if step.Uses == ShellScript {
+					if strings.TrimSpace(step.Script) == "" || len(step.Script) > 16384 || strings.ContainsRune(step.Script, 0) || len(step.Outputs) > 16 {
+						return errors.New("provide a shell script of up to 16 KiB and at most 16 outputs")
+					}
+					for _, name := range step.Outputs {
+						if !variableName.MatchString(name) || outputs[name] || len(outputs) >= 64 {
+							return errors.New("declare at most 64 unique shell output names per workflow")
+						}
+						outputs[name] = true
+					}
+				} else if step.Script != "" || len(step.Outputs) > 0 {
+					return errors.New("only shell steps accept script and outputs")
 				}
 				if len(step.SecretParams) > 16 || (len(step.SecretParams) > 0 && step.Uses != ContainerCheck) {
 					return errors.New("secret bindings require a container step and at most 16 parameters")
@@ -216,6 +234,7 @@ func (p Parameter) accepts(raw json.RawMessage) bool {
 // ValidateInputs checks overrides against the pinned version without echoing submitted values.
 func (d Definition) ValidateInputs(input map[string]json.RawMessage) error {
 	known := map[string]bool{}
+	var envBytes int
 	for _, p := range d.Parameters {
 		known[p.Name] = true
 		v, ok := input[p.Name]
@@ -224,6 +243,22 @@ func (d Definition) ValidateInputs(input map[string]json.RawMessage) error {
 		}
 		if !ok && p.Required && p.Default == nil {
 			return fmt.Errorf("missing required parameter %s", p.Name)
+		}
+		if !ok {
+			v = p.Default
+		}
+		if p.Type != "secretRef" && v != nil {
+			envBytes += len(p.Name) + len(v) + 6
+		}
+	}
+	// Leave space for JSON serialization in the single AF_PARAMS_JSON environment entry.
+	if envBytes > 64*1024 {
+		for _, stage := range d.Stages {
+			for _, job := range stage.Jobs {
+				if slices.ContainsFunc(job.Steps, func(s Step) bool { return s.Uses == ShellScript }) {
+					return errors.New("script run parameters exceed 64 KiB")
+				}
+			}
 		}
 	}
 	for name := range input {

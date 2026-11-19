@@ -132,7 +132,7 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 						refs[name] = ref
 					}
 				}
-				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses, refs})
+				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses, refs, step.Script, step.Outputs})
 			}
 		}
 	}
@@ -140,7 +140,7 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 		table   string
 		columns []string
 		rows    [][]any
-	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability", "secret_refs"}, steps}} {
+	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability", "secret_refs", "script", "output_names"}, steps}} {
 		if _, err = tx.CopyFrom(ctx, pgx.Identifier{group.table}, group.columns, pgx.CopyFromRows(group.rows)); err != nil {
 			return empty, err
 		}
