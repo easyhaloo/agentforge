@@ -142,9 +142,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
     if (!file || activeLine < 1) return;
     const editor = document.querySelector<HTMLTextAreaElement>(".webide-editor textarea");
     if (!editor) return;
-    const lines = draft.split("\\n");
-    const targetLine = Math.min(activeLine, lines.length);
-    const offset = lines.slice(0, targetLine - 1).reduce((total, line) => total + line.length + 1, 0);
+    const offset = lineStartOffset(draft, activeLine);
     editor.focus({ preventScroll: true });
     editor.setSelectionRange(offset, offset);
     const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight);
