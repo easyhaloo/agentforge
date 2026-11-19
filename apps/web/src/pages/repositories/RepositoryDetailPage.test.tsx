@@ -193,6 +193,135 @@ describe("RepositoryDetailPage - Code Tab", () => {
   });
 });
 
+describe("RepositoryDetailPage - Wiki Tab", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en-US");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the wiki tab when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    expect(screen.getByText("Wiki Pages")).toBeInTheDocument();
+  });
+
+  it("displays all wiki pages in the sidebar", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Home$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Getting Started/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Architecture$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /API Reference/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Contributing$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^FAQ$/i })).toBeInTheDocument();
+    });
+  });
+
+  it("displays the Home page content by default", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    await waitFor(() => {
+      const wikiHeader = document.querySelector(".wiki-header");
+      expect(wikiHeader?.textContent).toContain("Home");
+      expect(screen.getByText("Welcome to AgentForge Wiki")).toBeInTheDocument();
+      expect(screen.getByText(/comprehensive platform for building/i)).toBeInTheDocument();
+    });
+  });
+
+  it("switches wiki page content when a different page is clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Getting Started/i })).toBeInTheDocument();
+    });
+
+    const gettingStartedButton = screen.getByRole("button", { name: /Getting Started/i });
+    await user.click(gettingStartedButton);
+
+    await waitFor(() => {
+      const wikiHeader = document.querySelector(".wiki-header");
+      expect(wikiHeader?.textContent).toContain("Getting Started");
+      expect(screen.getByText("Getting Started with AgentForge")).toBeInTheDocument();
+      expect(screen.getByText(/help you get up and running/i)).toBeInTheDocument();
+    });
+  });
+
+  it("highlights the active wiki page in the sidebar", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Architecture$/i })).toBeInTheDocument();
+    });
+
+    const architectureButton = screen.getByRole("button", { name: /^Architecture$/i });
+    await user.click(architectureButton);
+
+    await waitFor(() => {
+      expect(architectureButton).toHaveClass("active");
+    });
+  });
+
+  it("renders markdown content with proper formatting", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    await waitFor(() => {
+      const wikiBody = document.querySelector(".wiki-body");
+      expect(wikiBody).toBeInTheDocument();
+
+      const h1Elements = wikiBody?.querySelectorAll("h1");
+      expect(h1Elements).toBeTruthy();
+      expect(h1Elements!.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("displays all six wiki pages with correct titles", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const wikiTab = screen.getByRole("tab", { name: /Wiki/i });
+    await user.click(wikiTab);
+
+    const expectedPages = ["Home", "Getting Started", "Architecture", "API Reference", "Contributing", "FAQ"];
+
+    await waitFor(() => {
+      expectedPages.forEach((pageName) => {
+        const pattern = pageName === "Home" || pageName === "Architecture" || pageName === "Contributing" || pageName === "FAQ"
+          ? new RegExp(`^${pageName}$`, "i")
+          : new RegExp(pageName, "i");
+        expect(screen.getByRole("button", { name: pattern })).toBeInTheDocument();
+      });
+    });
+  });
+});
+
 describe("RepositoryDetailPage - Issues Tab", () => {
   beforeAll(async () => {
     await i18n.changeLanguage("en-US");
@@ -229,11 +358,15 @@ describe("RepositoryDetailPage - Issues Tab", () => {
     await user.click(issuesTab);
 
     await waitFor(() => {
-      expect(screen.getByText("Issue")).toBeInTheDocument();
-      expect(screen.getByText("Author")).toBeInTheDocument();
-      expect(screen.getByText("Assignee")).toBeInTheDocument();
-      expect(screen.getByText("Comments")).toBeInTheDocument();
-      expect(screen.getByText("Updated")).toBeInTheDocument();
+      const table = document.querySelector(".af-table");
+      expect(table).toBeInTheDocument();
+      const headers = table?.querySelectorAll("thead th");
+      const headerTexts = Array.from(headers || []).map((h) => h.textContent);
+      expect(headerTexts).toContain("Issue");
+      expect(headerTexts).toContain("Author");
+      expect(headerTexts).toContain("Assignee");
+      expect(headerTexts).toContain("Comments");
+      expect(headerTexts).toContain("Updated");
     });
   });
 
@@ -429,6 +562,367 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /New issue/i })).toBeInTheDocument();
+    });
+  });
+});
+
+describe("RepositoryDetailPage - Pull Requests Tab", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en-US");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(repositoryPreviewAPI.tree).mockResolvedValue(mockTreeResponse);
+  });
+
+  it("switches to Pull Requests tab when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Files")).toBeInTheDocument();
+    });
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("This Repository")).toBeInTheDocument();
+      expect(screen.getByText("Related")).toBeInTheDocument();
+      expect(screen.getByText("Filters")).toBeInTheDocument();
+    });
+  });
+
+  it("displays sub-tabs for This Repository and Related", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const thisRepoTab = screen.getByText("This Repository").closest("button");
+      const relatedTab = screen.getByText("Related").closest("button");
+
+      expect(thisRepoTab).toBeInTheDocument();
+      expect(relatedTab).toBeInTheDocument();
+      expect(thisRepoTab).toHaveClass("active");
+    });
+  });
+
+  it("switches between sub-tabs when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("This Repository")).toBeInTheDocument();
+    });
+
+    const relatedTab = screen.getByText("Related").closest("button");
+    await user.click(relatedTab!);
+
+    await waitFor(() => {
+      expect(relatedTab).toHaveClass("active");
+    });
+  });
+
+  it("displays pull request list with correct information", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Add support for multi-agent coordination workflows")).toBeInTheDocument();
+      expect(screen.getByText("Fix memory leak in agent task executor")).toBeInTheDocument();
+      expect(screen.getByText("Implement streaming response support for LLM agents")).toBeInTheDocument();
+    });
+  });
+
+  it("displays PR metadata including author and branches", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("opened by alice-dev")).toBeInTheDocument();
+      expect(screen.getByText("opened by bob-eng")).toBeInTheDocument();
+      expect(screen.getByText(/feature\/multi-agent → main/)).toBeInTheDocument();
+    });
+  });
+
+  it("filters PRs by status when sidebar filter is clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/All \(5\)/)).toBeInTheDocument();
+    });
+
+    const openButton = screen.getByText(/Open \(2\)/).closest("button");
+    await user.click(openButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText("Add support for multi-agent coordination workflows")).toBeInTheDocument();
+      expect(screen.getByText("Implement streaming response support for LLM agents")).toBeInTheDocument();
+      expect(screen.queryByText("Fix memory leak in agent task executor")).not.toBeInTheDocument();
+    });
+  });
+
+  it("filters PRs by merged status", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Merged \(2\)/)).toBeInTheDocument();
+    });
+
+    const mergedButton = screen.getByText(/Merged \(2\)/).closest("button");
+    await user.click(mergedButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText("Fix memory leak in agent task executor")).toBeInTheDocument();
+      expect(screen.getByText("Add authentication middleware for API endpoints")).toBeInTheDocument();
+      expect(screen.queryByText("Add support for multi-agent coordination workflows")).not.toBeInTheDocument();
+    });
+  });
+
+  it("filters PRs by author using dropdown", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const authorSelect = document.querySelector(".filter-select");
+      expect(authorSelect).toBeInTheDocument();
+    });
+
+    const authorSelects = document.querySelectorAll(".filter-select");
+    const authorSelect = Array.from(authorSelects).find((select) =>
+      select.querySelector("option[value='alice-dev']")
+    ) as HTMLSelectElement;
+
+    await user.selectOptions(authorSelect, "alice-dev");
+
+    await waitFor(() => {
+      expect(screen.getByText("Add support for multi-agent coordination workflows")).toBeInTheDocument();
+      expect(screen.queryByText("Fix memory leak in agent task executor")).not.toBeInTheDocument();
+    });
+  });
+
+  it("searches PRs by title", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Search pull requests/i)).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText(/Search pull requests/i);
+    await user.type(searchInput, "streaming");
+
+    await waitFor(() => {
+      expect(screen.getByText("Implement streaming response support for LLM agents")).toBeInTheDocument();
+      expect(screen.queryByText("Add support for multi-agent coordination workflows")).not.toBeInTheDocument();
+    });
+  });
+
+  it("searches PRs by number", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Search pull requests/i)).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText(/Search pull requests/i);
+    await user.type(searchInput, "142");
+
+    await waitFor(() => {
+      expect(screen.getByText("Add support for multi-agent coordination workflows")).toBeInTheDocument();
+      expect(screen.queryByText("Fix memory leak in agent task executor")).not.toBeInTheDocument();
+    });
+  });
+
+  it("sorts PRs by newest", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const sortSelects = document.querySelectorAll(".filter-select");
+      const sortSelect = Array.from(sortSelects).find((select) =>
+        select.querySelector("option[value='newest']")
+      );
+      expect(sortSelect).toBeInTheDocument();
+    });
+
+    const prItems = document.querySelectorAll(".pr-item");
+    expect(prItems[0]?.textContent).toContain("Add support for multi-agent coordination workflows");
+  });
+
+  it("sorts PRs by most commented", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const sortSelects = document.querySelectorAll(".filter-select");
+      expect(sortSelects.length).toBeGreaterThan(0);
+    });
+
+    const sortSelects = document.querySelectorAll(".filter-select");
+    const sortSelect = Array.from(sortSelects).find((select) =>
+      select.querySelector("option[value='most-commented']")
+    ) as HTMLSelectElement;
+
+    await user.selectOptions(sortSelect, "most-commented");
+
+    await waitFor(() => {
+      const prItems = document.querySelectorAll(".pr-item");
+      expect(prItems[0]?.textContent).toContain("Add authentication middleware for API endpoints");
+    });
+  });
+
+  it("displays PR status icons correctly", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const openIcons = document.querySelectorAll(".pr-status-icon.open");
+      const mergedIcons = document.querySelectorAll(".pr-status-icon.merged");
+      const closedIcons = document.querySelectorAll(".pr-status-icon.closed");
+
+      expect(openIcons.length).toBe(2);
+      expect(mergedIcons.length).toBe(2);
+      expect(closedIcons.length).toBe(1);
+    });
+  });
+
+  it("displays PR labels", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("enhancement")).toBeInTheDocument();
+      expect(screen.getByText("bug")).toBeInTheDocument();
+      expect(screen.getByText("security")).toBeInTheDocument();
+    });
+  });
+
+  it("filters PRs by label", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const labelSelects = document.querySelectorAll(".filter-select");
+      expect(labelSelects.length).toBeGreaterThan(0);
+    });
+
+    const labelSelects = document.querySelectorAll(".filter-select");
+    const labelSelect = Array.from(labelSelects).find((select) =>
+      select.querySelector("option[value='bug']")
+    ) as HTMLSelectElement;
+
+    await user.selectOptions(labelSelect, "bug");
+
+    await waitFor(() => {
+      expect(screen.getByText("Fix memory leak in agent task executor")).toBeInTheDocument();
+      expect(screen.queryByText("Add authentication middleware for API endpoints")).not.toBeInTheDocument();
+    });
+  });
+
+  it("displays review status badges", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("✓ Approved")).toBeInTheDocument();
+      expect(screen.getByText("⚠ Changes requested")).toBeInTheDocument();
+    });
+  });
+
+  it("displays comment counts", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      const prStats = document.querySelectorAll(".pr-stat");
+      expect(prStats.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("shows empty state when no PRs match filters", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Search pull requests/i)).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText(/Search pull requests/i);
+    await user.type(searchInput, "nonexistent-search-term-xyz");
+
+    await waitFor(() => {
+      expect(screen.getByText("No pull requests found")).toBeInTheDocument();
+    });
+  });
+
+  it("displays status counts in filter sidebar", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
+    await user.click(pullsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/All \(5\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Open \(2\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Merged \(2\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Closed \(1\)/)).toBeInTheDocument();
     });
   });
 });

@@ -55,9 +55,9 @@ export function RepositoryDetailPage({ organization, repositorySlug }: Repositor
           </div>
         </div>
         <div className="repository-actions">
-          <Button variant="secondary" size="sm">Watch</Button>
-          <Button variant="secondary" size="sm">Fork</Button>
-          <Button variant="secondary" size="sm">Star</Button>
+          <Button variant="secondary" size="small">Watch</Button>
+          <Button variant="secondary" size="small">Fork</Button>
+          <Button variant="secondary" size="small">Star</Button>
         </div>
       </header>
 
@@ -1253,7 +1253,7 @@ function IssuesTabContent() {
               placeholder="Search issues..."
               className="issues-search"
             />
-            <Button variant="primary" size="sm">
+            <Button variant="primary" size="small">
               <Plus size={14} />
               New issue
             </Button>
@@ -1818,7 +1818,7 @@ function ActionsTabContent() {
         <aside className="workflow-list">
           <div className="workflow-list-header">
             <h3>Workflows</h3>
-            <Button variant="primary" size="sm">
+            <Button variant="primary" size="small">
               <Plus size={14} />
               New
             </Button>
@@ -1886,7 +1886,7 @@ function ActionsTabContent() {
                   </div>
                 </div>
                 <div className="workflow-run-actions">
-                  <Button variant="secondary" size="sm">View</Button>
+                  <Button variant="secondary" size="small">View</Button>
                 </div>
               </div>
             ))}
@@ -2403,7 +2403,7 @@ function MembersTabContent({ organization }: MembersTabContentProps) {
         <main className="members-list">
           <div className="members-header">
             <h2>Repository Members</h2>
-            <Button variant="primary" size="sm">
+            <Button variant="primary" size="small">
               <Plus size={16} />
               Invite Member
             </Button>
