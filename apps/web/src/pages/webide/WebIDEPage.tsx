@@ -62,7 +62,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   const canEdit = Boolean(selectedChangeset && selectedChangeset.changeset.revisions.length > 0 && !selectedChangeset.changeset.merge);
   const diffLines = useMemo(() => lineDiff(original, draft), [original, draft]);
   const dirty = Boolean(file && draft !== original);
-  const editorLanguage = file ? detectCodeLanguage(file.path, file.content.split("\\n", 1)[0] ?? "") : undefined;
+  const editorLanguage = file ? detectCodeLanguage(file.path) : undefined;
 
   const runIfClean = (action: () => void) => {
     if (dirty) { setPendingNavigation(() => action); return; }
