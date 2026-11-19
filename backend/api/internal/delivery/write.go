@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -33,7 +34,7 @@ func ChangesetBranch(id string) (string, error) {
 }
 
 func validEditablePath(path string) bool {
-	if path == "" || len(path) > 1024 || !utf8.ValidString(path) || strings.ContainsAny(path, "\x00\\\r\n") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
+	if path == "" || len(path) > 1024 || !utf8.ValidString(path) || strings.ContainsAny(path, "\x00\\\r\n\t") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
 		return false
 	}
 	for _, part := range strings.Split(path, "/") {
