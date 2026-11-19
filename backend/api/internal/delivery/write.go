@@ -133,7 +133,7 @@ func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, c
 	blob := strings.TrimSpace(string(blobRaw))
 	if !objectID.MatchString(blob) { return result, ErrProviderUnavailable }
 	if _, err = isolatedGit(w.ctx, w.dir, nil, env, "read-tree", baseCommit); err != nil { return result, ErrProviderUnavailable }
-	indexInfo := "100644 " + blob + "\\t" + filePath + "\\n"
+	indexInfo := "100644 " + blob + "\t" + filePath + "\n"
 	if _, err = isolatedGit(w.ctx, w.dir, strings.NewReader(indexInfo), env, "update-index", "--add", "--index-info"); err != nil { return result, ErrWriteInvalid }
 	treeRaw, err := isolatedGit(w.ctx, w.dir, nil, env, "write-tree")
 	if err != nil { return result, ErrProviderUnavailable }
