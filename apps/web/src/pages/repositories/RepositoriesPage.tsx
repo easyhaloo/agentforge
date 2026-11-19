@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -15,12 +16,17 @@ import {
 import { Button, DataTable, Input, Select } from "../../shared/ui";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
+import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
+import { formatRepositoryFileSize } from "./repositoryFileUtils";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
+type EntrySort = "name" | "size";
+
 
 /** Registered repositories and a zero-clone, read-only source browser. */
 export function RepositoriesPage({ organization, onNotify }: Props) {
   const { t } = useTranslation("repositories");
+  const navigate = useNavigate();
   const [items, setItems] = useState<RepositoryMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -50,7 +56,20 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
   const [defaultBranchName, setDefaultBranchName] = useState("");
   const [rootReadme, setRootReadme] = useState<RepositoryPreviewBlob | null>(null);
   const [readmeError, setReadmeError] = useState("");
+  const [entryQuery, setEntryQuery] = useState("");
+  const [entrySort, setEntrySort] = useState<EntrySort>("name");
   const canRegister = organization.role === "owner" || organization.role === "admin";
+  const visibleEntries = useMemo(() => {
+    const query = entryQuery.trim().toLocaleLowerCase();
+    return [...(tree?.items ?? [])]
+      .filter(entry => !query || entry.name.toLocaleLowerCase().includes(query) || entry.path.toLocaleLowerCase().includes(query))
+      .sort((left, right) => {
+        if (left.kind === "tree" && right.kind !== "tree") return -1;
+        if (right.kind === "tree" && left.kind !== "tree") return 1;
+        if (entrySort === "size" && left.size !== undefined && right.size !== undefined && left.size !== right.size) return right.size - left.size;
+        return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" });
+      });
+  }, [tree, entryQuery, entrySort]);
 
   useEffect(() => {
     if (!selectedRepository) { setRepositoryRefs([]); setSelectedRef(""); setDefaultBranchName(""); return; }
@@ -181,6 +200,17 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     } finally { setBusy(false); }
   };
 
+  const openMarkdownPath = async (path: string) => {
+    if (!selectedRepository) return;
+    setFileHistory([]); setBlameLines([]); setFileInspectionError("");
+    setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
+    try {
+      setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, path, previewCommit));
+    } catch (cause) {
+      setPreviewError(cause instanceof Error ? cause.message : "Unable to open linked repository file");
+    } finally { setPreviewLoading(false); }
+  };
+
   const openEntry = async (entry: RepositoryPreviewEntry) => {
     if (entry.kind === "tree") {
       setDirectory(entry.path);
@@ -255,7 +285,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
       {comparePatch !== "" && <section aria-label="Commit comparison" style={{ marginTop: 12 }}>
         <h3>Commit comparison</h3>
         <p className="changeset-hint">Base commit <code>{compareBase.slice(0, 12)}</code> · head commit <code>{previewCommit.slice(0, 12)}</code></p>
-        <pre style={{ overflow: "auto", maxHeight: 480, padding: 16, borderRadius: 6, background: "var(--surface-subtle, #f6f8fa)", whiteSpace: "pre" }}><code>{comparePatch || "No changes."}</code></pre>
+        <RepositoryDiffViewer patch={comparePatch}/>
       </section>}
       {previewLoading && <p role="status">Loading repository content…</p>}
       {!previewLoading && tree && !selectedFile && <div>
@@ -263,17 +293,23 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
           <Button className="button secondary" disabled={!directory} onClick={() => setDirectory(directory.split("/").slice(0, -1).join("/"))}><ChevronLeft size={14}/> Parent</Button>
           <nav className="repository-breadcrumb" aria-label="Repository path"><Button className="button link" onClick={() => { setDirectory(""); setSelectedFile(null); }}>root</Button>{tree.path.split("/").filter(Boolean).map((part, index, parts) => <span key={`${part}-${index}`}> / <Button className="button link" onClick={() => { setDirectory(parts.slice(0, index + 1).join("/")); setSelectedFile(null); }}>{part}</Button></span>)}</nav>
         </div>
+        <div className="repository-tree-tools">
+          <Input aria-label="Filter repository files" placeholder="Filter files in this directory…" value={entryQuery} onChange={event => setEntryQuery(event.target.value)} />
+          <Select aria-label="Sort repository files" controlSize="small" value={entrySort} onChange={event => setEntrySort(event.target.value as EntrySort)} options={[{ value: "name", label: "Name" }, { value: "size", label: "Largest first" }]} />
+          <span className="changeset-hint">{visibleEntries.length} / {tree.items.length} items</span>
+        </div>
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {tree.items.map(entry => <li key={entry.path} style={{ borderTop: "1px solid var(--border-subtle, #ddd)", padding: "8px 4px" }}>
+          {visibleEntries.map(entry => <li key={entry.path} style={{ borderTop: "1px solid var(--border-subtle, #ddd)", padding: "8px 4px" }}>
             <Button className="button link" disabled={entry.kind !== "tree" && entry.kind !== "file"} onClick={() => void openEntry(entry)}>
               {entry.kind === "tree" ? <Folder size={15}/> : <FileText size={15}/>}
               {entry.name}
             </Button>
-            {entry.kind === "symlink" && <span className="changeset-hint"> · symbolic link (not followed)</span>}
+            <span className="repository-tree-entry-meta">{entry.kind === "tree" ? "Directory" : entry.kind === "symlink" ? "Symbolic link · not followed" : entry.kind === "blob" ? "Binary or unsupported · preview unavailable" : "File"} · {formatRepositoryFileSize(entry.size)}</span>
           </li>)}
           {tree.items.length === 0 && <li className="changeset-hint">This directory is empty.</li>}
+          {tree.items.length > 0 && visibleEntries.length === 0 && <li className="changeset-hint">No files match “{entryQuery}”.</li>}
         </ul>
-        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content}/></section>}
+        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label="Repository README"><div className="repository-landing-readme__heading"><h3>README</h3><span>Project overview</span></div><RepositoryReadme content={rootReadme.content} sourcePath={rootReadme.path} onOpenPath={openMarkdownPath} onOpenImage={path => repositoryPreviewAPI.imageURL(organization.id, selectedRepository, path, previewCommit)}/></section>}
         {readmeError && !tree.path && <p className="changeset-hint" role="status">{readmeError}</p>}
       </div>}
       {selectedFile && <div style={{ marginTop: 12 }}>
@@ -283,6 +319,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         </div>
         <p className="changeset-hint">Blob <code>{selectedFile.blob_sha}</code> · commit <code>{selectedFile.commit_sha}</code></p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0" }}>
+          <Button className="button secondary" onClick={() => navigate(`/orgs/${encodeURIComponent(organization.slug || organization.id)}/webide?${new URLSearchParams({ repository: selectedRepository, commit: previewCommit, path: selectedFile.path }).toString()}`)}>Open in WebIDE</Button>
           <Button className="button secondary" onClick={() => void inspectFile("history")} disabled={fileInspectionLoading}>File history</Button>
           <Button className="button secondary" onClick={() => void inspectFile("blame")} disabled={fileInspectionLoading}>Blame</Button>
         </div>
@@ -294,7 +331,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
         {blameLines.length > 0 && <section aria-label="File blame"><h3>Blame</h3><div style={{ overflow: "auto", maxHeight: 360, display: "grid", gap: 4 }}>{blameLines.map(line => <div key={line.line} style={{ display: "grid", gridTemplateColumns: "42px 88px minmax(100px, 180px) 1fr", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border-subtle, #ddd)" }}>
           <code>{line.line}</code><code>{line.commit_sha.slice(0, 8)}</code><span>{line.author}</span><code style={{ overflowWrap: "anywhere" }}>{line.content}</code>
         </div>)}</div></section>}
-        {selectedFile.path.split("/").at(-1)?.toLowerCase() === "readme.md" ? <RepositoryReadme content={selectedFile.content}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
+        {(selectedFile.path.toLowerCase().endsWith(".md") || selectedFile.path.toLowerCase().endsWith(".markdown")) ? <RepositoryReadme content={selectedFile.content} sourcePath={selectedFile.path} onOpenPath={openMarkdownPath} onOpenImage={path => repositoryPreviewAPI.imageURL(organization.id, selectedRepository, path, previewCommit)}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
       </div>}
     </section>}
   </section>;

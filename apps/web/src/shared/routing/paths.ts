@@ -23,7 +23,7 @@ export const flatPaths = {
 } as const;
 
 /** Pages backed by the real API live under `/orgs/:org/<section>`. `settings` is the Organization page. */
-export type OrgSection = "pipelines" | "changesets" | "repositories" | "trails" | "review" | "eval" | "settings";
+export type OrgSection = "pipelines" | "changesets" | "repositories" | "webide" | "trails" | "review" | "eval" | "settings";
 
 export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;

@@ -329,3 +329,36 @@
 .repository-code__token--number{color:#e7b36e}
 .repository-code__token--comment{color:#74839a;font-style:italic}
 @media(max-width:600px){.repository-source__toolbar{align-items:flex-start}.repository-source__line{grid-template-columns:42px minmax(0,1fr)}.repository-source__text{padding:0 10px}}
+
+
+/* Repository tree filtering and file metadata */
+.repository-tree-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 8px}
+.repository-tree-tools> :first-child{flex:1 1 220px;min-width:180px}
+.repository-tree-tools .changeset-hint{margin-left:auto;white-space:nowrap}
+.repository-tree-entry-meta{display:inline-block;margin-left:10px;color:var(--text-muted,#8290a8);font-size:11px}
+@media(max-width:600px){.repository-tree-entry-meta{display:block;margin:3px 0 0 28px}.repository-tree-tools .changeset-hint{margin-left:0}}
+
+/* Read-only WebIDE shell */
+.webide-page{display:grid;gap:14px}
+.webide-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.webide-heading h2{display:flex;align-items:center;gap:9px;margin:6px 0;font-size:22px}
+.webide-heading p{margin:0;color:#8995aa;font-size:11px}
+.webide-mode{border:1px solid #38415a;border-radius:6px;padding:5px 9px;color:#b5abc9;font:600 9px 'DM Mono',monospace;letter-spacing:1px}
+.webide-toolbar{display:flex;align-items:center;gap:10px;padding:12px;flex-wrap:wrap}
+.webide-toolbar>*{flex:1 1 220px}
+.webide-layout{display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:14px;min-height:520px}
+.webide-explorer{padding:12px;min-width:0;overflow:auto}
+.webide-explorer__title,.webide-editor__title{display:flex;justify-content:space-between;gap:10px;align-items:center;padding-bottom:10px;border-bottom:1px solid #283249}
+.webide-explorer__title span,.webide-editor__title span{color:#8995aa;font-size:10px}
+.webide-breadcrumb{padding:8px 0;color:#8995aa;font-size:10px;overflow-wrap:anywhere}
+.webide-explorer ul{list-style:none;padding:0;margin:8px 0}
+.webide-explorer li{padding:2px 0}
+.webide-editor{min-width:0;overflow:auto;padding:12px}
+.webide-editor__title{margin-bottom:10px}
+.webide-empty{min-height:450px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:#8995aa;text-align:center}
+.webide-empty strong{color:#dce0ec}
+.webide-empty span{max-width:360px;font-size:11px}
+.repository-source__line--active{background:#292746;outline:1px solid #5d5495}
+@media(max-width:760px){.webide-layout{grid-template-columns:1fr}.webide-explorer{max-height:260px}.webide-heading{align-items:flex-start;flex-direction:column}}
+
+.repository-readme img{display:block;max-width:100%;height:auto;max-height:640px;object-fit:contain;margin:12px 0;border-radius:8px}
