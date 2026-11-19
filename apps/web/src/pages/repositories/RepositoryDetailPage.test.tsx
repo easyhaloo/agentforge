@@ -652,8 +652,8 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     await user.click(pullsTab);
 
     await waitFor(() => {
-      expect(screen.getByText("opened by alice-dev")).toBeInTheDocument();
-      expect(screen.getByText("opened by bob-eng")).toBeInTheDocument();
+      expect(screen.getAllByText(/opened by alice-dev/)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/opened by bob-eng/)[0]).toBeInTheDocument();
       expect(screen.getByText(/feature\/multi-agent → main/)).toBeInTheDocument();
     });
   });
@@ -926,3 +926,462 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     });
   });
 });
+
+describe("RepositoryDetailPage - Members Tab", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en-US");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(repositoryPreviewAPI.tree).mockResolvedValue(mockTreeResponse);
+  });
+
+  it("switches to Members tab when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Files")).toBeInTheDocument();
+    });
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Filters")).toBeInTheDocument();
+      expect(screen.getByText("Repository Members")).toBeInTheDocument();
+    });
+  });
+
+  it("restricts access for non-admin users", async () => {
+    const nonAdminOrg: OrganizationSummary = {
+      ...mockOrganization,
+      role: "member",
+    };
+
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={nonAdminOrg} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Access Restricted")).toBeInTheDocument();
+      expect(screen.getByText("Only repository administrators can view the members list.")).toBeInTheDocument();
+    });
+  });
+
+  it("allows access for admin users", async () => {
+    const adminOrg: OrganizationSummary = {
+      ...mockOrganization,
+      role: "admin",
+    };
+
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={adminOrg} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Repository Members")).toBeInTheDocument();
+      expect(screen.queryByText("Access Restricted")).not.toBeInTheDocument();
+    });
+  });
+
+  it("displays member list with correct columns", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      const table = document.querySelector(".af-table");
+      expect(table).toBeInTheDocument();
+      const headers = table?.querySelectorAll("thead th");
+      const headerTexts = Array.from(headers || []).map((h) => h.textContent);
+      expect(headerTexts).toContain("Member");
+      expect(headerTexts).toContain("Role");
+      expect(headerTexts).toContain("Last Active");
+    });
+  });
+
+  it("displays member information correctly", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("alice-smith")).toBeInTheDocument();
+      expect(screen.getByText("alice@agentforge.dev")).toBeInTheDocument();
+      expect(screen.getByText("bob-jones")).toBeInTheDocument();
+      expect(screen.getByText("bob@agentforge.dev")).toBeInTheDocument();
+    });
+  });
+
+  it("displays role badges with correct styling", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      const ownerBadge = screen.getByText("Owner").closest(".member-role-badge");
+      const memberBadges = screen.getAllByText("Member");
+      const externalBadges = screen.getAllByText("External Collaborator");
+
+      expect(ownerBadge).toHaveClass("member-role-owner");
+      expect(memberBadges.length).toBeGreaterThan(0);
+      expect(externalBadges.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("displays filter sidebar with correct counts", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      const allMembersButton = screen.getByText("All Members").closest("button");
+      const orgMembersButton = screen.getByText("Organization Members").closest("button");
+      const externalButton = screen.getByText("External Collaborators").closest("button");
+
+      expect(allMembersButton?.querySelector(".members-filter-count")?.textContent).toBe("6");
+      expect(orgMembersButton?.querySelector(".members-filter-count")?.textContent).toBe("4");
+      expect(externalButton?.querySelector(".members-filter-count")?.textContent).toBe("2");
+    });
+  });
+
+  it("filters members by organization", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("alice-smith")).toBeInTheDocument();
+      expect(screen.getByText("david-brown")).toBeInTheDocument();
+    });
+
+    const orgMembersButton = screen.getByText("Organization Members").closest("button");
+    await user.click(orgMembersButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText("alice-smith")).toBeInTheDocument();
+      expect(screen.getByText("bob-jones")).toBeInTheDocument();
+      expect(screen.queryByText("david-brown")).not.toBeInTheDocument();
+      expect(screen.queryByText("eve-davis")).not.toBeInTheDocument();
+    });
+  });
+
+  it("filters members by external collaborators", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Organization Members")).toBeInTheDocument();
+    });
+
+    const externalButton = screen.getByText("External Collaborators").closest("button");
+    await user.click(externalButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText("david-brown")).toBeInTheDocument();
+      expect(screen.getByText("eve-davis")).toBeInTheDocument();
+      expect(screen.queryByText("alice-smith")).not.toBeInTheDocument();
+      expect(screen.queryByText("bob-jones")).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows empty state for pending invitations", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Pending Invitations")).toBeInTheDocument();
+    });
+
+    const pendingButton = screen.getByText("Pending Invitations").closest("button");
+    await user.click(pendingButton!);
+
+    await waitFor(() => {
+      expect(screen.getByText("No members found")).toBeInTheDocument();
+    });
+  });
+
+  it("highlights active filter in sidebar", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      const allMembersButton = screen.getByText("All Members").closest("button");
+      expect(allMembersButton).toHaveClass("active");
+    });
+
+    const orgMembersButton = screen.getByText("Organization Members").closest("button");
+    await user.click(orgMembersButton!);
+
+    await waitFor(() => {
+      expect(orgMembersButton).toHaveClass("active");
+      const allMembersButton = screen.getByText("All Members").closest("button");
+      expect(allMembersButton).not.toHaveClass("active");
+    });
+  });
+
+  it("displays invite member button", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Invite Member/i })).toBeInTheDocument();
+    });
+  });
+
+  it("displays member avatars", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      const avatars = document.querySelectorAll(".member-avatar");
+      expect(avatars.length).toBeGreaterThan(0);
+      expect(avatars[0]?.textContent).toBe("AS");
+    });
+  });
+
+  it("displays last active time correctly", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const membersTab = screen.getByRole("tab", { name: /Members/i });
+    await user.click(membersTab);
+
+    await waitFor(() => {
+      const table = document.querySelector(".af-table");
+      expect(table).toBeInTheDocument();
+      const lastActiveCell = table?.querySelector("tbody tr td:last-child");
+      expect(lastActiveCell?.textContent).toMatch(/days ago|Today|Yesterday/);
+    });
+  });
+});
+
+describe("RepositoryDetailPage - Settings Tab", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en-US");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(repositoryPreviewAPI.tree).mockResolvedValue(mockTreeResponse);
+  });
+
+  it("shows Settings tab only for repository owners", async () => {
+    const ownerOrg: OrganizationSummary = { ...mockOrganization, role: "owner" };
+    const { rerender } = render(<RepositoryDetailPage organization={ownerOrg} repositorySlug="testrepo" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /Settings/i })).toBeInTheDocument();
+    });
+
+    const memberOrg: OrganizationSummary = { ...mockOrganization, role: "member" };
+    rerender(<RepositoryDetailPage organization={memberOrg} repositorySlug="testrepo" />);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("tab", { name: /Settings/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it("hides Settings tab for admin role", async () => {
+    const adminOrg: OrganizationSummary = { ...mockOrganization, role: "admin" };
+    render(<RepositoryDetailPage organization={adminOrg} repositorySlug="testrepo" />);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("tab", { name: /Settings/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it("switches to Settings tab when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Files")).toBeInTheDocument();
+    });
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Repository Settings")).toBeInTheDocument();
+    });
+  });
+
+  it("displays all settings navigation sections", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^General$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Access$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Branches$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Tags$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Notifications$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Webhooks$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Moderation$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Rulesets$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Actions$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Environments$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Secrets$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Copilot$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Pages$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Security$/i })).toBeInTheDocument();
+    });
+  });
+
+  it("displays General settings page by default", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("General")).toBeInTheDocument();
+      expect(screen.getByText("Manage repository settings including name, description, and visibility")).toBeInTheDocument();
+      expect(screen.getByText("Repository Name")).toBeInTheDocument();
+    });
+  });
+
+  it("switches to Branches settings when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Branches$/i })).toBeInTheDocument();
+    });
+
+    const branchesButton = screen.getByRole("button", { name: /^Branches$/i });
+    await user.click(branchesButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Manage branch protection rules and default branch")).toBeInTheDocument();
+      expect(screen.getByText("Default Branch")).toBeInTheDocument();
+      expect(screen.getByText("Branch Protection Rules")).toBeInTheDocument();
+    });
+  });
+
+  it("switches to Actions settings when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Actions$/i })).toBeInTheDocument();
+    });
+
+    const actionsButton = screen.getByRole("button", { name: /^Actions$/i });
+    await user.click(actionsButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Configure GitHub Actions permissions and settings")).toBeInTheDocument();
+      expect(screen.getByText("Actions Permissions")).toBeInTheDocument();
+      expect(screen.getByText("Workflow Permissions")).toBeInTheDocument();
+    });
+  });
+
+  it("switches to Secrets settings when clicked", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Secrets$/i })).toBeInTheDocument();
+    });
+
+    const secretsButton = screen.getByRole("button", { name: /^Secrets$/i });
+    await user.click(secretsButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Secrets and Variables")).toBeInTheDocument();
+      expect(screen.getByText("Repository Secrets")).toBeInTheDocument();
+      expect(screen.getByText("Repository Variables")).toBeInTheDocument();
+    });
+  });
+
+  it("highlights the active settings section", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      const generalButton = screen.getByRole("button", { name: /^General$/i });
+      expect(generalButton).toHaveClass("active");
+    });
+
+    const environmentsButton = screen.getByRole("button", { name: /^Environments$/i });
+    await user.click(environmentsButton);
+
+    await waitFor(() => {
+      expect(environmentsButton).toHaveClass("active");
+      const generalButton = screen.getByRole("button", { name: /^General$/i });
+      expect(generalButton).not.toHaveClass("active");
+    });
+  });
+
+  it("displays Security settings correctly", async () => {
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const settingsTab = screen.getByRole("tab", { name: /Settings/i });
+    await user.click(settingsTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Security$/i })).toBeInTheDocument();
+    });
+
+    const securityButton = screen.getByRole("button", { name: /^Security$/i });
+    await user.click(securityButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Manage security settings and vulnerability alerts")).toBeInTheDocument();
+      expect(screen.getByText("Vulnerability Alerts")).toBeInTheDocument();
+      expect(screen.getByText("Code Scanning")).toBeInTheDocument();
+    });
+  });
+});
+
+
