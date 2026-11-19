@@ -1,62 +1,69 @@
-import { LogOut, Settings, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { BookMarked, Building2, Folders, LogOut, Paintbrush, Settings, User } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Popover, Button } from "../../shared/ui";
-import { flatPaths } from "../../shared/routing";
+import { flatPaths, organizationHandle, orgPath } from "../../shared/routing";
+import { Button, Popover } from "../../shared/ui";
+import { AccountAvatar } from "../../shared/ui/components/AccountAvatar";
 import { useAppAccount } from "../account-context";
 import "./UserMenu.css";
 
-type Props = {
-  onSignOut: () => void;
-};
+type Props = { onSignOut: () => void };
 
 export function UserMenu({ onSignOut }: Props) {
   const { t } = useTranslation("navigation");
-  const { account } = useAppAccount();
-
-  // Generate initials from display name
-  const initials = (account?.display_name || "A").trim().slice(0, 1).toUpperCase();
-  const displayName = account?.display_name || t("userMenu.notSignedIn");
-  const email = account?.email || "";
+  const { account, selectedOrganization } = useAppAccount();
+  const location = useLocation();
+  const handle = selectedOrganization && organizationHandle(selectedOrganization);
+  const displayName = account?.display_name || account?.email || t("userMenu.notSignedIn");
+  const menuLabel = t("userMenu.userMenuLabel");
+  const avatar = <AccountAvatar userId={account?.user_id ?? ""} size={32} />;
 
   return (
-    <Popover
-      trigger={
-        <div className="user-menu-trigger">
-          <div className="avatar small">{initials}</div>
+    <div className="user-menu">
+      <Popover
+        key={`${location.key}:${account?.user_id ?? ""}`}
+        ariaLabel={menuLabel}
+        trigger={
+          <span className="user-menu-trigger" title={displayName}>
+            <span aria-hidden="true">{avatar}</span>
+            <span className="user-menu-trigger__label">{menuLabel}, {displayName}</span>
+          </span>
+        }
+      >
+        <div className="user-menu-header">
+          {avatar}
+          <div className="user-menu-header__identity">
+            <div className="user-menu-header__name" title={displayName}>{displayName}</div>
+            {account?.email && <div className="user-menu-header__email" title={account.email}>{account.email}</div>}
+          </div>
         </div>
-      }
-      placement="bottom"
-      ariaLabel={t("userMenu.userMenuLabel") || "User menu"}
-    >
-      {/* User info header */}
-      <div className="user-menu-header">
-        <div className="user-menu-header__name">{displayName}</div>
-        {email && <div className="user-menu-header__email">{email}</div>}
-      </div>
-
-      <div className="user-menu-divider" />
-
-      {/* Menu items */}
-      <Link to={flatPaths.overview} className="user-menu-item">
-        <User size={14} />
-        <span>{t("userMenu.profile")}</span>
-      </Link>
-
-      <Link to={flatPaths.settings} className="user-menu-item">
-        <Settings size={14} />
-        <span>{t("userMenu.settings")}</span>
-      </Link>
-
-      <div className="user-menu-divider" />
-
-      {/* Sign out */}
-      {account && (
-        <Button onClick={onSignOut} variant="ghost" className="user-menu-item">
-          <LogOut size={14} />
-          <span>{t("userMenu.signOut")}</span>
-        </Button>
-      )}
-    </Popover>
+        <hr />
+        <Link className="user-menu-item" to={`${flatPaths.settings}/profile`}>
+          <User aria-hidden="true" />{t("userMenu.profile")}
+        </Link>
+        {handle && <Link className="user-menu-item" to={orgPath(handle, "repositories")}>
+          <BookMarked aria-hidden="true" />{t("routes.repositories")}
+        </Link>}
+        <Link className="user-menu-item" to={flatPaths.projects}>
+          <Folders aria-hidden="true" />{t("routes.projects")}
+        </Link>
+        {handle && <Link className="user-menu-item" to={orgPath(handle, "settings")}>
+          <Building2 aria-hidden="true" />{t("userMenu.organization")}
+        </Link>}
+        <hr />
+        <Link className="user-menu-item" to={flatPaths.settings}>
+          <Settings aria-hidden="true" />{t("userMenu.settings")}
+        </Link>
+        <Link className="user-menu-item" to={`${flatPaths.settings}/appearance`}>
+          <Paintbrush aria-hidden="true" />{t("settings:nav.appearance")}
+        </Link>
+        {account && <>
+          <hr />
+          <Button variant="ghost" className="user-menu-item" onClick={onSignOut}>
+            <LogOut aria-hidden="true" />{t("userMenu.signOut")}
+          </Button>
+        </>}
+      </Popover>
+    </div>
   );
 }

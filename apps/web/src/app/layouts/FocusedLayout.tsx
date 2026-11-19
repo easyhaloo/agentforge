@@ -5,6 +5,8 @@ import { APIError, accountAPI, authAPI, type AccountContext } from "../../shared
 import { translateError } from "../../shared/api/errors";
 import { flatPaths } from "../../shared/routing";
 import { AppAccountContext, type AccountState } from "../account-context";
+import { AccountTheme } from "../../features/appearance/AccountTheme";
+import { CommandPalette } from "../components/CommandPalette";
 import { Topbar } from "../components/Topbar";
 import { useNavigateTo } from "../useNavigateTo";
 import { useNotify } from "../useNotify";
@@ -24,6 +26,7 @@ export function FocusedLayout() {
   const { pathname } = location;
   const [account, setAccount] = useState<AccountContext | null>(null);
   const [accountState, setAccountState] = useState<AccountState>("loading");
+  const [commandOpen, setCommandOpen] = useState(false);
   const [accountError, setAccountError] = useState("");
 
   const loadAccount = async () => {
@@ -60,6 +63,10 @@ export function FocusedLayout() {
     }
   };
 
+  const updateDisplayName = (displayName: string) => {
+    setAccount(current => current && { ...current, display_name: displayName });
+  };
+
   const selectedOrganization = account?.organizations[0];
 
   // Show nothing while loading to avoid flash of content
@@ -88,21 +95,27 @@ export function FocusedLayout() {
     );
   }
 
+  if (!account) return null;
+
   return (
-    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
-      <div className="focused-shell">
-        <div className="focused-main">
-          <Topbar
-            label={pathname.includes("/settings") ? "Settings" : "Profile"}
-            onSearch={() => {/* No command palette in focused layout */}}
-            onNotify={notify}
-            onSignOut={() => void signOut()}
-          />
-          <div className="focused-content">
-            <Outlet />
+    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, updateDisplayName, selectedOrganization }}>
+      <AccountTheme key={account.user_id}>
+        <div className="focused-shell">
+          <div className="focused-main">
+            <Topbar
+              focused
+              label={pathname.includes("/settings") ? "Settings" : "Profile"}
+              onSearch={() => setCommandOpen(true)}
+              onNotify={notify}
+              onSignOut={() => void signOut()}
+            />
+            <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+            <div className="focused-content">
+              <Outlet />
+            </div>
           </div>
         </div>
-      </div>
+      </AccountTheme>
     </AppAccountContext.Provider>
   );
 }

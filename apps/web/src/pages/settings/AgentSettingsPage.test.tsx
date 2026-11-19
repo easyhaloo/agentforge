@@ -1,3 +1,5 @@
+import { render, screen } from "@testing-library/react";
+import { settingsAPI } from "../../shared/api/settings";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { AgentSettingsPage } from "./AgentSettingsPage";
@@ -38,6 +40,13 @@ describe("AgentSettingsPage", () => {
       documentation: false,
     },
   };
+
+  it("omits the unavailable clear-memory action", async () => {
+    vi.spyOn(settingsAPI, "getAgentPreferences").mockResolvedValue(mockAgentPrefs);
+    render(<AgentSettingsPage />);
+    await screen.findByRole("heading", { name: "agents.crossSessionMemory" });
+    expect(screen.queryByText("agents.clearMemory")).toBeNull();
+  });
 
   it("shows loading state on initial render", () => {
     const html = renderToStaticMarkup(<AgentSettingsPage />);

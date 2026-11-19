@@ -13,6 +13,7 @@ import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
+import { useAppAccount } from "./account-context";
 import { useNotify } from "./useNotify";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register/RegisterPage";
@@ -30,15 +31,9 @@ export function RegisterRoute() {
 
 export function SettingsRoute() {
   const notify = useNotify();
-  // TODO: Get actual user data from context or API
-  // For now, using placeholder values until user context is available
-  return (
-    <SettingsLayout
-      username="user"
-      displayName="User"
-      onNotify={notify}
-    />
-  );
+  const { account, updateDisplayName } = useAppAccount();
+  if (!account) return null;
+  return <SettingsLayout organizations={account.organizations} notify={notify} updateDisplayName={updateDisplayName} />;
 }
 
 export function OverviewRoute() {

@@ -3,33 +3,10 @@
  * All endpoints require authentication via session cookies.
  */
 
-import { APIError } from "./errors";
+import { request } from "./identity";
 
-const BASE_URL = "/api/v1/users/me";
-
-/**
- * Base fetch wrapper with credentials and error handling
- */
-async function fetchAPI<T>(
-  endpoint: string,
-  options?: RequestInit
-): Promise<T> {
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    credentials: "include", // Send session cookie
-  });
-
-  if (!response.ok) {
-    // The status is what the interface shows a message for; the API's English prose stays here.
-    let detail: string | undefined;
-    try {
-      const problem = await response.json() as { detail?: string; title?: string; message?: string };
-      detail = problem.detail || problem.title || problem.message;
-    } catch { /* response may not contain JSON */ }
-    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail);
-  }
-
-  return response.json();
+function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  return request<T>(`/api/v1/users/me${endpoint}`, options);
 }
 
 // Type definitions
@@ -122,7 +99,6 @@ export const settingsAPI = {
   updatePreferences: (data: Partial<Omit<UserPreferences, "updated_at">>) =>
     fetchAPI<UserPreferences>("/preferences", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
 
@@ -132,7 +108,6 @@ export const settingsAPI = {
   updateProfile: (data: Partial<Omit<UserProfile, "user_id" | "username" | "email" | "created_at" | "updated_at">>) =>
     fetchAPI<UserProfile>("/profile", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
 
@@ -145,35 +120,33 @@ export const settingsAPI = {
   updateNotificationPreferences: (data: Partial<NotificationPreferences>) =>
     fetchAPI<NotificationPreferences>("/notification-preferences", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
 
   // SSH Keys
-  getSSHKeys: () => fetchAPI<SSHKey[]>("/ssh-keys"),
+  getSSHKeys: () => fetchAPI<{ keys: SSHKey[] }>("/ssh-keys").then(result => result.keys),
 
   addSSHKey: (data: { title: string; public_key: string }) =>
     fetchAPI<SSHKey>("/ssh-keys", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
 
   deleteSSHKey: (keyId: string) =>
-    fetchAPI<{ success: boolean }>(`/ssh-keys/${keyId}`, {
+    fetchAPI<void>(`/ssh-keys/${encodeURIComponent(keyId)}`, {
       method: "DELETE",
     }),
 
   // Sessions
-  getSessions: () => fetchAPI<Session[]>("/sessions"),
+  getSessions: () => fetchAPI<{ sessions: Session[] }>("/sessions").then(result => result.sessions),
 
   revokeSession: (sessionId: string) =>
-    fetchAPI<{ success: boolean }>(`/sessions/${sessionId}`, {
+    fetchAPI<void>(`/sessions/${encodeURIComponent(sessionId)}`, {
       method: "DELETE",
     }),
 
   revokeAllOtherSessions: () =>
-    fetchAPI<{ success: boolean; revoked_count: number }>("/sessions", {
+    fetchAPI<{ revoked_count: number }>("/sessions", {
       method: "DELETE",
     }),
 
@@ -183,7 +156,6 @@ export const settingsAPI = {
   updateAgentPreferences: (data: Partial<AgentPreferences>) =>
     fetchAPI<AgentPreferences>("/agent-preferences", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }),
 

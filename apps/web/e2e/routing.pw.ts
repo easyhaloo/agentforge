@@ -141,12 +141,11 @@ test("an organization whose own slug is the reserved current alias is addressed 
   expect(pathOf(page)).toBe("/orgs/org-reserved/changesets");
 });
 
-test("signed out, organization pages ask for SSO while flat pages still render", async ({ page }) => {
+test("signed out, organization pages ask for sign-in while flat pages still render", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
   await page.goto("/orgs/x/changesets");
   await expect(page.getByRole("heading", { name: "Sign in to view changesets" })).toBeVisible();
-  const sso = page.getByRole("link", { name: "Continue with SSO" });
-  await expect(sso).toHaveAttribute("href", "/auth/oidc/login");
+  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", "/login?return=%2Forgs%2Fx%2Fchangesets");
 
   await sidebarLink(page, "Projects").click();
   await expect(pageHeading(page)).toHaveText("Projects");
@@ -158,7 +157,8 @@ test("the SSO entry is a full-page navigation to the backend, never a client rou
   await installApiMocks(page, { signedOut: true });
   await page.route("**/auth/oidc/login", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Identity provider</h1>" }));
   await page.goto("/orgs/x/changesets");
-  await page.getByRole("link", { name: "Continue with SSO" }).click();
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await page.getByRole("link", { name: "SSO", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Identity provider" })).toBeVisible();
   expect(pathOf(page)).toBe("/auth/oidc/login");
 });

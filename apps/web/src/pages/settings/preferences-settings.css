@@ -1,0 +1,94 @@
+.preferences-settings fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.preferences-settings legend { width: 100%; }
+.preferences-settings .settings-note { margin: 0 0 12px; }
+.preferences-settings .af-field { max-width: 28rem; font-size: 14px; }
+.preferences-settings .af-field__hint { font-size: 12px; }
+.preferences-settings button[type="submit"] {
+  justify-self: start;
+  background: #1f883d;
+  border-color: #1b7836;
+}
+.preferences-settings button[type="submit"]:enabled:hover { background: #1a7f37; }
+.preferences-settings .preference-error {
+  padding: 12px;
+  border-radius: 6px;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.preferences-settings .theme-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 12px;
+}
+
+.preferences-settings .theme-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.preferences-settings .theme-card:has(:checked) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.preferences-settings label:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.preferences-settings .theme-preview {
+  display: grid;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.preferences-settings .theme-preview svg {
+  --preview-canvas: #f6f8fa;
+  --preview-surface: #fff;
+  --preview-line: #d1d9e0;
+  --preview-ink: #59636e;
+  --preview-accent: #1a7f37;
+  grid-area: 1 / 1;
+  width: 100%;
+  height: clamp(78px, 9vw, 108px);
+  background: var(--preview-canvas);
+}
+
+.preferences-settings .theme-preview .preview-dark {
+  --preview-canvas: #0d1117;
+  --preview-surface: #161b22;
+  --preview-line: #3d444d;
+  --preview-ink: #9198a1;
+  --preview-accent: #3fb950;
+}
+
+.preferences-settings .theme-preview svg + svg { clip-path: inset(0 0 0 50%); }
+.preferences-settings .theme-caption,
+.preferences-settings .preference-checkbox .af-choice,
+.preferences-settings .preference-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.preferences-settings .preference-checkbox { padding: 0; }
+.preferences-settings .preference-checkbox .af-choice { padding: 16px; font: inherit; color: inherit; }
+.preferences-settings .theme-caption { padding: 8px 12px; font-weight: 600; }
+.preferences-settings :is(.theme-caption, .preference-row, .preference-checkbox) input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+.preferences-settings :is(.theme-card, .preference-row, .preference-checkbox):hover { background: var(--color-bg-hover); }

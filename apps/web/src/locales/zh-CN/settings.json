@@ -1,5 +1,6 @@
 {
   "nav": {
+    "switchContext": "切换设置上下文",
     "profile": "公开资料",
     "account": "账户",
     "appearance": "外观",
@@ -9,8 +10,7 @@
     "sessions": "会话",
     "agents": "Agent 交互",
     "groupAccess": "访问控制",
-    "groupCode": "代码",
-    "userAccountType": "用户账户"
+    "groupCode": "代码"
   },
   "profile": {
     "title": "公开资料",
@@ -31,9 +31,12 @@
     "websiteComingSoon": "暂不支持保存网站地址。",
     "avatar": "头像",
     "avatarComingSoon": "头像上传功能即将推出",
-    "saveSuccess": "资料更新成功"
+    "saveSuccess": "资料更新成功",
+    "loadError": "无法加载个人资料。"
   },
   "account": {
+    "details": "账户详情",
+    "editProfile": "编辑公开资料",
     "title": "账户",
     "description": "管理您的账户设置和偏好",
     "username": "用户名",
@@ -78,7 +81,8 @@
     "frequencyRealTime": "实时",
     "frequencyHourly": "每小时汇总",
     "frequencyDaily": "每日汇总",
-    "saveSuccess": "通知设置已保存"
+    "saveSuccess": "通知设置已保存",
+    "loadError": "无法加载通知偏好设置。"
   },
   "authentication": {
     "title": "密码与身份验证",
@@ -101,11 +105,13 @@
       "currentIncorrect": "当前密码不正确。",
       "validation": "请先填写完整再保存。",
       "generic": "密码更改失败。"
-    }
+    },
+    "localAccount": "本地账户",
+    "provider": "身份提供商"
   },
   "keys": {
     "title": "SSH 和 GPG 密钥",
-    "description": "管理您的 SSH 和 GPG 密钥以实现安全访问",
+    "description": "管理用于安全访问的 SSH 密钥",
     "sshKeys": "SSH 密钥",
     "addSSHKey": "添加 SSH 密钥",
     "keyTitle": "标题",
@@ -124,12 +130,14 @@
     "neverUsed": "从未使用",
     "noKeys": "暂无 SSH 密钥",
     "gpgTitle": "GPG 密钥",
-    "gpgComingSoon": "GPG 密钥管理功能即将推出。",
+    "gpgComingSoon": "暂不支持管理 GPG 密钥。",
     "deleteKey": "删除密钥",
     "deleteKeyTitle": "删除 SSH 密钥",
     "deleteKeyConfirm": "确定要删除此密钥吗？",
     "keyAdded": "SSH 密钥添加成功",
-    "keyDeleted": "SSH 密钥删除成功"
+    "keyDeleted": "SSH 密钥删除成功",
+    "loadError": "无法加载 SSH 密钥。",
+    "deleteSuccess": "SSH 密钥删除成功"
   },
   "sessions": {
     "title": "会话",
@@ -158,7 +166,16 @@
     "revokeAllConfirm": "这将在所有其他设备上退出登录",
     "sessionRevoked": "会话已撤销",
     "revokeAllSuccess_one": "已撤销 {{count}} 个会话",
-    "revokeAllSuccess_other": "已撤销 {{count}} 个会话"
+    "revokeAllSuccess_other": "已撤销 {{count}} 个会话",
+    "loadError": "无法加载会话。",
+    "revokeSuccess": "会话已撤销",
+    "activeNow": "当前活跃",
+    "minutesAgo_one": "{{count}} 分钟前",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_one": "{{count}} 小时前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_one": "{{count}} 天前",
+    "daysAgo_other": "{{count}} 天前"
   },
   "agents": {
     "title": "Agent 交互",
@@ -210,7 +227,9 @@
     "automationAggressiveDesc": "Agent 在允许的边界内自主执行所有操作。",
     "evaluationTitle": "评估",
     "reviewTitle": "Agent 审核",
-    "saveSuccess": "Agent 设置已保存"
+    "saveSuccess": "Agent 设置已保存",
+    "loadError": "无法加载智能体偏好设置。",
+    "memoryEnabled": "启用跨会话记忆"
   },
   "identities": {
     "title": "登录方式",
@@ -253,5 +272,20 @@
     "loadSessionsFailed": "无法加载会话",
     "revokeSessionFailed": "无法撤销该会话",
     "revokeSessionsFailed": "无法撤销会话"
+  },
+  "changePassword": {
+    "title": "更改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "submit": "更新密码",
+    "cancel": "取消",
+    "error": {
+      "currentIncorrect": "请检查当前密码。",
+      "tooShort": "密码至少需要 8 个字符",
+      "notMatch": "密码不匹配",
+      "validation": "请检查以上字段。",
+      "generic": "无法更新密码，请重试。"
+    }
   }
 }
