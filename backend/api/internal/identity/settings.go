@@ -43,16 +43,16 @@ type SSHKey struct {
 
 // SessionInfo represents a user session with metadata.
 type SessionInfo struct {
-	SessionID    string     `json:"session_id"`
-	UserID       string     `json:"user_id"`
-	DeviceType   string     `json:"device_type"`
-	Browser      string     `json:"browser"`
-	OS           string     `json:"os"`
-	IPAddress    string     `json:"ip_address"`
-	Location     *string    `json:"location,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	LastActiveAt time.Time  `json:"last_active_at"`
-	IsCurrent    bool       `json:"is_current"`
+	SessionID    string    `json:"session_id"`
+	UserID       string    `json:"user_id"`
+	DeviceType   string    `json:"device_type"`
+	Browser      string    `json:"browser"`
+	OS           string    `json:"os"`
+	IPAddress    string    `json:"ip_address"`
+	Location     *string   `json:"location,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	LastActiveAt time.Time `json:"last_active_at"`
+	IsCurrent    bool      `json:"is_current"`
 }
 
 // AgentPreferences represents AI agent behavior settings.

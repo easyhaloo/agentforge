@@ -266,10 +266,10 @@ func TestAgentPreferences(t *testing.T) {
 			AutomationLevel:      "conservative",
 			CrossSessionMemory:   false,
 			ReviewFocus: identity.ReviewFocus{
-				Security:     true,
-				Performance:  false,
-				CodeStyle:    true,
-				TestCoverage: false,
+				Security:      true,
+				Performance:   false,
+				CodeStyle:     true,
+				TestCoverage:  false,
 				Documentation: true,
 			},
 		}

@@ -43,14 +43,17 @@ func TestCSRFMiddlewareAllowsValidSameOriginSession(t *testing.T) {
 
 func TestCSRFMiddlewareRejectsInvalidRequests(t *testing.T) {
 	tests := []struct {
-		name string
-		setup func(*http.Request)
-		validator identity.CSRFValidator
+		name       string
+		setup      func(*http.Request)
+		validator  identity.CSRFValidator
 		wantStatus int
 	}{
 		{name: "wrong origin", setup: func(r *http.Request) { addValidCSRFCookies(r); r.Header.Set("Origin", "https://attacker.example") }, validator: allowCSRF{}, wantStatus: http.StatusForbidden},
 		{name: "missing origin", setup: func(r *http.Request) { addValidCSRFCookies(r); r.Header.Del("Origin") }, validator: allowCSRF{}, wantStatus: http.StatusForbidden},
-		{name: "mismatched header", setup: func(r *http.Request) { addValidCSRFCookies(r); r.Header.Set(identity.CSRFHeaderName, "different-token") }, validator: allowCSRF{}, wantStatus: http.StatusForbidden},
+		{name: "mismatched header", setup: func(r *http.Request) {
+			addValidCSRFCookies(r)
+			r.Header.Set(identity.CSRFHeaderName, "different-token")
+		}, validator: allowCSRF{}, wantStatus: http.StatusForbidden},
 		{name: "session validator rejects token", setup: addValidCSRFCookies, validator: allowCSRF{err: identity.ErrUnauthenticated}, wantStatus: http.StatusForbidden},
 		{name: "validator unavailable", setup: addValidCSRFCookies, validator: nil, wantStatus: http.StatusServiceUnavailable},
 		{name: "origin not configured", setup: addValidCSRFCookies, validator: allowCSRF{}, wantStatus: http.StatusServiceUnavailable},

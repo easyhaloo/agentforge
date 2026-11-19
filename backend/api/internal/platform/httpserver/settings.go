@@ -111,8 +111,8 @@ func (d DeliveryDependencies) updateNotificationPreferences(w http.ResponseWrite
 
 	var req struct {
 		EmailNotifications    identity.EmailNotificationSettings `json:"email_notifications"`
-		WebPushEnabled        bool                                `json:"web_push_enabled"`
-		NotificationFrequency string                              `json:"notification_frequency"`
+		WebPushEnabled        bool                               `json:"web_push_enabled"`
+		NotificationFrequency string                             `json:"notification_frequency"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")

@@ -10,9 +10,9 @@ import (
 func TestHealthEndpoints(t *testing.T) {
 	handler := NewHandler()
 	tests := []struct {
-		path string
+		path   string
 		status int
-		body string
+		body   string
 	}{
 		{path: "/healthz", status: http.StatusOK, body: "{\"status\":\"ok\"}\n"},
 		{path: "/readyz", status: http.StatusServiceUnavailable, body: "{\"status\":\"not_ready\"}\n"},
@@ -38,13 +38,16 @@ func TestHealthEndpoints(t *testing.T) {
 }
 
 type readinessLocker struct{}
-func (readinessLocker) LockChangeset(context.Context,string,string)(func(),error){return func(){},nil}
+
+func (readinessLocker) LockChangeset(context.Context, string, string) (func(), error) {
+	return func() {}, nil
+}
 
 func TestReadinessRequiresAllDeliveryDependencies(t *testing.T) {
 	handler := NewHandlerWithDependencies(DeliveryDependencies{
-		Repository: newMemoryRepository(), Identity: fixedIdentity{role:"member"}, CSRF:allowCSRF{},
-		AllowedOrigin:"https://app.example.test", Git:lifecycleGit{}, Evaluator:lifecycleEvaluator{},
-		Evidence:lifecycleEvidence{}, Catalog:&lifecycleCatalog{}, Locker:readinessLocker{}, Reviewers:lifecycleReviewers{},
+		Repository: newMemoryRepository(), Identity: fixedIdentity{role: "member"}, CSRF: allowCSRF{},
+		AllowedOrigin: "https://app.example.test", Git: lifecycleGit{}, Evaluator: lifecycleEvaluator{},
+		Evidence: lifecycleEvidence{}, Catalog: &lifecycleCatalog{}, Locker: readinessLocker{}, Reviewers: lifecycleReviewers{},
 	})
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	response := httptest.NewRecorder()
@@ -53,7 +56,7 @@ func TestReadinessRequiresAllDeliveryDependencies(t *testing.T) {
 		t.Fatalf("readiness response = %d %q, want ready", response.Code, response.Body.String())
 	}
 
-	handler = NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), Identity:fixedIdentity{role:"member"}, CSRF:allowCSRF{}, AllowedOrigin:"https://app.example.test"})
+	handler = NewHandlerWithDependencies(DeliveryDependencies{Repository: newMemoryRepository(), Identity: fixedIdentity{role: "member"}, CSRF: allowCSRF{}, AllowedOrigin: "https://app.example.test"})
 	request = httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -75,23 +78,23 @@ func TestOIDCRoutesFailClosedWhenProviderIsNotConfigured(t *testing.T) {
 	}
 }
 
+type fakeOIDCHandler struct{ accepted bool }
 
-type fakeOIDCHandler struct { accepted bool }
-func (f *fakeOIDCHandler) Login(http.ResponseWriter,*http.Request) {}
-func (f *fakeOIDCHandler) Callback(http.ResponseWriter,*http.Request) {}
-func (f *fakeOIDCHandler) Logout(http.ResponseWriter,*http.Request) {}
-func (f *fakeOIDCHandler) AcceptInvitation(w http.ResponseWriter,r *http.Request) {
-	f.accepted=true
-	http.Redirect(w,r,"/auth/oidc/login",http.StatusSeeOther)
+func (f *fakeOIDCHandler) Login(http.ResponseWriter, *http.Request)    {}
+func (f *fakeOIDCHandler) Callback(http.ResponseWriter, *http.Request) {}
+func (f *fakeOIDCHandler) Logout(http.ResponseWriter, *http.Request)   {}
+func (f *fakeOIDCHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	f.accepted = true
+	http.Redirect(w, r, "/auth/oidc/login", http.StatusSeeOther)
 }
 
 func TestInvitationAcceptanceRouteDelegatesToOIDC(t *testing.T) {
-	oidc:=&fakeOIDCHandler{}
-	handler:=NewHandlerWithDependencies(DeliveryDependencies{OIDC:oidc,AllowedOrigin:"https://app.example.test"})
-	request:=httptest.NewRequest(http.MethodGet,"/auth/invitations/accept?token=opaque-invitation-token",nil)
-	response:=httptest.NewRecorder()
-	handler.ServeHTTP(response,request)
-	if response.Code!=http.StatusSeeOther || !oidc.accepted {
-		t.Fatalf("invitation acceptance status=%d accepted=%v",response.Code,oidc.accepted)
+	oidc := &fakeOIDCHandler{}
+	handler := NewHandlerWithDependencies(DeliveryDependencies{OIDC: oidc, AllowedOrigin: "https://app.example.test"})
+	request := httptest.NewRequest(http.MethodGet, "/auth/invitations/accept?token=opaque-invitation-token", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusSeeOther || !oidc.accepted {
+		t.Fatalf("invitation acceptance status=%d accepted=%v", response.Code, oidc.accepted)
 	}
 }

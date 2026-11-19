@@ -12,9 +12,9 @@ import (
 )
 
 type mockRegisterRepository struct {
-	emailExistsFn       func(context.Context, string) (bool, error)
-	createLocalUserFn   func(context.Context, string, string, string) (string, error)
-	createSessionFn     func(context.Context, string, string, string, time.Time) (string, error)
+	emailExistsFn         func(context.Context, string) (bool, error)
+	createLocalUserFn     func(context.Context, string, string, string) (string, error)
+	createSessionFn       func(context.Context, string, string, string, time.Time) (string, error)
 	hasActiveMembershipFn func(context.Context, string) (bool, error)
 }
 

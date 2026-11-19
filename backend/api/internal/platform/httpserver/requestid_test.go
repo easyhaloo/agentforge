@@ -27,9 +27,9 @@ func TestRequestIDMiddlewareGeneratesAndPropagatesID(t *testing.T) {
 
 func TestRequestIDMiddlewareAcceptsOnlySafeIncomingIDs(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input string
-		want string
+		want  string
 	}{
 		{name: "safe gateway ID", input: "gateway-123_trace.a", want: "gateway-123_trace.a"},
 		{name: "spaces rejected", input: "not safe", want: ""},

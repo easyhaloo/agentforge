@@ -23,13 +23,13 @@ const (
 )
 
 var (
-	ErrInvalidInput       = errors.New("invalid input")
-	ErrRevisionNotCurrent = errors.New("revision is not current")
-	ErrEvaluationRequired = errors.New("a passed evaluation is required")
-	ErrEvidenceRequired   = errors.New("active evidence is required")
-	ErrReviewRequired     = errors.New("an approved review is required")
-	ErrAlreadyMerged      = errors.New("changeset is already merged")
-	ErrReviewForbidden = errors.New("only the assigned reviewer can decide this review")
+	ErrInvalidInput          = errors.New("invalid input")
+	ErrRevisionNotCurrent    = errors.New("revision is not current")
+	ErrEvaluationRequired    = errors.New("a passed evaluation is required")
+	ErrEvidenceRequired      = errors.New("active evidence is required")
+	ErrReviewRequired        = errors.New("an approved review is required")
+	ErrAlreadyMerged         = errors.New("changeset is already merged")
+	ErrReviewForbidden       = errors.New("only the assigned reviewer can decide this review")
 	ErrReviewAlreadyApproved = errors.New("a review is already approved for the current revision")
 )
 
@@ -90,15 +90,15 @@ type AuditEvent struct {
 }
 
 type Changeset struct {
-	ID          ID          `json:"id"`
-	CreatedBy   string      `json:"created_by"`
-	Repository  string      `json:"repository"`
-	Title       string      `json:"title"`
-	Revisions   []Revision  `json:"revisions"`
+	ID          ID           `json:"id"`
+	CreatedBy   string       `json:"created_by"`
+	Repository  string       `json:"repository"`
+	Title       string       `json:"title"`
+	Revisions   []Revision   `json:"revisions"`
 	Evaluations []Evaluation `json:"evaluations"`
-	Evidence    []Evidence  `json:"evidence"`
-	Reviews     []Review    `json:"reviews"`
-	Merge       *Merge      `json:"merge,omitempty"`
+	Evidence    []Evidence   `json:"evidence"`
+	Reviews     []Review     `json:"reviews"`
+	Merge       *Merge       `json:"merge,omitempty"`
 	Audit       []AuditEvent `json:"audit"`
 }
 
@@ -118,7 +118,9 @@ func (c *Changeset) CurrentRevision() (Revision, bool) {
 	return c.Revisions[len(c.Revisions)-1], true
 }
 
-func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error { return c.AddGitRevision(id, ref, ref, "", actor, now) }
+func (c *Changeset) AddRevision(id ID, ref, actor string, now time.Time) error {
+	return c.AddGitRevision(id, ref, ref, "", actor, now)
+}
 
 func (c *Changeset) AddGitRevision(id ID, ref, commitSHA, parentSHA, actor string, now time.Time) error {
 	if c == nil || id == "" || ref == "" || actor == "" || c.Merge != nil {
@@ -172,7 +174,9 @@ func (c *Changeset) RecordEvaluationAgainstBase(id, revisionID ID, baseSHA strin
 	return nil
 }
 
-func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, actor string, now time.Time) error { return c.AttachEvidenceArtifact(id, revisionID, evaluationID, kind, uri, "", 0, actor, now) }
+func (c *Changeset) AttachEvidence(id, revisionID, evaluationID ID, kind, uri, actor string, now time.Time) error {
+	return c.AttachEvidenceArtifact(id, revisionID, evaluationID, kind, uri, "", 0, actor, now)
+}
 
 func (c *Changeset) AttachEvidenceArtifact(id, revisionID, evaluationID ID, kind, uri, digest string, size int64, actor string, now time.Time) error {
 	if c == nil || id == "" || kind == "" || uri == "" || actor == "" {
@@ -190,7 +194,9 @@ func (c *Changeset) AttachEvidenceArtifact(id, revisionID, evaluationID ID, kind
 	return nil
 }
 
-func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error { return c.AssignReview(id, revisionID, reviewer, reviewer, comment, now) }
+func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, now time.Time) error {
+	return c.AssignReview(id, revisionID, reviewer, reviewer, comment, now)
+}
 
 // AssignReview adds a pending review to the current revision. A revision has one active review:
 // the assignment is refused once the revision has an approved review (a new revision is needed to
@@ -256,7 +262,9 @@ func (c *Changeset) CompleteMerge(id ID, actor, targetRef, commitSHA string, now
 	if c == nil || id == "" || actor == "" || targetRef == "" || commitSHA == "" {
 		return ErrInvalidInput
 	}
-	if err := c.ValidateMerge(); err != nil { return err }
+	if err := c.ValidateMerge(); err != nil {
+		return err
+	}
 	revisionID := c.currentRevisionID()
 	c.Merge = &Merge{ID: id, RevisionID: revisionID, Actor: actor, TargetRef: targetRef, CommitSHA: commitSHA, CreatedAt: now}
 	c.record(actor, "merge.completed", id, "succeeded", now)
@@ -328,12 +336,24 @@ func (c *Changeset) hasPassedEvaluation(revisionID ID) bool {
 }
 
 func (c *Changeset) ValidateMerge() error {
-	if c == nil { return ErrInvalidInput }
-	if c.Merge != nil { return ErrAlreadyMerged }
-	revisionID:=c.currentRevisionID()
-	if revisionID=="" { return ErrRevisionNotCurrent }
-	if !c.hasPassedEvaluation(revisionID) { return ErrEvaluationRequired }
-	if !c.hasActiveEvidence(revisionID) { return ErrEvidenceRequired }
-	if !c.hasApprovedReview(revisionID) { return ErrReviewRequired }
+	if c == nil {
+		return ErrInvalidInput
+	}
+	if c.Merge != nil {
+		return ErrAlreadyMerged
+	}
+	revisionID := c.currentRevisionID()
+	if revisionID == "" {
+		return ErrRevisionNotCurrent
+	}
+	if !c.hasPassedEvaluation(revisionID) {
+		return ErrEvaluationRequired
+	}
+	if !c.hasActiveEvidence(revisionID) {
+		return ErrEvidenceRequired
+	}
+	if !c.hasApprovedReview(revisionID) {
+		return ErrReviewRequired
+	}
 	return nil
 }
