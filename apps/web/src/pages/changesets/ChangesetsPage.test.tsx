@@ -24,10 +24,10 @@ describe("changeset list filters", () => {
   });
 
   it("reads the status filter from the URL", () => {
-    expect(renderPage("/orgs/demo/changesets?status=in_review")).toContain('<option value="in_review" selected="">');
+    expect(renderPage("/orgs/demo/changesets?status=in_review")).toContain('af-select-trigger__label">In review</span>');
   });
 
   it("shows no status filter as selected when the URL carries none", () => {
-    expect(renderPage("/orgs/demo/changesets")).toContain('<option value="" selected="">All statuses</option>');
+    expect(renderPage("/orgs/demo/changesets")).toContain('af-select-trigger__label">All statuses</span>');
   });
 });

@@ -2,42 +2,14 @@ import { Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { itemHref, navigationGroups } from "../navigation";
+import { groupToNavKey, labelToNavKey } from "../navigation-labels";
 import type { AccountContext, OrganizationSummary } from "../../shared/api/identity";
+import { Select } from "../../shared/ui";
 
 // Links reuse the shared ghost Button classes, so navigation looks exactly like the buttons it replaced.
 // Every item uses `end`: NavLink otherwise matches by prefix and would highlight an item for unknown paths below it
 // (/projects/extra). An item must drop `end` once its section has nested routes (e.g. a changeset detail page).
 const linkButton="af-button af-button--ghost af-button--middle";
-
-/** Maps navigation labels to translation keys */
-const labelToNavKey = (label: string): string => {
-  const keyMap: Record<string, string> = {
-    "Overview": "routes.overview",
-    "Projects": "routes.projects",
-    "Repositories": "routes.repositories",
-    "Changesets": "routes.changesets",
-    "Workspaces": "routes.workspaces",
-    "Trails": "routes.trails",
-    "Stacks": "routes.stacks",
-    "Review": "routes.review",
-    "Eval": "routes.eval",
-    "Self-healing": "routes.selfHealing",
-    "Memory": "routes.memory",
-    "CI / CD": "routes.cicd",
-    "UI Components": "routes.uiComponents",
-    "Organization": "routes.organization",
-    "Security": "routes.security",
-    "Governance": "routes.governance",
-    "Cost & Usage": "routes.usage",
-    "Settings": "routes.settings",
-  };
-  return keyMap[label] || label;
-};
-
-/** Maps group labels to translation keys */
-const groupToNavKey = (label: string): string => {
-  return `groups.${label}`;
-};
 
 type Props = { account: AccountContext | null; selectedOrganization: OrganizationSummary | undefined; linkHandle: string; onSelectOrganization: (id: string) => void };
 
@@ -50,16 +22,16 @@ export function Sidebar({ account, selectedOrganization: selected, linkHandle, o
     <b>{t("sidebar.brand")}</b>
   </div>
   <div className="org-switch">
-    <select
+    <Select
       aria-label={t("sidebar.selectOrganization")}
       value={selected?.id??""}
       onChange={e=>onSelectOrganization(e.target.value)}
       disabled={!account?.organizations.length}
-    >
-      {(account?.organizations??[]).map(o=>(
-        <option key={o.id} value={o.id}>{o.name}</option>
-      ))}
-    </select>
+      options={(account?.organizations??[]).map(o=>({
+        label: o.name,
+        value: o.id
+      }))}
+    />
   </div>
   <div className="nav-scroll">
     {navigationGroups.map(group=>(

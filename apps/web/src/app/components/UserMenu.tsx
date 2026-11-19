@@ -1,7 +1,7 @@
 import { LogOut, Settings, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Popover } from "../../shared/ui";
+import { Popover, Button } from "../../shared/ui";
 import { flatPaths } from "../../shared/routing";
 import { useAppAccount } from "../account-context";
 import "./UserMenu.css";
@@ -52,10 +52,10 @@ export function UserMenu({ onSignOut }: Props) {
 
       {/* Sign out */}
       {account && (
-        <button onClick={onSignOut} className="user-menu-item">
+        <Button onClick={onSignOut} variant="ghost" className="user-menu-item">
           <LogOut size={14} />
           <span>{t("userMenu.signOut")}</span>
-        </button>
+        </Button>
       )}
     </Popover>
   );
