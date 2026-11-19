@@ -1,6 +1,7 @@
 .af-ui-root{--af-ui-font:inherit;font-family:var(--af-ui-font)}
 .af-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 13px;border:1px solid #303a50;border-radius:7px;background:#141c2b;color:#c1c9d8;font:600 11px inherit;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
 .af-button:hover:not(:disabled){border-color:#6559b5;background:#1b2638}
+a.af-button{text-decoration:none}
 .af-button:disabled{opacity:.48;cursor:not-allowed}
 .af-button--primary{border-color:#8171ed;background:#7868e6;color:#fff}
 .af-button--primary:hover:not(:disabled){background:#8979f4}

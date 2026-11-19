@@ -106,7 +106,8 @@ function App() {
         <main className="main">
           <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} onSignOut={() => void signOut()} />
           <div className="content">
-            <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />
+            {(label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
+              <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             <footer>
               <span>{t("app:footer.prototype")} <b>{t("app:footer.version")}</b></span>

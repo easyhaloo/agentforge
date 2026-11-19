@@ -94,7 +94,8 @@
     "decisionPlaceholder": "结论备注",
     "mergeTargetLabel": "合并目标",
     "mergeButton": "合并变更集",
-    "mergedAs": "已合并为 {{commit}}，合并到 {{ref}}"
+    "mergedAs": "已合并为 {{commit}}，合并到 {{ref}}",
+    "viewFilesInWebIDE": "在 WebIDE 中查看文件"
   },
   "notify": {
     "revisionResolved": "Git 修订版本已解析并持久化。",
