@@ -73,6 +73,10 @@ type Store interface {
 }
 
 type Task struct {
+	Script         string
+	OutputNames    []string
+	Env            map[string]string
+	Exports        map[string]string
 	Integration    *Integration
 	OrganizationID string
 	PipelineID     string

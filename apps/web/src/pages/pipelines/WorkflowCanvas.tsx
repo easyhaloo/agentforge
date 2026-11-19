@@ -91,7 +91,7 @@ export function WorkflowCanvas({ definition, run, selection, onSelect, toolbar }
           const body = <div className="wf-body">{stage.jobs.map((job, ji) => <div key={job.id}>
             {node([i, ji], t("job", {id:job.id}), <b><GitBranch size={12}/>{job.id}</b>)}
             {job.steps.map((step, pi) => <div key={step.id}>{node([i, ji, pi], t("step", {id:step.id}),
-              <span className="wf-step"><span>{step.id}</span>{run ? badge(stateOf(step.id)) : <small>{t(step.uses === "control/approval@v1" ? "approval" : "container")}</small>}</span>)}</div>)}
+              <span className="wf-step"><span>{step.id}</span>{run ? badge(stateOf(step.id)) : <small>{t(step.uses === "control/approval@v1" ? "approval" : step.uses === "container/script@v1" ? "shell" : "container")}</small>}</span>)}</div>)}
           </div>)}{graph.parents[i].length > 0 && <small className="wf-deps">{t("depends", {id: dependencies(definition.stages, i).join(", ")})}</small>}</div>;
           return onSelect ? <article key={stage.id} data-node={i} className="wf-card">
             {node([i], t("stage", {id:stage.id}), <span className="wf-stage-title">{heading}</span>)}{body}

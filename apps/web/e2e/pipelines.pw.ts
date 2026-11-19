@@ -199,3 +199,56 @@ test("canvas lays out forward references, independent roots and an implicit depe
   await canvas.locator("summary").first().press("Enter");
   await expect(canvas.locator("details").first().locator(".wf-body")).toBeHidden();
 });
+
+test("脚本模板在独立画布上保存脚本和输出变量", async ({ page }, testInfo) => {
+  await installApiMocks(page);
+  await page.addInitScript(() => localStorage.setItem("agentforge-language", "zh-CN"));
+  let pipeline: Pipeline;
+  await page.route("**/api/v1/organizations/org-demo/pipelines**", route => {
+    const req = route.request();
+    if (req.method() === "POST") {
+      const definition = req.postDataJSON();
+      pipeline = { id: "script", name: definition.name, definition, status: "draft", revision: 1, version: 0 };
+    } else if (req.method() === "PUT") {
+      pipeline.definition = req.postDataJSON().definition;
+      pipeline.revision++;
+    }
+    return route.fulfill({ json: req.url().endsWith("/pipelines") && req.method() === "GET" ? { items: [] } : pipeline });
+  });
+  await page.goto("/orgs/demo/pipelines");
+  await page.locator(".heading-actions").getByRole("button", { name: "创建", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "创建流水线" });
+  await dialog.getByRole("radio", { name: "脚本与变量传递" }).check();
+  await dialog.getByRole("button", { name: "创建", exact: true }).click();
+  await expect(page).toHaveURL(/\/pipelines\/script\/edit$/);
+  const producer = page.getByRole("button", { name: "步骤 make-tag", exact: true });
+  const script = `printf 'TAG=v%s\\n' "$AF_PARAM_VERSION" >> "$FLOW_ENV"\nprintf 'CHANNEL=stable\\n' >> "$FLOW_ENV"`;
+  await producer.click();
+  await page.getByRole("textbox", { name: "Shell 脚本", exact: true }).fill(script);
+  const addVariable = page.getByRole("button", { name: "添加变量" });
+  const variables = page.getByRole("group", { name: "输出变量" });
+  const second = variables.getByRole("textbox", { name: "变量名 2" });
+  await addVariable.click();
+  await second.fill("TAG");
+  await expect(page.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  await second.fill("CHANNEL");
+  await addVariable.click();
+  await variables.getByRole("button", { name: "删除变量 3" }).click();
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "修订 2" })).toBeVisible();
+  await page.reload();
+  await producer.click();
+  await expect(page.getByRole("textbox", { name: "Shell 脚本", exact: true })).toHaveValue(script);
+  await expect(variables.getByRole("textbox")).toHaveCount(2);
+  await expect(variables.getByRole("textbox", { name: "变量名 1" })).toHaveValue("TAG");
+  await expect(second).toHaveValue("CHANNEL");
+  await page.screenshot({ path: testInfo.outputPath("output-variable-form.png"), fullPage: true });
+  await page.getByRole("button", { name: "步骤 read-tag", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Shell 脚本", exact: true })).toHaveValue(/\$AF_VAR_TAG/);
+  await page.screenshot({ path: testInfo.outputPath("script-consumer.png") });
+  await producer.click();
+  await selectOption(page, page.getByLabel("make-tag 的能力"), "人工审批");
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "修订 3" })).toBeVisible();
+  expect(pipeline!.definition.stages[0].jobs[0].steps[0]).toEqual({ id: "make-tag", uses: "control/approval@v1" });
+});

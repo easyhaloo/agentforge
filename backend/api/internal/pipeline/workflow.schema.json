@@ -133,8 +133,11 @@
                         "type": "array", "uniqueItems": true, "maxItems": 16,
                         "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" }
                       },
+                      "script": { "type": "string", "minLength": 1, "maxLength": 16384 },
+                      "outputs": { "type": "array", "uniqueItems": true, "maxItems": 16,
+                        "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$" } },
                       "uses": {
-                        "enum": ["control/approval@v1", "container/check@v1"]
+                        "enum": ["control/approval@v1", "container/check@v1", "container/script@v1"]
                       }
                     },
                     "additionalProperties": false

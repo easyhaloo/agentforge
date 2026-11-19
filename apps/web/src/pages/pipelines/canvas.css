@@ -55,3 +55,5 @@
 .wf-fullscreen .workflow-editor legend { margin-bottom:12px; font-weight:600; }
 .wf-fullscreen .wf-card .wf-node[aria-pressed=true] { background:#303956; box-shadow:inset 2px 0 #b6a8ff; }
 @media (max-width:900px) { .wf-fullscreen .wf-designer { grid-template-rows:minmax(260px,1fr) auto; } }
+
+.wf-variable-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start; }

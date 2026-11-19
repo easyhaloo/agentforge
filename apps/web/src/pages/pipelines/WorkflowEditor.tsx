@@ -12,6 +12,7 @@ type Capability = Stage["jobs"][number]["steps"][number]["uses"];
 export const capabilities = [
   { value: "control/approval@v1", label: "approval" },
   { value: "container/check@v1", label: "container" },
+  { value: "container/script@v1", label: "shell" },
 ] satisfies { value: Capability; label: string }[];
 
 function nextID(d: Definition, prefix: string) {
@@ -33,12 +34,21 @@ const strings = (x: unknown): x is string[] => Array.isArray(x) && x.every(i => 
 export function editable(d: Definition) {
   return d?.apiVersion === "agentforge.dev/v1" && typeof d.name === "string" && Array.isArray(d.stages) && d.stages.every(s =>
     typeof s?.id === "string" && (s.dependsOn == null || strings(s.dependsOn)) && Array.isArray(s.jobs) && s.jobs.every(j =>
-      typeof j?.id === "string" && Array.isArray(j.steps) && j.steps.every(p => typeof p?.id === "string" && (p.secretParams === undefined || strings(p.secretParams)) && capabilities.some(c => c.value === p.uses)))) &&
+      typeof j?.id === "string" && Array.isArray(j.steps) && j.steps.every(p => typeof p?.id === "string" && (p.secretParams === undefined || strings(p.secretParams)) && (p.outputs === undefined || strings(p.outputs)) && (p.script === undefined || typeof p.script === "string") && capabilities.some(c => c.value === p.uses)))) &&
     (d.parameters === undefined || (Array.isArray(d.parameters) && d.parameters.every(p => typeof p?.name === "string" && parameterTypes.includes(p.type) &&
       (p.choices === undefined || strings(p.choices)) && (p.default === undefined || ["number", "string", "boolean"].includes(typeof p.default) || strings(p.default)))));
 }
 
-export function WorkflowEditor({ definition, update }: { definition: Definition; update: (value: Definition) => void }) {
+export function workflowOutputNames(d: Definition) {
+  return d.stages.flatMap(stage => stage.jobs.flatMap(job => job.steps.flatMap(step => step.outputs ?? [])));
+}
+
+export function outputNameError(name: string, names: string[]) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name)) return "invalidOutputName";
+  if (names.indexOf(name) !== names.lastIndexOf(name)) return "duplicateOutputName";
+}
+
+export function WorkflowEditor({ definition, update, outputNames }: { definition: Definition; update: (value: Definition) => void; outputNames: string[] }) {
   const { t } = useTranslation("pipelines");
   function change(mutate: (next: Definition) => void) {
     const next = structuredClone(definition);
@@ -133,7 +143,35 @@ export function WorkflowEditor({ definition, update }: { definition: Definition;
         <Input label={t("stepID")} value={step.id} onChange={e => change(d => { d.stages[si].jobs[ji].steps[pi].id = e.target.value; })} />
         <Select label={t("capability", {id:step.id})} options={capabilities.map(c => ({ ...c, label: t(c.label) }))} value={step.uses} onChange={e => change(d => { const current = d.stages[si].jobs[ji].steps[pi];
           current.uses = e.target.value as Capability;
+          if (current.uses === "container/script@v1") current.script ??= 'printf "Hello from the pipeline\\n"';
+          else { delete current.script; delete current.outputs; }
           if (current.uses !== "container/check@v1") delete current.secretParams; })} />
+        {step.uses === "container/script@v1" && <>
+          <TextArea label={t("scriptBody")} rows={8} spellCheck={false} value={step.script ?? ""}
+            onChange={e => change(d => { d.stages[si].jobs[ji].steps[pi].script = e.target.value; })} />
+          <fieldset>
+            <legend>{t("outputNames")}</legend>
+            {(step.outputs ?? []).map((name, index) => {
+              const error = outputNameError(name, outputNames);
+              return <div className="wf-variable-row" key={index}>
+                <Input aria-label={t("outputName", { number: index + 1 })} placeholder="BUILD_TAG" value={name}
+                  spellCheck={false} maxLength={64} error={error && t(error)}
+                  onChange={e => change(d => { d.stages[si].jobs[ji].steps[pi].outputs![index] = e.target.value; })} />
+                <Button size="small" aria-label={t("removeOutput", { number: index + 1 })}
+                  onClick={() => change(d => { d.stages[si].jobs[ji].steps[pi].outputs!.splice(index, 1); })}>
+                  {t("common:actions.delete")}
+                </Button>
+              </div>;
+            })}
+            <Button disabled={(step.outputs?.length ?? 0) >= 16 || outputNames.length >= 64} onClick={() => change(d => {
+              const outputs = d.stages[si].jobs[ji].steps[pi].outputs ??= [];
+              let n = 1;
+              while (outputNames.includes(`OUTPUT_${n}`)) n++;
+              outputs.push(`OUTPUT_${n}`);
+            })}>{t("addOutput")}</Button>
+          </fieldset>
+          <small>{t("scriptHelp")}</small>
+        </>}
         {step.uses === "container/check@v1" && definition.parameters?.filter(p => p.type === "secretRef").map((p, i) =>
           <Checkbox key={i} label={t("bindSecret", { name: p.name })} checked={step.secretParams?.includes(p.name) ?? false}
             onChange={e => change(d => { const current = d.stages[si].jobs[ji].steps[pi];

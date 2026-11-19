@@ -10,7 +10,7 @@ import { organizationHandle, orgPath, pipelineEditPath } from "../../shared/rout
 import { ArrowLeft, Workflow } from "lucide-react";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { RunPanel } from "./RunPanel";
-import { editable, WorkflowEditor } from "./WorkflowEditor";
+import { editable, outputNameError, workflowOutputNames, WorkflowEditor } from "./WorkflowEditor";
 
 const template: Definition = {
   apiVersion: "agentforge.dev/v1", name: "release",
@@ -21,6 +21,22 @@ const checkTemplate: Definition = {
     { id: "verify", jobs: [{ id: "checks", steps: [{ id: "check", uses: "container/check@v1" }] }] }, ...template.stages,
   ],
 };
+
+const scriptTemplate: Definition = {
+  ...template, name: "script-release",
+  parameters: [{ name: "VERSION", type: "string", default: "1.0.0", override: true }],
+  stages: [
+    { id: "build", jobs: [{ id: "package", steps: [{ id: "make-tag", uses: "container/script@v1",
+      script: `printf 'TAG=v%s\\n' "$AF_PARAM_VERSION" >> "$FLOW_ENV"`, outputs: ["TAG"] }] }] },
+    { id: "release", dependsOn: ["build"], jobs: [{ id: "publish", steps: [{ id: "read-tag", uses: "container/script@v1",
+      script: `printf 'Release %s\\n' "$AF_VAR_TAG"` }] }] },
+  ],
+};
+const templates = [
+  { definition: template, label: "approval" },
+  { definition: checkTemplate, label: "checkAndApprove" },
+  { definition: scriptTemplate, label: "scriptFlow" },
+];
 
 export function PipelinesPage({ organization, renderHeader }: {
   organization: OrganizationSummary;
@@ -81,11 +97,11 @@ function CreatePipelineDialog({ organization, copy, onClose }: {
       void navigate(pipelineEditPath(organizationHandle(organization), pipeline.id));
     }}>
       <div className="wf-create-fields">
-        {!clone && <RadioGroup label={t("template")} name="pipeline-template" value={creation.stages === checkTemplate.stages ? "check" : "approval"}
-          options={[{ value:"approval", label:t("approval") }, { value:"check", label:t("checkAndApprove") }]}
+        {!clone && <RadioGroup label={t("template")} name="pipeline-template" value={templates.find(item => item.definition.stages === creation.stages)?.label}
+          options={templates.map(({ label }) => ({ value: label, label: t(label) }))}
           onChange={value => {
-            const next = value === "check" ? checkTemplate : template;
-            const customName = creation.name !== template.name && creation.name !== checkTemplate.name;
+            const next = templates.find(item => item.label === value)!.definition;
+            const customName = !templates.some(item => creation.name === item.definition.name);
             setCreation({ ...next, name: customName ? creation.name : next.name });
           }} />}
         <Input label={t("workflowName")} value={creation.name} maxLength={64} error={nameError ? t("nameHint") : undefined}
@@ -131,6 +147,7 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   const canEdit = organization.role !== "viewer" && selected?.status !== "archived";
   const canPublish = organization.role === "owner" || organization.role === "admin";
   const validShape = editable(draft);
+  const outputNames = validShape ? workflowOutputNames(draft) : [];
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
       <Link to={orgPath(organizationHandle(organization), "pipelines")}><ArrowLeft size={16}/>{t("backToList")}</Link>
@@ -141,14 +158,14 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
         {organization.role !== "viewer" && <Button disabled={busy || dirty || !validShape} onClick={() => setCloning(true)}>{t("clone")}</Button>}
         {canPublish && selected.status === "draft" && <Button disabled={busy || dirty} onClick={() => void apply(() => pipelines.transition(org, selected, "publish"))}>{t("publish")}</Button>}
         {canPublish && selected.status !== "archived" && <Button disabled={busy || dirty} onClick={() => setArchiving(true)}>{t("archive")}</Button>}
-        {canEdit && <Button variant="primary" disabled={busy || !validShape || !dirty} onClick={() => void apply(() => pipelines.save(org, selected, draft))}>{t("save")}</Button>}
+        {canEdit && <Button variant="primary" disabled={busy || !validShape || !dirty || outputNames.some(name => outputNameError(name, outputNames))} onClick={() => void apply(() => pipelines.save(org, selected, draft))}>{t("save")}</Button>}
       </>}
     </header>
     {error && <p className="org-error" role="alert">{error} {!selected && <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button>}</p>}
     {!selected && busy && <p role="status">{t("common:status.loading")}</p>}
     {selected && <>
     {canEdit && validShape ? <div className="wf-editor-shell" inert={busy} aria-busy={busy}>
-      <WorkflowEditor key={selected.revision} definition={draft} update={setDraft} />
+      <WorkflowEditor key={selected.revision} definition={draft} update={setDraft} outputNames={outputNames} />
     </div> : (validShape ? <WorkflowCanvas definition={draft}/> : <p>{t("invalidGraph")}</p>)}
     {selected.version > 0 && <RunPanel key={`${selected.id}:${selected.version}`} org={org} pipeline={selected} canStart={canEdit} canPromote={canPublish} />}
     {cloning && <CreatePipelineDialog organization={organization} copy={{ ...selected.definition, name: `${selected.name.slice(0, 59)}-copy` }} onClose={() => setCloning(false)} />}
