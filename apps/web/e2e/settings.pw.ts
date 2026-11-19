@@ -121,18 +121,14 @@ test.describe("Settings Pages", () => {
     // Wait for page to load
     await expect(page.locator("main")).toBeVisible({ timeout: 10000 });
 
-    // Find and click user menu trigger (button with user name or avatar)
-    const userMenuTrigger = page.locator('button').filter({
-      hasText: /Taylor Owner|owner@example|T/i
-    }).last(); // Use last as there might be multiple matches
-
-    await userMenuTrigger.click();
+    // The user menu trigger is the avatar button in the topbar (UserMenu Popover)
+    await page.locator(".user-menu-trigger").click();
 
     // Wait for menu to open
     await page.waitForTimeout(500);
 
     // Verify menu items exist (check for text content in the dropdown)
-    const menuContainer = page.locator('[role="menu"], .dropdown-menu, .user-menu').first();
+    const menuContainer = page.getByRole("dialog", { name: "User menu" });
     await expect(menuContainer).toBeVisible({ timeout: 5000 });
 
     // Check for the three expected menu items by text content

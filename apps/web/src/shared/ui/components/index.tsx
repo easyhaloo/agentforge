@@ -221,6 +221,7 @@ export function Select({ label, options, controlSize = "middle", placeholder, hi
           ref={triggerRef}
           id={selectId}
           type="button"
+          role="combobox"
           className={triggerClasses}
           disabled={disabled}
           autoFocus={autoFocus}
@@ -239,6 +240,17 @@ export function Select({ label, options, controlSize = "middle", placeholder, hi
         </button>
         {open && (
           <div ref={menuRef} className="af-select-dropdown" role="listbox" aria-labelledby={selectId}>
+            {placeholder && (
+              <button
+                type="button"
+                role="option"
+                className={`af-select-option ${currentValue === "" ? "af-select-option--selected" : ""}`}
+                aria-selected={currentValue === ""}
+                onClick={() => handleSelect({ label: placeholder, value: "" })}
+              >
+                <span>{placeholder}</span>
+              </button>
+            )}
             {options.map((option, index) => {
               const Icon = option.icon;
               const isSelected = option.value === currentValue;

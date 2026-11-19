@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { demoOrganization, installApiMocks, labsOrganization } from "./support/api-mocks";
+import { selectOption } from "./support/select-option";
 
 const pageHeading = (page: Page) => page.getByRole("main").locator(".page-heading h1");
 const sidebarLink = (page: Page, name: string) => page.locator(".sidebar").getByRole("link", { name, exact: true });
 // The Changesets item carries a count badge inside the link, so match it by prefix.
 const changesetsLink = (page: Page) => page.locator(".sidebar").getByRole("link", { name: /^Changesets/ });
-const selectedOrganizationName = (page: Page) => page.locator(".sidebar .org-switch__select b");
+const selectedOrganizationName = (page: Page) => page.locator(".sidebar .org-switch .af-select-trigger__label");
 const pathOf = (page: Page) => { const { pathname, search, hash } = new URL(page.url()); return pathname + search + hash; };
 
 test.beforeEach(async ({ page }) => {
@@ -101,7 +102,7 @@ test("switching organization works on a mixed-case /Orgs URL", async ({ page }) 
   await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
   await page.goto("/Orgs/demo/settings");
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
-  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-labs");
+  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
   await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
   await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
 });
@@ -168,7 +169,7 @@ test("switching organization keeps the sub-path and the choice survives leaving 
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
 
-  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-labs");
+  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
   await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
   await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
@@ -178,7 +179,7 @@ test("switching organization keeps the sub-path and the choice survives leaving 
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
   await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/labs/changesets");
 
-  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-demo");
+  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Demo");
   await expect(page).toHaveURL(/\/projects$/);
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
   await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/demo/changesets");
@@ -188,12 +189,13 @@ test("signing out lands on / and the sidebar shows the signed-out state", async 
   await installApiMocks(page);
   await page.goto("/orgs/demo/settings");
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
+  await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(pageHeading(page)).toHaveText("Overview");
   await expect(page.getByText("You have signed out.")).toBeVisible();
-  await expect(selectedOrganizationName(page)).toHaveText("No organization");
-  await expect(page.locator(".sidebar .profile")).toContainText("Not signed in");
+  // Signed-out state in the sidebar: the organization switcher is disabled.
+  await expect(page.getByRole("combobox", { name: "Select organization" })).toBeDisabled();
 });
 
 test("Refresh only simulates a refresh on mock pages and reloads the account on organization pages", async ({ page }) => {
@@ -291,6 +293,7 @@ test("signing out while already on / does not add a history entry", async ({ pag
   const entries = () => page.evaluate(() => history.length);
   const before = await entries();
 
+  await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByText("You have signed out.")).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
