@@ -1,0 +1,46 @@
+.access-settings .access-toolbar,
+.access-settings .access-title,
+.access-settings .access-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.access-settings .access-toolbar { justify-content: space-between; }
+.access-settings .access-toolbar h2 { margin: 0; font: inherit; }
+.access-settings .access-link { font-size: 14px; }
+.access-settings .access-link svg { vertical-align: middle; }
+.access-settings .access-list { margin: 0; padding: 0; list-style: none; }
+
+.access-settings .access-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 12px;
+}
+
+.access-settings .access-icon { margin-top: 2px; color: var(--color-text-secondary); }
+.access-settings .access-details { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.access-settings .access-title { gap: 6px; }
+.access-settings .access-title strong { font-weight: 600; }
+.access-settings .access-badge {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 1em;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.access-settings .access-fact { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.access-settings .access-fact dt { flex: 0 0 9rem; font-weight: 600; }
+.access-settings .access-fact dd { margin: 0; overflow-wrap: anywhere; }
+.access-settings .access-form { display: grid; gap: 16px; margin-bottom: 12px; padding: 16px; }
+
+@media (max-width: 640px) {
+  .access-settings .access-row { grid-template-columns: auto minmax(0, 1fr); }
+  .access-settings .access-row > button { grid-column: 2; justify-self: start; }
+}

@@ -9,6 +9,8 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
+func settingPtr[T any](value T) *T { return &value }
+
 func TestUserPreferences(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -46,7 +48,7 @@ func TestUserPreferences(t *testing.T) {
 	})
 
 	t.Run("UpdateUserPreferences", func(t *testing.T) {
-		prefs, err := store.UpdateUserPreferences(ctx, userID, "dark", "zh-CN", "Asia/Shanghai")
+		prefs, err := store.UpdateUserPreferences(ctx, userID, identity.UserPreferencesPatch{Theme: settingPtr("dark"), Language: settingPtr("zh-CN"), Timezone: settingPtr("Asia/Shanghai")})
 		if err != nil {
 			t.Fatalf("UpdateUserPreferences failed: %v", err)
 		}
@@ -107,14 +109,14 @@ func TestNotificationPreferences(t *testing.T) {
 	})
 
 	t.Run("UpdateNotificationPreferences", func(t *testing.T) {
-		emailSettings := identity.EmailNotificationSettings{
-			EvaluationComplete: false,
-			ReviewAssigned:     true,
-			ChangesetStatus:    false,
-			OrgInvitation:      true,
+		emailSettings := identity.EmailNotificationSettingsPatch{
+			EvaluationComplete: settingPtr(false),
+			ReviewAssigned:     settingPtr(true),
+			ChangesetStatus:    settingPtr(false),
+			OrgInvitation:      settingPtr(true),
 		}
 
-		prefs, err := store.UpdateNotificationPreferences(ctx, userID, emailSettings, true, "daily")
+		prefs, err := store.UpdateNotificationPreferences(ctx, userID, identity.NotificationPreferencesPatch{EmailNotifications: emailSettings, WebPushEnabled: settingPtr(true), NotificationFrequency: settingPtr("daily")})
 		if err != nil {
 			t.Fatalf("UpdateNotificationPreferences failed: %v", err)
 		}
@@ -259,18 +261,18 @@ func TestAgentPreferences(t *testing.T) {
 	})
 
 	t.Run("UpdateAgentPreferences", func(t *testing.T) {
-		prefs := identity.AgentPreferences{
-			OutputVerbosity:      "verbose",
-			ConfirmationStrategy: "always",
-			AutomationLevel:      "conservative",
-			CrossSessionMemory:   false,
-			EvaluationStrictness: "standard",
-			ReviewFocus: identity.ReviewFocus{
-				Security:      true,
-				Performance:   false,
-				CodeStyle:     true,
-				TestCoverage:  false,
-				Documentation: true,
+		prefs := identity.AgentPreferencesPatch{
+			OutputVerbosity:      settingPtr("verbose"),
+			ConfirmationStrategy: settingPtr("always"),
+			AutomationLevel:      settingPtr("conservative"),
+			CrossSessionMemory:   settingPtr(false),
+			EvaluationStrictness: settingPtr("standard"),
+			ReviewFocus: identity.ReviewFocusPatch{
+				Security:      settingPtr(true),
+				Performance:   settingPtr(false),
+				CodeStyle:     settingPtr(true),
+				TestCoverage:  settingPtr(false),
+				Documentation: settingPtr(true),
 			},
 		}
 

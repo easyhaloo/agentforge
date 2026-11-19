@@ -46,3 +46,9 @@ export function changesetPath(handle: string, changesetID: string, tab: Changese
 export function withOrganizationHandle(pathname: string, handle: string): string {
   return pathname.replace(/^\/orgs\/[^/]+/i, `/orgs/${encodeURIComponent(handle)}`);
 }
+
+/** Only allow local paths as post-authentication destinations. */
+export function authReturnPath(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\u0000-\u001f]/.test(value)) return undefined;
+  return value;
+}

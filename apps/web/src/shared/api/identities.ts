@@ -1,7 +1,6 @@
-// Identity Management API - stub implementation
-// TODO: Implement full identity management API client
+// Linked identity management still awaits its client implementation.
 
-import { APIError } from "./identity";
+import { APIError, request } from "./identity";
 
 export { APIError };
 
@@ -34,7 +33,9 @@ export const identityManagementAPI = {
     throw new APIError("Identity management API not yet implemented", 501);
   },
 
-  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    throw new APIError("Identity management API not yet implemented", 501);
-  },
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>("/api/v1/me/password", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
 };

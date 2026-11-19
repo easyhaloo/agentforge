@@ -1,4 +1,4 @@
-import { Bell, Bot, Key, Lock, Monitor, Palette, Settings, User, type LucideIcon } from "lucide-react";
+import { Bell, Bot, Key, Lock, Radio, Paintbrush, Settings, User, type LucideIcon } from "lucide-react";
 
 /**
  * The settings navigation.
@@ -22,7 +22,7 @@ export type SettingsNavGroup = {
 export const settingsNavItems: SettingsNavItem[] = [
   { to: "/settings/profile", labelKey: "nav.profile", icon: User },
   { to: "/settings/account", labelKey: "nav.account", icon: Settings },
-  { to: "/settings/appearance", labelKey: "nav.appearance", icon: Palette },
+  { to: "/settings/appearance", labelKey: "nav.appearance", icon: Paintbrush },
   { to: "/settings/notifications", labelKey: "nav.notifications", icon: Bell },
 ];
 
@@ -32,8 +32,8 @@ export const settingsNavGroups: SettingsNavGroup[] = [
     titleKey: "nav.groupAccess",
     items: [
       { to: "/settings/authentication", labelKey: "nav.authentication", icon: Lock },
+      { to: "/settings/sessions", labelKey: "nav.sessions", icon: Radio },
       { to: "/settings/keys", labelKey: "nav.keys", icon: Key },
-      { to: "/settings/sessions", labelKey: "nav.sessions", icon: Monitor },
     ],
   },
   {

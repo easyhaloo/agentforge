@@ -24,8 +24,8 @@ type UserProfile struct {
 	DisplayName string    `json:"display_name"`
 	Email       string    `json:"email"`
 	AvatarURL   *string   `json:"avatar_url"` // TODO: Not in DB schema yet
-	Bio         string    `json:"bio"`        // TODO: Not in DB schema yet
-	Location    string    `json:"location"`   // TODO: Not in DB schema yet
+	Bio         string    `json:"bio"`
+	Location    string    `json:"location"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

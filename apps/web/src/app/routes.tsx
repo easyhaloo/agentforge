@@ -93,6 +93,7 @@ export const routes: RouteObject[] = [
           delivery("stacks", "Stacks"),
           delivery("self-healing", "Self-healing"),
           resource("memory", "Memory"),
+          { element: <OrganizationGate variant="repositories" />, children: [organizationPage("repositories", "Repositories", <RepositoriesRoute />)] },
           { element: <OrganizationGate variant="pipelines" />, children: [organizationPage("pipelines", "CI / CD", <PipelinesRoute />)] },
           resource("security", "Security"),
           resource("governance", "Governance"),
@@ -107,7 +108,6 @@ export const routes: RouteObject[] = [
               changesetDetail("evaluation"),
               changesetDetail("review"),
               changesetDetail("merge"),
-              organizationPage("repositories", "Repositories", <RepositoriesRoute />),
               organizationPage("webide", "WebIDE", <WebIDERoute />),
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),

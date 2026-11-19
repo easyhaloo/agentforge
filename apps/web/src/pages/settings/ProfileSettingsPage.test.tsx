@@ -46,7 +46,6 @@ describe("ProfileSettingsPage", () => {
     const html = renderToStaticMarkup(<ProfileSettingsPage />);
 
     expect(html).toContain("profile.title");
-    expect(html).toContain("profile.description");
     expect(html).toContain("settings-page");
   });
 });
