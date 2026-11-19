@@ -38,6 +38,7 @@ Adopt Monaco Editor as the target WebIDE editor, loaded lazily on the WebIDE rou
 - Do not enable writes against arbitrary branches or the repository default branch.
 - Configure language support from the same shared language registry used by the repository viewer.
 - Expose a narrow AgentForge editor adapter for file content, language, read-only state, active line, diagnostics, save, and disposal. Avoid coupling page state to Monaco internals.
+- The first adapter contract is now in `apps/web/src/shared/code/EditorAdapter.tsx`; its current TextArea implementation is transitional and preserves the existing controlled-buffer and save lifecycle. Monaco remains a follow-up adapter, not part of this initial seam.
 - Add WebIDE capabilities incrementally: model lifecycle, language services, diagnostics, formatting, then extension APIs. An extension must not gain credentials or bypass backend authorization.
 
 ### 3. Diff viewer: independent renderer
