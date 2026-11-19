@@ -1,12 +1,20 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { repositoryLanguage, RepositorySourceViewer } from "./RepositorySourceViewer";
+import { detectCodeLanguage, listCodeLanguages } from "../../shared/code/languages";
 
 describe("RepositorySourceViewer", () => {
   it("detects common source languages", () => {
     expect(repositoryLanguage("src/main.ts")).toBe("TypeScript");
     expect(repositoryLanguage("config.yaml")).toBe("YAML");
     expect(repositoryLanguage("Dockerfile")).toBe("Dockerfile");
+    expect(repositoryLanguage("scripts/run", "#!/usr/bin/env python3")).toBe("Python");
+    expect(repositoryLanguage(".github/workflows/ci.yml")).toBe("YAML");
+  });
+  it("exposes shared Shiki and Monaco language metadata", () => {
+    expect(detectCodeLanguage("src/main.ts")?.shiki).toBe("typescript");
+    expect(detectCodeLanguage("src/main.ts")?.monaco).toBe("typescript");
+    expect(listCodeLanguages().length).toBeGreaterThan(15);
   });
   it("marks the requested active line for editor deep links", () => {
     const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"first\nsecond"} activeLine={2}/>);
