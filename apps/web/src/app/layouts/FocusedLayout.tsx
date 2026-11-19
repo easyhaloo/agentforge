@@ -99,23 +99,25 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
 
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, updateDisplayName, selectedOrganization }}>
-      {fullscreen ? <Outlet /> : <AccountTheme key={account.user_id}>
-        <div className="focused-shell">
-          <div className="focused-main">
-            <Topbar
-              focused
-              label={pathname.includes("/settings") ? "Settings" : "Profile"}
-              onSearch={() => setCommandOpen(true)}
-              onNotify={notify}
-              onSignOut={() => void signOut()}
-            />
-            <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
-            <div className="focused-content">
-              <Outlet />
+      <AccountTheme key={account.user_id}>
+        {fullscreen ? <Outlet /> : (
+          <div className="focused-shell">
+            <div className="focused-main">
+              <Topbar
+                focused
+                label={pathname.includes("/settings") ? "Settings" : "Profile"}
+                onSearch={() => setCommandOpen(true)}
+                onNotify={notify}
+                onSignOut={() => void signOut()}
+              />
+              <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+              <div className="focused-content">
+                <Outlet />
+              </div>
             </div>
           </div>
-        </div>
-      </AccountTheme>}
+        )}
+      </AccountTheme>
     </AppAccountContext.Provider>
   );
 }

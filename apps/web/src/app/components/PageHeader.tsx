@@ -13,7 +13,6 @@ export function PageHeader({ label, descriptionKey, onRefresh, onCreate, disable
   return (
     <div className="page-heading">
       <div>
-        <div className="eyebrow">AGENTFORGE / {translatedLabel.toUpperCase()}</div>
         <h1>{translatedLabel}</h1>
         {description && <p>{description}</p>}
       </div>

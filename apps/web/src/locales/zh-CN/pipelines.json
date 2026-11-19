@@ -111,6 +111,9 @@
   "emptyHint": "点击右上角「创建」，从模板新建第一条流水线。",
   "status": "状态",
   "revisionLabel": "修订",
+  "runDetails": "运行详情",
+  "editPipeline": "编辑流水线",
+  "discardToRun": "放弃未保存的修改并运行",
   "backToList": "返回流水线列表",
   "nameHint": "以字母开头，可用字母、数字、下划线和短横线，最多 64 个字符。"
 }

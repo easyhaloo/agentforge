@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
-  background: #090d16;
+  background: var(--af-color-surface-raised);
 }
 
 .register-card {
@@ -14,8 +14,8 @@
   max-width: 480px;
   padding: 48px 40px;
   text-align: center;
-  background: #101725;
-  border: 1px solid #242e42;
+  background: var(--af-color-surface);
+  border: 1px solid var(--af-color-border);
   border-radius: 10px;
 }
 
@@ -54,7 +54,7 @@
 .password-strength__bar {
   flex: 1;
   height: 4px;
-  background: #242e42;
+  background: var(--af-color-surface-raised);
   border-radius: 2px;
   position: relative;
   overflow: hidden;
@@ -72,17 +72,17 @@
 
 .password-strength--weak .password-strength__bar::after {
   width: 33%;
-  background: #cf222e;
+  background: var(--af-color-danger);
 }
 
 .password-strength--medium .password-strength__bar::after {
   width: 66%;
-  background: #fb8500;
+  background: var(--af-color-warning);
 }
 
 .password-strength--strong .password-strength__bar::after {
   width: 100%;
-  background: #2da44e;
+  background: var(--af-color-success);
 }
 
 .password-strength__label {
@@ -91,15 +91,15 @@
 }
 
 .password-strength--weak .password-strength__label {
-  color: #ff6b7a;
+  color: var(--af-color-danger);
 }
 
 .password-strength--medium .password-strength__label {
-  color: #ffa94d;
+  color: var(--af-color-warning);
 }
 
 .password-strength--strong .password-strength__label {
-  color: #56d364;
+  color: var(--af-color-success);
 }
 
 .register-error {
@@ -107,7 +107,7 @@
   background: rgba(207, 34, 46, 0.1);
   border: 1px solid rgba(207, 34, 46, 0.3);
   border-radius: 6px;
-  color: #ff6b7a;
+  color: var(--af-color-danger);
   font-size: 13px;
   line-height: 1.5;
   text-align: left;
@@ -122,11 +122,11 @@
 .auth-link {
   margin: 0 0 24px;
   font-size: 13px;
-  color: #8995aa;
+  color: var(--af-color-text-secondary);
 }
 
 .auth-link a {
-  color: #539bf5;
+  color: var(--af-color-primary);
   text-decoration: none;
 }
 
@@ -139,7 +139,7 @@
   align-items: center;
   gap: 16px;
   margin: 24px 0;
-  color: #64718a;
+  color: var(--af-color-text-muted);
   font-size: 12px;
   text-transform: lowercase;
 }
@@ -149,7 +149,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: #242e42;
+  background: var(--af-color-surface-raised);
 }
 
 .auth-button {
@@ -170,7 +170,7 @@
 }
 
 .auth-button:focus-visible {
-  outline: 2px solid #8171ed;
+  outline: 2px solid var(--af-color-primary);
   outline-offset: 2px;
 }
 
@@ -180,14 +180,14 @@
   justify-content: center;
   gap: 6px;
   font-size: 11px;
-  color: #78859b;
+  color: var(--af-color-text-secondary);
   margin: 24px 0 0;
 }
 
 .register-footer {
   margin-top: 32px;
   font-size: 10px;
-  color: #64718a;
+  color: var(--af-color-text-muted);
   text-align: center;
 }
 
