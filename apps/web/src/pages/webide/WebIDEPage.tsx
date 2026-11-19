@@ -130,6 +130,19 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
   }, [organization.id, selectedRepository, selectedRef, selectedPath]);
 
   useEffect(() => {
+    if (!file || activeLine < 1) return;
+    const editor = document.querySelector<HTMLTextAreaElement>(".webide-editor textarea");
+    if (!editor) return;
+    const lines = draft.split("\\n");
+    const targetLine = Math.min(activeLine, lines.length);
+    const offset = lines.slice(0, targetLine - 1).reduce((total, line) => total + line.length + 1, 0);
+    editor.focus({ preventScroll: true });
+    editor.setSelectionRange(offset, offset);
+    const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight);
+    if (Number.isFinite(lineHeight)) editor.scrollTop = Math.max(0, (targetLine - 1) * lineHeight);
+  }, [file?.path, activeLine]);
+
+  useEffect(() => {
     const url = new URL(window.location.href);
     if (selectedRepository) url.searchParams.set("repository", selectedRepository);
     if (selectedRef) url.searchParams.set("commit", selectedRef);
@@ -191,6 +204,16 @@ export function WebIDEPage({ organization }: { organization: OrganizationSummary
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
+      event.preventDefault();
+      if (canEdit && dirty && !saving) void save();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canEdit, dirty, saving, save]);
 
   return <section className="webide-page">
     <header className="webide-heading">
