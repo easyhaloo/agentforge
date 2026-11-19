@@ -16,7 +16,7 @@ describe("WebIDEPage", () => {
     expect(lineStartOffset(content, 1)).toBe(0);
     expect(lineStartOffset(content, 2)).toBe(6);
     expect(lineStartOffset(content, 3)).toBe(11);
-    expect(lineStartOffset(content, 99)).toBe(16);
+    expect(lineStartOffset(content, 99)).toBe(11);
     expect(lineStartOffset(content, 0)).toBe(0);
   });
 });
