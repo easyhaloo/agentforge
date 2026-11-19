@@ -71,7 +71,7 @@ Create a shared language metadata module for extension/basename/shebang detectio
 ## Delivery plan
 
 1. **Architecture baseline**: document the decision, add shared language metadata and tests, and preserve current viewer behavior.
-2. **Repository viewer migration**: introduce Shiki tokenization behind the existing viewer contract; cover common languages, unknown-language fallback, escaping, line anchors, active line, and large-file fallback.
+2. **Repository viewer migration**: Shiki tokenization is now wired into the existing viewer contract. The viewer paints escaped plaintext immediately, initializes one shared highlighter lazily, loads the detected grammar on demand, and renders themed tokens as React text nodes/spans. Unknown languages and files above the 256 KiB / 10,000-line guard remain plaintext. Unit coverage exercises real TypeScript tokenization, source-as-text safety, line anchors, active lines, and fallback behavior. Follow-up validation remains required in CI.
 3. **WebIDE foundation**: add Monaco as a lazy-loaded route dependency behind an adapter; preserve the current save lifecycle and add browser tests for dirty state, discard, save, conflict, deep links, and keyboard shortcuts.
 4. **Navigation and diagnostics**: add Tree-sitter-backed structural navigation only after language-service requirements and performance budgets are measured.
 5. **Performance gates**: track initial route bundle, viewer time-to-first-text, highlight completion, large-file memory, editor startup, and worker/main-thread cost in CI or repeatable benchmark scripts.
