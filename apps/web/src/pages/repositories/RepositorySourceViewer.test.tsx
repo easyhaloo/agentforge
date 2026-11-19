@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, beforeAll } from "vitest";
 import i18n from "../../locales";
-import { repositoryLanguage, RepositorySourceViewer } from "./RepositorySourceViewer";
+import { repositoryLanguage, RepositorySourceViewer, shouldHighlightRepositorySource } from "./RepositorySourceViewer";
 import { detectCodeLanguage, listCodeLanguages } from "../../shared/code/languages";
 
 beforeAll(async () => {
@@ -21,6 +21,12 @@ describe("RepositorySourceViewer", () => {
     expect(detectCodeLanguage("src/main.ts")?.monaco).toBe("typescript");
     expect(listCodeLanguages().length).toBeGreaterThan(15);
   });
+  it("keeps syntax highlighting bounded and uses plaintext for unknown languages", () => {
+    expect(shouldHighlightRepositorySource("src/main.ts", "const value = 1;")).toBe(true);
+    expect(shouldHighlightRepositorySource("assets/data.unknown", "const value = 1;")).toBe(false);
+    expect(shouldHighlightRepositorySource("src/main.ts", "x".repeat(256 * 1024 + 1))).toBe(false);
+    expect(shouldHighlightRepositorySource("src/main.ts", Array.from({ length: 10_001 }, () => "x").join("\n"))).toBe(false);
+  });
   it("marks the requested active line for editor deep links", () => {
     const html = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"first\nsecond"} activeLine={2}/>);
     expect(html).toContain("repository-source__line--active");
@@ -33,6 +39,14 @@ describe("RepositorySourceViewer", () => {
     expect(html).toContain('repository-code__token--string');
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
+  });
+  it("renders unknown and oversized source as escaped plaintext", () => {
+    const unknown = renderToStaticMarkup(<RepositorySourceViewer path="data.unknown" content={'const value = "<script>";'} />);
+    expect(unknown).not.toContain("repository-code__token--keyword");
+    expect(unknown).toContain("&lt;script&gt;");
+
+    const large = renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"x".repeat(256 * 1024 + 1)} />);
+    expect(large).not.toContain("repository-code__token--");
   });
   it("describes the file in the language the reader chose", async () => {
     expect(renderToStaticMarkup(<RepositorySourceViewer path="src/main.ts" content={"const a = 1;\nconst b = 2;"} />))
