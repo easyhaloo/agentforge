@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { WebIDEPage } from "./WebIDEPage";
+import { lineStartOffset, WebIDEPage } from "./WebIDEPage";
 
 describe("WebIDEPage", () => {
   it("renders a changeset-aware editor shell without enabling writes before a changeset is selected", () => {
