@@ -74,33 +74,59 @@
   display: flex;
   gap: 8px;
   padding: 0 32px;
+  margin-bottom: 0;
   border-bottom: 1px solid var(--color-border-default, #d0d7de);
   background: var(--color-canvas-default, #ffffff);
 }
 
-.repository-tab {
+/*
+ * The tab bar is the shared tabs component, so the look of the page is kept here: the shared
+ * button brings its own box, which the tab of this page does not want.
+ */
+.repository-tabs .af-button {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
+  min-height: 0;
   padding: 12px 16px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
+  border-radius: 0;
   color: var(--color-fg-default, #1f2328);
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.15s;
 }
 
-.repository-tab:hover {
-  color: var(--color-fg-default, #1f2328);
+.repository-tabs .af-button:hover {
   background: var(--color-canvas-subtle, #f6f8fa);
+  border-color: transparent;
+  color: var(--color-fg-default, #1f2328);
 }
 
-.repository-tab.active {
-  color: var(--color-fg-default, #1f2328);
+.repository-tabs .af-button[aria-selected="true"] {
   border-bottom-color: #fd8c73;
+  color: var(--color-fg-default, #1f2328);
+}
+
+/*
+ * The nav items of this page are shared buttons: the box of the shared button is neutralized
+ * here, so the items keep the look of the page.
+ */
+.repository-detail-page .af-button.issues-nav-item,
+.repository-detail-page .af-button.members-filter-item,
+.repository-detail-page .af-button.filter-option,
+.repository-detail-page .af-button.wiki-nav-item {
+  justify-content: flex-start;
+  min-height: 0;
+  font-weight: 400;
+}
+
+.repository-detail-page .af-button.pulls-sub-tab {
+  justify-content: flex-start;
+  min-height: 0;
 }
 
 /* Content Container */
@@ -419,7 +445,9 @@
 .repository-detail-page .settings-nav-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
+  min-height: 0;
   padding: 8px 12px;
   background: transparent;
   border: none;
@@ -973,28 +1001,6 @@
   font-weight: 600;
 }
 
-.filter-select {
-  width: 100%;
-  padding: 6px 12px;
-  font-size: 13px;
-  color: var(--color-fg-default, #1f2328);
-  background: var(--color-canvas-default, #ffffff);
-  border: 1px solid var(--color-border-default, #d0d7de);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.filter-select:hover {
-  border-color: var(--color-border-muted, #d0d7de);
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
-}
-
 .pulls-list-container {
   display: flex;
   flex-direction: column;
@@ -1008,10 +1014,12 @@
   border-radius: 6px;
 }
 
-.search-input-wrapper {
+/* The search field is the shared search input: it keeps the look of the page here. */
+.pulls-search {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 0;
   padding: 8px 12px;
   background: var(--color-canvas-subtle, #f6f8fa);
   border: 1px solid var(--color-border-default, #d0d7de);
@@ -1019,28 +1027,10 @@
   transition: all 0.15s;
 }
 
-.search-input-wrapper:focus-within {
+.pulls-search:focus-within {
   background: var(--color-canvas-default, #ffffff);
   border-color: #0969da;
   box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
-}
-
-.search-input-wrapper svg {
-  color: var(--color-fg-muted, #656d76);
-  flex-shrink: 0;
-}
-
-.search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  color: var(--color-fg-default, #1f2328);
-  outline: none;
-}
-
-.search-input::placeholder {
-  color: var(--color-fg-muted, #656d76);
 }
 
 .pulls-list {
