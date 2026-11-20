@@ -8,6 +8,10 @@ describe("TextAreaEditorAdapter", () => {
     const html = renderToStaticMarkup(
       <TextAreaEditorAdapter
         path="src/main.ts"
+        modelKey="changeset://org-1/demo/CS-1/src/main.ts"
+        ariaLabel="Source editor"
+        rows={32}
+        editorStyle={{ minHeight: 400 }}
         languageId="typescript"
         value="const value = 1"
         onChange={() => undefined}
@@ -17,6 +21,10 @@ describe("TextAreaEditorAdapter", () => {
     );
     expect(html).toContain('data-editor-adapter="textarea"');
     expect(html).toContain('data-editor-path="src/main.ts"');
+    expect(html).toContain('data-editor-model-key="changeset://org-1/demo/CS-1/src/main.ts"');
+    expect(html).toContain('aria-label="Source editor"');
+    expect(html).toContain('rows="32"');
+    expect(html).toContain("min-height:400px");
     expect(html).toContain('data-editor-language="typescript"');
     expect(html).toContain('data-active-line="3"');
     expect(html).toContain("const value = 1");
