@@ -156,8 +156,13 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 	}
 	baseRef := strings.TrimSpace(r.URL.Query().Get("base"))
 	headRef := strings.TrimSpace(r.URL.Query().Get("head"))
+	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
 	if baseRef == "" || headRef == "" || len(baseRef) > 256 || len(headRef) > 256 {
 		writeProblem(w, http.StatusBadRequest, "Invalid compare refs", "Both base and head refs are required and must be at most 256 bytes")
+		return
+	}
+	if mode != "" && mode != "merge-base" {
+		writeProblem(w, http.StatusBadRequest, "Invalid compare mode", "Mode must be empty or 'merge-base'")
 		return
 	}
 	base, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repository.Slug, baseRef)
@@ -170,7 +175,12 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusNotFound, "Head revision not found", "The head ref could not be resolved")
 		return
 	}
-	patch, err := reader.Compare(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
+	var patch string
+	if mode == "merge-base" {
+		patch, err = reader.CompareWithMergeBase(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
+	} else {
+		patch, err = reader.Compare(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
+	}
 	if errors.Is(err, delivery.ErrPreviewTooLarge) {
 		writeProblem(w, http.StatusRequestEntityTooLarge, "Compare too large", "The diff exceeds the 1 MiB preview output limit")
 		return

@@ -246,6 +246,7 @@ func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repo
 // RepositoryCompareReader exposes a bounded, read-only diff between immutable commits.
 type RepositoryCompareReader interface {
 	Compare(context.Context, string, string, string, string) (string, error)
+	CompareWithMergeBase(context.Context, string, string, string, string) (string, error)
 }
 
 func (p *LocalGitProvider) Compare(ctx context.Context, organizationID, repository, baseSHA, headSHA string) (string, error) {
@@ -259,6 +260,41 @@ func (p *LocalGitProvider) Compare(ctx context.Context, organizationID, reposito
 	output, err := p.runPreview(ctx, repoPath, 1<<20,
 		"diff", "--no-ext-diff", "--no-renames", "--no-color",
 		"--src-prefix=a/", "--dst-prefix=b/", baseSHA, headSHA, "--")
+	if errors.Is(err, ErrPreviewTooLarge) {
+		return "", ErrPreviewTooLarge
+	}
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrRepositoryInvalid, err)
+	}
+	return string(output), nil
+}
+
+// CompareWithMergeBase performs a three-dot comparison, showing only changes
+// in headSHA that are not in baseSHA, relative to their common ancestor.
+// This is equivalent to: git diff $(git merge-base baseSHA headSHA)..headSHA
+func (p *LocalGitProvider) CompareWithMergeBase(ctx context.Context, organizationID, repository, baseSHA, headSHA string) (string, error) {
+	if !validGitObjectID(baseSHA) || !validGitObjectID(headSHA) {
+		return "", ErrPreviewPathInvalid
+	}
+	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
+	if err != nil {
+		return "", err
+	}
+
+	// Find the merge-base (common ancestor)
+	mergeBase, err := p.runPreview(ctx, repoPath, 1024, "merge-base", baseSHA, headSHA)
+	if err != nil {
+		return "", fmt.Errorf("%w: merge-base not found", ErrRepositoryInvalid)
+	}
+	mergeBaseSHA := strings.TrimSpace(string(mergeBase))
+	if !validGitObjectID(mergeBaseSHA) {
+		return "", ErrRepositoryInvalid
+	}
+
+	// Compare merge-base to head (shows only head's changes)
+	output, err := p.runPreview(ctx, repoPath, 1<<20,
+		"diff", "--no-ext-diff", "--no-renames", "--no-color",
+		"--src-prefix=a/", "--dst-prefix=b/", mergeBaseSHA, headSHA, "--")
 	if errors.Is(err, ErrPreviewTooLarge) {
 		return "", ErrPreviewTooLarge
 	}
