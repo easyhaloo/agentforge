@@ -54,9 +54,10 @@ test("Resources supports search, status filtering, inspection and creation", asy
 
 test("Changesets loads organization records, searches and persists a new changeset", async ({ page }) => {
   await (await openNavigation(page)).getByRole("link", { name: /Changesets/ }).click();
-  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  const baseline = page.getByRole("main").getByText("Browser test baseline").first();
+  await expect(baseline).toBeVisible();
   await page.getByPlaceholder("Search ID, title or repository").fill("Browser test");
-  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await expect(baseline).toBeVisible();
   await page.getByPlaceholder("Search ID, title or repository").fill("");
   // The list carries a repository filter as well, so the create form's select is matched exactly.
   await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), /^easyhaloo\/agentforge \· main$/);

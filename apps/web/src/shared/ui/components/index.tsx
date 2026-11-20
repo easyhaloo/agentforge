@@ -795,8 +795,33 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // Animation state management: initialize based on open prop
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(false);
+
+  // Handle mounting and visibility for animation
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setMounted(true);
+      // Small delay to ensure DOM is updated before triggering animation
+      const timer = setTimeout(() => {
+        setVisible(true);
+      }, 10);
+      return () => clearTimeout(timer);
+    } else {
+      setVisible(false);
+      // Unmount after animation completes (300ms duration + 50ms buffer)
+      const timer = setTimeout(() => {
+        setMounted(false);
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // Focus trap and keyboard handling - runs after drawer is mounted
+  useEffect(() => {
+    if (!open || !mounted) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const drawer = drawerRef.current;
     const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>(
@@ -832,11 +857,16 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
       window.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus();
     };
-  }, [open]);
-  if (!open) return null;
+  }, [open, mounted]);
+
+  if (!mounted) return null;
+
+  const backdropClasses = `af-drawer-backdrop${visible ? ' af-drawer-backdrop--visible' : ''}`;
+  const drawerClasses = `af-drawer af-drawer--${placement}${visible ? ' af-drawer--visible' : ''}`;
+
   return (
-    <div className="af-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
-      <aside ref={drawerRef} tabIndex={-1} className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
+    <div className={backdropClasses} onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
+      <aside ref={drawerRef} tabIndex={-1} className={drawerClasses} role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
         <header className="af-drawer__header"><h2 id={titleId}>{title}</h2><button type="button" aria-label={t("common:components.closeDrawer")} onClick={() => onCloseRef.current()}>×</button></header>
         <div className="af-drawer__body">{children}</div>
       </aside>

@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import i18n from "../../../locales";
 import {
   Button,
@@ -133,5 +134,77 @@ describe("shared UI primitives", () => {
     const html = renderToStaticMarkup(<NotificationProvider><div>Application</div></NotificationProvider>);
     expect(html).toContain('aria-label="Notifications"');
     expect(html).toContain("Application");
+  });
+});
+
+describe("Drawer animations", () => {
+  it("applies visible class when drawer opens", async () => {
+    const { container, rerender } = render(
+      <Drawer open={false} title="Test Drawer" onClose={() => undefined}>
+        Content
+      </Drawer>
+    );
+
+    // Initially closed, drawer should not be in DOM
+    expect(container.querySelector('.af-drawer')).toBeNull();
+
+    // Open the drawer
+    rerender(
+      <Drawer open={true} title="Test Drawer" onClose={() => undefined}>
+        Content
+      </Drawer>
+    );
+
+    // After opening, drawer should be mounted with visible class
+    await waitFor(() => {
+      const drawer = container.querySelector('.af-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.classList.contains('af-drawer--visible')).toBe(true);
+    });
+  });
+
+  it("removes drawer from DOM after exit animation completes", async () => {
+    const { container, rerender } = render(
+      <Drawer open={true} title="Test Drawer" onClose={() => undefined}>
+        Content
+      </Drawer>
+    );
+
+    // Wait for drawer to be visible
+    await waitFor(() => {
+      expect(container.querySelector('.af-drawer')).not.toBeNull();
+    });
+
+    // Close the drawer
+    rerender(
+      <Drawer open={false} title="Test Drawer" onClose={() => undefined}>
+        Content
+      </Drawer>
+    );
+
+    // Drawer should still be in DOM but without visible class
+    await waitFor(() => {
+      expect(container.querySelector('.af-drawer')).not.toBeNull();
+      expect(container.querySelector('.af-drawer--visible')).toBeNull();
+    });
+
+    // After animation duration, drawer should be unmounted
+    await waitFor(() => {
+      expect(container.querySelector('.af-drawer')).toBeNull();
+    }, { timeout: 1000 });
+  });
+
+  it("applies visible class to backdrop when drawer opens", async () => {
+    const { container } = render(
+      <Drawer open={true} title="Test Drawer" onClose={() => undefined}>
+        Content
+      </Drawer>
+    );
+
+    await waitFor(() => {
+      const backdrop = container.querySelector('.af-drawer-backdrop');
+      expect(backdrop).not.toBeNull();
+      expect(backdrop?.classList.contains('af-drawer-backdrop--visible')).toBe(true);
+    });
   });
 });
