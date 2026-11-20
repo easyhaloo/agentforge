@@ -13,9 +13,16 @@ let highlighterPromise: Promise<Highlighter> | undefined;
 const languageLoads = new Map<string, Promise<void>>();
 
 async function getRepositoryHighlighter(): Promise<Highlighter> {
-  highlighterPromise ??= import("shiki").then(({ getSingletonHighlighter }) =>
-    getSingletonHighlighter({ langs: [], themes: [THEME] }),
-  );
+  if (!highlighterPromise) {
+    const pending = import("shiki").then(({ getSingletonHighlighter }) =>
+      getSingletonHighlighter({ langs: [], themes: [THEME] }),
+    );
+    highlighterPromise = pending;
+    // A transient chunk/WASM load failure must not poison all later viewer requests.
+    void pending.catch(() => {
+      if (highlighterPromise === pending) highlighterPromise = undefined;
+    });
+  }
   return highlighterPromise;
 }
 
