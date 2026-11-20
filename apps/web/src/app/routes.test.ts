@@ -111,3 +111,16 @@ describe("route declarations", () => {
     expect(violations).toEqual([]);
   });
 });
+
+
+describe("WebIDE route loading", () => {
+  it("keeps both editor pages behind dynamic imports and Suspense boundaries", () => {
+    const source = readFileSync(resolve(sourceRoot, "app/RouteElements.tsx"), "utf8");
+    expect(source).toContain('lazy(() => import("../pages/webide/WebIDEPage")');
+    expect(source).toContain('lazy(() => import("../pages/webide/WorkspaceEditorPage")');
+    expect(source).toContain("<Suspense fallback={webIDELoadingFallback}><WebIDEPage");
+    expect(source).toContain("<Suspense fallback={webIDELoadingFallback}><WorkspaceEditorPage");
+    expect(source).not.toContain('import { WebIDEPage } from "../pages/webide/WebIDEPage"');
+    expect(source).not.toContain('import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage"');
+  });
+});
