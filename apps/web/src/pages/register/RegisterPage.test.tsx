@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import userEvent from "@testing-library/user-event";
@@ -434,14 +434,21 @@ describe("RegisterPage", () => {
       });
 
       // Resolve the registration
-      resolveRegister!({
-        ok: true,
-        status: 201,
-        json: async () => ({
-          user_id: "user-123",
-          email: "test@example.com",
-          display_name: "Test User",
-        }),
+      await act(async () => {
+        resolveRegister!({
+          ok: true,
+          status: 201,
+          json: async () => ({
+            user_id: "user-123",
+            email: "test@example.com",
+            display_name: "Test User",
+          }),
+        });
+      });
+
+      // Wait for navigation to complete
+      await waitFor(() => {
+        expect(screen.getByText("Changesets Page")).toBeInTheDocument();
       });
     });
   });
