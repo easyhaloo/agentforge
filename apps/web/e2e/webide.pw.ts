@@ -104,9 +104,11 @@ test("WebIDE saves an overlay and hands it off to the Changeset lifecycle", asyn
   await expect(page.getByRole("button", { name: "README.md" })).toBeVisible();
   await page.getByRole("button", { name: "README.md" }).click();
 
-  const editor = page.getByRole("textbox", { name: "Source editor" });
-  await expect(editor).toHaveValue("base content\n");
-  await editor.fill("edited content\n");
+  const editor = page.getByTestId("monaco-editor-host").locator(".monaco-editor");
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.insertText("edited content\n");
   await expect(page.getByRole("button", { name: "Create changeset" })).toBeDisabled();
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("button", { name: /Create changeset/ })).toBeEnabled();
