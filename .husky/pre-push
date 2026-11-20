@@ -12,7 +12,7 @@
 #
 # If any check fails, the push is rejected.
 #
-# Managed by Husky (installed via: npm install)
+# Managed manually (no npm package dependency)
 # Bypass all checks: git push --no-verify
 # Skip E2E only: SKIP_E2E=1 git push
 
@@ -79,7 +79,7 @@ fi
 echo -e "${GREEN}✅ All Go tests passed${NC}"
 
 # Switch to frontend
-cd "$REPO_ROOT"
+cd "$REPO_ROOT/apps/web"
 
 echo ""
 echo "🧪 Running frontend unit tests..."
@@ -90,7 +90,7 @@ if ! npm test 2>&1; then
     echo -e "${RED}❌ Frontend unit tests failed!${NC}"
     echo ""
     echo "Please fix the failing tests before pushing."
-    echo "Run 'npm test' to see detailed errors."
+    echo "Run 'cd apps/web && npm test' to see detailed errors."
     echo ""
     echo "To bypass this check (not recommended): git push --no-verify"
     exit 1
@@ -107,7 +107,7 @@ if ! npm run build 2>&1; then
     echo -e "${RED}❌ Frontend build failed!${NC}"
     echo ""
     echo "Please fix the build errors before pushing."
-    echo "Run 'npm run build' to see detailed errors."
+    echo "Run 'cd apps/web && npm run build' to see detailed errors."
     echo ""
     echo "To bypass this check (not recommended): git push --no-verify"
     exit 1
@@ -119,19 +119,19 @@ echo -e "${GREEN}✅ Frontend build successful${NC}"
 if [ "${SKIP_E2E}" = "1" ]; then
     echo ""
     echo -e "${YELLOW}⚠️  E2E tests skipped (SKIP_E2E=1)${NC}"
-    echo "   Remember to run 'npm run test:e2e' before merging to main"
+    echo "   Remember to run 'cd apps/web && npm run test:e2e' before merging to main"
 else
     echo ""
     echo "🎭 Running E2E tests (Playwright)..."
     echo "   (Skip with: SKIP_E2E=1 git push)"
 
-    # Run E2E tests
+    # Run E2E tests (already in apps/web directory)
     if ! npm run test:e2e 2>&1; then
         echo ""
         echo -e "${RED}❌ E2E tests failed!${NC}"
         echo ""
         echo "Please fix the failing E2E tests before pushing."
-        echo "Run 'npm run test:e2e' to see detailed errors."
+        echo "Run 'cd apps/web && npm run test:e2e' to see detailed errors."
         echo ""
         echo "To skip E2E temporarily: SKIP_E2E=1 git push"
         echo "To bypass all checks (not recommended): git push --no-verify"

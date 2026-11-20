@@ -32,24 +32,36 @@
 
 Requirements: Node.js 22+ and Go 1.25+.
 
-```bash
-npm install
-npm run dev
-npm test
-npm run build
+### Quick Start
 
-cd backend/api
-go test ./...
-go run ./cmd/server
+**Full stack** (PostgreSQL + Go API + Vite dev server):
+```bash
+make dev
 ```
 
-The frontend lives in `apps/web`; root npm scripts delegate to the workspace. The Go API lives in `backend/api` and listens on `PORT` (default `8080`).
+**Frontend only**:
+```bash
+cd apps/web
+npm install
+npm run dev    # Vite dev server on http://localhost:5173
+npm test       # Run unit tests
+npm run build  # Production build
+```
+
+**Backend only**:
+```bash
+cd backend/api
+go test ./...
+go run ./cmd/server  # Requires DATABASE_URL
+```
+
+The frontend lives in `apps/web` with its own `package.json` and dependencies. The Go API lives in `backend/api` and listens on `PORT` (default `8080`). Each package manages dependencies independently (no npm workspaces).
 
 ### Git Hooks
 
-Git hooks are managed by [Husky](https://typicode.github.io/husky/) and are automatically installed when you run `npm install`. The following hooks are configured:
+Git hooks are managed in `.husky/` and run automatically on commit and push. They are standalone shell scripts (no npm package dependency).
 
-- **pre-commit**: Runs `npm test` to ensure tests pass before committing
+- **pre-commit**: Runs `cd apps/web && npm test` to ensure tests pass
 - **pre-push**: Comprehensive quality checks before pushing:
   1. Documentation placement validation
   2. Go code formatting (`gofmt`)

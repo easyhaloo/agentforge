@@ -26,11 +26,7 @@ jobs:
           filters: |
             web:
               - 'apps/web/**'
-              - 'package.json'
-              - 'package-lock.json'
-              - 'wrangler.jsonc'
               - 'backend/api/**'
-              - 'playwright.config.ts'
               - 'compose.yaml'
               - 'Makefile'
               - 'scripts/dev-stack.sh'
@@ -51,18 +47,28 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: apps/web/package-lock.json
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache-dependency-path: backend/api/go.sum
-      - run: npm ci --no-audit --no-fund
+      - name: Install frontend dependencies
+        working-directory: apps/web
+        run: npm ci --no-audit --no-fund
       - name: Check translation resources
+        working-directory: apps/web
         run: npm run check:i18n
-      - run: npm test
-      - run: npm run build
+      - name: Run frontend unit tests
+        working-directory: apps/web
+        run: npm test
+      - name: Build frontend
+        working-directory: apps/web
+        run: npm run build
       - name: Install Chromium
+        working-directory: apps/web
         run: npx playwright install --with-deps chromium
       - name: Run browser tests, including real API flows
+        working-directory: apps/web
         env:
           AGENTFORGE_TEST_ORIGIN: http://127.0.0.1:4173
           RUN_DIR: ${{ runner.temp }}/agentforge-web-e2e
