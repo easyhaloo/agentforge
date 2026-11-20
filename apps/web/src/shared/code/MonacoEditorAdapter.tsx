@@ -153,7 +153,7 @@ export function MonacoEditorAdapter({
       changeSubscription?.dispose();
       controller?.dispose?.();
       const host = hostRef.current as (HTMLDivElement & { __monacoEditor?: Monaco.editor.IStandaloneCodeEditor }) | null;
-      if (host?.__monacoEditor === editor) delete host.__monacoEditor;
+      if (host && host.__monacoEditor === editor) delete host.__monacoEditor;
       editor?.dispose();
       lease?.release();
     };
