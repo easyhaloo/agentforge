@@ -39,7 +39,20 @@ Adopt Monaco Editor as the target WebIDE editor, loaded lazily on the WebIDE rou
 - Configure language support from the same shared language registry used by the repository viewer.
 - Expose a narrow AgentForge editor adapter for file content, language, read-only state, active line, diagnostics, save, and disposal. Avoid coupling page state to Monaco internals.
 - The adapter contract in `apps/web/src/shared/code/EditorAdapter.tsx` now defines AgentForge-owned diagnostic, command, and position types plus optional capabilities for reveal, diagnostics, command execution, formatting, and disposal. The textarea adapter intentionally implements only line focusing; capability checks let it remain lightweight until Monaco is introduced.
-- The current TextArea implementation is transitional and preserves the existing controlled-buffer and save lifecycle. Monaco remains a follow-up adapter, not part of this dependency-free contract stage.
+- The adapter contract in `apps/web/src/shared/code/EditorAdapter.tsx` now defines AgentForge-owned diagnostic, command, and position types plus optional capabilities for reveal, diagnostics, command execution, formatting, and disposal. The textarea adapter intentionally implements only line focusing; capability checks let it remain lightweight until Monaco is introduced.
+- Both the Changeset editor and isolated workspace editor are route-lazy and now consume the same AgentForge-owned `shared/code/EditorAdapter.tsx` contract. The transitional TextArea adapter supports per-surface accessible labels and presentation styles without moving persistence into the editor.
+- Workspace persistence remains isolated: `WorkspaceEditorPage` calls `workspaceAPI.writeFile(..., selected.version)`, while Changeset persistence remains `changesetAPI.saveFile` with commit/blob SHA concurrency. The shared adapter owns only editing and navigation capabilities; it does not own save APIs or model persistence.
+
+### 2.1 Monaco integration implementation contract
+
+The first implementation should use the official `monaco-editor` ESM package directly and an AgentForge-owned React adapter. Do not add `@monaco-editor/react` as a runtime wrapper in the initial integration. Pin the latest published stable version verified by npm (`0.57.0`); 0.58.0 development builds are pre-releases. Keep Monaco imports below the lazy WebIDE route boundary, use Vite ESM workers with `MonacoEnvironment.getWorker`, share URI-keyed models through reference-counted leases, and preserve React controlled-buffer and existing save concurrency semantics.
+
+- Readonly must be enforced by Monaco itself; do not use textarea `disabled` semantics.
+- Implement navigation, diagnostics, commands and formatting through `EditorController`; dispose editors, model leases, markers, commands and keybindings on unmount.
+- Do not add language servers or network-backed LSP in this slice. Start with built-in TypeScript/JavaScript, JSON, CSS and HTML services.
+- Keep all writes routed through existing Changeset and Workspace APIs; Monaco models are buffers, never a second persistence layer.
+
+Required validation: regenerate the workspace lockfile with npm, run `npm ci --ignore-scripts --no-audit --no-fund`, TypeScript/build/unit tests, and browser tests proving repository routes do not load Monaco chunks, model lifecycle is correct, readonly is enforced, and save/conflict behavior remains unchanged.
 
 ### 3. Diff viewer: independent renderer
 
