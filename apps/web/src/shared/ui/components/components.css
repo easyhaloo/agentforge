@@ -64,6 +64,7 @@ a.af-button{text-decoration:none}
 .af-drawer__header button{border:0;background:transparent;color:var(--af-color-text-secondary);font-size:22px;cursor:pointer}
 .af-drawer__body{padding:20px;overflow:auto;color:var(--af-color-text)}
 .af-drawer-backdrop--visible{opacity:1}
+.af-drawer-backdrop--closing{pointer-events:none}
 .af-drawer--visible{transform:translateX(0)}
 @media (prefers-reduced-motion:reduce){.af-drawer,.af-drawer-backdrop{transition:none!important}}
 .af-confirm-description{margin:0;color:var(--af-color-text);line-height:1.6}
