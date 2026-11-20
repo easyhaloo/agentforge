@@ -37,7 +37,7 @@ describe("TextAreaEditorAdapter", () => {
 
   it("publishes a controller that focuses and positions a requested line", () => {
     const onReady = vi.fn<(controller: EditorController | null) => void>();
-    render(
+    const { unmount } = render(
       <TextAreaEditorAdapter path="src/main.ts" languageId="typescript"
         value={"first\nsecond\nthird"} onChange={() => undefined} readOnly={false} onReady={onReady} />,
     );
@@ -49,5 +49,18 @@ describe("TextAreaEditorAdapter", () => {
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
     expect(editor.selectionStart).toBe(6);
     expect(editor.selectionEnd).toBe(6);
+    unmount();
+    expect(onReady).toHaveBeenLastCalledWith(null);
+  });
+
+  it("keeps advanced language-service capabilities optional for lightweight adapters", () => {
+    const controller: EditorController = {
+      focusLine: () => undefined,
+    };
+    expect(controller.revealLine).toBeUndefined();
+    expect(controller.setDiagnostics).toBeUndefined();
+    expect(controller.executeCommand).toBeUndefined();
+    expect(controller.formatDocument).toBeUndefined();
+    expect(controller.dispose).toBeUndefined();
   });
 });

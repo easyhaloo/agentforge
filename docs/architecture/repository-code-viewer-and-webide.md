@@ -27,7 +27,7 @@ Adopt Shiki (TextMate grammar-based highlighting) as the target syntax-highlight
 - Keep line numbers, active-line styling, copy, and `#Lx` anchors in AgentForge-owned React components.
 - Initialize the highlighter once, load grammars on demand, and avoid eagerly importing every language grammar.
 - Preserve a plain-text first paint. Highlight asynchronously and progressively for large files; establish measured size/line thresholds before enabling expensive tokenization. Use worker-based tokenization only if profiling demonstrates main-thread contention and the chosen Shiki build can be safely hosted in a worker.
-- Theme colors must come from shared design tokens/CSS variables so light and dark themes remain consistent.
+- The current application theme provider exposes a single dark palette and no light/dark mode contract. Use the matching `github-dark` Shiki theme today; when the application introduces theme switching, move to Shiki dual-theme tokens backed by the same explicit theme state rather than inferring theme from DOM or hard-coding per-viewer colors.
 
 ### 2. WebIDE: Monaco Editor
 
@@ -38,12 +38,12 @@ Adopt Monaco Editor as the target WebIDE editor, loaded lazily on the WebIDE rou
 - Do not enable writes against arbitrary branches or the repository default branch.
 - Configure language support from the same shared language registry used by the repository viewer.
 - Expose a narrow AgentForge editor adapter for file content, language, read-only state, active line, diagnostics, save, and disposal. Avoid coupling page state to Monaco internals.
-- The first adapter contract is now in `apps/web/src/shared/code/EditorAdapter.tsx`; its current TextArea implementation is transitional and preserves the existing controlled-buffer and save lifecycle. Monaco remains a follow-up adapter, not part of this initial seam.
-- Add WebIDE capabilities incrementally: model lifecycle, language services, diagnostics, formatting, then extension APIs. An extension must not gain credentials or bypass backend authorization.
+- The adapter contract in `apps/web/src/shared/code/EditorAdapter.tsx` now defines AgentForge-owned diagnostic, command, and position types plus optional capabilities for reveal, diagnostics, command execution, formatting, and disposal. The textarea adapter intentionally implements only line focusing; capability checks let it remain lightweight until Monaco is introduced.
+- The current TextArea implementation is transitional and preserves the existing controlled-buffer and save lifecycle. Monaco remains a follow-up adapter, not part of this dependency-free contract stage.
 
 ### 3. Diff viewer: independent renderer
 
-Keep unified diff parsing and rendering independent from Shiki and Monaco. Preserve old/new line numbers, hunk boundaries, add/remove/context states, and text-only rendering. Syntax highlighting inside diffs may be added later as an optional token decoration layer, but it must not alter diff parsing or line mapping.
+Keep unified diff parsing and row rendering independent from Shiki and Monaco. Preserve old/new line numbers, hunk boundaries, and add/remove/context states. Shiki is an optional asynchronous token-decoration layer over each hunk's source lines; it must never participate in diff parsing, alter line mapping, or inject generated HTML. Unknown languages, oversized diffs, and highlighting failures remain readable as plain text.
 
 ### 4. Markdown: separate secure renderer
 
@@ -71,9 +71,9 @@ Create a shared language metadata module for extension/basename/shebang detectio
 ## Delivery plan
 
 1. **Architecture baseline**: document the decision, add shared language metadata and tests, and preserve current viewer behavior.
-2. **Repository viewer migration**: introduce Shiki tokenization behind the existing viewer contract; cover common languages, unknown-language fallback, escaping, line anchors, active line, and large-file fallback.
-3. **WebIDE foundation**: add Monaco as a lazy-loaded route dependency behind an adapter; preserve the current save lifecycle and add browser tests for dirty state, discard, save, conflict, deep links, and keyboard shortcuts.
-4. **Navigation and diagnostics**: add Tree-sitter-backed structural navigation only after language-service requirements and performance budgets are measured.
+2. **Repository viewer migration**: Shiki tokenization is integrated into source and unified-diff views. Both render escaped plaintext first, share one lazy highlighter, load detected grammars on demand, and render themed tokens as React text nodes/spans. Source files and per-file diffs above 256 KiB / 10,000 lines remain plaintext. Diff parsing and old/new line mapping remain independent of syntax tokenization. Unit coverage exercises real TypeScript tokenization, source-as-text safety, line anchors, active lines, diff row markers, and fallback behavior. CI validation passed for source and diff highlighting: unit tests, production build, Chromium Playwright browser tests, and CI Gate all succeeded. Highlighter initialization failures are retryable; failed grammar loads are evicted so a transient failure does not permanently disable a language.
+3. **WebIDE foundation**: establish the editor adapter contract and retain the Changeset-only save lifecycle. Next: add Monaco as a lazy-loaded route dependency behind the adapter, then add browser tests for dirty state, discard, save, conflict, deep links, and keyboard shortcuts.
+4. **Navigation and diagnostics**: wire editor diagnostics and language services through adapter capabilities; add Tree-sitter-backed structural navigation only after language-service requirements and performance budgets are measured.
 5. **Performance gates**: track initial route bundle, viewer time-to-first-text, highlight completion, large-file memory, editor startup, and worker/main-thread cost in CI or repeatable benchmark scripts.
 
 ## Acceptance criteria

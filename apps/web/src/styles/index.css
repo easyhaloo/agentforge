@@ -397,3 +397,20 @@
   .page-heading { flex-wrap: wrap; }
   .heading-actions { margin-left: auto; }
 }
+
+
+/* Repository unified diff: syntax tokens decorate code without changing diff rows or line mapping. */
+.repository-diff{overflow:auto;max-height:720px;margin-top:12px;border:1px solid #29344a;border-radius:8px;background:#0c1421;color:#c5ccda;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.repository-diff__file{min-width:max-content;border-bottom:1px solid #29344a}
+.repository-diff__file:last-child{border-bottom:0}
+.repository-diff__file h4{position:sticky;left:0;margin:0;padding:8px 12px;border-bottom:1px solid #29344a;background:#111a29;color:#dce2ee;font:600 10px/1.5 ui-sans-serif,system-ui,sans-serif}
+.repository-diff__hunk{padding:4px 12px;background:#152238;color:#91a9ce;white-space:pre}
+.repository-diff__line{display:grid;grid-template-columns:48px 48px minmax(0,1fr);min-height:18px}
+.repository-diff__line>span{padding:0 8px;color:#65738b;text-align:right;user-select:none;border-right:1px solid #202a3d}
+.repository-diff__line code{display:block;padding:0 12px;white-space:pre;font:inherit}
+.repository-diff__line--add{background:#10271f}
+.repository-diff__line--add code{color:#c5d9cc}
+.repository-diff__line--remove{background:#2a171d}
+.repository-diff__line--remove code{color:#e4c2c5}
+.repository-diff__line--meta{color:#77849a}
+.repository-diff__file[data-highlight-engine="plain-text"] .repository-diff__line code{color:inherit}

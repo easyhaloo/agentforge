@@ -1,0 +1,24 @@
+name: Validate npm lockfile
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/package.json'
+      - 'package-lock.json'
+      - '.github/workflows/generate-lockfile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate committed workspace lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund

@@ -2,8 +2,43 @@ import { useEffect, useRef, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { TextArea } from "../ui";
 
+export type EditorDiagnosticSeverity = "error" | "warning" | "info" | "hint";
+
+export type EditorDiagnostic = {
+  message: string;
+  severity: EditorDiagnosticSeverity;
+  startLineNumber: number;
+  startColumn: number;
+  endLineNumber: number;
+  endColumn: number;
+  source?: string;
+  code?: string;
+};
+
+export type EditorCommand = {
+  id: string;
+  label: string;
+  keybinding?: string;
+};
+
+export type EditorPosition = {
+  lineNumber: number;
+  column: number;
+};
+
+/**
+ * Stable AgentForge-facing editor surface. Optional methods are capabilities:
+ * a lightweight adapter may omit them, while Monaco can implement them without
+ * exposing Monaco models, disposables, or editor instances to the page.
+ */
 export type EditorController = {
   focusLine: (oneBasedLine: number, content: string) => void;
+  revealLine?: (oneBasedLine: number) => void;
+  getPosition?: () => EditorPosition | null;
+  setDiagnostics?: (diagnostics: readonly EditorDiagnostic[]) => void;
+  executeCommand?: (commandId: string) => boolean;
+  formatDocument?: () => Promise<string | null>;
+  dispose?: () => void;
 };
 
 export type EditorAdapterProps = {
