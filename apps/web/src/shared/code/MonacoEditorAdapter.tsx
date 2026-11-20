@@ -39,10 +39,12 @@ export function MonacoEditorAdapter({
   const hostRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   const latestValueRef = useRef(value);
+  const latestReadOnlyRef = useRef(readOnly);
   const [loadError, setLoadError] = useState(false);
 
   onChangeRef.current = onChange;
   latestValueRef.current = value;
+  latestReadOnlyRef.current = readOnly;
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +76,7 @@ export function MonacoEditorAdapter({
 
         editor = monaco.editor.create(hostRef.current, {
           model,
-          readOnly,
+          readOnly: latestReadOnlyRef.current,
           automaticLayout: true,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
@@ -142,6 +144,16 @@ export function MonacoEditorAdapter({
         if (activeLine > 0) controller.focusLine(activeLine, model.getValue());
         if (!cancelled) onReady?.(controller);
       } catch {
+        changeSubscription?.dispose();
+        controller?.dispose?.();
+        const host = hostRef.current as (HTMLDivElement & { __monacoEditor?: Monaco.editor.IStandaloneCodeEditor }) | null;
+        if (host && host.__monacoEditor === editor) delete host.__monacoEditor;
+        editor?.dispose();
+        lease?.release();
+        changeSubscription = undefined;
+        controller = undefined;
+        editor = undefined;
+        lease = undefined;
         if (!cancelled) setLoadError(true);
       }
     }
