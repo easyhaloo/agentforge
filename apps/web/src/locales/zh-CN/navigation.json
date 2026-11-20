@@ -1,6 +1,6 @@
 {
   "routes": {
-    "overview": "概览",
+    "overview": "工作台",
     "projects": "项目",
     "workspaces": "工作空间",
     "stacks": "技术栈",
@@ -53,6 +53,10 @@
     "webide": "浏览指定提交的文件，或在变更集分支中编辑。"
   },
   "sidebar": {
+    "productName": "AgentForge",
+    "openNavigation": "打开导航菜单",
+    "navigation": "全局导航",
+    "organizationSettings": "组织设置",
     "brand": "agentforge",
     "tagline": "验证变更平台",
     "noOrganization": "无组织",

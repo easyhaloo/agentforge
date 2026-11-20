@@ -1,39 +1,21 @@
-import { Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { itemHref, navigationGroups } from "../navigation";
 import { groupToNavKey, labelToNavKey } from "../navigation-labels";
-import type { AccountContext, OrganizationSummary } from "../../shared/api/identity";
-import { Select } from "../../shared/ui";
+import { Drawer } from "../../shared/ui";
 
 // Links reuse the shared ghost Button classes, so navigation looks exactly like the buttons it replaced.
 // Every item uses `end`: NavLink otherwise matches by prefix and would highlight an item for unknown paths below it
 // (/projects/extra). An item must drop `end` once its section has nested routes (e.g. a changeset detail page).
 const linkButton="af-button af-button--ghost af-button--middle";
 
-type Props = { account: AccountContext | null; selectedOrganization: OrganizationSummary | undefined; linkHandle: string; onSelectOrganization: (id: string) => void };
+type Props = { open: boolean; linkHandle: string; onClose: () => void };
 
-export function Sidebar({ account, selectedOrganization: selected, linkHandle, onSelectOrganization }: Props) {
+export function Sidebar({ open, linkHandle, onClose }: Props) {
  const { t } = useTranslation("navigation");
 
- return <aside className="sidebar">
-  <div className="brand">
-    <div className="brand-mark"><Sparkles size={16}/></div>
-    <b>{t("sidebar.brand")}</b>
-  </div>
-  <div className="org-switch">
-    <Select
-      aria-label={t("sidebar.selectOrganization")}
-      value={selected?.id??""}
-      onChange={e=>onSelectOrganization(e.target.value)}
-      disabled={!account?.organizations.length}
-      options={(account?.organizations??[]).map(o=>({
-        label: o.name,
-        value: o.id
-      }))}
-    />
-  </div>
-  <div className="nav-scroll">
+ return <Drawer open={open} title={t("sidebar.navigation")} placement="left" width="min(296px, 90vw)" onClose={onClose}>
+  <nav className="workspace-navigation" aria-label={t("sidebar.navigation")}>
     {navigationGroups.map(group=>(
       <section className="nav-group" key={group.label}>
         <div className="nav-label">{t(groupToNavKey(group.label))}</div>
@@ -43,6 +25,7 @@ export function Sidebar({ account, selectedOrganization: selected, linkHandle, o
             <NavLink
               key={item.label}
               to={href}
+              onClick={onClose}
               aria-label={t(labelToNavKey(item.label))}
               title={t(labelToNavKey(item.label))}
               end
@@ -55,6 +38,6 @@ export function Sidebar({ account, selectedOrganization: selected, linkHandle, o
         })}
       </section>
     ))}
-  </div>
- </aside>;
+  </nav>
+ </Drawer>;
 }

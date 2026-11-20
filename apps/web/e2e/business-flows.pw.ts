@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installApiMocks } from "./support/api-mocks";
+import { openNavigation } from "./support/navigation";
 import { selectOption } from "./support/select-option";
 
 test.beforeEach(async ({ page }) => {
@@ -7,20 +8,25 @@ test.beforeEach(async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.locator(".sidebar .org-switch")).toContainText("AgentForge Demo");
+  await expect(page.getByRole("combobox", { name: "Select organization" })).toContainText("AgentForge Demo");
 });
 
-test("Overview search, status filtering, selection and navigation work together", async ({ page }) => {
-  await page.getByRole("textbox", { name: "Search overview changesets" }).fill("CS-2481");
-  await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
-  await selectOption(page, page.getByRole("combobox", { name: "Filter changesets by status" }), "Ready for review");
-  await expect(page.getByText("CS-2481", { exact: true })).toBeVisible();
-  await page.locator(".table-panel").getByRole("button", { name: "View all" }).click();
+test("Overview lists pending reviews and passes the filters to Changesets", async ({ page }) => {
+  const work = page.getByRole("region", { name: "Your work" });
+  await expect(work.getByRole("link", { name: /Browser test baseline/ })).toBeVisible();
+  await expect(work.getByText("Approved change")).toHaveCount(0);
+  await work.getByRole("button", { name: "My recent changes" }).click();
+  await expect(page).toHaveURL(/view=mine$/);
+  await expect(work.getByRole("link", { name: /Approved change/ })).toBeVisible();
+  await page.getByRole("link", { name: "Open review queue" }).click();
+  await expect(page).toHaveURL(/reviewer=me&status=in_review$/);
   await expect(page.getByRole("main").locator(".page-heading h1")).toHaveText("Changesets");
+  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await expect(page.getByText("Approved change")).toHaveCount(0);
 });
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
-  await page.getByRole("link", { name: "Stacks", exact: true }).click();
+  await (await openNavigation(page)).getByRole("link", { name: "Stacks", exact: true }).click();
   await expect(page.locator(".flow-primary h3")).toContainText("CS-2481");
   await page.getByRole("button", { name: "New revision" }).click();
   await expect(page.getByText("r4", { exact: true })).toBeVisible();
@@ -33,7 +39,7 @@ test("Delivery creates a revision, evaluates it, approves and completes the merg
 });
 
 test("Resources supports search, status filtering, inspection and creation", async ({ page }) => {
-  await page.getByRole("link", { name: "Projects", exact: true }).click();
+  await (await openNavigation(page)).getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Search Projects" }).fill("Commerce");
   await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
@@ -47,7 +53,7 @@ test("Resources supports search, status filtering, inspection and creation", asy
 });
 
 test("Changesets loads organization records, searches and persists a new changeset", async ({ page }) => {
-  await page.locator(".sidebar").getByRole("link", { name: /Changesets/ }).click();
+  await (await openNavigation(page)).getByRole("link", { name: /Changesets/ }).click();
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await page.getByPlaceholder("Search ID, title or repository").fill("Browser test");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
@@ -62,7 +68,7 @@ test("Changesets loads organization records, searches and persists a new changes
 });
 
 test("Organization role changes are sent to the API and reflected in the member table", async ({ page }) => {
-  await page.getByRole("link", { name: "Organization", exact: true }).click();
+  await page.getByRole("link", { name: "Organization settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   const role = page.getByRole("combobox", { name: "Role for Alex Developer" });
   await selectOption(page, role, "Viewer");
@@ -70,7 +76,7 @@ test("Organization role changes are sent to the API and reflected in the member 
 });
 
 test("Organization invitations can be created and displayed", async ({ page }) => {
-  await page.getByRole("link", { name: "Organization", exact: true }).click();
+  await page.getByRole("link", { name: "Organization settings", exact: true }).click();
   await page.getByRole("tab", { name: /Invitations/ }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("new-member@example.test");
   await selectOption(page, page.getByRole("combobox", { name: "Role" }), "Member");
@@ -81,7 +87,7 @@ test("Organization invitations can be created and displayed", async ({ page }) =
 });
 
 test("application shell remains usable at a mobile viewport", async ({ page }) => {
-  await page.getByRole("link", { name: "Projects", exact: true }).click();
+  await (await openNavigation(page)).getByRole("link", { name: "Projects", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   const dimensions = await page.evaluate(() => ({

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
+import { Building2, Menu } from "lucide-react";
+import { Link, Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
-import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, orgPath, withOrganizationHandle } from "../shared/routing";
+import { Button, Select } from "../shared/ui";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
 import { AccountTheme } from "../features/appearance/AccountTheme";
@@ -18,6 +20,7 @@ import { useNotify } from "./useNotify";
 function App() {
   const { t } = useTranslation("app");
   const [commandOpen, setCommandOpen] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const notify = useNotify();
   const navigateTo = useNavigateTo();
   const { pathname, search, hash } = useLocation();
@@ -57,7 +60,11 @@ function App() {
   const selectOrganization = (organizationID: string) => {
     setSelectedOrganizationID(organizationID);
     const next = account?.organizations.find((item) => item.id === organizationID);
-    if (next && urlHandle) navigateTo(withOrganizationHandle(pathname, organizationHandle(next)));
+    if (next && urlHandle) {
+      // Organization details reference objects owned by the previous organization.
+      const section = pathname.split("/").slice(0, 4).join("/");
+      navigateTo(withOrganizationHandle(section, organizationHandle(next)));
+    }
   };
 
   const signOut = async () => {
@@ -78,6 +85,7 @@ function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        setNavigationOpen(false);
         setCommandOpen(true);
       }
       if (event.key === "Escape") {
@@ -94,6 +102,7 @@ function App() {
 
   const label = routeLabel(matches.at(-1)?.handle);
   const item = navigationItemFor(label);
+  const isOverview = label === "Overview";
   // Organization pages are backed by the account API; the mock pages only simulate a refresh.
   const refresh = () => {
     if (urlHandle) void loadAccount();
@@ -104,14 +113,24 @@ function App() {
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
       {account && <AccountTheme key={account.user_id} />}
       <div className="shell">
-        <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} />
+        <Topbar label={label} onSearch={() => setCommandOpen(true)} onSignOut={() => void signOut()}
+          navigation={<Button variant="ghost" className="workspace-icon" aria-label={t("navigation:sidebar.openNavigation")}
+            aria-haspopup="dialog" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}><Menu size={17} aria-hidden="true" /></Button>}
+          organization={<div className="workspace-organization">
+            <Select aria-label={t("navigation:sidebar.selectOrganization")} value={selectedOrganization?.id ?? ""}
+              placeholder={t("navigation:sidebar.noOrganization")} disabled={!account?.organizations.length}
+              onChange={event => selectOrganization(event.target.value)}
+              options={(account?.organizations ?? []).map(org => ({ label: org.name, value: org.id }))} />
+            {selectedOrganization && <Link className="workspace-icon" to={orgPath(linkHandle, "settings")}
+              aria-label={t("navigation:sidebar.organizationSettings")} title={t("navigation:sidebar.organizationSettings")}><Building2 size={16} /></Link>}
+          </div>} />
+        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
         <main className="main">
-          <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} onSignOut={() => void signOut()} />
           <div className="content">
-            {(label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
+            {!isOverview && (label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
               <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
-            {!urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
+            {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>
         </main>
         <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />

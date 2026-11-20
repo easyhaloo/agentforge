@@ -1,0 +1,56 @@
+.workbench {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) minmax(0, 1fr) minmax(205px, 285px);
+  align-items: start;
+  gap: clamp(16px, 2vw, 28px);
+}
+.workbench-repositories { border-inline-end: 1px solid var(--af-color-border); padding-inline-end: 16px; align-self: stretch; min-width: 0; }
+.workbench-identity { display: flex; align-items: center; gap: 10px; margin-block: 4px 18px; overflow-wrap: anywhere; }
+.workbench-identity svg { flex: none; padding: 5px; border-radius: var(--af-radius-md); background: var(--af-color-primary-subtle); color: var(--af-color-primary); }
+.workbench-identity small, .workbench-list small { display: block; color: var(--af-color-text-secondary); font-size: 12px; }
+.workbench-quick { display: flex; gap: 8px; align-items: center; color: var(--af-color-text); padding: 8px; border-radius: var(--af-radius-md); background: var(--af-color-surface-raised); }
+.workbench-quick span { margin-inline-start: auto; }
+.workbench-repo-list { margin-block-start: 18px; border-top: 1px solid var(--af-color-border); padding-block-start: 12px; }
+.workbench h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.workbench-center { display: grid; gap: 16px; min-width: 0; }
+.workbench .workbench-heading { padding: 0; border: 0; margin: 0; }
+.workbench-heading .button { width: max-content; white-space: nowrap; }
+.workbench-card { min-width: 0; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); background: var(--af-color-surface); }
+.workbench-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--af-color-border); background: var(--af-color-surface-raised); border-radius: var(--af-radius-md) var(--af-radius-md) 0 0; }
+.workbench-link { display: inline-flex; align-items: center; gap: 4px; color: var(--af-color-primary); font-size: 12px; }
+.workbench a { text-decoration: none; }
+.workbench a:hover strong, .workbench a.workbench-link:hover { text-decoration: underline; }
+.workbench-tabs { display: flex; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--af-color-border); }
+.workbench-tabs .af-button { border-radius: 0; font: inherit; font-size: 13px; color: var(--af-color-text); background: none; border: 0; border-bottom: 2px solid transparent; padding: 9px 6px; cursor: pointer; }
+.workbench-tabs .af-button[aria-pressed="true"] { border-color: var(--af-color-primary); font-weight: 650; }
+.workbench-tabs .af-button span { border-radius: 16px; padding: 1px 6px; background: var(--af-color-surface-raised); }
+.workbench-list { list-style: none; padding: 0; margin: 0; }
+.workbench-list li + li { border-top: 1px solid var(--af-color-border); }
+.workbench-list a { display: flex; gap: 9px; align-items: center; color: var(--af-color-text); padding: 10px 14px; overflow-wrap: anywhere; }
+.workbench-list a:hover { background: var(--af-color-surface-raised); }
+.workbench-list svg { flex: none; color: var(--af-color-text-secondary); }
+.workbench-list .workbench-row-arrow:last-child, .workbench-list .workbench-status { margin-inline-start: auto; }
+.workbench-list .workbench-status + .workbench-row-arrow { margin-inline-start: 0; }
+.workbench-list .workbench-status { flex-shrink: 0; border: 1px solid var(--af-color-border); border-radius: 12px; padding: 1px 7px; white-space: nowrap; }
+.workbench-list .workbench-status--published { color: var(--af-color-success); background: var(--af-color-success-subtle); }
+.workbench-repo-list .workbench-list { margin-block: 6px; }
+.workbench-repo-list .workbench-list li + li { border: 0; }
+.workbench-repo-list .workbench-list a { padding: 8px 0; font-size: 13px; }
+.workbench-message { color: var(--af-color-text-secondary); font-size: 13px; padding: 14px; }
+.workbench-repo-list .workbench-message { padding-inline: 0; }
+@media (max-width: 1050px) {
+  .workbench { grid-template-columns: 170px minmax(0, 1fr); }
+  .workbench-pipelines { grid-column: 2; }
+}
+@media (max-width: 680px) {
+  .workbench { grid-template-columns: minmax(0, 1fr); }
+  .workbench-center { grid-row: 1; }
+  .workbench .workbench-heading { align-items: flex-start; }
+  .workbench-pipelines { grid-column: 1; }
+  .workbench-repositories { border-inline-end: 0; padding-inline-end: 0; }
+}
+
+@media (max-width: 440px) {
+  .workbench-tabs { flex-wrap: wrap; gap: 0 8px; }
+  .workbench-tabs .af-button { min-width: 0; white-space: normal; }
+}

@@ -107,7 +107,6 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
                 focused
                 label={pathname.includes("/settings") ? "Settings" : "Profile"}
                 onSearch={() => setCommandOpen(true)}
-                onNotify={notify}
                 onSignOut={() => void signOut()}
               />
               <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />

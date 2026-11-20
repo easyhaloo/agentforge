@@ -141,20 +141,8 @@ test.describe("Settings Pages", () => {
     // Start from a different page (projects typically loads faster)
     await page.goto("/projects");
 
-    // Wait for page to be interactive
-    await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(1000);
-
-    // Open user menu
-    const userMenuTrigger = page.locator('button').filter({
-      hasText: /Taylor Owner|owner@example|T/i
-    }).last();
-
-    await userMenuTrigger.click({ timeout: 10000 });
-    await page.waitForTimeout(500);
-
-    // Click Settings link - look for any element with "Settings" text
-    await page.locator('text=/^settings$/i').first().click();
+    await page.getByRole("button", { name: /^User menu,/ }).click();
+    await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
 
     // Should redirect to settings
     await expect(page).toHaveURL(/\/settings/, { timeout: 10000 });
