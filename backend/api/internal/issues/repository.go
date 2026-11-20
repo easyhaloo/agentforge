@@ -11,4 +11,7 @@ type Repository interface {
 
 	// Get retrieves an issue by repository and number
 	Get(ctx context.Context, organizationID, repository string, number int) (*Issue, error)
+
+	// List retrieves issues with filtering, pagination, and sorting
+	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]*Issue, int, error)
 }

@@ -36,3 +36,12 @@ type Issue struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
+
+// ListFilter represents filtering criteria for issues
+type ListFilter struct {
+	State      State      // Filter by state (open/closed)
+	CreatedBy  string     // Filter by creator
+	Repository string     // Filter by repository
+	Query      string     // Full-text search in title and body
+	Since      *time.Time // Filter by updated_at >= since
+}
