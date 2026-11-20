@@ -21,4 +21,13 @@ type Repository interface {
 
 	// Close closes an issue with a specific reason
 	Close(ctx context.Context, organizationID string, issueID ID, reason StateReason, closedBy string, closedAt time.Time) (*Issue, error)
+
+	// AddAssignee assigns a user to an issue (idempotent)
+	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
+
+	// RemoveAssignee unassigns a user from an issue
+	RemoveAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
+
+	// GetAssignees retrieves all assignees for an issue
+	GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error)
 }
