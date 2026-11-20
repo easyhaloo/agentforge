@@ -425,7 +425,7 @@ git revert -m 1 <merge-commit-hash>
 
 For questions about this merge plan:
 - Phase 2 backend: Review `deployments/production/OIDC-CONFIGURATION.md`
-- Phase 5 execution: Review `PHASE5_IMPLEMENTATION_REPORT.md`
+- Phase 5 execution: Review the [Phase 5 implementation report](phase5-implementation-report.md)
 - Phase 4 frontend: Review ADR-008 in `docs/architecture/decisions.md`
 
 ---
