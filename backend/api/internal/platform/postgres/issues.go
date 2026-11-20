@@ -43,6 +43,64 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 	return issue, nil
 }
 
+// AddAssignee assigns a user to an issue (idempotent)
+func (r *IssueRepository) AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error {
+	_, err := r.store.pool.Exec(ctx, `
+		INSERT INTO issue_assignees (organization_id, issue_id, user_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (organization_id, issue_id, user_id) DO NOTHING
+	`, organizationID, issueID, userID)
+
+	if err != nil {
+		return fmt.Errorf("add assignee: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveAssignee unassigns a user from an issue
+func (r *IssueRepository) RemoveAssignee(ctx context.Context, organizationID string, issueID string, userID string) error {
+	_, err := r.store.pool.Exec(ctx, `
+		DELETE FROM issue_assignees
+		WHERE organization_id = $1 AND issue_id = $2 AND user_id = $3
+	`, organizationID, issueID, userID)
+
+	if err != nil {
+		return fmt.Errorf("remove assignee: %w", err)
+	}
+
+	return nil
+}
+
+// GetAssignees retrieves all assignees for an issue
+func (r *IssueRepository) GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error) {
+	rows, err := r.store.pool.Query(ctx, `
+		SELECT user_id
+		FROM issue_assignees
+		WHERE organization_id = $1 AND issue_id = $2
+		ORDER BY user_id ASC
+	`, organizationID, issueID)
+	if err != nil {
+		return nil, fmt.Errorf("query assignees: %w", err)
+	}
+	defer rows.Close()
+
+	var assignees []string
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			return nil, fmt.Errorf("scan assignee: %w", err)
+		}
+		assignees = append(assignees, userID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate assignees: %w", err)
+	}
+
+	return assignees, nil
+}
+
 // Get retrieves an issue by repository and number
 func (r *IssueRepository) Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error) {
 	var issue issues.Issue
