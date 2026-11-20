@@ -14,4 +14,7 @@ type Repository interface {
 
 	// List retrieves issues with filtering, pagination, and sorting
 	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]*Issue, int, error)
+
+	// Update updates an existing issue (title, body, state, etc.)
+	Update(ctx context.Context, organizationID string, issue *Issue) (*Issue, error)
 }
