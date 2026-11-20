@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/web/package.json'
-      - 'package-lock.json'
+      - 'apps/web/package-lock.json'
       - '.github/workflows/generate-lockfile.yml'
 
 permissions:
@@ -14,11 +14,15 @@ permissions:
 jobs:
   lockfile:
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Validate committed workspace lockfile
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Validate committed frontend lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
