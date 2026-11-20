@@ -28,7 +28,7 @@ func TestLabelRepository_Create(t *testing.T) {
 	repoName := "owner/test-repo"
 
 	label := &labels.Label{
-		ID:          "label-001",
+		ID:          labels.ID("label-001"),
 		Repository:  repoName,
 		Name:        "bug",
 		Description: "Something isn't working",
@@ -88,7 +88,7 @@ func TestLabelRepository_CreateValidatesColor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			label := &labels.Label{
-				ID:         "label-color-" + tt.name,
+				ID:         labels.ID("label-color-" + tt.name),
 				Repository: "owner/color-test",
 				Name:       "test-" + tt.name,
 				Color:      tt.color,
@@ -128,7 +128,7 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 
 	// Create label in repo A
 	label1 := &labels.Label{
-		ID:         "label-unique-001",
+		ID:         labels.ID("label-unique-001"),
 		Repository: repoA,
 		Name:       "bug",
 		Color:      "d73a4a",
@@ -142,7 +142,7 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 
 	// Attempt to create same name in repo A - should fail
 	label2 := &labels.Label{
-		ID:         "label-unique-002",
+		ID:         labels.ID("label-unique-002"),
 		Repository: repoA,
 		Name:       "bug",
 		Color:      "ff0000",
@@ -156,7 +156,7 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 
 	// Create same name in repo B - should succeed
 	label3 := &labels.Label{
-		ID:         "label-unique-003",
+		ID:         labels.ID("label-unique-003"),
 		Repository: repoB,
 		Name:       "bug",
 		Color:      "d73a4a",
@@ -187,7 +187,7 @@ func TestLabelRepository_Get(t *testing.T) {
 	orgID := "test-org-labels-004"
 
 	label := &labels.Label{
-		ID:          "label-get-001",
+		ID:          labels.ID("label-get-001"),
 		Repository:  "owner/get-test",
 		Name:        "enhancement",
 		Description: "New feature or request",
@@ -240,9 +240,9 @@ func TestLabelRepository_List(t *testing.T) {
 
 	// Create multiple labels
 	testLabels := []labels.Label{
-		{ID: "label-list-001", Repository: repoName, Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: "label-list-002", Repository: repoName, Name: "enhancement", Color: "a2eeef", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: "label-list-003", Repository: repoName, Name: "documentation", Color: "0075ca", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-list-001"), Repository: repoName, Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-list-002"), Repository: repoName, Name: "enhancement", Color: "a2eeef", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-list-003"), Repository: repoName, Name: "documentation", Color: "0075ca", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
 	}
 
 	for _, label := range testLabels {
@@ -283,7 +283,7 @@ func TestLabelRepository_Update(t *testing.T) {
 	orgID := "test-org-labels-006"
 
 	label := &labels.Label{
-		ID:          "label-update-001",
+		ID:          labels.ID("label-update-001"),
 		Repository:  "owner/update-test",
 		Name:        "bug",
 		Description: "Old description",
@@ -337,7 +337,7 @@ func TestLabelRepository_Delete(t *testing.T) {
 	orgID := "test-org-labels-007"
 
 	label := &labels.Label{
-		ID:         "label-delete-001",
+		ID:         labels.ID("label-delete-001"),
 		Repository: "owner/delete-test",
 		Name:       "wontfix",
 		Color:      "ffffff",
@@ -381,7 +381,7 @@ func TestLabelRepository_AddLabelToIssue(t *testing.T) {
 	issueID := "issue-label-001"
 
 	label := &labels.Label{
-		ID:         "label-assoc-001",
+		ID:         labels.ID("label-assoc-001"),
 		Repository: "owner/assoc-test",
 		Name:       "bug",
 		Color:      "d73a4a",
@@ -433,13 +433,13 @@ func TestLabelRepository_AddMultipleLabelsToIssue(t *testing.T) {
 	issueID := "issue-multi-label-001"
 
 	// Create multiple labels
-	labels := []labels.Label{
-		{ID: "label-multi-001", Repository: "owner/multi-test", Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: "label-multi-002", Repository: "owner/multi-test", Name: "priority-high", Color: "ff0000", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: "label-multi-003", Repository: "owner/multi-test", Name: "good-first-issue", Color: "7057ff", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+	testLabels := []labels.Label{
+		{ID: labels.ID("label-multi-001"), Repository: "owner/multi-test", Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-multi-002"), Repository: "owner/multi-test", Name: "priority-high", Color: "ff0000", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-multi-003"), Repository: "owner/multi-test", Name: "good-first-issue", Color: "7057ff", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
 	}
 
-	for _, label := range labels {
+	for _, label := range testLabels {
 		l := label
 		_, err := labelRepo.Create(ctx, orgID, &l)
 		if err != nil {
@@ -482,7 +482,7 @@ func TestLabelRepository_RemoveLabelFromIssue(t *testing.T) {
 	issueID := "issue-remove-label-001"
 
 	label := &labels.Label{
-		ID:         "label-remove-001",
+		ID:         labels.ID("label-remove-001"),
 		Repository: "owner/remove-test",
 		Name:       "bug",
 		Color:      "d73a4a",
