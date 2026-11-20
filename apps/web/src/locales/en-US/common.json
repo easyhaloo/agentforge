@@ -98,7 +98,8 @@
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "switchLanguage": "Switch language",
-    "fileContentAriaLabel": "File content"
+    "fileContentAriaLabel": "File content",
+    "editorLoadFailed": "The code editor could not be loaded."
   },
   "delivery": {
     "banner": {
