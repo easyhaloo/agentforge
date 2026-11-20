@@ -64,7 +64,7 @@ test("repository browsing does not load Monaco or its workers", async ({ page })
   const monacoRequests: string[] = [];
   page.on("request", request => {
     const url = request.url();
-    if (/MonacoEditorAdapter|monacoWorkers|monaco-editor|editor\\.worker|ts\\.worker/.test(url)) {
+    if (/MonacoEditorAdapter|monacoWorkers|monaco-editor|editor\.worker|ts\.worker/.test(url)) {
       monacoRequests.push(url);
     }
   });
@@ -72,5 +72,7 @@ test("repository browsing does not load Monaco or its workers", async ({ page })
   await page.goto("/orgs/demo/repositories");
   await page.getByRole("cell").getByText("easyhaloo/agentforge").click();
   await expect(page.getByRole("heading", { name: "Repository preview" })).toBeVisible();
-  expect(monacoRequests).toEqual([]);
+  await expect.poll(() => monacoRequests).toEqual([]);
+  const loadedResources = await page.evaluate(() => performance.getEntriesByType("resource").map(entry => entry.name));
+  expect(loadedResources.filter(url => /MonacoEditorAdapter|monaco-editor|editor\.worker|ts\.worker/i.test(url))).toEqual([]);
 });
