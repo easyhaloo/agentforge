@@ -29,21 +29,24 @@ function renderTokens(tokens: RepositorySyntaxResult["tokens"][number] | undefin
 }
 
 function RepositoryDiffFileView({ file }: { file: RepositoryDiffFile }) {
-  const [tokensByHunk, setTokensByHunk] = useState<Record<number, RepositorySyntaxResult["tokens"]>>({});
   const path = getDiffFilePath(file);
   const language = detectCodeLanguage(path);
+  const [tokensByHunk, setTokensByHunk] = useState<Record<number, RepositorySyntaxResult["tokens"]>>({});
+  const [highlightStatus, setHighlightStatus] = useState<"pending" | "shiki" | "plain-text">(language ? "pending" : "plain-text");
 
   useEffect(() => {
     let current = true;
     setTokensByHunk({});
-    if (!language) return () => { current = false; };
+    if (!language) { setHighlightStatus("plain-text"); return () => { current = false; }; }
 
     const hunkSources = file.hunks.map(hunk => hunk.lines.filter(line => line.kind !== "meta").map(line => line.text));
     const totalLines = hunkSources.reduce((count, lines) => count + lines.length, 0);
     const totalBytes = hunkSources.reduce((count, lines) => count + new TextEncoder().encode(lines.join("\n")).byteLength, 0);
     if (totalLines > MAX_DIFF_HIGHLIGHT_LINES || totalBytes > MAX_DIFF_HIGHLIGHT_BYTES) {
+      setHighlightStatus("plain-text");
       return () => { current = false; };
     }
+    setHighlightStatus("pending");
 
     void Promise.all(hunkSources.map(lines => lines.length
       ? highlightRepositorySource(lines.join("\n"), language.shiki)
@@ -53,13 +56,14 @@ function RepositoryDiffFileView({ file }: { file: RepositoryDiffFile }) {
         const next: Record<number, RepositorySyntaxResult["tokens"]> = {};
         results.forEach((result, index) => { if (result) next[index] = result.tokens; });
         setTokensByHunk(next);
+        setHighlightStatus("shiki");
       })
-      .catch(() => { if (current) setTokensByHunk({}); });
+      .catch(() => { if (current) { setTokensByHunk({}); setHighlightStatus("plain-text"); } });
 
     return () => { current = false; };
   }, [file, language]);
 
-  return <section className="repository-diff__file" data-highlight-engine={language ? (Object.keys(tokensByHunk).length ? "shiki" : "pending") : "plain-text"}>
+  return <section className="repository-diff__file" data-highlight-engine={highlightStatus}>
     <h4>{file.header.replace(/^diff --git a\//, "").replace(/ b\//, " → ")}</h4>
     {file.hunks.map((hunk, hunkIndex) => <RepositoryDiffHunkView key={hunkIndex} hunk={hunk} tokens={tokensByHunk[hunkIndex]} />)}
   </section>;
