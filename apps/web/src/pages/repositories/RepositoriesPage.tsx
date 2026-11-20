@@ -245,7 +245,7 @@ export function RepositoriesPage({ organization, onNotify }: Props) {
     <DataTable
       className="org-table"
       columns={[
-        { key: "slug", title: t("repositories:columns.repository"), render: (_value, item) => <Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setSelectedRef(item.default_branch); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button> },
+        { key: "slug", title: t("repositories:columns.repository"), render: (_value, item) => <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setSelectedRef(item.default_branch); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button><Button className="button secondary" onClick={() => { const [owner, name] = item.slug.split("/"); navigate(`/orgs/${encodeURIComponent(organization.slug)}/webide/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`); }}>{t("repositories:page.openWebide")}</Button></span> },
         { key: "default_branch", title: t("repositories:columns.branch") },
         { key: "created_by", title: t("repositories:columns.registeredBy") },
         { key: "created_at", title: t("repositories:columns.registered") },

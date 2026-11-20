@@ -1010,6 +1010,295 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createRepositoryWorkspace
+      summary: Create a workspace pinned to a repository commit
+      description: Requires active organization write membership and a registered repository. The base ref is resolved once to an immutable commit SHA. Workspaces expire after eight hours. This endpoint does not execute repository code.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                base_ref: { type: string, maxLength: 256 }
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace]
+                properties:
+                  workspace: { $ref: "#/components/schemas/Workspace" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getWorkspace
+      summary: Get workspace metadata
+      description: Access is limited to the workspace owner and organization owners or administrators.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Workspace metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace]
+                properties:
+                  workspace: { $ref: "#/components/schemas/Workspace" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/tree:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listWorkspaceTree
+      summary: List the pinned base tree merged with workspace overlays
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: path
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        "200":
+          description: Stable directory listing with base or workspace source labels
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, base_commit_sha, path, items]
+                properties:
+                  workspace_id: { type: string }
+                  base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, path, kind, source]
+                      properties:
+                        name: { type: string }
+                        path: { type: string }
+                        kind: { type: string, enum: [file, tree, symlink, commit, blob] }
+                        source: { type: string, enum: [base, workspace] }
+                        version: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/diff:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getWorkspaceDiff
+      summary: List saved workspace additions and modifications against the pinned base commit
+      description: Returns bounded file metadata only. File contents and unified patches are not included. Deletions are not yet supported.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Workspace diff metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, base_commit_sha, items, total]
+                properties:
+                  workspace_id: { type: string }
+                  base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  total: { type: integer, minimum: 0, maximum: 2000 }
+                  items:
+                    type: array
+                    maxItems: 2000
+                    items:
+                      type: object
+                      required: [path, status, workspace_sha256, version]
+                      properties:
+                        path: { type: string }
+                        status: { type: string, enum: [added, modified] }
+                        base_blob_sha: { type: string }
+                        workspace_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+                        version: { type: integer, minimum: 1 }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/changesets:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createWorkspaceChangeset
+      summary: Materialize the saved workspace overlay as an immutable Git revision and create a Changeset
+      description: Creates a commit whose sole parent is the workspace's pinned base commit, stores it under an immutable AgentForge ref, and attaches it to the existing Changeset lifecycle. The user target branch is not moved. The saved overlay is read from one bounded repeatable-read database snapshot; at most 2,000 files and 32 MiB are accepted.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              additionalProperties: false
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "201":
+          description: Changeset and immutable workspace revision created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changeset, workspace_id, base_commit_sha, revision_commit_sha]
+                properties:
+                  changeset: { $ref: "#/components/schemas/StoredChangeset" }
+                  workspace_id: { type: string }
+                  base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  revision_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: workspaceID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: readWorkspaceFile
+      summary: Read a file from the workspace overlay or pinned base commit
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 1024 }
+      responses:
+        "200":
+          description: File content and optimistic version; zero denotes the immutable base file
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, path, content, sha256, version, source]
+                properties:
+                  workspace_id: { type: string }
+                  path: { type: string }
+                  content: { type: string }
+                  sha256: { type: string }
+                  version: { type: integer, minimum: 0 }
+                  source: { type: string, enum: [base, workspace] }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: writeWorkspaceFile
+      summary: Create or update a workspace file using optimistic version control
+      description: Content is limited to 2 MiB. expected_version must match the current workspace overlay version; zero creates the overlay.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, content, expected_version]
+              additionalProperties: false
+              properties:
+                path: { type: string, minLength: 1, maxLength: 1024 }
+                content: { type: string, maxLength: 2097152 }
+                expected_version: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Persisted workspace file and new version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace_id, path, content, sha256, version, source]
+                properties:
+                  workspace_id: { type: string }
+                  path: { type: string }
+                  content: { type: string }
+                  sha256: { type: string }
+                  version: { type: integer, minimum: 1 }
+                  source: { type: string, const: workspace }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+
+
+
 components:
   securitySchemes:
     webhookSignature:
@@ -1144,6 +1433,20 @@ components:
         slug: { type: string }
         default_branch: { type: string }
         created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Workspace:
+      type: object
+      required: [id, organization_id, repository, owner_id, base_commit_sha, base_ref, status, expires_at, created_at, updated_at]
+      properties:
+        id: { type: string }
+        organization_id: { type: string }
+        repository: { type: string }
+        owner_id: { type: string }
+        base_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        base_ref: { type: string }
+        status: { type: string, enum: [active, expired, closed] }
+        expires_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     RepositoryCommit:

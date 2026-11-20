@@ -11,6 +11,7 @@ import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesP
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
+import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
@@ -101,6 +102,13 @@ export function RepositoryDetailRoute() {
 export function WebIDERoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   return <WebIDEPage key={organization.id} organization={organization} />;
+}
+
+/** The workspace editor is scoped to one repository, so it reads the owner and name from the path. */
+export function WorkspaceEditorRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <WorkspaceEditorPage key={`${organization.id}:${window.location.pathname}`} organization={organization} onNotify={notify} />;
 }
 
 export function OrganizationRoute() {
