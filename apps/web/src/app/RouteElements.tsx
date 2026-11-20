@@ -23,6 +23,7 @@ import type { OrganizationOutletContext } from "./OrganizationGate";
 import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
 import { useNotify } from "./useNotify";
+import { LoginRedirect } from "./LoginRedirect";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register/RegisterPage";
 
@@ -48,9 +49,7 @@ export function OverviewRoute() {
   const { account, accountState, selectedOrganization, reload } = useAppAccount();
   const { t } = useTranslation("overview");
   if (accountState === "loading") return <OverviewUnavailable title={t("workbench.loading")}><Loading /></OverviewUnavailable>;
-  if (accountState === "signed-out") return <OverviewUnavailable title={t("workbench.signIn")}>
-    <Link className="button primary" to="/login">{t("login:signInButton")}</Link>
-  </OverviewUnavailable>;
+  if (accountState === "signed-out") return <LoginRedirect />;
   if (accountState === "unavailable") return <OverviewUnavailable title={t("app:errors.accountLoadFailed")}>
     <Button onClick={() => void reload()}>{t("app:organizationGate.retry")}</Button>
   </OverviewUnavailable>;

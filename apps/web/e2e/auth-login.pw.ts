@@ -11,7 +11,7 @@ test.describe("Login Page", () => {
     await page.goto("/login");
 
     // Verify page title and form elements
-    await expect(page.getByRole("heading", { name: "AgentForge" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to AgentForge" })).toBeVisible();
     await expect(page.getByLabel("Email address")).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
@@ -19,6 +19,22 @@ test.describe("Login Page", () => {
     // Verify registration link
     await expect(page.getByText("Don't have an account?")).toBeVisible();
     await expect(page.getByRole("link", { name: "Create one" })).toBeVisible();
+  });
+
+  test("the login background respects reduced motion and fits a narrow viewport", async ({ page }) => {
+    await installApiMocks(page, { signedOut: true });
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/login");
+
+    const login = page.getByRole("main", { name: "Sign in to AgentForge" });
+    const animationName = () => login.evaluate(element => getComputedStyle(element, "::before").animationName);
+    expect(await animationName()).toBe("login-ambient-in");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect.poll(animationName).toBe("none");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+    await page.getByRole("button", { name: "Show password" }).click();
+    await expect(page.locator('input[name="password"]')).toHaveAttribute("type", "text");
   });
 
   test("successful login redirects to default page", async ({ page }) => {

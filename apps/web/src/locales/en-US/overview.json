@@ -14,7 +14,6 @@
     "noMine": "None of the latest changesets were opened by you.",
     "noReviews": "No changesets are waiting for your review.",
     "loadError": "Could not load this section.",
-    "signIn": "Sign in to see your organization’s work",
     "loading": "Loading your workspace",
     "revisions_one": "{{count}} revision",
     "revisions_other": "{{count}} revisions"

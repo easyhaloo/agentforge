@@ -2,41 +2,28 @@ import { authReturnPath } from "../../shared/routing";
 import { Navigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect, type FormEvent } from "react";
-import { Input } from "../../shared/ui/components";
-import { PasswordInput } from "../../shared/ui/components/form-controls";
-import { Button } from "../../shared/ui/components";
+import { Alert, Button, Input, PasswordInput } from "../../shared/ui";
 import { authAPI, APIError } from "../../shared/api/identity";
 import { getEnabledProviders, type SSOProvider } from "../../shared/api/providers";
 import "./LoginPage.css";
-
-type AuthCheckState = "checking" | "authenticated" | "unauthenticated";
 
 export function LoginPage() {
   const { t } = useTranslation("login");
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const [authState, setAuthState] = useState<AuthCheckState>("unauthenticated");
+  const [authenticated, setAuthenticated] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loginSuccess, setLoginSuccess] = useState(false);
   const [ssoProviders, setSSOProviders] = useState<SSOProvider[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
 
   // Check if user is already authenticated
   useEffect(() => {
     fetch("/api/v1/me", { credentials: "include" })
-      .then((res) => {
-        if (res.ok) {
-          setAuthState("authenticated");
-        } else {
-          setAuthState("unauthenticated");
-        }
-      })
-      .catch(() => {
-        setAuthState("unauthenticated");
-      });
+      .then((response) => { if (response.ok) setAuthenticated(true); })
+      .catch(() => { /* The form remains available if the session check fails. */ });
   }, []);
 
   // Load available SSO providers
@@ -55,7 +42,7 @@ export function LoginPage() {
   }, []);
 
   const returnPath = authReturnPath(location.state?.from ?? searchParams.get("return"));
-  if (authState === "authenticated" || loginSuccess) {
+  if (authenticated) {
     return <Navigate to={returnPath ?? "/orgs/current/changesets"} replace />;
   }
 
@@ -94,6 +81,7 @@ export function LoginPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
 
     // Client-side validation
@@ -108,8 +96,8 @@ export function LoginPage() {
 
     setLoading(true);
     try {
-      await authAPI.localLogin(email, password);
-      setLoginSuccess(true);
+      await authAPI.localLogin(email.trim(), password);
+      setAuthenticated(true);
     } catch (err) {
       if (err instanceof APIError) {
         if (err.status === 401) {
@@ -128,22 +116,23 @@ export function LoginPage() {
   };
 
   return (
-    <main className="login-page" role="main" aria-labelledby="login-heading">
-      <div className="login-card card">
-        <header className="login-header">
-          <div className="brand-mark" aria-hidden="true">AF</div>
-          <h1 id="login-heading" className="product-name">{t("title")}</h1>
-          <p className="tagline">{t("tagline")}</p>
-        </header>
+    <main className="login-page" aria-labelledby="login-heading">
+      <header className="login-header">
+        <div className="login-mark" aria-hidden="true">AF</div>
+        <h1 id="login-heading">{t("title")}</h1>
+      </header>
 
+      <div className="login-card">
         <form className="local-login-form" onSubmit={handleSubmit}>
+          {error && <Alert status="error">{error}</Alert>}
           <Input
             type="email"
             name="email"
             label={t("email")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
+            autoComplete="username"
+            controlSize="large"
           />
           <PasswordInput
             name="password"
@@ -151,40 +140,19 @@ export function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            controlSize="large"
           />
-          {error && (
-            <div className="login-error" role="alert">
-              {error}
-            </div>
-          )}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={loading}
-            className="login-button"
-          >
-            {t("signInButton")}
+          <Button type="submit" variant="primary" size="large" loading={loading}>
+            {loading ? t("loading") : t("signInButton")}
           </Button>
         </form>
 
-        <p className="auth-link">
-          {t("noAccount")} <Link to={returnPath ? `/register?return=${encodeURIComponent(returnPath)}` : "/register"}>{t("createAccountLink")}</Link>
-        </p>
-
         {!loadingProviders && ssoProviders.length > 0 && (
           <>
-            <div className="login-divider">
-              <span>{t("orSignInWith")}</span>
-            </div>
-
+            <div className="login-divider">{t("orSignInWith")}</div>
             <div className="sso-providers">
               {ssoProviders.map((provider) => (
-                <a
-                  key={provider.id}
-                  href={provider.loginUrl}
-                  className="button secondary login-button sso-button"
-                  aria-label={t(`providers.${provider.id}`, { defaultValue: provider.name })}
-                >
+                <a key={provider.id} href={provider.loginUrl} className="af-button af-button--secondary af-button--large">
                   {renderProviderIcon(provider.id)}
                   {t(`providers.${provider.id}`, { defaultValue: provider.name })}
                 </a>
@@ -192,37 +160,11 @@ export function LoginPage() {
             </div>
           </>
         )}
-
-        <p className="trust-message">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-label={t("common:a11y.secureIcon")}
-          >
-            <path
-              d="M7 1L2 3.5V6.5C2 9.5 4 11.5 7 13C10 11.5 12 9.5 12 6.5V3.5L7 1Z"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              fill="none"
-            />
-            <path
-              d="M5.5 7L6.5 8L8.5 6"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("trustMessage")}
-        </p>
       </div>
 
-      <footer className="login-footer">
-        <span>AgentForge v0.1.0</span>
-      </footer>
+      <p className="login-register">
+        {t("noAccount")} <Link to={returnPath ? `/register?return=${encodeURIComponent(returnPath)}` : "/register"}>{t("createAccountLink")}</Link>
+      </p>
     </main>
   );
 }

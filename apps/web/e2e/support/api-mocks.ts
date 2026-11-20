@@ -164,6 +164,7 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return json(currentUser);
     }
     if (path === "/api/v1/auth/logout" && method === "POST") {
+      isAuthenticated = false;
       return route.fulfill({ status: 204 });
     }
     if (path.endsWith("/repositories") && method === "GET") {
