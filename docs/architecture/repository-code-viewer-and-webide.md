@@ -27,7 +27,7 @@ Adopt Shiki (TextMate grammar-based highlighting) as the target syntax-highlight
 - Keep line numbers, active-line styling, copy, and `#Lx` anchors in AgentForge-owned React components.
 - Initialize the highlighter once, load grammars on demand, and avoid eagerly importing every language grammar.
 - Preserve a plain-text first paint. Highlight asynchronously and progressively for large files; establish measured size/line thresholds before enabling expensive tokenization. Use worker-based tokenization only if profiling demonstrates main-thread contention and the chosen Shiki build can be safely hosted in a worker.
-- Theme colors must come from shared design tokens/CSS variables so light and dark themes remain consistent.
+- The current application theme provider exposes a single dark palette and no light/dark mode contract. Use the matching `github-dark` Shiki theme today; when the application introduces theme switching, move to Shiki dual-theme tokens backed by the same explicit theme state rather than inferring theme from DOM or hard-coding per-viewer colors.
 
 ### 2. WebIDE: Monaco Editor
 
@@ -71,7 +71,7 @@ Create a shared language metadata module for extension/basename/shebang detectio
 ## Delivery plan
 
 1. **Architecture baseline**: document the decision, add shared language metadata and tests, and preserve current viewer behavior.
-2. **Repository viewer migration**: Shiki tokenization is integrated into source and unified-diff views. Both render escaped plaintext first, share one lazy highlighter, load detected grammars on demand, and render themed tokens as React text nodes/spans. Source files and per-file diffs above 256 KiB / 10,000 lines remain plaintext. Diff parsing and old/new line mapping remain independent of syntax tokenization. Unit coverage exercises real TypeScript tokenization, source-as-text safety, line anchors, active lines, diff row markers, and fallback behavior. CI validation passed for the source-viewer migration; the diff-viewer extension is awaiting its own CI run.
+2. **Repository viewer migration**: Shiki tokenization is integrated into source and unified-diff views. Both render escaped plaintext first, share one lazy highlighter, load detected grammars on demand, and render themed tokens as React text nodes/spans. Source files and per-file diffs above 256 KiB / 10,000 lines remain plaintext. Diff parsing and old/new line mapping remain independent of syntax tokenization. Unit coverage exercises real TypeScript tokenization, source-as-text safety, line anchors, active lines, diff row markers, and fallback behavior. CI validation passed for source and diff highlighting: unit tests, production build, Chromium Playwright browser tests, and CI Gate all succeeded. Highlighter initialization failures are retryable; failed grammar loads are evicted so a transient failure does not permanently disable a language.
 3. **WebIDE foundation**: add Monaco as a lazy-loaded route dependency behind an adapter; preserve the current save lifecycle and add browser tests for dirty state, discard, save, conflict, deep links, and keyboard shortcuts.
 4. **Navigation and diagnostics**: add Tree-sitter-backed structural navigation only after language-service requirements and performance budgets are measured.
 5. **Performance gates**: track initial route bundle, viewer time-to-first-text, highlight completion, large-file memory, editor startup, and worker/main-thread cost in CI or repeatable benchmark scripts.
