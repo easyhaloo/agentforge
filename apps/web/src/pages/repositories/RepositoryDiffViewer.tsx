@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { detectCodeLanguage } from "../../shared/code/languages";
 import { highlightRepositorySource, type RepositorySyntaxResult } from "./repositorySyntax";
 import { parseRepositoryDiff, type RepositoryDiffFile, type RepositoryDiffHunk } from "./repositoryDiff";
@@ -80,7 +80,7 @@ function RepositoryDiffHunkView({ hunk, tokens }: { hunk: RepositoryDiffHunk; to
 }
 
 export function RepositoryDiffViewer({ patch }: { patch: string }) {
-  const files = parseRepositoryDiff(patch);
+  const files = useMemo(() => parseRepositoryDiff(patch), [patch]);
   if (!files.length) return <p className="changeset-hint">No textual changes in this comparison.</p>;
   return <div className="repository-diff">
     {files.map((file, fileIndex) => <RepositoryDiffFileView file={file} key={fileIndex} />)}
