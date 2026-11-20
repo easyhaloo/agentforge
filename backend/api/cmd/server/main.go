@@ -15,6 +15,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/config"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
+	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
 )
 
 func main() {
@@ -55,6 +56,7 @@ func main() {
 	deps := httpserver.DeliveryDependencies{
 		Repository: store, Identity: store, RevokeSession: store.RevokeSession, CSRF: store, Membership: store, Account: store, Settings: store,
 		AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store,
+		Tasks: tasks.NewPostgresStore(store.Pool()),
 	}
 	if err := configureGit(&deps, configuration, os.Getenv("GIT_REMOTE_BINDINGS_FILE"), logger); err != nil {
 		logger.Error("invalid remote integration Git bindings", "error", err)

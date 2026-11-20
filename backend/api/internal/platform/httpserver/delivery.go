@@ -19,6 +19,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
+	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
 )
 
 type Principal = identity.Principal
@@ -67,6 +68,7 @@ type DeliveryDependencies struct {
 	WebhookDirectory string
 	Runs             execution.Store
 	Pipelines        pipeline.Store
+	Tasks            *tasks.PostgresStore
 	Catalog          delivery.RepositoryCatalog
 	Preview          delivery.RepositoryPreviewReader
 	Locker           delivery.ChangesetLocker
@@ -103,6 +105,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
 	deps.pipelineRoutes(mux)
 	deps.executionRoutes(mux)
+	deps.taskExecutionRoutes(mux)
 	deps.mergePreviewRoutes(mux)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
