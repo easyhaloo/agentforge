@@ -25,10 +25,12 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: startTestStack
-      ? "make dev WEB_PORT=4173"
+      ? "WEB_PORT=4173 exec bash scripts/dev-stack.sh up"
       : "npm run dev --workspace @agentforge/web -- --host 127.0.0.1 --port 4173 --strictPort",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
+    // Let the dev stack stop the API and Vite process groups it started.
+    gracefulShutdown: startTestStack ? { signal: "SIGTERM", timeout: 25_000 } : undefined,
     timeout: startTestStack ? 180_000 : 30_000,
   },
 });
