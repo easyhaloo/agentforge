@@ -19,7 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Add pinned Monaco dependency and regenerate workspace lockfile
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund --save-exact --workspace @agentforge/web monaco-editor@0.57.1
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund --save-exact --workspace @agentforge/web monaco-editor@0.57.0
       - name: Verify lockfile consistency
         run: npm ci --ignore-scripts --no-audit --no-fund
       - uses: actions/upload-artifact@v4
