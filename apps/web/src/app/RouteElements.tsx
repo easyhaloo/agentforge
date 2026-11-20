@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
 import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
+import { ReviewPage } from "../pages/review";
+import { EvalPage } from "../pages/eval";
+import { TrailsPage } from "../pages/trails";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage, OverviewUnavailable } from "../pages/overview";
 import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
@@ -126,6 +129,24 @@ export function OrganizationRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <OrganizationManagementPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function ReviewRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <ReviewPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function EvalRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <EvalPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function TrailsRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <TrailsPage key={organization.id} organization={organization} onNotify={notify} />;
 }
 
 export function NotFound() {

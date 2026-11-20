@@ -1,0 +1,24 @@
+{
+  "page": {
+    "summary": "{{count}} changeset in evaluation",
+    "summary_other": "{{count}} changesets in evaluation",
+    "description": "View and manage changesets in evaluation states.",
+    "loadingMessage": "Loading evaluations..."
+  },
+  "list": {
+    "title": "Evaluation Workspace",
+    "description": "Changesets requiring evaluation in {{organizationName}}.",
+    "emptyDefault": "No changesets are in evaluation states.",
+    "emptyFiltered": "No evaluations match the selected filters.",
+    "filterByStatus": "Filter by evaluation status",
+    "allEvalStatuses": "All evaluation statuses"
+  },
+  "stats": {
+    "pending": "{{count}} pending",
+    "pending_other": "{{count}} pending",
+    "failed": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "evidenceRequired": "{{count}} needs evidence",
+    "evidenceRequired_other": "{{count}} need evidence"
+  }
+}

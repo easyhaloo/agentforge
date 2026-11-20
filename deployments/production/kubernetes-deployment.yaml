@@ -1,0 +1,266 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentforge
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agentforge-oidc
+  namespace: agentforge
+type: Opaque
+stringData:
+  oidc-client-id: "<your-oidc-client-id>"
+  oidc-client-secret: "<your-oidc-client-secret>"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agentforge-database
+  namespace: agentforge
+type: Opaque
+stringData:
+  database-url: "postgresql://user:pass@postgres.agentforge.svc.cluster.local:5432/agentforge?sslmode=require"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agentforge-email
+  namespace: agentforge
+type: Opaque
+stringData:
+  sendgrid-api-key: "<your-sendgrid-api-key>"
+  # OR for AWS SES:
+  # aws-access-key-id: "<your-aws-access-key>"
+  # aws-secret-access-key: "<your-aws-secret-key>"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentforge-config
+  namespace: agentforge
+data:
+  app-origin: "https://agentforge.example.com"
+  oidc-issuer-url: "https://accounts.google.com"
+  oidc-redirect-url: "https://agentforge.example.com/auth/oidc/callback"
+  session-ttl: "12h"
+  email-provider: "sendgrid"
+  email-from: "noreply@agentforge.example.com"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentforge-api
+  namespace: agentforge
+  labels:
+    app: agentforge-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: agentforge-api
+  template:
+    metadata:
+      labels:
+        app: agentforge-api
+    spec:
+      containers:
+      - name: api
+        image: agentforge/api:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        - name: APP_ORIGIN
+          valueFrom:
+            configMapKeyRef:
+              name: agentforge-config
+              key: app-origin
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: agentforge-database
+              key: database-url
+        - name: OIDC_ISSUER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: agentforge-config
+              key: oidc-issuer-url
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: agentforge-oidc
+              key: oidc-client-id
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: agentforge-oidc
+              key: oidc-client-secret
+        - name: OIDC_REDIRECT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: agentforge-config
+              key: oidc-redirect-url
+        - name: SESSION_TTL
+          valueFrom:
+            configMapKeyRef:
+              name: agentforge-config
+              key: session-ttl
+        - name: EMAIL_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: agentforge-config
+              key: email-provider
+        - name: EMAIL_FROM
+          valueFrom:
+            configMapKeyRef:
+              name: agentforge-config
+              key: email-from
+        - name: SENDGRID_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agentforge-email
+              key: sendgrid-api-key
+              optional: true
+        # For AWS SES:
+        # - name: AWS_SES_REGION
+        #   value: "us-east-1"
+        # - name: AWS_ACCESS_KEY_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: agentforge-email
+        #       key: aws-access-key-id
+        #       optional: true
+        # - name: AWS_SECRET_ACCESS_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: agentforge-email
+        #       key: aws-secret-access-key
+        #       optional: true
+        - name: GIT_REPOSITORY_ROOT
+          value: "/var/lib/agentforge/git"
+        - name: EVIDENCE_ROOT
+          value: "/var/lib/agentforge/evidence"
+        volumeMounts:
+        - name: git-storage
+          mountPath: /var/lib/agentforge/git
+        - name: evidence-storage
+          mountPath: /var/lib/agentforge/evidence
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+      volumes:
+      - name: git-storage
+        persistentVolumeClaim:
+          claimName: agentforge-git-pvc
+      - name: evidence-storage
+        persistentVolumeClaim:
+          claimName: agentforge-evidence-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentforge-api
+  namespace: agentforge
+  labels:
+    app: agentforge-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: agentforge-api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentforge-api
+  namespace: agentforge
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - agentforge.example.com
+    secretName: agentforge-tls
+  rules:
+  - host: agentforge.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: agentforge-api
+            port:
+              number: 80
+      - path: /auth
+        pathType: Prefix
+        backend:
+          service:
+            name: agentforge-api
+            port:
+              number: 80
+      - path: /healthz
+        pathType: Exact
+        backend:
+          service:
+            name: agentforge-api
+            port:
+              number: 80
+      - path: /readyz
+        pathType: Exact
+        backend:
+          service:
+            name: agentforge-api
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentforge-git-pvc
+  namespace: agentforge
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentforge-evidence-pvc
+  namespace: agentforge
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard

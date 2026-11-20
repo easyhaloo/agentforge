@@ -1,0 +1,17 @@
+{
+  "page": {
+    "summary": "{{count}} 个审查已分配",
+    "description": "审查分配给您的变更集。",
+    "loadingMessage": "正在加载审查..."
+  },
+  "list": {
+    "title": "审查队列",
+    "description": "{{organizationName}} 中等待您审查的变更集。",
+    "emptyDefault": "没有分配给您审查的变更集。",
+    "emptyFiltered": "没有审查匹配所选过滤器。"
+  },
+  "stats": {
+    "pendingReviews": "{{count}} 个待审查",
+    "changesRequested": "{{count}} 个需要修改"
+  }
+}

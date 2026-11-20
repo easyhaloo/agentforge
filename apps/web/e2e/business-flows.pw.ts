@@ -26,7 +26,7 @@ test("Overview lists pending reviews and passes the filters to Changesets", asyn
 });
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
-  await (await openNavigation(page)).getByRole("link", { name: "Stacks", exact: true }).click();
+  await (await openNavigation(page)).getByRole("link", { name: "Self-healing", exact: true }).click();
   await expect(page.locator(".flow-primary h3")).toContainText("CS-2481");
   await page.getByRole("button", { name: "New revision" }).click();
   await expect(page.getByText("r4", { exact: true })).toBeVisible();

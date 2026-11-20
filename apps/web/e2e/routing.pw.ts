@@ -55,7 +55,6 @@ const flatPages = [
   ["/", "Overview"],
   ["/projects", "Projects"],
   ["/workspaces", "Workspaces"],
-  ["/stacks", "Stacks"],
   ["/self-healing", "Self-healing"],
   ["/memory", "Memory"],
   ["/security", "Security"],

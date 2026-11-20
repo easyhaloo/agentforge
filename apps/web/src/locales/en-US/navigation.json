@@ -38,7 +38,6 @@
     "changesets": "Reviewable, revisioned units of change — distinct from Git commits.",
     "workspaces": "Isolated environments for agents and human contributors.",
     "trails": "Cross-repository delivery goals with traceable evidence.",
-    "stacks": "Compose dependent changesets into a navigable change graph.",
     "review": "Human decisions grounded in revision-specific evidence.",
     "eval": "Evaluate changes against quality, policy and product expectations.",
     "selfHealing": "Bounded repair loops that produce new revisions and re-run validation.",
