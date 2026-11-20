@@ -1,4 +1,5 @@
-import { Navigate, Link, useSearchParams } from "react-router-dom";
+import { authReturnPath } from "../../shared/routing";
+import { Navigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect, type FormEvent } from "react";
 import { Input } from "../../shared/ui/components";
@@ -13,6 +14,7 @@ type AuthCheckState = "checking" | "authenticated" | "unauthenticated";
 export function LoginPage() {
   const { t } = useTranslation("login");
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [authState, setAuthState] = useState<AuthCheckState>("unauthenticated");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,11 +54,9 @@ export function LoginPage() {
       });
   }, []);
 
-  // Redirect authenticated users to return URL or default page
+  const returnPath = authReturnPath(location.state?.from ?? searchParams.get("return"));
   if (authState === "authenticated" || loginSuccess) {
-    const returnUrl = searchParams.get("return");
-    const destination = (returnUrl && returnUrl.startsWith("/")) ? returnUrl : "/orgs/current/changesets";
-    return <Navigate to={destination} replace />;
+    return <Navigate to={returnPath ?? "/orgs/current/changesets"} replace />;
   }
 
   // Render provider-specific icon
@@ -168,7 +168,7 @@ export function LoginPage() {
         </form>
 
         <p className="auth-link">
-          {t("noAccount")} <Link to="/register">{t("createAccountLink")}</Link>
+          {t("noAccount")} <Link to={returnPath ? `/register?return=${encodeURIComponent(returnPath)}` : "/register"}>{t("createAccountLink")}</Link>
         </p>
 
         {!loadingProviders && ssoProviders.length > 0 && (
@@ -200,7 +200,7 @@ export function LoginPage() {
             viewBox="0 0 14 14"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            aria-label="Secure"
+            aria-label={t("common:a11y.secureIcon")}
           >
             <path
               d="M7 1L2 3.5V6.5C2 9.5 4 11.5 7 13C10 11.5 12 9.5 12 6.5V3.5L7 1Z"

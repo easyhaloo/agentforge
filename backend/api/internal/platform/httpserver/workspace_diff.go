@@ -13,11 +13,11 @@ import (
 )
 
 type workspaceDiffEntry struct {
-	Path          string `json:"path"`
-	Status        string `json:"status"`
-	BaseBlobSHA   string `json:"base_blob_sha,omitempty"`
-	WorkspaceSHA  string `json:"workspace_sha256"`
-	Version       int64  `json:"version"`
+	Path         string `json:"path"`
+	Status       string `json:"status"`
+	BaseBlobSHA  string `json:"base_blob_sha,omitempty"`
+	WorkspaceSHA string `json:"workspace_sha256"`
+	Version      int64  `json:"version"`
 }
 
 func workspaceDiffStatus(readErr error, baseContent []byte, baseBlobSHA, workspaceSHA string) (string, string, bool, error) {
@@ -74,9 +74,9 @@ func (d DeliveryDependencies) getWorkspaceDiff(w http.ResponseWriter, r *http.Re
 		entries = append(entries, entry)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"workspace_id": item.ID,
+		"workspace_id":    item.ID,
 		"base_commit_sha": item.BaseCommitSHA,
-		"items": entries,
-		"total": len(entries),
+		"items":           entries,
+		"total":           len(entries),
 	})
 }

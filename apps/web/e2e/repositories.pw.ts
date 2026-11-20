@@ -38,7 +38,8 @@ test("repository preview browses a pinned commit and compares history", async ({
   await expect(page.getByRole("button", { name: "README.md" })).toBeVisible();
   await page.getByRole("button", { name: "Compare to current" }).click();
   await expect(page.getByRole("heading", { name: "Commit comparison" })).toBeVisible();
-  await expect(page.getByText(/diff --git a\/README.md/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "README.md → README.md" })).toBeVisible();
+  await expect(page.getByText("+after", { exact: true })).toBeVisible();
 });
 
 

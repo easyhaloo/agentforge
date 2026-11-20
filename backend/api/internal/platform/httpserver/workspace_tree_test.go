@@ -63,13 +63,13 @@ func TestMergeWorkspaceTreeEntriesRejectsFileDirectoryCollisions(t *testing.T) {
 		overlays []workspace.FileEntry
 	}{
 		{
-			name: "base file replaced by directory",
-			base: []delivery.PreviewEntry{{Name: "config", Path: "config", Kind: "file"}},
+			name:     "base file replaced by directory",
+			base:     []delivery.PreviewEntry{{Name: "config", Path: "config", Kind: "file"}},
 			overlays: []workspace.FileEntry{{Path: "config/settings.json", Version: 1}},
 		},
 		{
-			name: "base directory replaced by file",
-			base: []delivery.PreviewEntry{{Name: "config", Path: "config", Kind: "tree"}},
+			name:     "base directory replaced by file",
+			base:     []delivery.PreviewEntry{{Name: "config", Path: "config", Kind: "tree"}},
 			overlays: []workspace.FileEntry{{Path: "config", Version: 1}},
 		},
 		{

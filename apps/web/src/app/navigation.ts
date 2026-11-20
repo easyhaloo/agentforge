@@ -8,7 +8,7 @@ import { flatPaths, orgPath, type OrgSection } from "../shared/routing";
  */
 export type NavigationItem = {
   label: string;
-  description: string;
+  descriptionKey: string;
   icon: LucideIcon;
   group: string;
 } & ({ path: string } | { orgPath: (handle: string) => string });
@@ -16,24 +16,25 @@ export type NavigationItem = {
 const inOrganization = (section: OrgSection) => (handle: string) => orgPath(handle, section);
 
 export const navigationItems: readonly NavigationItem[] = [
-  { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, description: "A live map of changes, verification and delivery across your engineering system.", path: flatPaths.overview },
-  { group: "WORKSPACE", label: "Projects", icon: Boxes, description: "Organize repositories, teams and delivery boundaries.", path: flatPaths.projects },
-  { group: "WORKSPACE", label: "Repositories", icon: Code2, description: "Git-compatible repositories backed by a canonical object graph.", orgPath: inOrganization("repositories") },
-  { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, description: "Reviewable, revisioned units of change — distinct from Git commits.", orgPath: inOrganization("changesets") },
-  { group: "WORKSPACE", label: "Workspaces", icon: Terminal, description: "Isolated environments for agents and human contributors.", path: flatPaths.workspaces },
-  { group: "COORDINATION", label: "Trails", icon: Workflow, description: "Cross-repository delivery goals with traceable evidence.", orgPath: inOrganization("trails") },
-  { group: "COORDINATION", label: "Stacks", icon: GitBranch, description: "Compose dependent changesets into a navigable change graph.", path: flatPaths.stacks },
-  { group: "COORDINATION", label: "Review", icon: GitPullRequest, description: "Human decisions grounded in revision-specific evidence.", orgPath: inOrganization("review") },
-  { group: "COORDINATION", label: "Eval", icon: CheckCircle2, description: "Evaluate changes against quality, policy and product expectations.", orgPath: inOrganization("eval") },
-  { group: "COORDINATION", label: "Self-healing", icon: Activity, description: "Bounded repair loops that produce new revisions and re-run validation.", path: flatPaths.selfHealing },
-  { group: "INTELLIGENCE", label: "Memory", icon: BrainCircuit, description: "Reusable engineering knowledge linked to sessions, code and decisions.", path: flatPaths.memory },
-  { group: "INTELLIGENCE", label: "CI / CD", icon: Zap, description: "Pipelines, checks and release orchestration.", orgPath: inOrganization("pipelines") },
-  { group: "DEVELOPER", label: "UI Components", icon: PanelsTopLeft, description: "Explore the shared component system, interaction patterns and design tokens.", path: flatPaths.uiComponents },
-  { group: "CONTROL PLANE", label: "Organization", icon: Users, description: "Manage organization members, invitations, roles and access history.", orgPath: inOrganization("settings") },
-  { group: "CONTROL PLANE", label: "Security", icon: ShieldCheck, description: "Identity, secrets, supply-chain and runtime boundaries.", path: flatPaths.security },
-  { group: "CONTROL PLANE", label: "Governance", icon: LockKeyhole, description: "Policies, approvals and organization-wide controls.", path: flatPaths.governance },
-  { group: "CONTROL PLANE", label: "Cost & Usage", icon: ArrowDownUp, description: "Understand agent, model and compute consumption.", path: flatPaths.usage },
-  { group: "CONTROL PLANE", label: "Settings", icon: Settings, description: "Configure your organization and developer experience.", path: flatPaths.settings },
+  { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, descriptionKey: "navigation:descriptions.overview", path: flatPaths.overview },
+  { group: "WORKSPACE", label: "Projects", icon: Boxes, descriptionKey: "navigation:descriptions.projects", path: flatPaths.projects },
+  { group: "WORKSPACE", label: "Repositories", icon: Code2, descriptionKey: "navigation:descriptions.repositories", orgPath: inOrganization("repositories") },
+  { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, descriptionKey: "navigation:descriptions.changesets", orgPath: inOrganization("changesets") },
+  { group: "WORKSPACE", label: "Workspaces", icon: Terminal, descriptionKey: "navigation:descriptions.workspaces", path: flatPaths.workspaces },
+  { group: "COORDINATION", label: "Trails", icon: Workflow, descriptionKey: "navigation:descriptions.trails", orgPath: inOrganization("trails") },
+  { group: "COORDINATION", label: "Stacks", icon: GitBranch, descriptionKey: "navigation:descriptions.stacks", path: flatPaths.stacks },
+  { group: "COORDINATION", label: "Review", icon: GitPullRequest, descriptionKey: "navigation:descriptions.review", orgPath: inOrganization("review") },
+  { group: "COORDINATION", label: "Eval", icon: CheckCircle2, descriptionKey: "navigation:descriptions.eval", orgPath: inOrganization("eval") },
+  { group: "COORDINATION", label: "Self-healing", icon: Activity, descriptionKey: "navigation:descriptions.selfHealing", path: flatPaths.selfHealing },
+  { group: "INTELLIGENCE", label: "Memory", icon: BrainCircuit, descriptionKey: "navigation:descriptions.memory", path: flatPaths.memory },
+  { group: "INTELLIGENCE", label: "CI / CD", icon: Zap, descriptionKey: "navigation:descriptions.cicd", orgPath: inOrganization("pipelines") },
+  { group: "DEVELOPER", label: "WebIDE", icon: Code2, descriptionKey: "navigation:descriptions.webide", orgPath: inOrganization("webide") },
+  { group: "DEVELOPER", label: "UI Components", icon: PanelsTopLeft, descriptionKey: "navigation:descriptions.uiComponents", path: flatPaths.uiComponents },
+  { group: "CONTROL PLANE", label: "Organization", icon: Users, descriptionKey: "navigation:descriptions.organization", orgPath: inOrganization("settings") },
+  { group: "CONTROL PLANE", label: "Security", icon: ShieldCheck, descriptionKey: "navigation:descriptions.security", path: flatPaths.security },
+  { group: "CONTROL PLANE", label: "Governance", icon: LockKeyhole, descriptionKey: "navigation:descriptions.governance", path: flatPaths.governance },
+  { group: "CONTROL PLANE", label: "Cost & Usage", icon: ArrowDownUp, descriptionKey: "navigation:descriptions.usage", path: flatPaths.usage },
+  { group: "CONTROL PLANE", label: "Settings", icon: Settings, descriptionKey: "navigation:descriptions.settings", path: flatPaths.settings },
 ];
 
 /** Sidebar sections, in order of first appearance in `navigationItems`. */

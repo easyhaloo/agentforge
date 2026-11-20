@@ -25,7 +25,8 @@
     "loading": "加载中...",
     "completed": "已完成",
     "pending": "待处理",
-    "failed": "失败"
+    "failed": "失败",
+    "saving": "保存中..."
   },
   "pagination": {
     "page": "第",
@@ -41,5 +42,175 @@
     "networkError": "网络错误",
     "unauthorized": "未授权访问",
     "notFound": "未找到资源"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "today": "今天",
+    "yesterday": "昨天",
+    "minutesAgo_one": "{{count}} 分钟前",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_one": "{{count}} 小时前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_one": "{{count}} 天前",
+    "daysAgo_other": "{{count}} 天前"
+  },
+  "a11y": {
+    "secureIcon": "安全"
+  },
+  "components": {
+    "searchPlaceholder": "搜索...",
+    "searchOptionsPlaceholder": "搜索选项...",
+    "clearSearch": "清除搜索",
+    "selectOption": "请选择...",
+    "selectAllRows": "选择本页全部行",
+    "selectRow": "选择第 {{id}} 行",
+    "openRow": "打开此行",
+    "columns": "列",
+    "all": "全部",
+    "filterByColumn": "筛选 {{column}}",
+    "noData": "暂无数据",
+    "loading": "加载中…",
+    "loadingLabel": "加载中",
+    "selectedCount_one": "已选择 {{count}} 项",
+    "selectedCount_other": "已选择 {{count}} 项",
+    "itemCount_one": "{{count}} 条",
+    "itemCount_other": "{{count}} 条",
+    "previous": "上一页",
+    "next": "下一页",
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "closeDialog": "关闭对话框",
+    "closeDrawer": "关闭抽屉",
+    "confirm": "确认",
+    "cancel": "取消",
+    "confirmTitle": "确定要执行此操作吗？",
+    "cannotUndo": "此操作无法撤销。",
+    "additionalOptions": "更多选项",
+    "dismissMessage": "关闭提示",
+    "dismissNotification": "关闭通知",
+    "notifications": "通知",
+    "actionFailed": "无法完成此操作",
+    "optionsFailed": "无法加载选项",
+    "noOptions": "暂无选项",
+    "show": "显示",
+    "hide": "隐藏",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "switchLanguage": "切换语言",
+    "fileContentAriaLabel": "文件内容"
+  },
+  "delivery": {
+    "banner": {
+      "title": "可验证的交付流程",
+      "description": "一个修订版本会贯穿评估、人工评审与交付全过程，证据始终与修订版本绑定。",
+      "demoBadge": "交互式演示"
+    },
+    "footer": {
+      "hint": "按顺序体验：新建修订版本 → 运行评估 → 批准修订版本 → 合并并完成 Trail。然后再创建一个修订版本，观察证据如何失效。"
+    },
+    "audit": {
+      "eyebrow": "审计轨迹",
+      "title": "工作流事件",
+      "description": "该演示变更集的活动记录。",
+      "emptyTitle": "暂无工作流事件",
+      "emptyDescription": "对该变更集的改动会显示在这里。",
+      "mergeGateTitle": "合并门禁",
+      "mergeGateDescription": "合并要求当前修订版本的评估通过，并且同一修订版本已获得批准。",
+      "invalidationTitle": "证据失效",
+      "invalidationDescription": "创建新的修订版本会让此前的评估证据和评审结论失效。",
+      "demoNotice": "所有记录均为本地演示状态，不会执行 Git 提交、远程 CI、评审通知或合并操作。"
+    },
+    "stages": {
+      "changeset": "变更集",
+      "changesetDescription": "带修订版本的改动",
+      "eval": "评估",
+      "evalDescription": "验证证据",
+      "review": "评审",
+      "reviewDescription": "人工结论",
+      "trail": "Trail",
+      "trailDescription": "交付结果"
+    },
+    "workspace": {
+      "eyebrow": "当前变更集",
+      "identityHint": "变更集 ID 在各修订版本之间保持不变，Git commit SHA 是独立对象。",
+      "titleLabel": "变更标题",
+      "baseBranch": "基准分支",
+      "changedFiles": "变更文件数",
+      "stackBase": "堆栈基准",
+      "newRevision": "新建修订版本",
+      "runEvaluation": "运行评估",
+      "selfHeal": "自愈",
+      "restack": "重新堆叠"
+    },
+    "evidence": {
+      "title": "评估证据",
+      "current": "当前有效",
+      "stale": "已失效",
+      "emptyTitle": "暂无评估证据",
+      "emptyDescription": "运行一次评估，即可为该修订版本附加证据。",
+      "checks_one": "{{count}} 项检查",
+      "checks_other": "{{count}} 项检查",
+      "passed": "通过",
+      "failed": "失败"
+    },
+    "review": {
+      "title": "评审结论",
+      "notRequested": "尚未发起",
+      "pending": "待处理",
+      "approved": "已批准",
+      "changesRequested": "需要修改",
+      "you": "你",
+      "revisionScoped": "按修订版本记录的评审",
+      "requestChanges": "要求修改",
+      "approveRevision": "批准修订版本"
+    },
+    "trail": {
+      "title": "堆栈与 Trail",
+      "stackName": "STK-018 · 认证服务发布",
+      "trailName": "TRL-042 · 迁移认证 API",
+      "delivered": "已交付",
+      "inProgress": "进行中",
+      "stackChangesets_one": "{{count}} 个变更集 · 基准 {{base}}",
+      "stackChangesets_other": "{{count}} 个变更集 · 基准 {{base}}",
+      "completed_one": "已完成 {{completed}}/{{total}} 个变更集",
+      "completed_other": "已完成 {{completed}}/{{total}} 个变更集",
+      "waiting_one": "{{completed}}/{{total}} 个变更集 · 正在等待该变更集",
+      "waiting_other": "{{completed}}/{{total}} 个变更集 · 正在等待该变更集",
+      "merge": "合并并完成 Trail"
+    },
+    "stageState": {
+      "inProgress": "进行中",
+      "passed": "通过",
+      "failed": "失败",
+      "stale": "已失效",
+      "notReviewed": "未评审",
+      "completed": "已完成"
+    },
+    "status": {
+      "draft": "草稿",
+      "evaluating": "评估中",
+      "readyForReview": "待评审",
+      "changesRequested": "需要修改",
+      "approved": "已批准",
+      "merged": "已合并"
+    },
+    "events": {
+      "revisionBlocked": "无法创建修订版本：已合并的变更集不能再修改，且没有可用的修订版本号",
+      "revisionCreated": "已创建 {{id}} r{{revision}}，此前的证据已失效",
+      "evaluationBlocked": "无法评估：变更集已合并，或该修订版本不是当前版本",
+      "evaluationResult": "{{id}} 在 {{changeset}} r{{revision}} 上{{status}}",
+      "reviewBlockedEvidence": "无法评审：需要当前处于通过状态的评估证据",
+      "reviewBlockedRevision": "无法评审：该结论并非针对当前生效的修订版本",
+      "reviewDecision": "{{decision}} {{id}} r{{revision}}",
+      "mergeBlocked": "无法合并：需要当前处于通过状态的评估证据和批准",
+      "merged": "{{id}} r{{revision}} 已合并，Trail TRL-042 已完成（演示）",
+      "selfHealingBlocked": "无法自愈：已合并的变更集不能再修改",
+      "selfHealingPrepared": "自愈已准备好新的修订版本，请再次运行评估（演示）",
+      "restackBlocked": "无法重新堆叠：已合并的变更集不能再修改",
+      "restacked": "堆栈已基于最新基准重新堆叠（演示）",
+      "seedRevision": "{{id}} r{{revision}} 基于 {{base}} 创建",
+      "seedEvidence_one": "{{id}} 通过 {{count}} 项检查",
+      "seedEvidence_other": "{{id}} 通过 {{count}} 项检查"
+    }
   }
 }

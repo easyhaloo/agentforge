@@ -15,15 +15,79 @@
     "changesets": "变更集",
     "changeset": "变更集",
     "repositories": "代码仓库",
+    "repository": "仓库",
     "trails": "轨迹",
     "review": "代码审查",
     "eval": "评估",
     "organization": "组织",
     "uiComponents": "UI 组件",
-    "notFound": "页面未找到"
+    "notFound": "页面未找到",
+    "webide": "WebIDE"
+  },
+  "groups": {
+    "WORKSPACE": "工作区",
+    "COORDINATION": "协作",
+    "INTELLIGENCE": "智能",
+    "DEVELOPER": "开发者",
+    "CONTROL PLANE": "管控"
+  },
+  "descriptions": {
+    "overview": "跨工程系统的变更、验证和交付实时视图。",
+    "projects": "组织代码仓库、团队和交付边界。",
+    "repositories": "由规范对象图支持的 Git 兼容代码仓库。",
+    "changesets": "可审查、有版本的变更单元 — 不同于 Git 提交。",
+    "workspaces": "智能体和人类贡献者的隔离环境。",
+    "trails": "具有可追溯证据的跨仓库交付目标。",
+    "stacks": "将依赖变更集组合成可导航的变更图。",
+    "review": "基于特定修订版本证据的人工决策。",
+    "eval": "根据质量、政策和产品期望评估变更。",
+    "selfHealing": "生成新修订版本并重新运行验证的有界修复循环。",
+    "memory": "链接到会话、代码和决策的可重用工程知识。",
+    "cicd": "流水线、检查和发布编排。",
+    "uiComponents": "探索共享组件系统、交互模式和设计令牌。",
+    "organization": "管理组织成员、邀请、角色和访问历史。",
+    "security": "身份、密钥、供应链和运行时边界。",
+    "governance": "政策、批准和组织范围的控制。",
+    "usage": "了解智能体、模型和计算消耗。",
+    "settings": "配置您的组织和开发者体验。",
+    "webide": "在锁定提交的只读编辑器中打开仓库文件。"
+  },
+  "sidebar": {
+    "brand": "agentforge",
+    "tagline": "验证变更平台",
+    "noOrganization": "无组织",
+    "signInToLoad": "登录以加载组织",
+    "workspace": "工作空间",
+    "selectOrganization": "选择组织",
+    "monthlyUsage": "本月使用量",
+    "usageNotConnected": "使用数据未连接",
+    "notSignedIn": "未登录",
+    "accountProfile": "账户资料",
+    "signOut": "退出登录"
+  },
+  "topbar": {
+    "workspace": "工作空间",
+    "searchPlaceholder": "搜索任何内容...",
+    "searchAriaLabel": "搜索任何内容（Command K）",
+    "notificationsAriaLabel": "通知",
+    "caughtUp": "您已查看全部内容。"
+  },
+  "commandPalette": {
+    "title": "跳转到页面",
+    "searchAriaLabel": "搜索页面",
+    "placeholder": "跳转到页面...",
+    "noResults": "没有匹配的页面"
   },
   "breadcrumbs": {
     "home": "首页",
     "back": "返回{{page}}"
+  },
+  "userMenu": {
+    "profile": "个人主页",
+    "settings": "设置",
+    "organization": "组织",
+    "signOut": "退出登录",
+    "notSignedIn": "未登录",
+    "userMenuLabel": "用户菜单"
   }
 }

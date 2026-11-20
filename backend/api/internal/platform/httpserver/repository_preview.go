@@ -3,18 +3,21 @@ package httpserver
 import (
 	"errors"
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 )
 
 const repositoryPreviewMaxBlobBytes int64 = 1 << 20
+const repositoryPreviewMaxImageBytes int64 = 2 << 20
 
 func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.Request) (Principal, delivery.RepositoryMetadata, string, bool) {
 	principal, ok := d.principal(w, r, false)
-	if !ok { return Principal{}, delivery.RepositoryMetadata{}, "", false }
+	if !ok {
+		return Principal{}, delivery.RepositoryMetadata{}, "", false
+	}
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if d.Catalog == nil || d.Git == nil || d.Preview == nil {
@@ -33,14 +36,19 @@ func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.R
 	}
 	var registered *delivery.RepositoryMetadata
 	for i := range repositories {
-		if repositories[i].Slug == slug { registered = &repositories[i]; break }
+		if repositories[i].Slug == slug {
+			registered = &repositories[i]
+			break
+		}
 	}
 	if registered == nil {
 		writeProblem(w, http.StatusNotFound, "Repository not found", "The repository is not registered in the selected organization")
 		return Principal{}, delivery.RepositoryMetadata{}, "", false
 	}
 	ref := strings.TrimSpace(r.URL.Query().Get("ref"))
-	if ref == "" { ref = registered.DefaultBranch }
+	if ref == "" {
+		ref = registered.DefaultBranch
+	}
 	revision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, slug, ref)
 	if err != nil {
 		writeProblem(w, http.StatusNotFound, "Git ref not found", "The requested branch, tag or commit could not be resolved")
@@ -51,7 +59,9 @@ func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.R
 
 func (d DeliveryDependencies) listRepositoryTree(w http.ResponseWriter, r *http.Request) {
 	principal, repository, commitSHA, ok := d.previewRepository(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	directory := r.URL.Query().Get("path")
 	if len(directory) > 1024 {
 		writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The path exceeds 1024 bytes")
@@ -59,17 +69,25 @@ func (d DeliveryDependencies) listRepositoryTree(w http.ResponseWriter, r *http.
 	}
 	entries, err := d.Preview.ListTree(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, directory)
 	if err != nil {
-		if errors.Is(err, delivery.ErrPreviewPathInvalid) { writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The requested path is not a valid repository directory"); return }
-		if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "Directory too large", "The directory contains too many entries to preview"); return }
+		if errors.Is(err, delivery.ErrPreviewPathInvalid) {
+			writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The requested path is not a valid repository directory")
+			return
+		}
+		if errors.Is(err, delivery.ErrPreviewTooLarge) {
+			writeProblem(w, http.StatusRequestEntityTooLarge, "Directory too large", "The directory contains too many entries to preview")
+			return
+		}
 		writeProblem(w, http.StatusNotFound, "Directory not found", "The requested directory does not exist at this commit")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"path":directory,"items":entries})
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "commit_sha": commitSHA, "path": directory, "items": entries})
 }
 
 func (d DeliveryDependencies) readRepositoryBlob(w http.ResponseWriter, r *http.Request) {
 	principal, repository, commitSHA, ok := d.previewRepository(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	filePath := r.URL.Query().Get("path")
 	if len(filePath) == 0 || len(filePath) > 1024 {
 		writeProblem(w, http.StatusBadRequest, "Invalid repository path", "A file path of at most 1024 bytes is required")
@@ -77,8 +95,14 @@ func (d DeliveryDependencies) readRepositoryBlob(w http.ResponseWriter, r *http.
 	}
 	content, blobSHA, err := d.Preview.ReadBlob(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, filePath, repositoryPreviewMaxBlobBytes)
 	if err != nil {
-		if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "File too large", "Files larger than 1 MiB must be downloaded instead of previewed"); return }
-		if errors.Is(err, delivery.ErrPreviewPathInvalid) { writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The requested path is not a regular file"); return }
+		if errors.Is(err, delivery.ErrPreviewTooLarge) {
+			writeProblem(w, http.StatusRequestEntityTooLarge, "File too large", "Files larger than 1 MiB must be downloaded instead of previewed")
+			return
+		}
+		if errors.Is(err, delivery.ErrPreviewPathInvalid) {
+			writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The requested path is not a regular file")
+			return
+		}
 		writeProblem(w, http.StatusNotFound, "File not found", "The requested file does not exist at this commit")
 		return
 	}
@@ -86,12 +110,14 @@ func (d DeliveryDependencies) readRepositoryBlob(w http.ResponseWriter, r *http.
 		writeProblem(w, http.StatusUnsupportedMediaType, "Binary preview unavailable", "The selected file is binary and cannot be displayed as source text")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"blob_sha":blobSHA,"path":filePath,"encoding":"utf-8","content":string(content)})
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "commit_sha": commitSHA, "blob_sha": blobSHA, "path": filePath, "encoding": "utf-8", "content": string(content)})
 }
 
 func (d DeliveryDependencies) listRepositoryHistory(w http.ResponseWriter, r *http.Request) {
 	principal, repository, commitSHA, ok := d.previewRepository(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	reader, supported := d.Preview.(delivery.RepositoryHistoryReader)
 	if !supported {
 		writeProblem(w, http.StatusServiceUnavailable, "Repository history unavailable", "The configured Git provider does not support commit history")
@@ -115,9 +141,8 @@ func (d DeliveryDependencies) listRepositoryHistory(w http.ResponseWriter, r *ht
 		writeProblem(w, http.StatusNotFound, "Repository history unavailable", "Commit history could not be read at this revision")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"items":commits})
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "commit_sha": commitSHA, "items": commits})
 }
-
 
 func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r *http.Request) {
 	principal, repository, _, ok := d.previewRepository(w, r)
@@ -156,16 +181,17 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"repository": repository.Slug,
-		"base_sha": base.CommitSHA,
-		"head_sha": head.CommitSHA,
-		"patch": patch,
+		"base_sha":   base.CommitSHA,
+		"head_sha":   head.CommitSHA,
+		"patch":      patch,
 	})
 }
 
-
 func (d DeliveryDependencies) listRepositoryFileHistory(w http.ResponseWriter, r *http.Request) {
 	principal, repository, commitSHA, ok := d.previewRepository(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	reader, supported := d.Preview.(delivery.RepositoryFileHistoryReader)
 	if !supported {
 		writeProblem(w, http.StatusServiceUnavailable, "File history unavailable", "The configured Git provider does not support file history")
@@ -175,32 +201,138 @@ func (d DeliveryDependencies) listRepositoryFileHistory(w http.ResponseWriter, r
 	limit := 30
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 1 || parsed > 100 { writeProblem(w, http.StatusBadRequest, "Invalid history limit", "File history limit must be between 1 and 100"); return }
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeProblem(w, http.StatusBadRequest, "Invalid history limit", "File history limit must be between 1 and 100")
+			return
+		}
 		limit = parsed
 	}
-	if len(filePath) == 0 || len(filePath) > 1024 { writeProblem(w, http.StatusBadRequest, "Invalid repository path", "A file path of at most 1024 bytes is required"); return }
+	if len(filePath) == 0 || len(filePath) > 1024 {
+		writeProblem(w, http.StatusBadRequest, "Invalid repository path", "A file path of at most 1024 bytes is required")
+		return
+	}
 	items, err := reader.ListFileHistory(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, filePath, limit)
-	if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "File history too large", "The requested file history exceeds the output limit"); return }
-	if err != nil { writeProblem(w, http.StatusNotFound, "File history unavailable", "The requested file history could not be read at this revision"); return }
-	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"path":filePath,"items":items})
+	if errors.Is(err, delivery.ErrPreviewTooLarge) {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "File history too large", "The requested file history exceeds the output limit")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "File history unavailable", "The requested file history could not be read at this revision")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "commit_sha": commitSHA, "path": filePath, "items": items})
 }
 
 func (d DeliveryDependencies) blameRepositoryFile(w http.ResponseWriter, r *http.Request) {
 	principal, repository, commitSHA, ok := d.previewRepository(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	reader, supported := d.Preview.(delivery.RepositoryBlameReader)
-	if !supported { writeProblem(w, http.StatusServiceUnavailable, "File blame unavailable", "The configured Git provider does not support blame"); return }
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "File blame unavailable", "The configured Git provider does not support blame")
+		return
+	}
 	filePath := r.URL.Query().Get("path")
 	start, end := 1, 200
 	var err error
-	if raw := r.URL.Query().Get("start"); raw != "" { start, err = strconv.Atoi(raw) }
-	if err != nil { writeProblem(w, http.StatusBadRequest, "Invalid blame range", "Blame line range must contain positive integers"); return }
-	if raw := r.URL.Query().Get("end"); raw != "" { end, err = strconv.Atoi(raw) }
+	if raw := r.URL.Query().Get("start"); raw != "" {
+		start, err = strconv.Atoi(raw)
+	}
+	if err != nil {
+		writeProblem(w, http.StatusBadRequest, "Invalid blame range", "Blame line range must contain positive integers")
+		return
+	}
+	if raw := r.URL.Query().Get("end"); raw != "" {
+		end, err = strconv.Atoi(raw)
+	}
 	if err != nil || len(filePath) == 0 || len(filePath) > 1024 || start < 1 || end < start || end-start >= 500 {
-		writeProblem(w, http.StatusBadRequest, "Invalid blame range", "A file path and a range of at most 500 lines are required"); return
+		writeProblem(w, http.StatusBadRequest, "Invalid blame range", "A file path and a range of at most 500 lines are required")
+		return
 	}
 	items, err := reader.Blame(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, filePath, start, end)
-	if errors.Is(err, delivery.ErrPreviewTooLarge) { writeProblem(w, http.StatusRequestEntityTooLarge, "Blame output too large", "The requested blame output exceeds the preview limit"); return }
-	if err != nil { writeProblem(w, http.StatusNotFound, "File blame unavailable", "The requested file could not be blamed at this revision"); return }
-	writeJSON(w, http.StatusOK, map[string]any{"repository":repository.Slug,"commit_sha":commitSHA,"path":filePath,"start":start,"end":end,"items":items})
+	if errors.Is(err, delivery.ErrPreviewTooLarge) {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "Blame output too large", "The requested blame output exceeds the preview limit")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "File blame unavailable", "The requested file could not be blamed at this revision")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "commit_sha": commitSHA, "path": filePath, "start": start, "end": end, "items": items})
+}
+
+func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.Request) {
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	if !ok {
+		return
+	}
+	reader, supported := d.Preview.(delivery.RepositoryRefsReader)
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository refs unavailable", "The configured Git provider does not support branch and tag listing")
+		return
+	}
+	refs, err := reader.ListRefs(r.Context(), principal.OrganizationID, repository.Slug)
+	if errors.Is(err, delivery.ErrPreviewTooLarge) {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "Too many repository refs", "The repository has too many refs to list")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "Repository refs unavailable", "Branches and tags could not be read")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "default_branch": repository.DefaultBranch, "resolved_commit_sha": commitSHA, "items": refs})
+}
+
+// repositoryImageContentType deliberately recognizes only passive raster formats.
+// SVG is excluded because it can contain active content when navigated or embedded.
+func repositoryImageContentType(content []byte) string {
+	switch {
+	case len(content) >= 8 && string(content[:8]) == "\x89PNG\r\n\x1a\n":
+		return "image/png"
+	case len(content) >= 3 && content[0] == 0xff && content[1] == 0xd8 && content[2] == 0xff:
+		return "image/jpeg"
+	case len(content) >= 6 && (string(content[:6]) == "GIF87a" || string(content[:6]) == "GIF89a"):
+		return "image/gif"
+	case len(content) >= 12 && string(content[:4]) == "RIFF" && string(content[8:12]) == "WEBP":
+		return "image/webp"
+	default:
+		return ""
+	}
+}
+
+func (d DeliveryDependencies) readRepositoryImage(w http.ResponseWriter, r *http.Request) {
+	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	if !ok {
+		return
+	}
+	filePath := r.URL.Query().Get("path")
+	if len(filePath) == 0 || len(filePath) > 1024 {
+		writeProblem(w, http.StatusBadRequest, "Invalid repository path", "An image path of at most 1024 bytes is required")
+		return
+	}
+	content, _, err := d.Preview.ReadBlob(r.Context(), principal.OrganizationID, repository.Slug, commitSHA, filePath, repositoryPreviewMaxImageBytes)
+	if err != nil {
+		if errors.Is(err, delivery.ErrPreviewTooLarge) {
+			writeProblem(w, http.StatusRequestEntityTooLarge, "Image too large", "Repository images larger than 2 MiB cannot be previewed")
+			return
+		}
+		if errors.Is(err, delivery.ErrPreviewPathInvalid) {
+			writeProblem(w, http.StatusBadRequest, "Invalid repository path", "The requested path is not a regular file")
+			return
+		}
+		writeProblem(w, http.StatusNotFound, "Image not found", "The requested image does not exist at this commit")
+		return
+	}
+	contentType := repositoryImageContentType(content)
+	if contentType == "" {
+		writeProblem(w, http.StatusUnsupportedMediaType, "Image format unsupported", "Only PNG, JPEG, GIF and WebP raster images can be previewed")
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	w.Header().Set("Content-Disposition", "inline")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(content)
 }

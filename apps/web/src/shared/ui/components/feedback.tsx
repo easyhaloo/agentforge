@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 export type FeedbackStatus = "info" | "success" | "warning" | "error";
 
@@ -27,6 +28,7 @@ export function Alert({
   onClose,
   className = "",
 }: AlertProps) {
+  const { t } = useTranslation("common");
   const [visible, setVisible] = useState(true);
   if (!visible) return null;
   const close = () => {
@@ -40,13 +42,13 @@ export function Alert({
         {title && <strong className="af-alert__title">{title}</strong>}
         <div>{children}</div>
       </div>
-      {closable && <button type="button" className="af-alert__close" aria-label="Dismiss message" onClick={close}>×</button>}
+      {closable && <button type="button" className="af-alert__close" aria-label={t("common:components.dismissMessage")} onClick={close}>×</button>}
     </div>
   );
 }
 
 export function Empty({
-  title = "No data",
+  title,
   description,
   action,
   icon,
@@ -58,10 +60,11 @@ export function Empty({
   icon?: ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation("common");
   return (
     <div className={`af-empty ${className}`.trim()} role="status">
       <div className="af-empty__icon" aria-hidden="true">{icon ?? "◇"}</div>
-      <strong className="af-empty__title">{title}</strong>
+      <strong className="af-empty__title">{title ?? t("common:components.noData")}</strong>
       {description && <div className="af-empty__description">{description}</div>}
       {action && <div className="af-empty__action">{action}</div>}
     </div>
@@ -98,7 +101,7 @@ export function Skeleton({
 }
 
 export function Loading({
-  label = "Loading",
+  label,
   size = "medium",
   overlay = false,
   className = "",
@@ -108,10 +111,11 @@ export function Loading({
   overlay?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation("common");
   return (
     <div className={`af-loading ${overlay ? "af-loading--overlay" : ""} ${className}`.trim()} role="status" aria-live="polite">
       <span className={`af-loading__spinner af-loading__spinner--${size}`} aria-hidden="true" />
-      <span className="af-loading__label">{label}</span>
+      <span className="af-loading__label">{label ?? t("common:components.loadingLabel")}</span>
     </div>
   );
 }
@@ -143,6 +147,7 @@ export function NotificationProvider({
   placement?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
   maxVisible?: number;
 }) {
+  const { t } = useTranslation("common");
   const [items, setItems] = useState<NotificationRecord[]>([]);
   const nextId = useRef(1);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -176,7 +181,7 @@ export function NotificationProvider({
   return (
     <NotificationContext.Provider value={{ notify, dismiss }}>
       {children}
-      <div className={`af-notification-viewport af-notification-viewport--${placement}`} aria-label="Notifications">
+      <div className={`af-notification-viewport af-notification-viewport--${placement}`} aria-label={t("common:components.notifications")}>
         {items.map((item) => (
           <div key={item.id} className={`af-notification af-notification--${item.status ?? "info"}`} role={item.status === "error" ? "alert" : "status"}>
             <span className="af-notification__icon" aria-hidden="true">{item.status === "success" ? "✓" : item.status === "warning" ? "!" : item.status === "error" ? "×" : "i"}</span>
@@ -184,7 +189,7 @@ export function NotificationProvider({
               {item.title && <strong>{item.title}</strong>}
               <div>{item.message}</div>
             </div>
-            <button type="button" aria-label="Dismiss notification" onClick={() => dismiss(item.id)}>×</button>
+            <button type="button" aria-label={t("common:components.dismissNotification")} onClick={() => dismiss(item.id)}>×</button>
           </div>
         ))}
       </div>

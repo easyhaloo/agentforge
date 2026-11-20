@@ -1,0 +1,18 @@
+{
+  "badRequest": "The request was not valid.",
+  "unauthorized": "Please sign in to continue.",
+  "forbidden": "You do not have access to this.",
+  "notFound": "That resource does not exist.",
+  "methodNotAllowed": "That action is not allowed here.",
+  "conflict": "That conflicts with the current state.",
+  "payloadTooLarge": "The request was too large.",
+  "invalidRequest": "Some of the details were not accepted.",
+  "tooManyRequests": "Too many attempts. Please wait a moment.",
+  "serverError": "The server ran into a problem.",
+  "notImplemented": "This feature is not available yet.",
+  "badGateway": "The server is not reachable.",
+  "serviceUnavailable": "The service is temporarily unavailable.",
+  "gatewayTimeout": "The server took too long to answer.",
+  "network": "The server could not be reached.",
+  "unknown": "Something went wrong."
+}

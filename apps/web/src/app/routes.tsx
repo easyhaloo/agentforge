@@ -15,7 +15,8 @@ import type { ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelinesRoute, RepositoriesRoute, ResourceRoute, RootError, SettingsRoute, WebIDERoute } from "./RouteElements";
+import { FocusedLayout } from "./layouts/FocusedLayout";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelinesRoute, RepositoriesRoute, RepositoryDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -49,7 +50,42 @@ export const routes: RouteObject[] = [
     errorElement: <RootError />,
   },
 
-  // All other routes - WITH shell
+  // Settings - Focused layout (independent page with its own navigation)
+  {
+    path: "/settings",
+    element: <FocusedLayout />,
+    errorElement: <RootError />,
+    children: [
+      {
+        errorElement: <PageError />,
+        children: [
+          {
+            element: <SettingsRoute />,
+            children: [
+              { index: true, handle: routeHandle("Settings"), element: <Navigate to="/settings/profile" replace /> },
+              { path: "profile", handle: routeHandle("Public profile"), element: <ProfileSettingsPage /> },
+              { path: "account", handle: routeHandle("Account"), element: <AccountSettingsPage /> },
+              { path: "appearance", handle: routeHandle("Appearance"), element: <AppearanceSettingsPage /> },
+              { path: "notifications", handle: routeHandle("Notifications"), element: <NotificationsSettingsPage /> },
+              { path: "authentication", handle: routeHandle("Password and authentication"), element: <AuthenticationSettingsPage /> },
+              { path: "keys", handle: routeHandle("SSH and GPG keys"), element: <KeysSettingsPage /> },
+              { path: "sessions", handle: routeHandle("Sessions"), element: <SessionsSettingsPage /> },
+              { path: "agents", handle: routeHandle("Agent Interactions"), element: <AgentSettingsPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  {
+    element: <FocusedLayout fullscreen />,
+    errorElement: <RootError />,
+    children: [{ element: <OrganizationGate variant="pipelines" />, errorElement: <PageError />,
+      children: [organizationPage("pipelines/:id/edit", "CI / CD", <PipelineEditorRoute />)] }],
+  },
+
+  // All other routes - WITH shell (main workspace layout)
   {
     path: "/",
     element: <App />,
@@ -64,25 +100,26 @@ export const routes: RouteObject[] = [
           delivery("stacks", "Stacks"),
           delivery("self-healing", "Self-healing"),
           resource("memory", "Memory"),
+          {
+            element: <OrganizationGate variant="repositories" />,
+            children: [
+              organizationPage("repositories", "Repositories", <RepositoriesRoute />),
+              {
+                path: "orgs/:org/repositories/:repositorySlug",
+                handle: routeHandle("Repository"),
+                element: <RepositoryDetailRoute />,
+              },
+              {
+                path: "orgs/:org/webide/:owner/:repo",
+                handle: routeHandle("WebIDE"),
+                element: <WorkspaceEditorRoute />,
+              },
+            ],
+          },
           { element: <OrganizationGate variant="pipelines" />, children: [organizationPage("pipelines", "CI / CD", <PipelinesRoute />)] },
           resource("security", "Security"),
           resource("governance", "Governance"),
           resource("usage", "Cost & Usage"),
-          {
-            path: "settings",
-            element: <SettingsRoute />,
-            children: [
-              { index: true, handle: routeHandle("Settings"), element: <Navigate to="/settings/profile" replace /> },
-              { path: "profile", handle: routeHandle("Public profile"), element: <ProfileSettingsPage /> },
-              { path: "account", handle: routeHandle("Account"), element: <AccountSettingsPage /> },
-              { path: "appearance", handle: routeHandle("Appearance"), element: <AppearanceSettingsPage /> },
-              { path: "notifications", handle: routeHandle("Notifications"), element: <NotificationsSettingsPage /> },
-              { path: "authentication", handle: routeHandle("Password and authentication"), element: <AuthenticationSettingsPage /> },
-              { path: "keys", handle: routeHandle("SSH and GPG keys"), element: <KeysSettingsPage /> },
-              { path: "sessions", handle: routeHandle("Sessions"), element: <SessionsSettingsPage /> },
-              { path: "agents", handle: routeHandle("Agent Interactions"), element: <AgentSettingsPage /> },
-            ],
-          },
           { path: "dev/ui", handle: routeHandle("UI Components"), element: <UIShowcasePage /> },
           {
             element: <OrganizationGate variant="changesets" />,
@@ -93,8 +130,7 @@ export const routes: RouteObject[] = [
               changesetDetail("evaluation"),
               changesetDetail("review"),
               changesetDetail("merge"),
-              organizationPage("repositories", "Repositories", <RepositoriesRoute />),
-              { path: "orgs/:org/webide/:owner/:repo", handle: routeHandle("Repositories"), element: <WebIDERoute /> },
+              organizationPage("webide", "WebIDE", <WebIDERoute />),
               // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
               organizationPage("trails", "Trails", <ChangesetsRoute />),
               organizationPage("review", "Review", <ChangesetsRoute />),

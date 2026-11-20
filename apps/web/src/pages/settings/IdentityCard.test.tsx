@@ -5,6 +5,8 @@ import type { Identity } from "../../shared/api/identities";
 
 // Mock i18next
 vi.mock("react-i18next", () => ({
+  // The date helpers format in the interface language, which reaches the real i18next instance.
+  initReactI18next: { type: "3rdParty", init: () => {} },
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {

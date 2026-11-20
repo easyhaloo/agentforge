@@ -99,7 +99,7 @@ test("WebIDE saves an overlay and hands it off to the Changeset lifecycle", asyn
   });
 
   await page.goto("/orgs/demo/webide/easyhaloo/agentforge");
-  await expect(page.getByRole("heading", { name: "WebIDE" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Workspace WebIDE" })).toBeVisible();
   await page.getByRole("button", { name: "Create workspace" }).click();
   await expect(page.getByRole("button", { name: "README.md" })).toBeVisible();
   await page.getByRole("button", { name: "README.md" }).click();

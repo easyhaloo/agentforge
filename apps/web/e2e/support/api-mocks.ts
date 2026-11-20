@@ -39,7 +39,13 @@ const reviewedChangeset = (id: string, title: string, status: string, reviewStat
     evaluations: [{ id: "eval-1", revision_id: "rev-1", status: "passed", summary: "Trusted evaluation passed.", created_at: now }],
     evidence: [{ id: "ev-1", revision_id: "rev-1", evaluation_id: "eval-1", kind: "report", uri: "artifact://report", sha256: "abc123", status: "active", created_at: now }],
     reviews: [{ id: "rev-review-1", revision_id: "rev-1", reviewer: "user-owner", status: reviewStatus, comment: "Please review", created_at: now }],
-    audit: [],
+    // The audit codes are the server's own; the interface translates them.
+    audit: [
+      { sequence: 1, actor: "user-owner", operation: "changeset.created", target_id: id, outcome: "succeeded", at: now },
+      { sequence: 2, actor: "user-owner", operation: "revision.created", target_id: "rev-1", outcome: "succeeded", at: now },
+      { sequence: 3, actor: "user-owner", operation: "review.assigned", target_id: "rev-review-1", outcome: "succeeded", at: now },
+      ...(reviewStatus === "pending" ? [] : [{ sequence: 4, actor: "user-owner", operation: "review.decided", target_id: "rev-review-1", outcome: reviewStatus, at: now }]),
+    ],
   },
   status, version: 1, created_at: now, updated_at: now,
 });
@@ -179,7 +185,7 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return json({ repository: "team/repo", commit_sha: "a".repeat(40), items: [{ sha: "a".repeat(40), parents: ["b".repeat(40)], author: "Test Author", authored_at: now, subject: "Latest commit" }, { sha: "b".repeat(40), parents: [], author: "Test Author", authored_at: now, subject: "Initial commit" }] });
     }
     if (path.endsWith("/repositories/easyhaloo/agentforge/compare") && method === "GET") {
-      return json({ repository: "team/repo", base_sha: "b".repeat(40), head_sha: "a".repeat(40), patch: "diff --git a/README.md b/README.md\\n-before\\n+after\\n" });
+      return json({ repository: "team/repo", base_sha: "b".repeat(40), head_sha: "a".repeat(40), patch: "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-before\n+after\n" });
     }
     if (path.endsWith("/repositories/easyhaloo/agentforge/blob") && method === "GET") {
       return json({ repository: "team/repo", commit_sha: "a".repeat(40), blob_sha: "b".repeat(40), path: "README.md", encoding: "utf-8", content: "# Hello\n" });

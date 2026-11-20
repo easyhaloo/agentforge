@@ -23,7 +23,7 @@ export const flatPaths = {
 } as const;
 
 /** Pages backed by the real API live under `/orgs/:org/<section>`. `settings` is the Organization page. */
-export type OrgSection = "pipelines" | "changesets" | "repositories" | "trails" | "review" | "eval" | "settings";
+export type OrgSection = "pipelines" | "changesets" | "repositories" | "webide" | "trails" | "review" | "eval" | "settings";
 
 export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
@@ -39,10 +39,40 @@ export function changesetPath(handle: string, changesetID: string, tab: Changese
   return tab === "overview" ? base : `${base}/${tab}`;
 }
 
+export function pipelineEditPath(handle: string, id: string): string {
+  return `${orgPath(handle, "pipelines")}/${encodeURIComponent(id)}/edit`;
+}
+
 /**
  * Same sub-path under another organization; paths outside `/orgs/:org` are returned unchanged. The router matches
  * static segments case-insensitively, so `/ORGS/a/...` is an organization path too; the prefix is emitted as `/orgs`.
  */
 export function withOrganizationHandle(pathname: string, handle: string): string {
   return pathname.replace(/^\/orgs\/[^/]+/i, `/orgs/${encodeURIComponent(handle)}`);
+}
+
+/**
+ * Build a WebIDE URL with query parameters for repository, commit, and optional changeset/path/line.
+ */
+export function webIDEPath(handle: string, params: {
+  repository: string;
+  commit?: string;
+  changeset?: string;
+  path?: string;
+  line?: number;
+}): string {
+  const base = orgPath(handle, "webide");
+  const query = new URLSearchParams();
+  query.set("repository", params.repository);
+  if (params.commit) query.set("commit", params.commit);
+  if (params.changeset) query.set("changeset", params.changeset);
+  if (params.path) query.set("path", params.path);
+  if (params.line) query.set("line", String(params.line));
+  return `${base}?${query.toString()}`;
+}
+
+/** Only allow local paths as post-authentication destinations. */
+export function authReturnPath(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\u0000-\u001f]/.test(value)) return undefined;
+  return value;
 }

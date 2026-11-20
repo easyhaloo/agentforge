@@ -13,6 +13,8 @@ import {
   type SelectHTMLAttributes,
   type TableHTMLAttributes,
 } from "react";
+import { useTranslation } from "react-i18next";
+import { translateError } from "../../api/errors";
 
 export function getFocusTrapTargetIndex(
   focusableCount: number,
@@ -91,24 +93,193 @@ export interface SelectOption {
   label: string;
   value: string;
   disabled?: boolean;
+  icon?: React.ComponentType<{ size?: number }>;
 }
-export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
+export interface SelectProps {
   label?: string;
   options: SelectOption[];
   controlSize?: "small" | "middle" | "large";
   placeholder?: string;
+  hint?: string;
+  error?: string;
+  id?: string;
+  className?: string;
+  name?: string;
+  value?: string;
+  defaultValue?: string;
+  onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  disabled?: boolean;
+  required?: boolean;
+  autoFocus?: boolean;
+  form?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
 }
-export function Select({ label, options, controlSize = "middle", placeholder, id, className = "", ...props }: SelectProps) {
+export function Select({ label, options, controlSize = "middle", placeholder, hint, error, id, className = "", value, defaultValue, onChange, disabled, name, required, autoFocus, form, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy }: SelectProps) {
   const generatedId = useId();
-  const selectId = id ?? props.name ?? generatedId;
+  const selectId = id ?? name ?? generatedId;
+  const [open, setOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? "");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const isControlled = value !== undefined;
+  const currentValue = isControlled ? value : uncontrolledValue;
+  const selectedOption = options.find((opt) => opt.value === currentValue);
+  const { t } = useTranslation("common");
+  const displayText = selectedOption?.label ?? placeholder ?? t("common:components.selectOption");
+  const enabledOptions = options.map((opt, idx) => opt.disabled ? -1 : idx).filter((idx) => idx >= 0);
+
+  useEffect(() => {
+    if (!open) {
+      setHighlightedIndex(-1);
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(event.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+
+      if (!enabledOptions.length) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        const currentPos = enabledOptions.indexOf(highlightedIndex);
+        const nextIndex = currentPos < 0 ? enabledOptions[0] : enabledOptions[(currentPos + 1) % enabledOptions.length];
+        setHighlightedIndex(nextIndex);
+        optionRefs.current[nextIndex]?.focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        const currentPos = enabledOptions.indexOf(highlightedIndex);
+        const prevIndex = currentPos <= 0 ? enabledOptions[enabledOptions.length - 1] : enabledOptions[currentPos - 1];
+        setHighlightedIndex(prevIndex);
+        optionRefs.current[prevIndex]?.focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        const firstIndex = enabledOptions[0];
+        setHighlightedIndex(firstIndex);
+        optionRefs.current[firstIndex]?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        const lastIndex = enabledOptions[enabledOptions.length - 1];
+        setHighlightedIndex(lastIndex);
+        optionRefs.current[lastIndex]?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+
+    // Focus first selected or first enabled option when opened
+    const initialIndex = selectedOption ? options.indexOf(selectedOption) : enabledOptions[0] ?? -1;
+    if (initialIndex >= 0) {
+      setHighlightedIndex(initialIndex);
+      requestAnimationFrame(() => optionRefs.current[initialIndex]?.focus());
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, highlightedIndex, enabledOptions, options, selectedOption]);
+
+  const handleSelect = (option: SelectOption) => {
+    if (option.disabled) return;
+
+    if (!isControlled) {
+      setUncontrolledValue(option.value);
+    }
+
+    onChange?.({ target: { value: option.value, name } } as React.ChangeEvent<HTMLSelectElement>);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const triggerClasses = [
+    "af-select-trigger",
+    `af-select-trigger--${controlSize}`,
+    error ? "af-select-trigger--error" : "",
+    className,
+  ].filter(Boolean).join(" ");
+
   return (
-    <label className="af-field" htmlFor={selectId}>
-      {label && <span className="af-field__label">{label}</span>}
-      <select {...props} id={selectId} className={`af-select af-select--${controlSize} ${className}`.trim()}>
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-      </select>
-    </label>
+    <div className="af-field">
+      {label && <label className="af-field__label" htmlFor={selectId}>{label}</label>}
+      <div className="af-select">
+        <button
+          ref={triggerRef}
+          id={selectId}
+          type="button"
+          role="combobox"
+          className={triggerClasses}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          form={form}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy || (label ? undefined : ariaLabel ? undefined : selectId)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-invalid={Boolean(error) || undefined}
+          aria-required={required || undefined}
+          aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
+          onClick={() => setOpen(!open)}
+        >
+          <span className="af-select-trigger__label">{displayText}</span>
+          <span className="af-select-trigger__icon" aria-hidden="true">{open ? "▲" : "▼"}</span>
+        </button>
+        {open && (
+          <div ref={menuRef} className="af-select-dropdown" role="listbox" aria-labelledby={selectId}>
+            {placeholder && (
+              <button
+                type="button"
+                role="option"
+                className={`af-select-option ${currentValue === "" ? "af-select-option--selected" : ""}`}
+                aria-selected={currentValue === ""}
+                onClick={() => handleSelect({ label: placeholder, value: "" })}
+              >
+                <span>{placeholder}</span>
+              </button>
+            )}
+            {options.map((option, index) => {
+              const Icon = option.icon;
+              const isSelected = option.value === currentValue;
+              return (
+                <button
+                  key={option.value}
+                  ref={(el) => { optionRefs.current[index] = el; }}
+                  type="button"
+                  role="option"
+                  className={`af-select-option ${isSelected ? "af-select-option--selected" : ""} ${highlightedIndex === index ? "af-select-option--highlighted" : ""}`.trim()}
+                  aria-selected={isSelected}
+                  disabled={option.disabled}
+                  onClick={() => handleSelect(option)}
+                  onFocus={() => setHighlightedIndex(index)}
+                >
+                  {Icon && <Icon size={14} />}
+                  <span>{option.label}</span>
+                  {isSelected && <span className="af-select-option__check">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {error ? <span className="af-field__error" id={`${selectId}-error`}>{error}</span> : hint ? <span className="af-field__hint" id={`${selectId}-hint`}>{hint}</span> : null}
+    </div>
   );
 }
 
@@ -140,11 +311,12 @@ export function SearchInput({
   value,
   onChange,
   onSearch,
-  placeholder = "Search...",
+  placeholder,
   debounceMs = 300,
   disabled = false,
   className = "",
 }: SearchInputProps) {
+  const { t } = useTranslation("common");
   const onSearchRef = useRef(onSearch);
   const timerRef = useRef<number | undefined>(undefined);
   const lastSearchValue = useRef(value);
@@ -174,14 +346,14 @@ export function SearchInput({
       <input
         value={value}
         disabled={disabled}
-        placeholder={placeholder}
-        aria-label={placeholder}
+        placeholder={placeholder ?? t("common:components.searchPlaceholder")}
+        aria-label={placeholder ?? t("common:components.searchPlaceholder")}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") submitImmediately();
         }}
       />
-      {value && <button type="button" aria-label="Clear search" onClick={() => { lastSearchValue.current = ""; onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
+      {value && <button type="button" aria-label={t("common:components.clearSearch")} onClick={() => { lastSearchValue.current = ""; onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
     </div>
   );
 }
@@ -193,6 +365,7 @@ export interface ModalProps {
   onCancel: () => void;
   onOk?: () => void | Promise<void>;
   okText?: string;
+  okDisabled?: boolean;
   okVariant?: ButtonVariant;
   cancelText?: string;
   confirmLoading?: boolean;
@@ -205,13 +378,15 @@ export function Modal({
   children,
   onCancel,
   onOk,
-  okText = "Confirm",
+  okText,
+  okDisabled = false,
   okVariant = "primary",
-  cancelText = "Cancel",
+  cancelText,
   confirmLoading = false,
   closeOnBackdrop = true,
   width = 520,
 }: ModalProps) {
+  const { t } = useTranslation("common");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const busy = submitting || confirmLoading;
@@ -271,13 +446,13 @@ export function Modal({
   if (!open) return null;
 
   const handleOk = async () => {
-    if (!onOk || busy) return;
+    if (!onOk || busy || okDisabled) return;
     setSubmitError("");
     try {
       setSubmitting(true);
       await onOk();
     } catch (cause) {
-      setSubmitError(cause instanceof Error ? cause.message : "Unable to complete this action");
+      setSubmitError(translateError(cause, t, "common:components.actionFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -290,15 +465,15 @@ export function Modal({
       <section ref={dialogRef} tabIndex={-1} className="af-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
         <header className="af-modal__header">
           <h2 id={titleId}>{title}</h2>
-          <button type="button" className="af-modal__close" aria-label="Close dialog" onClick={onCancel} disabled={busy}>×</button>
+          <button type="button" className="af-modal__close" aria-label={t("common:components.closeDialog")} onClick={onCancel} disabled={busy}>×</button>
         </header>
         <div className="af-modal__body">
           {children}
           {submitError && <p className="af-modal__error" role="alert">{submitError}</p>}
         </div>
         <footer className="af-modal__footer">
-          <Button onClick={onCancel} disabled={busy}>{cancelText}</Button>
-          {onOk && <Button variant={okVariant} onClick={handleOk} loading={busy}>{okText}</Button>}
+          <Button onClick={onCancel} disabled={busy}>{cancelText ?? t("common:components.cancel")}</Button>
+          {onOk && <Button variant={okVariant} disabled={okDisabled} onClick={handleOk} loading={busy}>{okText ?? t("common:components.confirm")}</Button>}
         </footer>
       </section>
     </div>
@@ -430,7 +605,7 @@ export function DataTable<T>({
   data,
   rowKey,
   loading = false,
-  emptyText = "No data",
+  emptyText,
   pagination,
   onPageChange,
   selectedRowKeys,
@@ -449,6 +624,7 @@ export function DataTable<T>({
   className = "",
   ...tableProps
 }: DataTableProps<T>) {
+  const { t } = useTranslation("common");
   const getRowKey = (row: T) => typeof rowKey === "function" ? rowKey(row) : String(row[rowKey]);
   const [internalSelected, setInternalSelected] = useState<Array<string | number>>([]);
   const [sortState, setSortState] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
@@ -540,7 +716,7 @@ export function DataTable<T>({
       <table {...tableProps} className={`af-table ${className}`.trim()}>
         <thead>
           <tr>
-            {onSelectionChange && <th className="af-table__selection"><input type="checkbox" aria-label="Select all rows on this page" checked={data.length > 0 && data.every((row) => selected.includes(getRowKey(row)))} onChange={(event) => toggleAll(event.target.checked)} /></th>}
+            {onSelectionChange && <th className="af-table__selection"><input type="checkbox" aria-label={t("common:components.selectAllRows")} checked={data.length > 0 && data.every((row) => selected.includes(getRowKey(row)))} onChange={(event) => toggleAll(event.target.checked)} /></th>}
             {visibleColumns.map((column) => <th key={String(column.key)} style={{ width: column.width }}>
               {column.sortable ? <button type="button" className="af-table__sort" onClick={() => changeSort(String(column.key))}>{column.title}<span aria-hidden="true">{sortState?.key === String(column.key) ? sortState.direction === "asc" ? " ↑" : " ↓" : " ↕"}</span></button> : column.title}
             </th>)}
@@ -561,7 +737,7 @@ export function DataTable<T>({
         </thead>
         <tbody>
           {loading ? <tr><td colSpan={emptyColumnCount} className="af-table__state">Loading…</td></tr> :
-            sortedData.length === 0 ? <tr><td colSpan={emptyColumnCount} className="af-table__state">{emptyText}</td></tr> :
+            sortedData.length === 0 ? <tr><td colSpan={emptyColumnCount} className="af-table__state">{emptyText ?? t("common:components.noData")}</td></tr> :
               sortedData.map((row, index) => <tr key={getRowKey(row)} className={rowClassName?.(row)} tabIndex={onRowClick ? 0 : undefined} aria-label={onRowClick ? "Open row" : undefined} onClick={(event) => { if (!onRowClick) return; const target = event.target; if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button']")) return; onRowClick(row); }} onKeyDown={(event) => { if (!onRowClick || event.target !== event.currentTarget) return; if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onRowClick(row); } }}>{onSelectionChange && <td className="af-table__selection"><input type="checkbox" aria-label={`Select row ${String(getRowKey(row))}`} checked={selected.includes(getRowKey(row))} onChange={(event) => toggleRow(getRowKey(row), event.target.checked)} /></td>}{visibleColumns.map((column) => {
                 const value = (row as unknown as Record<string, unknown>)[String(column.key)];
                 return <td key={String(column.key)}>{column.render ? column.render(value, row, index) : String(value ?? "—")}</td>;
@@ -614,6 +790,7 @@ export interface DrawerProps {
   placement?: "left" | "right";
 }
 export function Drawer({ open, title, children, onClose, width = 480, placement = "right" }: DrawerProps) {
+  const { t } = useTranslation("common");
   const drawerRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
@@ -660,7 +837,7 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
   return (
     <div className="af-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
       <aside ref={drawerRef} tabIndex={-1} className={`af-drawer af-drawer--${placement}`} role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
-        <header className="af-drawer__header"><h2 id={titleId}>{title}</h2><button type="button" aria-label="Close drawer" onClick={() => onCloseRef.current()}>×</button></header>
+        <header className="af-drawer__header"><h2 id={titleId}>{title}</h2><button type="button" aria-label={t("common:components.closeDrawer")} onClick={() => onCloseRef.current()}>×</button></header>
         <div className="af-drawer__body">{children}</div>
       </aside>
     </div>
@@ -668,22 +845,31 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
 }
 
 export function ConfirmDialog({
-  open, title = "Are you sure?", description, confirmText = "Confirm", danger = false, onCancel, onConfirm,
+  open, title, description, confirmText, danger = false, onCancel, onConfirm,
 }: {
   open: boolean; title?: string; description: ReactNode; confirmText?: string; danger?: boolean;
   onCancel: () => void; onConfirm: () => void | Promise<void>;
 }) {
+  const { t } = useTranslation("common");
   return (
-    <Modal open={open} title={title} onCancel={onCancel} onOk={onConfirm} okText={confirmText} okVariant={danger ? "danger" : "primary"}>
+    <Modal
+      open={open}
+      title={title ?? t("common:components.confirmTitle")}
+      onCancel={onCancel}
+      onOk={onConfirm}
+      okText={confirmText ?? t("common:components.confirm")}
+      okVariant={danger ? "danger" : "primary"}
+    >
       <p className="af-confirm-description">{description}</p>
-      {danger && <p className="af-confirm-warning">This action cannot be undone.</p>}
+      {danger && <p className="af-confirm-warning">{t("common:components.cannotUndo")}</p>}
     </Modal>
   );
 }
 
-export function Popover({ trigger, children, placement = "bottom", ariaLabel = "Additional options" }: {
+export function Popover({ trigger, children, placement = "bottom", ariaLabel }: {
   trigger: ReactNode; children: ReactNode; placement?: "bottom" | "top"; ariaLabel?: string;
 }) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -717,17 +903,18 @@ export function Popover({ trigger, children, placement = "bottom", ariaLabel = "
   return (
     <div ref={rootRef} className="af-popover">
       <button ref={triggerRef} type="button" className="af-popover__trigger" aria-haspopup="dialog" aria-controls={contentId} aria-expanded={open} onClick={() => setOpen((value) => !value)}>{trigger}</button>
-      {open && <div ref={contentRef} id={contentId} tabIndex={-1} className={`af-popover__content af-popover__content--${placement}`} role="dialog" aria-label={ariaLabel}>{children}</div>}
+      {open && <div ref={contentRef} id={contentId} tabIndex={-1} className={`af-popover__content af-popover__content--${placement}`} role="dialog" aria-label={ariaLabel ?? t("common:components.additionalOptions")}>{children}</div>}
     </div>
   );
 }
 
 export interface AsyncSelectOption { label: string; value: string; }
-export function AsyncSelect({ value, onChange, loadOptions, placeholder = "Search options...", debounceMs = 250, disabled = false }: {
+export function AsyncSelect({ value, onChange, loadOptions, placeholder, debounceMs = 250, disabled = false }: {
   value?: string; onChange: (value: string, option?: AsyncSelectOption) => void;
   loadOptions: (keyword: string, signal: AbortSignal) => Promise<AsyncSelectOption[]>;
   placeholder?: string; debounceMs?: number; disabled?: boolean;
 }) {
+  const { t } = useTranslation("common");
   const [keyword, setKeyword] = useState("");
   const [options, setOptions] = useState<AsyncSelectOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -743,7 +930,7 @@ export function AsyncSelect({ value, onChange, loadOptions, placeholder = "Searc
         const result = await loadOptions(keyword.trim(), controller.signal);
         if (!controller.signal.aborted) setOptions(result);
       } catch (cause) {
-        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Unable to load options");
+        if (!controller.signal.aborted) setError(translateError(cause, t, "common:components.optionsFailed"));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -754,11 +941,11 @@ export function AsyncSelect({ value, onChange, loadOptions, placeholder = "Searc
   return (
     <div className="af-async-select">
       <button type="button" className="af-select af-async-select__control" disabled={disabled} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
-        {selected?.label ?? value ?? placeholder}<span>⌄</span>
+        {selected?.label ?? value ?? (placeholder ?? t("common:components.searchOptionsPlaceholder"))}<span>⌄</span>
       </button>
       {open && <div className="af-async-select__menu">
-        <input autoFocus value={keyword} placeholder={placeholder} onChange={(event) => setKeyword(event.target.value)} />
-        {loading ? <div className="af-async-select__state">Loading…</div> : error ? <div className="af-async-select__state af-field__error">{error}</div> : options.length ? options.map((option) => <button type="button" key={option.value} onClick={() => { onChange(option.value, option); setOpen(false); setKeyword(""); }}>{option.label}</button>) : <div className="af-async-select__state">No options</div>}
+        <input autoFocus value={keyword} placeholder={placeholder ?? t("common:components.searchOptionsPlaceholder")} onChange={(event) => setKeyword(event.target.value)} />
+        {loading ? <div className="af-async-select__state">{t("common:components.loading")}</div> : error ? <div className="af-async-select__state af-field__error">{error}</div> : options.length ? options.map((option) => <button type="button" key={option.value} onClick={() => { onChange(option.value, option); setOpen(false); setKeyword(""); }}>{option.label}</button>) : <div className="af-async-select__state">{t("common:components.noOptions")}</div>}
       </div>}
     </div>
   );

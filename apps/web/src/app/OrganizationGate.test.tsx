@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { AccountContext, OrganizationSummary } from "../shared/api/identity";
+import i18n from "../locales";
 import { AppAccountContext, type AppAccount } from "./account-context";
 import { OrganizationGate } from "./OrganizationGate";
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en-US");
+});
 
 const demo: OrganizationSummary = { id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "owner" };
 const labs: OrganizationSummary = { id: "org-labs", slug: "Labs", name: "AgentForge Labs", role: "admin" };
@@ -35,17 +40,17 @@ describe("OrganizationGate states keep the copy each page had before routing", (
     expect(render({ accountState: "loading" }, variant)).toBe(card(loadingCopy));
   });
 
-  it("signed out, organization variant: SSO link and a Retry button", () => {
+  it("signed out, organization variant: login link and a Retry button", () => {
     const html = render({ account: null, accountState: "signed-out" }, "organization");
     expect(html).toContain("<h2>Sign in to manage your organization</h2><p>Organization settings require an authenticated AgentForge session.</p>");
-    expect(html).toContain('<a class="button primary" href="/auth/oidc/login">Continue with SSO</a>');
+    expect(html).toContain('<a class="button primary" href="/login?return=%2Forgs%2Fdemo%2Fpage">Sign in</a>');
     expect(html).toContain(">Retry</button>");
     expect(html).not.toContain("page content");
   });
 
-  it("signed out, changesets variant: SSO link and no Retry button", () => {
+  it("signed out, changesets variant: login link and no Retry button", () => {
     const html = render({ account: null, accountState: "signed-out" }, "changesets");
-    expect(html).toBe(card('<h2>Sign in to view changesets</h2><p>Changesets are scoped to an authenticated organization.</p><a class="button primary" href="/auth/oidc/login">Continue with SSO</a>'));
+    expect(html).toBe(card('<h2>Sign in to view changesets</h2><p>Changesets are scoped to an authenticated organization.</p><a class="button primary" href="/login?return=%2Forgs%2Fdemo%2Fpage">Sign in</a>'));
   });
 
   it("unavailable: names the service, shows the error and offers Retry", () => {

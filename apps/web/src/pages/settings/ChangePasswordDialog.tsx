@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PasswordInput } from "../../shared/ui/components/form-controls";
 import { Modal } from "../../shared/ui/components";
 import { identityManagementAPI, APIError } from "../../shared/api/identities";
+import { translateError } from "../../shared/api/errors";
 
 export interface ChangePasswordDialogProps {
   open: boolean;
@@ -20,20 +21,23 @@ export function ChangePasswordDialog({ open, onClose, onSuccess }: ChangePasswor
     new?: string;
     confirm?: string;
   }>({});
+  // The message the dialog shows when the whole submission failed. It is a translated sentence
+  // rather than the API's own English prose, and it never leaves the dialog as an Error.
+  const [submitError, setSubmitError] = useState("");
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
 
     if (!currentPassword) {
-      newErrors.current = t("changePassword.error.currentIncorrect");
+      newErrors.current = t("authentication.error.currentIncorrect");
     }
 
     if (newPassword.length < 8) {
-      newErrors.new = t("changePassword.error.tooShort");
+      newErrors.new = t("authentication.passwordRequirements");
     }
 
     if (newPassword !== confirmPassword) {
-      newErrors.confirm = t("changePassword.error.notMatch");
+      newErrors.confirm = t("authentication.passwordMismatch");
     }
 
     setErrors(newErrors);
@@ -42,9 +46,11 @@ export function ChangePasswordDialog({ open, onClose, onSuccess }: ChangePasswor
 
   const handleSubmit = async () => {
     setErrors({});
+    setSubmitError("");
 
     if (!validateForm()) {
-      throw new Error(t("changePassword.error.validation"));
+      setSubmitError(t("authentication.error.validation"));
+      return;
     }
 
     try {
@@ -56,17 +62,13 @@ export function ChangePasswordDialog({ open, onClose, onSuccess }: ChangePasswor
       setConfirmPassword("");
 
       onSuccess();
-    } catch (error: unknown) {
-      if (error instanceof APIError) {
-        if (error.status === 401 || error.status === 403) {
-          setErrors({ current: t("changePassword.error.currentIncorrect") });
-          throw new Error(t("changePassword.error.currentIncorrect"));
-        } else {
-          throw new Error(error.message || t("changePassword.error.generic"));
-        }
-      } else {
-        throw new Error(t("changePassword.error.generic"));
+    } catch (cause: unknown) {
+      if (cause instanceof APIError && (cause.status === 401 || cause.status === 403)) {
+        setErrors({ current: t("authentication.error.currentIncorrect") });
+        setSubmitError(t("authentication.error.currentIncorrect"));
+        return;
       }
+      setSubmitError(translateError(cause, t, "settings:authentication.error.generic"));
     }
   };
 
@@ -75,21 +77,28 @@ export function ChangePasswordDialog({ open, onClose, onSuccess }: ChangePasswor
     setNewPassword("");
     setConfirmPassword("");
     setErrors({});
+    setSubmitError("");
     onClose();
   };
 
   return (
     <Modal
       open={open}
-      title={t("changePassword.title")}
+      title={t("authentication.changePassword")}
       onCancel={handleClose}
       onOk={handleSubmit}
-      okText={t("changePassword.submit")}
-      cancelText={t("changePassword.cancel")}
+      okText={t("authentication.changePassword")}
+      cancelText={t("common:actions.cancel")}
       okVariant="primary"
     >
+      {submitError && (
+        <p role="alert" style={{ margin: "0 0 16px 0", color: "var(--color-error)" }}>
+          {submitError}
+        </p>
+      )}
+
       <PasswordInput
-        label={t("changePassword.currentPassword")}
+        label={t("authentication.currentPassword")}
         name="current-password"
         value={currentPassword}
         onChange={(e) => setCurrentPassword(e.target.value)}
@@ -100,7 +109,7 @@ export function ChangePasswordDialog({ open, onClose, onSuccess }: ChangePasswor
       />
 
       <PasswordInput
-        label={t("changePassword.newPassword")}
+        label={t("authentication.newPassword")}
         name="new-password"
         value={newPassword}
         onChange={(e) => setNewPassword(e.target.value)}
@@ -111,7 +120,7 @@ export function ChangePasswordDialog({ open, onClose, onSuccess }: ChangePasswor
       />
 
       <PasswordInput
-        label={t("changePassword.confirmPassword")}
+        label={t("authentication.confirmPassword")}
         name="confirm-password"
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}

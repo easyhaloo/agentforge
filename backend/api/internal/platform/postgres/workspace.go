@@ -197,4 +197,3 @@ func (s *Store) ListWorkspaceFileContents(ctx context.Context, organizationID, w
 	}
 	return items, nil
 }
-

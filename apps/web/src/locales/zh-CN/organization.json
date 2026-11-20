@@ -1,0 +1,110 @@
+{
+  "page": {
+    "title": "{{organizationName}}",
+    "description": "组织访问权限、邀请和成员活动",
+    "loading": "正在加载组织数据…",
+    "restrictedTitle": "组织管理访问受限",
+    "restrictedDescription": "您当前的角色是 {{role}}。只有组织所有者和管理员可以查看成员、邀请和审计历史。"
+  },
+  "tabs": {
+    "members": "成员",
+    "invitations": "邀请",
+    "audit": "审计历史",
+    "ariaLabel": "组织管理"
+  },
+  "roles": {
+    "owner": "所有者",
+    "admin": "管理员",
+    "member": "成员",
+    "viewer": "查看者"
+  },
+  "statuses": {
+    "active": "正常",
+    "invited": "已邀请",
+    "pending": "待处理",
+    "accepted": "已接受",
+    "suspended": "已停用",
+    "removed": "已移除",
+    "revoked": "已撤销",
+    "expired": "已过期"
+  },
+  "members": {
+    "title": "组织成员",
+    "description": "角色和状态更改由服务器强制执行。",
+    "columns": {
+      "member": "成员",
+      "role": "角色",
+      "status": "状态",
+      "joined": "加入时间",
+      "actions": "操作"
+    },
+    "actions": {
+      "suspend": "暂停成员",
+      "reactivate": "重新激活成员",
+      "remove": "移除成员",
+      "roleAriaLabel": "{{memberName}} 的角色"
+    },
+    "empty": "未找到组织成员。",
+    "confirmRemove": {
+      "title": "移除组织成员？",
+      "description": "从此组织移除 {{memberName}}？此操作无法撤销。",
+      "descriptionFallback": "此操作无法撤销。",
+      "confirmText": "移除成员"
+    }
+  },
+  "invitations": {
+    "title": "邀请",
+    "description": "待处理的邀请将在七天后过期，且只能使用一次。",
+    "form": {
+      "emailLabel": "邮箱地址",
+      "emailPlaceholder": "teammate@company.com",
+      "roleLabel": "角色",
+      "createButton": "创建邀请",
+      "creating": "正在创建…"
+    },
+    "columns": {
+      "email": "邮箱",
+      "role": "角色",
+      "status": "状态",
+      "expires": "过期时间",
+      "actions": "操作"
+    },
+    "actions": {
+      "revoke": "撤销邀请"
+    },
+    "empty": "未找到邀请。",
+    "created": {
+      "title": "邀请已创建",
+      "description": "此一次性链接仅此显示。请通过您批准的安全渠道发送。",
+      "copyButton": "复制链接",
+      "dismissAriaLabel": "关闭邀请链接"
+    }
+  },
+  "audit": {
+    "title": "成员审计历史",
+    "description": "最新的成员和邀请事件优先。",
+    "actor": "操作者",
+    "target": "目标",
+    "empty": "尚未记录审计事件。",
+    "actions": {
+      "role_changed": "角色变更",
+      "suspended": "成员被停用",
+      "reactivated": "成员已重新激活",
+      "removed": "成员被移除",
+      "invite_accepted": "邀请已接受"
+    }
+  },
+  "feedback": {
+    "loadFailed": "无法加载组织数据",
+    "memberUpdated": "成员已更新。",
+    "memberUpdateFailed": "成员更新失败",
+    "memberRemoved": "成员已移除。",
+    "memberRemovalFailed": "成员移除失败",
+    "invitationCreated": "邀请已创建。",
+    "invitationCreationFailed": "邀请创建失败",
+    "invitationRevoked": "邀请已撤销。",
+    "invitationRevocationFailed": "邀请撤销失败",
+    "invitationLinkCopied": "邀请链接已复制。",
+    "clipboardUnavailable": "无法访问剪贴板。请手动选择并复制邀请 URL。"
+  }
+}

@@ -109,9 +109,9 @@ func (d DeliveryDependencies) createWorkspaceChangeset(w http.ResponseWriter, r 
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"changeset": toChangesetResponse(stored),
-		"workspace_id": item.ID,
-		"base_commit_sha": item.BaseCommitSHA,
+		"changeset":           toChangesetResponse(stored),
+		"workspace_id":        item.ID,
+		"base_commit_sha":     item.BaseCommitSHA,
 		"revision_commit_sha": revision.CommitSHA,
 	})
 }

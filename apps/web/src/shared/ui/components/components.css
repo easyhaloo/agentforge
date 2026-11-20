@@ -1,6 +1,7 @@
 .af-ui-root{--af-ui-font:inherit;font-family:var(--af-ui-font)}
 .af-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 13px;border:1px solid #303a50;border-radius:7px;background:#141c2b;color:#c1c9d8;font:600 11px inherit;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
 .af-button:hover:not(:disabled){border-color:#6559b5;background:#1b2638}
+a.af-button{text-decoration:none}
 .af-button:disabled{opacity:.48;cursor:not-allowed}
 .af-button--primary{border-color:#8171ed;background:#7868e6;color:#fff}
 .af-button--primary:hover:not(:disabled){background:#8979f4}
@@ -12,11 +13,11 @@
 @keyframes af-spin{to{transform:rotate(360deg)}}
 .af-field{display:grid;gap:6px;min-width:0;color:#aab4c6;font-size:10px}
 .af-field__label{font-weight:600;color:#aeb8c9}
-.af-input,.af-select{width:100%;height:34px;padding:0 10px;border:1px solid #303c53;border-radius:6px;background:#0c1421;color:#e7eaf2;font:11px inherit;outline:none;transition:border-color .15s,box-shadow .15s}
-.af-input:focus,.af-select:focus{border-color:#8171ed;box-shadow:0 0 0 2px #8171ed25}
-.af-input:disabled,.af-select:disabled{opacity:.5;cursor:not-allowed}
-.af-input--small,.af-select--small{height:28px}
-.af-input--large,.af-select--large{height:40px}
+.af-input{width:100%;height:34px;padding:0 10px;border:1px solid #303c53;border-radius:6px;background:#0c1421;color:#e7eaf2;font:11px inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+.af-input:focus{border-color:#8171ed;box-shadow:0 0 0 2px #8171ed25}
+.af-input:disabled{opacity:.5;cursor:not-allowed}
+.af-input--small{height:28px}
+.af-input--large{height:40px}
 .af-input--error{border-color:#d97886}
 .af-field__hint{color:#74819a;font-size:9px}
 .af-field__error{color:#e28d98;font-size:9px}
@@ -69,6 +70,26 @@
 .af-popover__content{position:absolute;z-index:15;left:0;min-width:200px;padding:12px;border:1px solid #34405a;border-radius:8px;background:#111a29;box-shadow:0 12px 35px #0008;color:#c5ccda}
 .af-popover__content--bottom{top:calc(100% + 7px)}
 .af-popover__content--top{bottom:calc(100% + 7px)}
+.af-select{position:relative;width:100%}
+.af-select-trigger{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border:1px solid #303c53;border-radius:6px;background:#0c1421;color:#e7eaf2;font:11px inherit;text-align:left;cursor:pointer;outline:none;transition:border-color .15s,box-shadow .15s}
+.af-select-trigger:hover:not(:disabled){border-color:#6559b5}
+.af-select-trigger:focus{border-color:#8171ed;box-shadow:0 0 0 2px #8171ed25}
+.af-select-trigger:disabled{opacity:.5;cursor:not-allowed}
+.af-select-trigger--small{height:28px;font-size:10px}
+.af-select-trigger--large{height:40px;font-size:12px}
+.af-select-trigger--error{border-color:#d97886}
+.af-select-trigger__label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.af-select-trigger__icon{flex-shrink:0;color:#8290a8;font-size:10px;transition:transform .15s}
+.af-select-dropdown{position:absolute;z-index:14;top:calc(100% + 5px);left:0;right:0;max-height:280px;overflow-y:auto;padding:5px;border:1px solid #34405a;border-radius:8px;background:#111a29;box-shadow:0 12px 35px #0008}
+.af-select-option{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:5px;background:transparent;color:#c5ccda;font:11px inherit;text-align:left;cursor:pointer;outline:none;transition:background .12s}
+.af-select-option:hover:not(:disabled){background:#202a3d}
+.af-select-option:focus{background:#202a3d;box-shadow:inset 0 0 0 1px #8171ed60}
+.af-select-option:disabled{opacity:.45;cursor:not-allowed}
+.af-select-option--selected{color:#c5bcff;background:#282444}
+.af-select-option--selected:hover:not(:disabled){background:#322d52}
+.af-select-option--highlighted{background:#202a3d}
+.af-select-option>span:first-of-type{flex:1;min-width:0}
+.af-select-option__check{margin-left:auto;color:#9a8cff;font-size:12px}
 .af-async-select{position:relative;min-width:220px}
 .af-async-select__control{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;cursor:pointer}
 .af-async-select__menu{position:absolute;z-index:14;top:calc(100% + 5px);left:0;right:0;padding:7px;border:1px solid #34405a;border-radius:8px;background:#111a29;box-shadow:0 12px 35px #0008}

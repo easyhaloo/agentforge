@@ -377,6 +377,9 @@ export interface components {
                 ref?: string;
                 sha: string;
             };
+            stepStatuses?: {
+                [key: string]: "queued" | "leased" | "waiting" | "succeeded" | "failed" | "cancelled" | "timed_out";
+            };
             pipelineId: string;
             actorId: string;
             /** @enum {unknown} */
@@ -455,8 +458,10 @@ export interface components {
                     steps: {
                         id: string;
                         secretParams?: string[];
+                        script?: string;
+                        outputs?: string[];
                         /** @enum {unknown} */
-                        uses: "control/approval@v1" | "container/check@v1";
+                        uses: "control/approval@v1" | "container/check@v1" | "container/script@v1";
                     }[];
                 }[];
             }[];

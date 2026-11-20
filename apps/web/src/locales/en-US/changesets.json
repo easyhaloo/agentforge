@@ -1,18 +1,25 @@
 {
   "page": {
     "title": "Changesets",
-    "summary": "{{count}} persisted changesets",
     "description": "Organization-scoped Git lifecycle · PostgreSQL state",
-    "loadingMessage": "Loading changesets…"
+    "loadingMessage": "Loading changesets…",
+    "summary_one": "{{count}} persisted changeset",
+    "summary_other": "{{count}} persisted changesets"
   },
   "create": {
     "title": "Create changeset",
     "description": "Starts a persisted delivery workflow against a registered repository",
     "validated": "Server validated",
     "titleLabel": "Title",
-    "titlePlaceholder": "Describe the change",
+    "titlePlaceholder": "Describe the change or goal",
+    "projectLabel": "Project",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "What should this change accomplish?",
     "repositoryLabel": "Repository",
     "createButton": "Create",
+    "okButton": "Create resource",
+    "newResourceEyebrow": "NEW RESOURCE",
+    "mockNote": "This creates a local demo record only. No Git or backend operation is performed.",
     "successMessage": "Changeset created and persisted.",
     "errorMessage": "Changeset creation failed"
   },
@@ -27,15 +34,86 @@
     "myPendingReviews": "My pending reviews",
     "emptyFiltered": "No changesets match the filters.",
     "emptyDefault": "No changesets yet.",
-    "footer": "{{count}} of {{total}} changesets",
-    "dataSource": "Data from organization API"
+    "dataSource": "Data from organization API",
+    "footer_one": "{{count}} of {{total}} changeset",
+    "footer_other": "{{count}} of {{total}} changesets"
+  },
+  "columns": {
+    "changeset": "CHANGESET",
+    "repository": "REPOSITORY",
+    "status": "STATUS",
+    "revision": "REVISION",
+    "updated": "UPDATED",
+    "version": "VERSION"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "revisions": "Revisions",
+    "evaluation": "Evaluation",
+    "review": "Review",
+    "merge": "Merge"
+  },
+  "reviewStatus": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "stale": "Stale"
+  },
+  "detail": {
+    "loading": "Loading changeset…",
+    "backToList": "Back to changesets",
+    "sectionsAriaLabel": "Changeset sections",
+    "createdBy": "{{repository}} · Created by {{actor}}",
+    "currentRevision": "Current revision",
+    "noRevision": "No revision yet.",
+    "resolveRefToStart": "Resolve a Git ref to start",
+    "reviewer": "Reviewer",
+    "noReviewAssigned": "No review assigned yet.",
+    "auditTitle": "Lifecycle audit",
+    "auditEntry": "{{actor}} · {{at}}",
+    "resolveRefLabel": "Resolve Git ref",
+    "refPlaceholder": "branch, tag or commit SHA",
+    "addRevisionButton": "Add revision",
+    "revisionsTitle": "Revisions",
+    "currentRevisionBadge": "The current revision",
+    "evaluationTitle": "Trusted evaluation",
+    "evaluationEmpty": "No evaluation for the current revision.",
+    "runEvaluationButton": "Run evaluation",
+    "evidenceTitle": "Evidence provenance",
+    "evidencePending": "Evidence is generated automatically from a passing evaluation report.",
+    "evidenceVerified": "Verified artifact",
+    "evidenceAwaiting": "Awaiting passing evaluation",
+    "assignReviewLabel": "Assign review (active member ID)",
+    "reviewerPlaceholder": "reviewer user ID",
+    "reviewCommentPlaceholder": "Review context (optional)",
+    "assignReviewButton": "Assign review",
+    "reviewDecisionTitle": "Review decision",
+    "reviewAssigned": "Assigned to {{reviewer}} · {{status}}",
+    "approveButton": "Approve",
+    "requestChangesButton": "Request changes",
+    "decisionPlaceholder": "Decision comment",
+    "mergeTargetLabel": "Merge target",
+    "mergeButton": "Merge changeset",
+    "mergedAs": "Merged as {{commit}} into {{ref}}",
+    "viewFilesInWebIDE": "View files in WebIDE"
+  },
+  "notify": {
+    "revisionResolved": "Git revision resolved and persisted.",
+    "evaluationCompleted": "Trusted evaluation completed.",
+    "reviewAssigned": "Review assigned to an active organization member.",
+    "reviewApproved": "Review approved.",
+    "changesRequested": "Changes requested.",
+    "mergeCompleted": "Git merge completed and persisted."
   },
   "empty": {
     "noRepositories": "No repositories registered",
     "noRepositoriesDescription": "Register a repository on the organization's repositories page before creating a changeset."
   },
   "errors": {
-    "loadFailed": "Unable to load delivery data"
+    "loadFailed": "Unable to load delivery data",
+    "listFailed": "Unable to load the changesets",
+    "detailLoadFailed": "Unable to load the changeset",
+    "operationFailed": "Delivery operation failed"
   },
   "status": {
     "draft": "Draft",
@@ -60,5 +138,24 @@
     "readyToMerge": "The current revision already has an approved review. Add a new revision to request another review.",
     "merged": "The changeset is merged, so no further review can be requested.",
     "default": "A review can be asked for once the current revision has active evidence."
+  },
+  "audit": {
+    "operations": {
+      "changeset_created": "Changeset created",
+      "revision_created": "Revision created",
+      "evaluation_recorded": "Evaluation recorded",
+      "evidence_attached": "Evidence attached",
+      "review_assigned": "Review assigned",
+      "review_decided": "Review decided",
+      "review_superseded": "Review superseded",
+      "merge_completed": "Merge completed"
+    },
+    "outcomes": {
+      "succeeded": "Succeeded",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Changes requested",
+      "stale": "Superseded"
+    }
   }
 }

@@ -158,7 +158,10 @@ func TestRunCreationUsesPublishedVersion(t *testing.T) {
 	if run.Version != 1 || run.Status != "queued" || string(run.Inputs["color"]) != `"green"` {
 		t.Fatalf("unexpected snapshot: %+v", run)
 	}
-	call("GET", base+"/pipeline-runs/"+run.ID, "", 200)
+	var snapshot execution.Run
+	if err := json.Unmarshal(call("GET", base+"/pipeline-runs/"+run.ID, "", 200), &snapshot); err != nil || snapshot.StepStatuses["confirm"] != "queued" {
+		t.Fatalf("step snapshot: %v, %v", snapshot.StepStatuses, err)
+	}
 	if _, err := fx.store.GetRun(fx.ctx, "other", run.ID); err != pipeline.ErrMissing {
 		t.Fatalf("foreign run: %v", err)
 	}

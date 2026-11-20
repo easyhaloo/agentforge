@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#
+# Git pre-push hook: Check Go code formatting and run tests
+#
+# This hook:
+# 1. Runs gofmt to check if all Go files are properly formatted
+# 2. Runs go test to ensure all tests pass
+# If either check fails, the push is rejected.
+#
+# Install: Managed by Husky (runs automatically after npm install)
+# Bypass: git push --no-verify
+
+set -e
+
+echo "🔍 Checking Go code formatting..."
+
+# Change to repo root
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT/backend/api"
+
+# Check for unformatted Go files
+UNFORMATTED=$(gofmt -l . 2>&1)
+
+if [ -n "$UNFORMATTED" ]; then
+    echo ""
+    echo "❌ Go code formatting check failed!"
+    echo ""
+    echo "The following files are not formatted correctly:"
+    echo "$UNFORMATTED"
+    echo ""
+    echo "Please run 'gofmt -w .' in backend/api to format your code."
+    echo "Or run: cd backend/api && gofmt -w ."
+    echo ""
+    echo "To bypass this check (not recommended): git push --no-verify"
+    exit 1
+fi
+
+echo "✅ All Go files are properly formatted"
+
+echo "🧪 Running Go tests..."
+
+# Run Go tests
+if ! go test ./... 2>&1; then
+    echo ""
+    echo "❌ Go tests failed!"
+    echo ""
+    echo "Please fix the failing tests before pushing."
+    echo "Run 'go test ./...' in backend/api to see detailed errors."
+    echo ""
+    echo "To bypass this check (not recommended): git push --no-verify"
+    exit 1
+fi
+
+echo "✅ All Go tests passed"
+exit 0

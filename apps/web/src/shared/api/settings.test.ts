@@ -131,7 +131,7 @@ describe("settings API client", () => {
         },
       ];
       const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(keys), { status: 200 })
+        new Response(JSON.stringify({ keys }), { status: 200 })
       );
       vi.stubGlobal("fetch", fetchMock);
 
@@ -156,6 +156,7 @@ describe("settings API client", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
+      vi.stubGlobal("document", { cookie: "__Host-agentforge_csrf=settings-token" });
       const result = await settingsAPI.addSSHKey({
         title: "Home Desktop",
         public_key: "ssh-rsa AAAA...",
@@ -163,18 +164,19 @@ describe("settings API client", () => {
 
       expect(result).toEqual(newKey);
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("settings-token");
       expect(init.method).toBe("POST");
     });
 
     it("deletes an SSH key", async () => {
       const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ success: true }), { status: 200 })
+        new Response(null, { status: 204 })
       );
       vi.stubGlobal("fetch", fetchMock);
 
       const result = await settingsAPI.deleteSSHKey("key-1");
 
-      expect(result).toEqual({ success: true });
+      expect(result).toBeUndefined();
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe("/api/v1/users/me/ssh-keys/key-1");
       expect(init.method).toBe("DELETE");
@@ -197,7 +199,7 @@ describe("settings API client", () => {
         },
       ];
       const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(sessions), { status: 200 })
+        new Response(JSON.stringify({ sessions }), { status: 200 })
       );
       vi.stubGlobal("fetch", fetchMock);
 
@@ -208,13 +210,13 @@ describe("settings API client", () => {
 
     it("revokes a specific session", async () => {
       const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ success: true }), { status: 200 })
+        new Response(null, { status: 204 })
       );
       vi.stubGlobal("fetch", fetchMock);
 
       const result = await settingsAPI.revokeSession("sess-2");
 
-      expect(result).toEqual({ success: true });
+      expect(result).toBeUndefined();
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe("/api/v1/users/me/sessions/sess-2");
       expect(init.method).toBe("DELETE");
@@ -222,13 +224,13 @@ describe("settings API client", () => {
 
     it("revokes all other sessions", async () => {
       const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ success: true, revoked_count: 3 }), { status: 200 })
+        new Response(JSON.stringify({ revoked_count: 3 }), { status: 200 })
       );
       vi.stubGlobal("fetch", fetchMock);
 
       const result = await settingsAPI.revokeAllOtherSessions();
 
-      expect(result).toEqual({ success: true, revoked_count: 3 });
+      expect(result).toEqual({ revoked_count: 3 });
     });
   });
 
@@ -311,18 +313,18 @@ describe("settings API client", () => {
   describe("error handling", () => {
     it("throws error with message from API response", async () => {
       const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ message: "Invalid input" }), { status: 400 })
+        new Response(JSON.stringify({ detail: "Invalid input" }), { status: 400 })
       );
       vi.stubGlobal("fetch", fetchMock);
 
       await expect(settingsAPI.getProfile()).rejects.toThrow("Invalid input");
     });
 
-    it("throws generic error when response parsing fails", async () => {
+    it("throws an API error carrying the status when response parsing fails", async () => {
       const fetchMock = vi.fn().mockResolvedValue(new Response("", { status: 500 }));
       vi.stubGlobal("fetch", fetchMock);
 
-      await expect(settingsAPI.getProfile()).rejects.toThrow("HTTP error 500");
+      await expect(settingsAPI.getProfile()).rejects.toMatchObject({ name: "APIError", status: 500, message: "Request failed (500)" });
     });
   });
 });

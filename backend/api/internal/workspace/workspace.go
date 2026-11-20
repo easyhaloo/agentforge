@@ -12,12 +12,12 @@ import (
 type Status string
 
 const (
-	StatusActive  Status = "active"
-	StatusExpired Status = "expired"
-	StatusClosed  Status = "closed"
-	MaxFileBytes         = 2 << 20
-	MaxWorkspaceFiles    = 2000
-	MaxWorkspaceBytes    = 32 << 20
+	StatusActive      Status = "active"
+	StatusExpired     Status = "expired"
+	StatusClosed      Status = "closed"
+	MaxFileBytes             = 2 << 20
+	MaxWorkspaceFiles        = 2000
+	MaxWorkspaceBytes        = 32 << 20
 )
 
 var (
@@ -92,12 +92,12 @@ func (w Workspace) PutFile(existing *File, filePath string, content []byte, expe
 	digest := sha256.Sum256(content)
 	return File{
 		WorkspaceID: w.ID,
-		Path: filePath,
-		Content: append([]byte(nil), content...),
-		SHA256: hex.EncodeToString(digest[:]),
-		Version: version,
-		UpdatedBy: actor,
-		UpdatedAt: now.UTC(),
+		Path:        filePath,
+		Content:     append([]byte(nil), content...),
+		SHA256:      hex.EncodeToString(digest[:]),
+		Version:     version,
+		UpdatedBy:   actor,
+		UpdatedAt:   now.UTC(),
 	}, nil
 }
 

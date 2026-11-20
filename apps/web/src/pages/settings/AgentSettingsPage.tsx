@@ -1,74 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
-import { AlertTriangle } from "lucide-react";
 import { Button } from "../../shared/ui/components";
 import { Checkbox, RadioGroup, Switch } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type AgentPreferences } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
 import type { SettingsOutletContext } from "./SettingsLayout";
-
-// Simple confirm dialog component
-function ConfirmDialog({
-  open,
-  title,
-  description,
-  confirmText,
-  cancelText,
-  danger,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean;
-  title: string;
-  description: string;
-  confirmText: string;
-  cancelText?: string;
-  danger?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-      }}
-      onClick={onCancel}
-    >
-      <div
-        style={{
-          backgroundColor: "var(--color-surface)",
-          borderRadius: "8px",
-          padding: "24px",
-          maxWidth: "500px",
-          width: "90%",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "18px", fontWeight: 600 }}>{title}</h3>
-        <p style={{ margin: "0 0 24px 0", color: "var(--color-text-secondary)" }}>{description}</p>
-        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-          <Button variant="ghost" onClick={onCancel}>
-            {cancelText || "Cancel"}
-          </Button>
-          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
-            {confirmText}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function AgentSettingsPage() {
   const { t } = useTranslation("settings");
@@ -78,9 +15,6 @@ export function AgentSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [showClearMemoryDialog, setShowClearMemoryDialog] = useState(false);
-  const [clearingMemory, setClearingMemory] = useState(false);
-
   // Load agent preferences on mount
   useEffect(() => {
     let mounted = true;
@@ -92,10 +26,8 @@ export function AgentSettingsPage() {
         if (mounted) {
           setPreferences(data);
         }
-      } catch (err) {
-        if (mounted) {
-          notify(err instanceof Error ? err.message : "Failed to load agent preferences");
-        }
+      } catch {
+        if (mounted) setPreferences(null);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -108,7 +40,7 @@ export function AgentSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, []);
 
   const handleFieldChange = <K extends keyof AgentPreferences>(field: K, value: AgentPreferences[K]) => {
     if (!preferences) return;
@@ -139,23 +71,9 @@ export function AgentSettingsPage() {
       setIsDirty(false);
       notify(t("agents.saveSuccess"));
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to save agent preferences");
+      notify(translateError(err, t, "settings:errors.saveAgentPreferencesFailed"));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleClearMemory = async () => {
-    setClearingMemory(true);
-
-    try {
-      await settingsAPI.clearAgentMemory();
-      notify(t("agents.memoryCleared"));
-    } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to clear agent memory");
-    } finally {
-      setClearingMemory(false);
-      setShowClearMemoryDialog(false);
     }
   };
 
@@ -180,8 +98,8 @@ export function AgentSettingsPage() {
           <h1 className="settings-page-title">{t("agents.title")}</h1>
           <p className="settings-page-description">{t("agents.description")}</p>
         </header>
-        <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          Failed to load agent preferences
+        <div className="settings-placeholder" role="alert">
+          {t("agents.loadError")}
         </div>
       </div>
     );
@@ -223,7 +141,8 @@ export function AgentSettingsPage() {
           {/* 1. Agent Output Verbosity */}
           <section>
             <RadioGroup
-              label={t("agents.verbosityTitle")}
+              label={t("agents.outputVerbosity")}
+              hint={t("agents.outputVerbosityDescription")}
               name="output_verbosity"
               value={preferences.output_verbosity}
               options={verbosityOptions}
@@ -239,7 +158,8 @@ export function AgentSettingsPage() {
           {/* 2. Agent Confirmation Strategy */}
           <section>
             <RadioGroup
-              label={t("agents.confirmTitle")}
+              label={t("agents.confirmationStrategy")}
+              hint={t("agents.confirmationStrategyDescription")}
               name="confirmation_strategy"
               value={preferences.confirmation_strategy}
               options={confirmationOptions}
@@ -255,7 +175,8 @@ export function AgentSettingsPage() {
           {/* 3. Agent Automation Level */}
           <section>
             <RadioGroup
-              label={t("agents.automationTitle")}
+              label={t("agents.automationLevel")}
+              hint={t("agents.automationLevelDescription")}
               name="automation_level"
               value={preferences.automation_level}
               options={automationOptions}
@@ -271,33 +192,15 @@ export function AgentSettingsPage() {
           {/* 4. Agent Cross-Session Memory */}
           <section>
             <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "var(--color-text-primary)" }}>
-              {t("agents.memoryTitle")}
+              {t("agents.crossSessionMemory")}
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Switch
-                id="cross-session-memory"
-                name="cross_session_memory_enabled"
-                checked={preferences.cross_session_memory_enabled}
-                onChange={(e) => handleFieldChange("cross_session_memory_enabled", e.target.checked)}
-                label={t("agents.memoryEnabled")}
-              />
-              <div>
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="small"
-                  onClick={() => setShowClearMemoryDialog(true)}
-                  disabled={clearingMemory}
-                  style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
-                >
-                  <AlertTriangle size={16} />
-                  {t("agents.clearMemory")}
-                </Button>
-                <p style={{ fontSize: "13px", color: "var(--color-text-tertiary)", marginTop: "8px" }}>
-                  {t("agents.clearMemoryWarning")}
-                </p>
-              </div>
-            </div>
+            <Switch
+              id="cross-session-memory"
+              name="cross_session_memory_enabled"
+              checked={preferences.cross_session_memory_enabled}
+              onChange={(e) => handleFieldChange("cross_session_memory_enabled", e.target.checked)}
+              label={t("agents.crossSessionMemoryDescription")}
+            />
           </section>
 
           {/* 5. Changeset Evaluation Preferences */}
@@ -312,6 +215,7 @@ export function AgentSettingsPage() {
                 checked={preferences.auto_evaluate_on_push}
                 onChange={(e) => handleFieldChange("auto_evaluate_on_push", e.target.checked)}
                 label={t("agents.autoEvaluate")}
+                hint={t("agents.autoEvaluateDescription")}
               />
               <Checkbox
                 id="notify-results"
@@ -319,9 +223,10 @@ export function AgentSettingsPage() {
                 checked={preferences.notify_evaluation_results}
                 onChange={(e) => handleFieldChange("notify_evaluation_results", e.target.checked)}
                 label={t("agents.notifyResults")}
+                hint={t("agents.notifyResultsDescription")}
               />
               <RadioGroup
-                label={t("agents.strictness")}
+                label={t("agents.evaluationStrictness")}
                 name="evaluation_strictness"
                 value={preferences.evaluation_strictness}
                 options={strictnessOptions}
@@ -341,19 +246,19 @@ export function AgentSettingsPage() {
                 name="agent_review_enabled"
                 checked={preferences.agent_review_enabled}
                 onChange={(e) => handleFieldChange("agent_review_enabled", e.target.checked)}
-                label={t("agents.agentReview")}
+                label={t("agents.agentReviewDescription")}
               />
               <Checkbox
                 id="agent-approve"
                 name="agent_can_approve_low_risk"
                 checked={preferences.agent_can_approve_low_risk}
                 onChange={(e) => handleFieldChange("agent_can_approve_low_risk", e.target.checked)}
-                label={t("agents.agentApprove")}
+                label={t("agents.agentApproveLowRisk")}
               />
 
               <fieldset style={{ border: "none", padding: 0, margin: "8px 0 0 0" }}>
                 <legend style={{ fontSize: "14px", fontWeight: 500, marginBottom: "12px", color: "var(--color-text-primary)" }}>
-                  {t("agents.reviewFocusTitle")}
+                  {t("agents.reviewFocus")}
                 </legend>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <Checkbox
@@ -375,21 +280,21 @@ export function AgentSettingsPage() {
                     name="focus_code_style"
                     checked={preferences.review_focus.code_style}
                     onChange={(e) => handleReviewFocusChange("code_style", e.target.checked)}
-                    label={t("agents.focusStyle")}
+                    label={t("agents.focusCodeStyle")}
                   />
                   <Checkbox
                     id="focus-tests"
                     name="focus_test_coverage"
                     checked={preferences.review_focus.test_coverage}
                     onChange={(e) => handleReviewFocusChange("test_coverage", e.target.checked)}
-                    label={t("agents.focusTests")}
+                    label={t("agents.focusTestCoverage")}
                   />
                   <Checkbox
                     id="focus-docs"
                     name="focus_documentation"
                     checked={preferences.review_focus.documentation}
                     onChange={(e) => handleReviewFocusChange("documentation", e.target.checked)}
-                    label={t("agents.focusDocs")}
+                    label={t("agents.focusDocumentation")}
                   />
                 </div>
               </fieldset>
@@ -409,17 +314,6 @@ export function AgentSettingsPage() {
           </div>
         </div>
       </form>
-
-      {/* Clear Memory Confirmation Dialog */}
-      <ConfirmDialog
-        open={showClearMemoryDialog}
-        title={t("agents.clearMemoryTitle")}
-        description={t("agents.clearMemoryConfirm")}
-        confirmText={t("agents.clearMemory")}
-        danger
-        onConfirm={handleClearMemory}
-        onCancel={() => setShowClearMemoryDialog(false)}
-      />
     </div>
   );
 }

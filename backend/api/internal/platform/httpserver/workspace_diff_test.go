@@ -11,15 +11,15 @@ import (
 
 func TestWorkspaceDiffStatus(t *testing.T) {
 	tests := []struct {
-		name       string
-		readErr    error
-		blobSHA    string
-		base       []byte
-		workspace  string
-		wantStatus string
+		name        string
+		readErr     error
+		blobSHA     string
+		base        []byte
+		workspace   string
+		wantStatus  string
 		wantChanged bool
-		wantSHA    string
-		wantErr    bool
+		wantSHA     string
+		wantErr     bool
 	}{
 		{name: "modified base file", blobSHA: "base-blob", base: []byte("base"), workspace: "different", wantStatus: "modified", wantSHA: "base-blob", wantChanged: true},
 		{name: "unchanged base file", blobSHA: "base-blob", base: []byte("same"), workspace: func() string { sum := sha256.Sum256([]byte("same")); return hex.EncodeToString(sum[:]) }(), wantSHA: "base-blob"},

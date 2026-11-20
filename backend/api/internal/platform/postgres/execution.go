@@ -14,15 +14,24 @@ import (
 const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook,integration,trigger_source`
 
 func scanRun(row pgx.Row) (execution.Run, error) {
+	return scanRunSnapshot(row, false)
+}
+func scanRunSnapshot(row pgx.Row, withSteps bool) (execution.Run, error) {
 	var r execution.Run
-	err := row.Scan(&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration, &r.Trigger)
+	fields := []any{&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration, &r.Trigger}
+	if withSteps {
+		fields = append(fields, &r.StepStatuses)
+	}
+	err := row.Scan(fields...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = pipeline.ErrMissing
 	}
 	return r, err
 }
 func (s *Store) GetRun(ctx context.Context, org, id string) (execution.Run, error) {
-	return scanRun(s.pool.QueryRow(ctx, `SELECT `+runColumns+` FROM pipeline_runs WHERE organization_id=$1 AND id::text=$2`, org, id))
+	return scanRunSnapshot(s.pool.QueryRow(ctx, `SELECT `+runColumns+`,
+ (SELECT jsonb_object_agg(t.id,t.status) FROM pipeline_step_runs t WHERE t.run_id=r.id)
+ FROM pipeline_runs r WHERE organization_id=$1 AND id::text=$2`, org, id), true)
 }
 func (s *Store) CreateRun(ctx context.Context, org, id string, number int, actor string, inputs map[string]json.RawMessage) (execution.Run, error) {
 	return s.createRun(ctx, org, id, number, actor, inputs, nil, nil)
@@ -123,7 +132,7 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 						refs[name] = ref
 					}
 				}
-				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses, refs})
+				steps = append(steps, []any{run.ID, job.ID, step.ID, i, step.Uses, refs, step.Script, step.Outputs})
 			}
 		}
 	}
@@ -131,7 +140,7 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 		table   string
 		columns []string
 		rows    [][]any
-	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability", "secret_refs"}, steps}} {
+	}{{"pipeline_stage_runs", []string{"run_id", "id", "dependencies"}, stages}, {"pipeline_job_runs", []string{"run_id", "stage_id", "id"}, jobs}, {"pipeline_step_runs", []string{"run_id", "job_id", "id", "position", "capability", "secret_refs", "script", "output_names"}, steps}} {
 		if _, err = tx.CopyFrom(ctx, pgx.Identifier{group.table}, group.columns, pgx.CopyFromRows(group.rows)); err != nil {
 			return empty, err
 		}

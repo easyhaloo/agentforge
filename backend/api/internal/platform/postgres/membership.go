@@ -12,12 +12,11 @@ import (
 )
 
 var (
-	ErrMembershipNotFound = identity.ErrMembershipNotFound
-	ErrMembershipForbidden = identity.ErrMembershipForbidden
-	ErrLastActiveOwner = identity.ErrLastActiveOwner
+	ErrMembershipNotFound      = identity.ErrMembershipNotFound
+	ErrMembershipForbidden     = identity.ErrMembershipForbidden
+	ErrLastActiveOwner         = identity.ErrLastActiveOwner
 	ErrInvalidMembershipChange = identity.ErrInvalidMembershipChange
 )
-
 
 func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, offset int) ([]identity.OrganizationMember, error) {
 	if strings.TrimSpace(organizationID) == "" || limit < 1 || limit > 100 || offset < 0 {
@@ -33,7 +32,9 @@ func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, o
 		         u.display_name ASC, u.id ASC
 		LIMIT $2 OFFSET $3
 	`, organizationID, limit, offset)
-	if err != nil { return nil, fmt.Errorf("list organization members: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("list organization members: %w", err)
+	}
 	defer rows.Close()
 	members := make([]identity.OrganizationMember, 0)
 	for rows.Next() {
@@ -43,7 +44,9 @@ func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, o
 		}
 		members = append(members, member)
 	}
-	if err := rows.Err(); err != nil { return nil, fmt.Errorf("iterate organization members: %w", err) }
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate organization members: %w", err)
+	}
 	return members, nil
 }
 
@@ -54,22 +57,32 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, t
 		return identity.OrganizationMember{}, ErrInvalidMembershipChange
 	}
 	tx, err := s.pool.Begin(ctx)
-	if err != nil { return identity.OrganizationMember{}, fmt.Errorf("begin membership update: %w", err) }
+	if err != nil {
+		return identity.OrganizationMember{}, fmt.Errorf("begin membership update: %w", err)
+	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", organizationID); err != nil {
 		return identity.OrganizationMember{}, fmt.Errorf("lock organization membership changes: %w", err)
 	}
 	actorRole, err := membershipActorRole(ctx, tx, organizationID, actorID)
-	if err != nil { return identity.OrganizationMember{}, err }
+	if err != nil {
+		return identity.OrganizationMember{}, err
+	}
 	var before identity.OrganizationMember
 	err = tx.QueryRow(ctx, `
 		SELECT u.id, u.display_name, COALESCE(u.email, ''), m.role, m.status, m.created_at, m.updated_at
 		FROM organization_memberships m JOIN users u ON u.id = m.user_id
 		WHERE m.organization_id = $1 AND m.user_id = $2 FOR UPDATE OF m
 	`, organizationID, targetID).Scan(&before.UserID, &before.DisplayName, &before.Email, &before.Role, &before.Status, &before.CreatedAt, &before.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) { return identity.OrganizationMember{}, ErrMembershipNotFound }
-	if err != nil { return identity.OrganizationMember{}, fmt.Errorf("load target membership: %w", err) }
-	if before.Status == "removed" { return identity.OrganizationMember{}, ErrMembershipNotFound }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.OrganizationMember{}, ErrMembershipNotFound
+	}
+	if err != nil {
+		return identity.OrganizationMember{}, fmt.Errorf("load target membership: %w", err)
+	}
+	if before.Status == "removed" {
+		return identity.OrganizationMember{}, ErrMembershipNotFound
+	}
 	if actorRole != "owner" {
 		if actorRole != "admin" || before.Role == "owner" || before.Role == "admin" ||
 			(role != nil && (*role == "owner" || *role == "admin")) {
@@ -77,16 +90,24 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, t
 		}
 	}
 	afterRole, afterStatus := before.Role, before.Status
-	if role != nil { afterRole = *role }
-	if status != nil { afterStatus = *status }
-	if before.Role == afterRole && before.Status == afterStatus { return before, ErrInvalidMembershipChange }
+	if role != nil {
+		afterRole = *role
+	}
+	if status != nil {
+		afterStatus = *status
+	}
+	if before.Role == afterRole && before.Status == afterStatus {
+		return before, ErrInvalidMembershipChange
+	}
 	if before.Role == "owner" && before.Status == "active" && (afterRole != "owner" || afterStatus != "active") {
 		var owners int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships
 			WHERE organization_id = $1 AND role = 'owner' AND status = 'active'`, organizationID).Scan(&owners); err != nil {
 			return identity.OrganizationMember{}, fmt.Errorf("count active owners: %w", err)
 		}
-		if owners <= 1 { return identity.OrganizationMember{}, ErrLastActiveOwner }
+		if owners <= 1 {
+			return identity.OrganizationMember{}, ErrLastActiveOwner
+		}
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE organization_memberships SET role = $3, status = $4, updated_at = now()
@@ -96,12 +117,18 @@ func (s *Store) UpdateMembership(ctx context.Context, organizationID, actorID, t
 	}
 	action := "role_changed"
 	if before.Status != afterStatus {
-		if afterStatus == "suspended" { action = "suspended" } else { action = "reactivated" }
+		if afterStatus == "suspended" {
+			action = "suspended"
+		} else {
+			action = "reactivated"
+		}
 	}
 	if err := insertMembershipAudit(ctx, tx, organizationID, actorID, targetID, action, before.Role, afterRole, before.Status, afterStatus); err != nil {
 		return identity.OrganizationMember{}, err
 	}
-	if err := tx.Commit(ctx); err != nil { return identity.OrganizationMember{}, fmt.Errorf("commit membership update: %w", err) }
+	if err := tx.Commit(ctx); err != nil {
+		return identity.OrganizationMember{}, fmt.Errorf("commit membership update: %w", err)
+	}
 	before.Role, before.Status, before.UpdatedAt = afterRole, afterStatus, time.Now().UTC()
 	return before, nil
 }
@@ -111,21 +138,29 @@ func (s *Store) RemoveMembership(ctx context.Context, organizationID, actorID, t
 		return ErrInvalidMembershipChange
 	}
 	tx, err := s.pool.Begin(ctx)
-	if err != nil { return fmt.Errorf("begin membership removal: %w", err) }
+	if err != nil {
+		return fmt.Errorf("begin membership removal: %w", err)
+	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", organizationID); err != nil {
 		return fmt.Errorf("lock organization membership changes: %w", err)
 	}
 	actorRole, err := membershipActorRole(ctx, tx, organizationID, actorID)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	var before identity.OrganizationMember
 	err = tx.QueryRow(ctx, `
 		SELECT u.id, u.display_name, COALESCE(u.email, ''), m.role, m.status, m.created_at, m.updated_at
 		FROM organization_memberships m JOIN users u ON u.id = m.user_id
 		WHERE m.organization_id = $1 AND m.user_id = $2 FOR UPDATE OF m
 	`, organizationID, targetID).Scan(&before.UserID, &before.DisplayName, &before.Email, &before.Role, &before.Status, &before.CreatedAt, &before.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) || before.Status == "removed" { return ErrMembershipNotFound }
-	if err != nil { return fmt.Errorf("load target membership: %w", err) }
+	if errors.Is(err, pgx.ErrNoRows) || before.Status == "removed" {
+		return ErrMembershipNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("load target membership: %w", err)
+	}
 	if actorRole != "owner" && (actorRole != "admin" || before.Role == "owner" || before.Role == "admin") {
 		return ErrMembershipForbidden
 	}
@@ -135,7 +170,9 @@ func (s *Store) RemoveMembership(ctx context.Context, organizationID, actorID, t
 			WHERE organization_id = $1 AND role = 'owner' AND status = 'active'`, organizationID).Scan(&owners); err != nil {
 			return fmt.Errorf("count active owners: %w", err)
 		}
-		if owners <= 1 { return ErrLastActiveOwner }
+		if owners <= 1 {
+			return ErrLastActiveOwner
+		}
 	}
 	if _, err := tx.Exec(ctx, `UPDATE organization_memberships SET status = 'removed', updated_at = now()
 		WHERE organization_id = $1 AND user_id = $2`, organizationID, targetID); err != nil {
@@ -144,7 +181,9 @@ func (s *Store) RemoveMembership(ctx context.Context, organizationID, actorID, t
 	if err := insertMembershipAudit(ctx, tx, organizationID, actorID, targetID, "removed", before.Role, before.Role, before.Status, "removed"); err != nil {
 		return err
 	}
-	if err := tx.Commit(ctx); err != nil { return fmt.Errorf("commit membership removal: %w", err) }
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit membership removal: %w", err)
+	}
 	return nil
 }
 
@@ -152,26 +191,37 @@ func membershipActorRole(ctx context.Context, tx pgx.Tx, organizationID, actorID
 	var role string
 	err := tx.QueryRow(ctx, `SELECT m.role FROM organization_memberships m JOIN organizations o ON o.id = m.organization_id
 		WHERE m.organization_id = $1 AND m.user_id = $2 AND m.status = 'active' AND o.status = 'active'`, organizationID, actorID).Scan(&role)
-	if errors.Is(err, pgx.ErrNoRows) { return "", ErrMembershipForbidden }
-	if err != nil { return "", fmt.Errorf("verify membership administrator: %w", err) }
-	if role != "owner" && role != "admin" { return "", ErrMembershipForbidden }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrMembershipForbidden
+	}
+	if err != nil {
+		return "", fmt.Errorf("verify membership administrator: %w", err)
+	}
+	if role != "owner" && role != "admin" {
+		return "", ErrMembershipForbidden
+	}
 	return role, nil
 }
 
 func insertMembershipAudit(ctx context.Context, tx pgx.Tx, organizationID, actorID, targetID, action, beforeRole, afterRole, beforeStatus, afterStatus string) error {
 	id, err := newSessionID()
-	if err != nil { return fmt.Errorf("generate membership audit ID: %w", err) }
+	if err != nil {
+		return fmt.Errorf("generate membership audit ID: %w", err)
+	}
 	_, err = tx.Exec(ctx, `INSERT INTO organization_membership_audit
 		(id, organization_id, actor_user_id, target_user_id, action, before_role, after_role, before_status, after_status)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		id, organizationID, actorID, targetID, action, beforeRole, afterRole, beforeStatus, afterStatus)
-	if err != nil { return fmt.Errorf("record membership audit: %w", err) }
+	if err != nil {
+		return fmt.Errorf("record membership audit: %w", err)
+	}
 	return nil
 }
 
 func validMembershipRole(role string) bool {
-	switch role { case "owner", "admin", "member", "viewer": return true }
+	switch role {
+	case "owner", "admin", "member", "viewer":
+		return true
+	}
 	return false
 }
-
-

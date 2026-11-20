@@ -2,9 +2,19 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "../../shared/ui/components";
-import { Checkbox, RadioGroup } from "../../shared/ui/components/form-controls";
+import { Checkbox, Radio } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type NotificationPreferences } from "../../shared/api/settings";
+import { translateError } from "../../shared/api/errors";
 import type { SettingsOutletContext } from "./SettingsLayout";
+
+import "./preferences-settings.css";
+
+const emailOptions = [
+  ["email-evaluation", "evaluation_complete", "notifications.evaluationComplete"],
+  ["email-review", "review_assigned", "notifications.reviewAssigned"],
+  ["email-changeset", "changeset_status", "notifications.changesetStatus"],
+  ["email-org", "org_invitation", "notifications.orgInvitation"],
+] as const;
 
 export function NotificationsSettingsPage() {
   const { t } = useTranslation("settings");
@@ -26,10 +36,8 @@ export function NotificationsSettingsPage() {
         if (mounted) {
           setPreferences(data);
         }
-      } catch (err) {
-        if (mounted) {
-          notify(err instanceof Error ? err.message : "Failed to load notification preferences");
-        }
+      } catch {
+        if (mounted) setPreferences(null);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -42,7 +50,7 @@ export function NotificationsSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, []);
 
   const handleEmailToggle = (key: keyof NotificationPreferences["email_notifications"], checked: boolean) => {
     if (!preferences) return;
@@ -89,7 +97,7 @@ export function NotificationsSettingsPage() {
       setIsDirty(false);
       notify(t("notifications.saveSuccess"));
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Failed to save notification preferences");
+      notify(translateError(err, t, "settings:errors.saveNotificationsFailed"));
     } finally {
       setSaving(false);
     }
@@ -97,7 +105,7 @@ export function NotificationsSettingsPage() {
 
   if (loading) {
     return (
-      <div className="settings-page">
+      <div className="settings-page preferences-settings">
         <header className="settings-page-header">
           <h1 className="settings-page-title">{t("notifications.title")}</h1>
           <p className="settings-page-description">{t("notifications.description")}</p>
@@ -111,107 +119,75 @@ export function NotificationsSettingsPage() {
 
   if (!preferences) {
     return (
-      <div className="settings-page">
+      <div className="settings-page preferences-settings">
         <header className="settings-page-header">
           <h1 className="settings-page-title">{t("notifications.title")}</h1>
           <p className="settings-page-description">{t("notifications.description")}</p>
         </header>
-        <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          Failed to load notification preferences
+        <div className="settings-placeholder" role="alert">
+          {t("notifications.loadError")}
         </div>
       </div>
     );
   }
 
   const frequencyOptions = [
-    { label: t("notifications.frequencyRealtime"), value: "real-time" },
+    { label: t("notifications.frequencyRealTime"), value: "real-time" },
     { label: t("notifications.frequencyHourly"), value: "hourly" },
     { label: t("notifications.frequencyDaily"), value: "daily" },
-  ];
+  ] as const;
 
   return (
-    <div className="settings-page">
+    <div className="settings-page preferences-settings">
       <header className="settings-page-header">
         <h1 className="settings-page-title">{t("notifications.title")}</h1>
         <p className="settings-page-description">{t("notifications.description")}</p>
       </header>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-          {/* Email Notifications Section */}
-          <section>
-            <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "var(--color-text-primary)" }}>
-              {t("notifications.emailTitle")}
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <form className="settings-stack" onSubmit={handleSubmit}>
+        <fieldset aria-describedby="email-hint">
+          <legend className="settings-section-heading">{t("notifications.emailTitle")}</legend>
+          <p className="settings-note" id="email-hint">{t("notifications.emailDescription")}</p>
+          <div className="settings-box">
+            {emailOptions.map(([id, key, label]) => (
               <Checkbox
-                id="email-evaluation"
-                name="email-evaluation"
-                checked={preferences.email_notifications.evaluation_complete}
-                onChange={(e) => handleEmailToggle("evaluation_complete", e.target.checked)}
-                label={t("notifications.evaluationComplete")}
+                key={key}
+                className="settings-box-row preference-checkbox"
+                id={id} name={id} label={t(label)} checked={preferences.email_notifications[key]}
+                onChange={e => handleEmailToggle(key, e.target.checked)}
               />
-              <Checkbox
-                id="email-review"
-                name="email-review"
-                checked={preferences.email_notifications.review_assigned}
-                onChange={(e) => handleEmailToggle("review_assigned", e.target.checked)}
-                label={t("notifications.reviewAssigned")}
-              />
-              <Checkbox
-                id="email-changeset"
-                name="email-changeset"
-                checked={preferences.email_notifications.changeset_status}
-                onChange={(e) => handleEmailToggle("changeset_status", e.target.checked)}
-                label={t("notifications.changesetStatus")}
-              />
-              <Checkbox
-                id="email-org"
-                name="email-org"
-                checked={preferences.email_notifications.org_invitation}
-                onChange={(e) => handleEmailToggle("org_invitation", e.target.checked)}
-                label={t("notifications.orgInvitation")}
-              />
-            </div>
-          </section>
-
-          {/* Web Push Notifications Section */}
-          <section>
-            <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "var(--color-text-primary)" }}>
-              {t("notifications.webPushTitle")}
-            </h2>
-            <Checkbox
-              id="web-push"
-              name="web-push"
-              checked={preferences.web_push_enabled}
-              onChange={(e) => handleWebPushToggle(e.target.checked)}
-              label={t("notifications.webPushEnabled")}
-            />
-          </section>
-
-          {/* Notification Frequency Section */}
-          <section>
-            <RadioGroup
-              label={t("notifications.frequencyTitle")}
-              name="notification-frequency"
-              value={preferences.notification_frequency}
-              options={frequencyOptions}
-              onChange={(value: string) => handleFrequencyChange(value as NotificationPreferences["notification_frequency"])}
-            />
-          </section>
-
-          {/* Save Button */}
-          <div style={{ paddingTop: "8px" }}>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!isDirty || saving}
-              loading={saving}
-            >
-              {saving ? t("common:status.saving", { ns: "common" }) : t("common:actions.save", { ns: "common" })}
-            </Button>
+            ))}
           </div>
-        </div>
+        </fieldset>
+
+        <fieldset aria-describedby="web-push-hint">
+          <legend className="settings-section-heading">{t("notifications.webPushTitle")}</legend>
+          <p className="settings-note" id="web-push-hint">{t("notifications.webPushDescription")}</p>
+          <div className="settings-box">
+            <Checkbox
+              className="settings-box-row preference-checkbox"
+              id="web-push" name="web-push" label={t("notifications.webPushEnabled")} checked={preferences.web_push_enabled}
+              onChange={e => handleWebPushToggle(e.target.checked)}
+            />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="settings-section-heading">{t("notifications.frequency")}</legend>
+          <div className="settings-box">
+            {frequencyOptions.map(({ label, value }) => (
+              <label className="settings-box-row preference-row" key={value}>
+                <Radio name="notification-frequency" value={value}
+                  checked={preferences.notification_frequency === value} onChange={() => handleFrequencyChange(value)} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <Button type="submit" variant="primary" disabled={!isDirty || saving} loading={saving}>
+          {saving ? t("common:status.saving", { ns: "common" }) : t("common:actions.save", { ns: "common" })}
+        </Button>
       </form>
     </div>
   );

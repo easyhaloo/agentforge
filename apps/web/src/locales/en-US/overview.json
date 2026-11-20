@@ -1,0 +1,96 @@
+{
+  "metrics": {
+    "ariaLabel": "Workspace metrics",
+    "items": {
+      "activeChangesets": "Active changesets",
+      "verificationPassRate": "Verification pass rate",
+      "openTrails": "Open trails",
+      "agentHoursSaved": "Agent hours saved"
+    },
+    "deltas": {
+      "atRisk_one": "{{count}} at risk",
+      "atRisk_other": "{{count}} at risk",
+      "thisMonth": "This month"
+    }
+  },
+  "recentChangesets": {
+    "title": "Recent changesets",
+    "description": "Track the latest work moving through verification.",
+    "viewAll": "View all",
+    "searchAriaLabel": "Search overview changesets",
+    "searchPlaceholder": "Search overview...",
+    "filterAriaLabel": "Filter changesets by status",
+    "moreFilters": "More filters",
+    "allStatuses": "All statuses",
+    "columns": {
+      "identifier": "IDENTIFIER",
+      "name": "NAME",
+      "project": "PROJECT",
+      "status": "STATUS",
+      "updated": "UPDATED"
+    },
+    "moreActionsAriaLabel": "More actions for {{id}}",
+    "moreActionsNotice": "More actions are available in the full product.",
+    "empty": {
+      "title": "No matching changesets",
+      "description": "Try another search term or reset the status filter."
+    },
+    "statuses": {
+      "all": "All",
+      "readyForReview": "Ready for review",
+      "evaluating": "Evaluating",
+      "changesRequested": "Changes requested",
+      "merged": "Merged",
+      "draft": "Draft"
+    },
+    "justNow": "Just now"
+  },
+  "activityFeed": {
+    "title": "Activity stream",
+    "description": "Latest events across your workspace",
+    "viewAll": "View all",
+    "events": {
+      "verified": {
+        "title": "Changeset verified",
+        "description_one": "{{changeset}} passed all {{count}} checks",
+        "description_other": "{{changeset}} passed all {{count}} checks"
+      },
+      "reviewRequested": {
+        "title": "Review requested",
+        "description": "{{reviewer}} requested review on {{changeset}}"
+      },
+      "trailAtRisk": {
+        "title": "Trail at risk",
+        "description_one": "{{name}} is waiting on {{count}} dependency",
+        "description_other": "{{name}} is waiting on {{count}} dependencies"
+      },
+      "workspaceCreated": {
+        "title": "Workspace created",
+        "description": "Agent workspace {{workspace}} is ready"
+      }
+    }
+  },
+  "changeVelocity": {
+    "title": "Change velocity",
+    "description": "Changesets created and merged · Last 7 days",
+    "timeRangeAriaLabel": "Selected time range: {{range}}",
+    "chartAriaLabel": "Change velocity trend over seven days",
+    "last7Days": "Last 7 days",
+    "days": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "selectedChangeset": {
+    "label": "Selected changeset",
+    "summary": "Revision r{{revision}} · Base {{base}} · {{files}} files changed · {{checks}} checks",
+    "evidenceCurrent": "Evidence current",
+    "openDetails": "Open details",
+    "prototypeNotice": "Changeset detail view is a prototype interaction."
+  }
+}

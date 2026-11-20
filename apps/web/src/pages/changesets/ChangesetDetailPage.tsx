@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, useParams } from "react-router-dom";
-import { CheckCircle2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Code2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
-import { changesetPath, changesetTabs, organizationHandle, orgPath, type ChangesetTab } from "../../shared/routing";
+import { translateError } from "../../shared/api/errors";
+import { formatDateTime } from "../../shared/i18n/format";
+import { changesetPath, changesetTabs, organizationHandle, orgPath, webIDEPath, type ChangesetTab } from "../../shared/routing";
 import { Button, Input } from "../../shared/ui";
-import { changesetLifecycleSteps, changesetReviewRefusal, changesetStatusClass, changesetStatusLabels, completedLifecycleSteps } from "./changeset-status";
+import { auditEntryLabel, changesetLifecycleSteps, changesetLifecycleStepLabel, changesetReviewRefusal, changesetStatusClass, changesetStatusLabel, completedLifecycleSteps, reviewStatusLabel } from "./changeset-status";
 
 type Props = {
   organization: OrganizationSummary;
@@ -14,13 +17,26 @@ type Props = {
   onNotify: (message: string) => void;
 };
 
-const tabLabels: Record<ChangesetTab, string> = {
-  overview: "Overview",
-  revisions: "Revisions",
-  evaluation: "Evaluation",
-  review: "Review",
-  merge: "Merge",
-};
+/**
+ * The shared `Button` renders a real button element, so a link that looks like a button carries the
+ * button classes itself. They are the classes the shared button would have rendered.
+ */
+const webIDELinkClasses = "af-button af-button--secondary af-button--middle button secondary";
+
+/** The entry point into the WebIDE for the files of a changeset at its current revision. */
+function WebIDELink({ handle, changeset, revision }: {
+  handle: string;
+  changeset: StoredChangeset["changeset"];
+  revision: StoredChangeset["changeset"]["revisions"][number];
+}) {
+  const { t } = useTranslation();
+  return <Link
+    className={webIDELinkClasses}
+    to={webIDEPath(handle, { repository: changeset.repository, commit: revision.commit_sha, changeset: changeset.id })}
+  >
+    <Code2 size={14}/> {t("changesets:detail.viewFilesInWebIDE")}
+  </Link>;
+}
 
 /**
  * The changeset detail page. Every part of the lifecycle is a route, so each one can be linked to.
@@ -28,6 +44,7 @@ const tabLabels: Record<ChangesetTab, string> = {
  * instead of deriving the lifecycle in the browser (ADR-003).
  */
 export function ChangesetDetailPage({ organization, accountUserID, changesetID, tab, onNotify }: Props) {
+  const { t } = useTranslation();
   const { org } = useParams();
   const handle = org || organizationHandle(organization);
   const [item, setItem] = useState<StoredChangeset | null>(null);
@@ -46,9 +63,9 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
       setItem(await changesetAPI.get(organization.id, changesetID));
     } catch (cause) {
       setItem(null);
-      setError(cause instanceof Error ? cause.message : "Unable to load the changeset");
+      setError(translateError(cause, t, "changesets:errors.detailLoadFailed"));
     } finally { setLoading(false); }
-  }, [organization.id, changesetID]);
+  }, [organization.id, changesetID, t]);
   useEffect(() => { void load(); }, [load]);
 
   const run = async (action: () => Promise<StoredChangeset>, message: string) => {
@@ -58,14 +75,14 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
       onNotify(message);
     } catch (cause) {
       // The server explains why it refused (409 "revision is not current", 409 "Review already approved").
-      setError(cause instanceof Error ? cause.message : "Delivery operation failed");
+      setError(translateError(cause, t, "changesets:errors.operationFailed"));
     } finally { setBusy(false); }
   };
 
-  if (loading) return <section className="changeset-detail card"><div className="org-loading">Loading changeset…</div></section>;
+  if (loading) return <section className="changeset-detail card"><div className="org-loading">{t("changesets:detail.loading")}</div></section>;
   if (!item) return <section className="changeset-detail card">
-    <div className="org-error" role="alert">{error || "This changeset could not be loaded."}</div>
-    <Link className="button secondary" to={orgPath(handle, "changesets")}>Back to changesets</Link>
+    <div className="org-error" role="alert">{error || t("changesets:errors.detailLoadFailed")}</div>
+    <Link className="button secondary" to={orgPath(handle, "changesets")}>{t("changesets:detail.backToList")}</Link>
   </section>;
 
   const changeset = item.changeset;
@@ -81,61 +98,67 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
   const canMerge = item.status === "ready_to_merge";
 
   return <>
-    <nav className="changeset-tabs" aria-label="Changeset sections">
-      {changesetTabs.map(name => <NavLink key={name} to={changesetPath(handle, changeset.id, name)} end={name === "overview"} className={({ isActive }) => `changeset-tab${isActive ? " is-active" : ""}`}>{tabLabels[name]}</NavLink>)}
+    <nav className="changeset-tabs" aria-label={t("changesets:detail.sectionsAriaLabel")}>
+      {changesetTabs.map(name => <NavLink key={name} to={changesetPath(handle, changeset.id, name)} end={name === "overview"} className={({ isActive }) => `changeset-tab${isActive ? " is-active" : ""}`}>{t(`changesets:tabs.${name}`)}</NavLink>)}
     </nav>
     <section className="changeset-detail card">
       <div className="changeset-detail__head">
         <div>
           <h3>{changeset.title}</h3>
-          <p>{changeset.repository} · Created by {changeset.created_by}</p>
+          <p>{t("changesets:detail.createdBy", { repository: changeset.repository, actor: changeset.created_by })}</p>
         </div>
-        <span className={changesetStatusClass(changesetStatusLabels[item.status])}>{changesetStatusLabels[item.status]}</span>
+        <span className={changesetStatusClass(item.status)}>{changesetStatusLabel(item.status, t)}</span>
       </div>
       {error && <div className="org-error" role="alert">{error}</div>}
       {tab === "overview" && <>
         <div className="changeset-steps">
-          {changesetLifecycleSteps.map((step, index) => <div key={step} className={index > 0 && index <= completed ? "is-complete" : ""}><span>{index + 1}</span><b>{step}</b></div>)}
+          {changesetLifecycleSteps.map((step, index) => <div key={step} className={index > 0 && index <= completed ? "is-complete" : ""}><span>{index + 1}</span><b>{changesetLifecycleStepLabel(step, t)}</b></div>)}
         </div>
         <div className="changeset-workflow">
-          <div><label><GitBranch size={14}/> Current revision</label><p>{revision ? `${revision.ref} · ${revision.commit_sha}` : "No revision yet."}</p><span className="org-role">{revision ? new Date(revision.created_at).toLocaleString() : "Resolve a Git ref to start"}</span></div>
-          <div><label><ShieldCheck size={14}/> Reviewer</label><p>{review ? `${review.reviewer} · ${review.status}` : "No review assigned yet."}</p><span className="org-role">{review?.comment || "A review can be asked for once the evidence is current"}</span></div>
+          <div><label><GitBranch size={14}/> {t("changesets:detail.currentRevision")}</label><p>{revision ? `${revision.ref} · ${revision.commit_sha}` : t("changesets:detail.noRevision")}</p><span className="org-role">{revision ? formatDateTime(revision.created_at) : t("changesets:detail.resolveRefToStart")}</span></div>
+          <div><label><ShieldCheck size={14}/> {t("changesets:detail.reviewer")}</label><p>{review ? `${review.reviewer} · ${reviewStatusLabel(review.status, t)}` : t("changesets:detail.noReviewAssigned")}</p><span className="org-role">{review?.comment || t("changesets:reviewRefusal.default")}</span></div>
         </div>
-        {changeset.audit.length > 0 && <div className="changeset-audit"><h4>Lifecycle audit</h4>{changeset.audit.slice().reverse().map(event => <div key={event.sequence}><span>{event.operation}</span><small>{event.actor} · {new Date(event.at).toLocaleString()}</small></div>)}</div>}
+        {revision && <div className="org-actions">
+          <WebIDELink handle={handle} changeset={changeset} revision={revision}/>
+        </div>}
+        {changeset.audit.length > 0 && <div className="changeset-audit"><h4>{t("changesets:detail.auditTitle")}</h4>{changeset.audit.slice().reverse().map(event => <div key={event.sequence}><span>{auditEntryLabel(event.operation, event.outcome, t)}</span><small>{t("changesets:detail.auditEntry", { actor: event.actor, at: formatDateTime(event.at) })}</small></div>)}</div>}
       </>}
       {tab === "revisions" && <>
         <div className="changeset-workflow">
-          <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.addRevision(organization.id, changeset.id, revisionRef), "Git revision resolved and persisted."); setRevisionRef(""); }}>
-            <div><label><GitBranch size={14}/> Resolve Git ref</label><Input required value={revisionRef} onChange={event => setRevisionRef(event.target.value)} placeholder="branch, tag or commit SHA"/></div>
-            <Button className="button secondary" type="submit" disabled={busy || !canAddRevision}>Add revision</Button>
+          <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.addRevision(organization.id, changeset.id, revisionRef), t("changesets:notify.revisionResolved")); setRevisionRef(""); }}>
+            <div><label><GitBranch size={14}/> {t("changesets:detail.resolveRefLabel")}</label><Input required value={revisionRef} onChange={event => setRevisionRef(event.target.value)} placeholder={t("changesets:detail.refPlaceholder")}/></div>
+            <Button className="button secondary" type="submit" disabled={busy || !canAddRevision}>{t("changesets:detail.addRevisionButton")}</Button>
           </form>
-          <div><label><GitBranch size={14}/> Revisions</label><p>{changeset.revisions.length ? changeset.revisions.map(entry => `${entry.ref} · ${entry.commit_sha}`).join(", ") : "No revision yet."}</p><span className="org-role">{revision ? "The current revision" : "Resolve a Git ref to start"}</span></div>
+          <div><label><GitBranch size={14}/> {t("changesets:detail.revisionsTitle")}</label><p>{changeset.revisions.length ? changeset.revisions.map(entry => `${entry.ref} · ${entry.commit_sha}`).join(", ") : t("changesets:detail.noRevision")}</p><span className="org-role">{revision ? t("changesets:detail.currentRevisionBadge") : t("changesets:detail.resolveRefToStart")}</span></div>
         </div>
       </>}
       {tab === "evaluation" && <>
         <div className="changeset-workflow">
-          <div><label><Play size={14}/> Trusted evaluation</label><p>{evaluation ? evaluation.summary : "No evaluation for the current revision."}</p><Button className="button secondary" disabled={busy || !canEvaluate} onClick={() => void run(() => changesetAPI.evaluate(organization.id, changeset.id), "Trusted evaluation completed.")}>Run evaluation</Button></div>
-          <div><label><FileCheck2 size={14}/> Evidence provenance</label><p>{activeEvidence ? changeset.evidence.filter(value => value.revision_id === revision?.id && value.status === "active").map(value => value.sha256 || value.uri).join(", ") : "Evidence is generated automatically from a passing evaluation report."}</p><span className="org-role">{activeEvidence ? "Verified artifact" : "Awaiting passing evaluation"}</span></div>
+          <div><label><Play size={14}/> {t("changesets:detail.evaluationTitle")}</label><p>{evaluation ? evaluation.summary : t("changesets:detail.evaluationEmpty")}</p><Button className="button secondary" disabled={busy || !canEvaluate} onClick={() => void run(() => changesetAPI.evaluate(organization.id, changeset.id), t("changesets:notify.evaluationCompleted"))}>{t("changesets:detail.runEvaluationButton")}</Button></div>
+          <div><label><FileCheck2 size={14}/> {t("changesets:detail.evidenceTitle")}</label><p>{activeEvidence ? changeset.evidence.filter(value => value.revision_id === revision?.id && value.status === "active").map(value => value.sha256 || value.uri).join(", ") : t("changesets:detail.evidencePending")}</p><span className="org-role">{activeEvidence ? t("changesets:detail.evidenceVerified") : t("changesets:detail.evidenceAwaiting")}</span></div>
         </div>
       </>}
       {tab === "review" && <>
         <div className="changeset-workflow">
-          <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.assignReview(organization.id, changeset.id, reviewerID, reviewComment), "Review assigned to an active organization member."); setReviewerID(""); setReviewComment(""); }}>
-            <div><label><ShieldCheck size={14}/> Assign review (active member ID)</label><Input required value={reviewerID} onChange={event => setReviewerID(event.target.value)} placeholder="reviewer user ID"/><Input value={reviewComment} onChange={event => setReviewComment(event.target.value)} placeholder="Review context (optional)"/></div>
-            <Button className="button secondary" type="submit" title={canAssignReview ? undefined : changesetReviewRefusal(item.status)} disabled={busy || !canAssignReview}>Assign review</Button>
-            {!canAssignReview && <p className="changeset-hint">{changesetReviewRefusal(item.status)}</p>}
+          <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.assignReview(organization.id, changeset.id, reviewerID, reviewComment), t("changesets:notify.reviewAssigned")); setReviewerID(""); setReviewComment(""); }}>
+            <div><label><ShieldCheck size={14}/> {t("changesets:detail.assignReviewLabel")}</label><Input required value={reviewerID} onChange={event => setReviewerID(event.target.value)} placeholder={t("changesets:detail.reviewerPlaceholder")}/><Input value={reviewComment} onChange={event => setReviewComment(event.target.value)} placeholder={t("changesets:detail.reviewCommentPlaceholder")}/></div>
+            <Button className="button secondary" type="submit" title={canAssignReview ? undefined : changesetReviewRefusal(item.status, t)} disabled={busy || !canAssignReview}>{t("changesets:detail.assignReviewButton")}</Button>
+            {!canAssignReview && <p className="changeset-hint">{changesetReviewRefusal(item.status, t)}</p>}
           </form>
-          {review && <div><label><ShieldCheck size={14}/> Review decision</label><p>Assigned to {review.reviewer} · {review.status}{review.comment ? " · " + review.comment : ""}</p>{review.reviewer === accountUserID && review.status === "pending" && <div className="org-actions"><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, true, decisionComment), "Review approved.")}>Approve</Button><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, false, decisionComment), "Changes requested.")}>Request changes</Button></div>}<Input value={decisionComment} onChange={event => setDecisionComment(event.target.value)} placeholder="Decision comment"/></div>}
+          {review && <div><label><ShieldCheck size={14}/> {t("changesets:detail.reviewDecisionTitle")}</label><p>{t("changesets:detail.reviewAssigned", { reviewer: review.reviewer, status: reviewStatusLabel(review.status, t) })}{review.comment ? " · " + review.comment : ""}</p>{review.reviewer === accountUserID && review.status === "pending" && <div className="org-actions"><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, true, decisionComment), t("changesets:notify.reviewApproved"))}>{t("changesets:detail.approveButton")}</Button><Button className="button secondary" disabled={busy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, changeset.id, review.id, false, decisionComment), t("changesets:notify.changesRequested"))}>{t("changesets:detail.requestChangesButton")}</Button></div>}<Input value={decisionComment} onChange={event => setDecisionComment(event.target.value)} placeholder={t("changesets:detail.decisionPlaceholder")}/></div>}
         </div>
+        {revision && <div className="org-actions">
+          <WebIDELink handle={handle} changeset={changeset} revision={revision}/>
+        </div>}
       </>}
       {tab === "merge" && <>
         <div className="changeset-workflow">
-          <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.merge(organization.id, changeset.id, targetRef), "Git merge completed and persisted."); }}>
-            <div><label><GitMerge size={14}/> Merge target</label><Input required value={targetRef} onChange={event => setTargetRef(event.target.value)} placeholder="main"/></div>
-            <Button className="button primary" type="submit" disabled={busy || !canMerge}>Merge changeset</Button>
+          <form onSubmit={event => { event.preventDefault(); void run(() => changesetAPI.merge(organization.id, changeset.id, targetRef), t("changesets:notify.mergeCompleted")); }}>
+            <div><label><GitMerge size={14}/> {t("changesets:detail.mergeTargetLabel")}</label><Input required value={targetRef} onChange={event => setTargetRef(event.target.value)} placeholder="main"/></div>
+            <Button className="button primary" type="submit" disabled={busy || !canMerge}>{t("changesets:detail.mergeButton")}</Button>
           </form>
         </div>
-        {changeset.merge && <div className="changeset-merge-result"><CheckCircle2 size={15}/> Merged as <code>{changeset.merge.commit_sha}</code> into {changeset.merge.target_ref}</div>}
+        {changeset.merge && <div className="changeset-merge-result"><CheckCircle2 size={15}/> {t("changesets:detail.mergedAs", { commit: changeset.merge.commit_sha, ref: changeset.merge.target_ref })}</div>}
       </>}
     </section>
   </>;
