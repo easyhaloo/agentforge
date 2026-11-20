@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Alert } from "../../../shared/ui";
 import type { CreatedChangeset } from "../model/types";
 import { ActivityFeed } from "./ActivityFeed";
 import { ChangeVelocityChart } from "./ChangeVelocityChart";
@@ -12,10 +14,12 @@ type Props = {
 };
 
 export function OverviewPage({ onNotify, created }: Props) {
+  const { t } = useTranslation("overview");
   const [selectedId, setSelectedId] = useState("CS-2481");
 
   return (
     <>
+      <Alert>{t("demoNotice")}</Alert>
       <OverviewMetrics />
       <div className="dashboard-grid">
         <ChangeVelocityChart />

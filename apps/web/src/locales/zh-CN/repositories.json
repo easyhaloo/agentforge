@@ -89,6 +89,8 @@
     "copied": "已复制"
   },
   "webide": {
+    "noRepositoryHint": "组织注册代码仓库后，即可在 WebIDE 中浏览文件。",
+    "openRepositories": "前往代码仓库",
     "eyebrow": "开发者工作区",
     "description": "锁定提交的编辑器 · 写入隔离到变更集分支",
     "readOnly": "只读",

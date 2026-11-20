@@ -89,6 +89,8 @@
     "copied": "Copied"
   },
   "webide": {
+    "noRepositoryHint": "Once your organization registers a repository, you can browse its files in WebIDE.",
+    "openRepositories": "Go to repositories",
     "eyebrow": "DEVELOPER WORKSPACE",
     "description": "Commit-pinned editor · changeset-isolated write-back",
     "readOnly": "READ ONLY",

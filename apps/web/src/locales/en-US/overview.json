@@ -1,4 +1,5 @@
 {
+  "demoNotice": "Sample overview. Metrics, review activity and changesets use demo data.",
   "metrics": {
     "ariaLabel": "Workspace metrics",
     "items": {

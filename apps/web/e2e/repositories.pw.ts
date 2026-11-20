@@ -50,3 +50,11 @@ test("a commit-pinned file permalink opens directly", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Copy permalink" })).toBeEnabled();
   await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
 });
+
+test("WebIDE guides an empty organization to its own repositories", async ({ page }) => {
+  await page.route("**/api/v1/organizations/org-demo/repositories", route => route.fulfill({ json: { items: [] } }));
+  await page.goto("/orgs/demo/webide");
+  await expect(page.getByText("No repositories registered yet.")).toBeVisible();
+  await page.getByRole("link", { name: "Go to repositories" }).click();
+  await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
+});
