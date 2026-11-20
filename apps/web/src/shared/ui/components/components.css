@@ -62,11 +62,10 @@ a.af-button{text-decoration:none}
 .af-drawer__header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--af-color-border)}
 .af-drawer__header h2{margin:0;font-size:15px;color:var(--af-color-text)}
 .af-drawer__header button{border:0;background:transparent;color:var(--af-color-text-secondary);font-size:22px;cursor:pointer}
-.af-drawer__body{padding:20px;overflow:auto;color:var(--af-color-text);opacity:0;transition:opacity 200ms ease-out 100ms}
+.af-drawer__body{padding:20px;overflow:auto;color:var(--af-color-text)}
 .af-drawer-backdrop--visible{opacity:1}
 .af-drawer--visible{transform:translateX(0)}
-.af-drawer--visible .af-drawer__body{opacity:1}
-@media (prefers-reduced-motion:reduce){.af-drawer,.af-drawer-backdrop,.af-drawer__body{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.af-drawer,.af-drawer-backdrop{transition:none!important}}
 .af-confirm-description{margin:0;color:var(--af-color-text);line-height:1.6}
 .af-confirm-warning{color:var(--af-color-danger);font-size:11px}
 .af-popover{position:relative;display:inline-block}

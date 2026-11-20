@@ -819,9 +819,9 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
     }
   }, [open]);
 
-  // Focus trap and keyboard handling
+  // Focus trap and keyboard handling - runs after drawer is mounted
   useEffect(() => {
-    if (!open) return;
+    if (!open || !mounted) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const drawer = drawerRef.current;
     const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>(
@@ -857,7 +857,7 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
       window.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus();
     };
-  }, [open]);
+  }, [open, mounted]);
 
   if (!mounted) return null;
 
