@@ -1,11 +1,48 @@
 openapi: 3.1.0
 info:
   title: AgentForge API
-  version: 0.7.0
-  description: Persistent delivery lifecycle and organization membership API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider. Every `/organizations/{organizationID}` path accepts the organization slug or id.
+  version: 0.8.0
+  description: Persistent delivery lifecycle, organization membership, and GitHub-compatible Issue tracking API. Browser writes require a same-origin configured application origin, a session-bound CSRF token, and a trusted authenticated identity provider. Every `/organizations/{organizationID}` path accepts the organization slug or id.
 servers:
   - url: /
 paths:
+  # ==================== Issues ====================
+  /api/v1/organizations/{organizationID}/issues:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues
+  /api/v1/organizations/{organizationID}/issues/{number}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}
+  /api/v1/organizations/{organizationID}/issues/{number}/close:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1close
+  /api/v1/organizations/{organizationID}/issues/{number}/reopen:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1reopen
+  /api/v1/organizations/{organizationID}/issues/{number}/lock:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1lock
+  /api/v1/organizations/{organizationID}/issues/{number}/comments:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1comments
+  /api/v1/organizations/{organizationID}/issues/{number}/labels:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1labels
+  /api/v1/organizations/{organizationID}/issues/{number}/labels/{name}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1labels~1{name}
+  /api/v1/organizations/{organizationID}/issues/{number}/assignees:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1assignees
+  /api/v1/organizations/{organizationID}/issues/{number}/timeline:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1{number}~1timeline
+  /api/v1/organizations/{organizationID}/comments/{id}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1comments~1{id}
+  /api/v1/organizations/{organizationID}/comments/{id}/minimize:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1comments~1{id}~1minimize
+  /api/v1/organizations/{organizationID}/comments/{id}/reactions:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1comments~1{id}~1reactions
+  /api/v1/organizations/{organizationID}/comments/{id}/reactions/{reactionId}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1comments~1{id}~1reactions~1{reactionId}
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1labels
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels/{name}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1labels~1{name}
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1milestones
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{id}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1milestones~1{id}
   /api/v1/organizations/{organizationID}/merge-queue:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-queue
   /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel:
@@ -525,17 +562,23 @@ paths:
       - in: query
         name: base
         required: true
-        description: Base branch, tag or commit, resolved to an immutable commit SHA.
-        schema: { type: string, minLength: 1, maxLength: 256 }
+        description: Base branch, tag or commit. Supply an explicit empty value to compare the head against the empty tree.
+        allowEmptyValue: true
+        schema: { type: string, maxLength: 256 }
       - in: query
         name: head
         required: true
         description: Head branch, tag or commit, resolved to an immutable commit SHA.
         schema: { type: string, minLength: 1, maxLength: 256 }
+      - in: query
+        name: mode
+        required: false
+        description: Compare from the common ancestor of base and head, as in a pull request. Requires a nonempty base.
+        schema: { type: string, enum: [merge-base] }
     get:
       operationId: compareRepositoryCommits
       summary: Compare two immutable repository commits
-      description: Requires active organization membership and a registered repository. Both refs are resolved server-side before a bounded, non-renamed, non-external diff is generated. Output is limited to 1 MiB.
+      description: Requires active organization membership and a registered repository. Nonempty refs are resolved server-side before a bounded, non-renamed, non-external diff is generated. Output is limited to 1 MiB.
       security: [{ sessionCookie: [] }]
       responses:
         "200":
@@ -547,7 +590,7 @@ paths:
                 required: [repository, base_sha, head_sha, patch]
                 properties:
                   repository: { type: string }
-                  base_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  base_sha: { type: string, pattern: "^([0-9a-f]{40}|[0-9a-f]{64})?$", description: Empty when comparing against the empty tree. }
                   head_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
                   patch: { type: string }
         "400": { $ref: "#/components/responses/Problem" }
@@ -1472,6 +1515,7 @@ components:
       properties:
         repository: { type: string, minLength: 1 }
         title: { type: string, minLength: 1 }
+        source_branch: { type: string, minLength: 1, maxLength: 245, description: Optional non-default branch to resolve and record as the initial revision. }
     Revision:
       type: object
       required: [id, ref, commit_sha, created_at]
