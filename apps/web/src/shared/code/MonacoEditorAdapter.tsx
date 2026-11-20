@@ -87,6 +87,7 @@ export function MonacoEditorAdapter({
           padding: { top: 12, bottom: 12 },
         });
 
+        (hostRef.current as HTMLDivElement & { __monacoEditor?: Monaco.editor.IStandaloneCodeEditor }).__monacoEditor = editor;
         markerOwner = `agentforge-webide-${++markerOwnerSequence}`;
         changeSubscription = model.onDidChangeContent(() => {
           const next = model.getValue();
@@ -150,6 +151,8 @@ export function MonacoEditorAdapter({
       onReady?.(null);
       changeSubscription?.dispose();
       controller?.dispose?.();
+      const host = hostRef.current as (HTMLDivElement & { __monacoEditor?: Monaco.editor.IStandaloneCodeEditor }) | null;
+      if (host?.__monacoEditor === editor) delete host.__monacoEditor;
       editor?.dispose();
       lease?.release();
     };
