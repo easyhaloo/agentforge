@@ -52,12 +52,12 @@ func (r *IssueRepository) Get(ctx context.Context, organizationID, repository st
 
 	err := r.store.pool.QueryRow(ctx, `
 		SELECT id, repository, number, title, body, state, state_reason,
-		       created_by, created_at, updated_at, closed_at, closed_by
+		       comments_count, created_by, created_at, updated_at, closed_at, closed_by
 		FROM issues
 		WHERE organization_id = $1 AND repository = $2 AND number = $3
 	`, organizationID, repository, number).Scan(
 		&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-		&stateStr, &stateReasonStr, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
+		&stateStr, &stateReasonStr, &issue.CommentsCount, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
 		&closedAt, &closedBy,
 	)
 

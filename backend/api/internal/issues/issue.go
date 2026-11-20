@@ -26,18 +26,19 @@ const (
 
 // Issue represents a trackable unit of work or discussion
 type Issue struct {
-	ID          ID
-	Number      int
-	Repository  string
-	Title       string
-	Body        string
-	State       State
-	StateReason StateReason
-	CreatedBy   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	ClosedAt    *time.Time
-	ClosedBy    string
+	ID            ID
+	Number        int
+	Repository    string
+	Title         string
+	Body          string
+	State         State
+	StateReason   StateReason
+	CommentsCount int
+	CreatedBy     string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	ClosedAt      *time.Time
+	ClosedBy      string
 }
 
 // ListFilter represents filtering criteria for issues
