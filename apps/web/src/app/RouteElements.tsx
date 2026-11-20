@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Link, useLocation, useOutletContext, useParams, useRouteError } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
@@ -10,8 +10,6 @@ import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
-import { WebIDEPage } from "../pages/webide/WebIDEPage";
-import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
@@ -21,6 +19,10 @@ import { useAppAccount } from "./account-context";
 import { useNotify } from "./useNotify";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register/RegisterPage";
+
+const WebIDEPage = lazy(() => import("../pages/webide/WebIDEPage").then(module => ({ default: module.WebIDEPage })));
+const WorkspaceEditorPage = lazy(() => import("../pages/webide/WorkspaceEditorPage").then(module => ({ default: module.WorkspaceEditorPage })));
+const webIDELoadingFallback = <section className="card org-auth-state" role="status">Loading WebIDE…</section>;
 
 // Thin adapters between the route table and the pages: they supply what a page needs from the
 // shell (notifications, the organization resolved by the gate) so the pages keep their props.
@@ -101,14 +103,14 @@ export function RepositoryDetailRoute() {
 
 export function WebIDERoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
-  return <WebIDEPage key={organization.id} organization={organization} />;
+  return <Suspense fallback={webIDELoadingFallback}><WebIDEPage key={organization.id} organization={organization} /></Suspense>;
 }
 
 /** The workspace editor is scoped to one repository, so it reads the owner and name from the path. */
 export function WorkspaceEditorRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
-  return <WorkspaceEditorPage key={`${organization.id}:${window.location.pathname}`} organization={organization} onNotify={notify} />;
+  return <Suspense fallback={webIDELoadingFallback}><WorkspaceEditorPage key={`${organization.id}:${window.location.pathname}`} organization={organization} onNotify={notify} /></Suspense>;
 }
 
 export function OrganizationRoute() {

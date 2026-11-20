@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentType } from "react";
+import { useEffect, useRef, type ComponentType, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { TextArea } from "../ui";
 
@@ -43,11 +43,16 @@ export type EditorController = {
 
 export type EditorAdapterProps = {
   path: string;
+  /** Stable scope-qualified identity used by stateful editor engines such as Monaco. */
+  modelKey?: string;
   languageId: string;
   value: string;
   onChange: (value: string) => void;
   readOnly: boolean;
   activeLine?: number;
+  ariaLabel?: string;
+  rows?: number;
+  editorStyle?: CSSProperties;
   onReady?: (controller: EditorController | null) => void;
 };
 
@@ -55,7 +60,7 @@ export type EditorAdapter = ComponentType<EditorAdapterProps>;
 
 /** Transitional textarea adapter. WebIDE owns persistence; adapters own editor navigation. */
 export function TextAreaEditorAdapter({
-  path, languageId, value, onChange, readOnly, activeLine = 0, onReady,
+  path, modelKey, languageId, value, onChange, readOnly, activeLine = 0, ariaLabel, rows = 24, editorStyle, onReady,
 }: EditorAdapterProps) {
   const { t } = useTranslation("common");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -80,9 +85,10 @@ export function TextAreaEditorAdapter({
 
   return (
     <div className="webide-editor-adapter" data-editor-adapter="textarea" data-editor-path={path}
-      data-editor-language={languageId} data-active-line={activeLine || undefined}>
-      <TextArea ref={textareaRef} aria-label={t("common:components.fileContentAriaLabel")}
-        value={value} onChange={event => onChange(event.target.value)} rows={24} disabled={readOnly} />
+      data-editor-language={languageId} data-editor-model-key={modelKey} data-active-line={activeLine || undefined}>
+      <TextArea ref={textareaRef} aria-label={ariaLabel ?? t("common:components.fileContentAriaLabel")}
+        spellCheck={false} value={value} onChange={event => onChange(event.target.value)}
+        rows={rows} disabled={readOnly} style={editorStyle} />
     </div>
   );
 }
