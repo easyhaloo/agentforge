@@ -1,21 +1,40 @@
 #!/usr/bin/env bash
 #
-# Git pre-push hook: Check Go code formatting and run tests
+# Git pre-push hook: Check documentation, code quality, and tests
 #
-# This hook:
-# 1. Runs gofmt to check if all Go files are properly formatted
-# 2. Runs go test to ensure all tests pass
-# If either check fails, the push is rejected.
+# This hook runs:
+# 1. Documentation placement check (per CLAUDE.md rules)
+# 2. Go code formatting check (gofmt)
+# 3. Go unit/integration tests
+# 4. Frontend unit tests (Vitest)
+# 5. Frontend build check (TypeScript + Vite)
+# 6. E2E tests (Playwright) - optional via SKIP_E2E=1
+#
+# If any check fails, the push is rejected.
 #
 # Managed by Husky (installed via: npm install)
-# Bypass: git push --no-verify
+# Bypass all checks: git push --no-verify
+# Skip E2E only: SKIP_E2E=1 git push
 
 set -e
 
-echo "🔍 Checking Go code formatting..."
-
 # Change to repo root
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# 1. Check documentation placement
+if [ -x "$REPO_ROOT/.husky/check-doc-placement" ]; then
+    "$REPO_ROOT/.husky/check-doc-placement" "$@"
+fi
+
+echo ""
+echo "🔍 Checking Go code formatting..."
+
 cd "$REPO_ROOT/backend/api"
 
 # Check for unformatted Go files
@@ -23,7 +42,7 @@ UNFORMATTED=$(gofmt -l . 2>&1)
 
 if [ -n "$UNFORMATTED" ]; then
     echo ""
-    echo "❌ Go code formatting check failed!"
+    echo -e "${RED}❌ Go code formatting check failed!${NC}"
     echo ""
     echo "The following files are not formatted correctly:"
     echo "$UNFORMATTED"
@@ -35,8 +54,9 @@ if [ -n "$UNFORMATTED" ]; then
     exit 1
 fi
 
-echo "✅ All Go files are properly formatted"
+echo -e "${GREEN}✅ All Go files are properly formatted${NC}"
 
+echo ""
 echo "🧪 Running Go tests..."
 
 # Git exports GIT_DIR (and friends) to the hook, so every git command the tests
@@ -47,7 +67,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 # Run Go tests
 if ! go test ./... 2>&1; then
     echo ""
-    echo "❌ Go tests failed!"
+    echo -e "${RED}❌ Go tests failed!${NC}"
     echo ""
     echo "Please fix the failing tests before pushing."
     echo "Run 'go test ./...' in backend/api to see detailed errors."
@@ -56,5 +76,73 @@ if ! go test ./... 2>&1; then
     exit 1
 fi
 
-echo "✅ All Go tests passed"
+echo -e "${GREEN}✅ All Go tests passed${NC}"
+
+# Switch to frontend
+cd "$REPO_ROOT"
+
+echo ""
+echo "🧪 Running frontend unit tests..."
+
+# Run frontend unit tests
+if ! npm test 2>&1; then
+    echo ""
+    echo -e "${RED}❌ Frontend unit tests failed!${NC}"
+    echo ""
+    echo "Please fix the failing tests before pushing."
+    echo "Run 'npm test' to see detailed errors."
+    echo ""
+    echo "To bypass this check (not recommended): git push --no-verify"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ All frontend unit tests passed${NC}"
+
+echo ""
+echo "🏗️  Checking frontend build..."
+
+# Run frontend build check (TypeScript + Vite)
+if ! npm run build 2>&1; then
+    echo ""
+    echo -e "${RED}❌ Frontend build failed!${NC}"
+    echo ""
+    echo "Please fix the build errors before pushing."
+    echo "Run 'npm run build' to see detailed errors."
+    echo ""
+    echo "To bypass this check (not recommended): git push --no-verify"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Frontend build successful${NC}"
+
+# E2E tests (optional via SKIP_E2E=1)
+if [ "${SKIP_E2E}" = "1" ]; then
+    echo ""
+    echo -e "${YELLOW}⚠️  E2E tests skipped (SKIP_E2E=1)${NC}"
+    echo "   Remember to run 'npm run test:e2e' before merging to main"
+else
+    echo ""
+    echo "🎭 Running E2E tests (Playwright)..."
+    echo "   (Skip with: SKIP_E2E=1 git push)"
+
+    # Run E2E tests
+    if ! npm run test:e2e 2>&1; then
+        echo ""
+        echo -e "${RED}❌ E2E tests failed!${NC}"
+        echo ""
+        echo "Please fix the failing E2E tests before pushing."
+        echo "Run 'npm run test:e2e' to see detailed errors."
+        echo ""
+        echo "To skip E2E temporarily: SKIP_E2E=1 git push"
+        echo "To bypass all checks (not recommended): git push --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ All E2E tests passed${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}✅ All pre-push checks passed!${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 exit 0
