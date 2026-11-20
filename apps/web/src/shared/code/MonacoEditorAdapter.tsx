@@ -1,3 +1,4 @@
+import "monaco-editor/min/vs/editor/editor.main.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type * as Monaco from "monaco-editor";
 import { useTranslation } from "react-i18next";
