@@ -93,8 +93,8 @@ Acceptance: unauthenticated requests are rejected; every organization route is b
 Status: **Implemented in the single Changeset lifecycle delivery branch; pending CI and review before merge.**
 
 Implemented in this delivery:
-- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins and validates the default branch against the trusted Git provider.
-- Git Provider interface and local Git adapter. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch.
+- Organization-scoped repository catalog and migration 006; registration is restricted to Owners/Admins. The current local Git implementation is an early internal storage adapter, not a complete Git hosting transport.
+- Initial local Git adapter and repository lifecycle integration. Refs resolve to immutable commit SHA/parent SHA; merge performs a no-fast-forward merge into the registered default branch. This is not a GitHub/GitLab Provider integration and does not yet imply clone/fetch/push over Smart HTTP.
 - Revision changes stale prior evidence and reviews; API mutation operations are serialized with PostgreSQL advisory locks and optimistic version checks.
 - Server-side evaluation interface. Default evaluator performs Git patch integrity checks; optional digest-pinned Docker evaluator runs an operator-configured test command in a network-isolated, read-only, non-root, resource-limited container.
 - Evaluation reports are persisted as content-addressed artifacts with SHA-256 provenance and revision/evaluation linkage.
@@ -103,7 +103,8 @@ Implemented in this delivery:
 - Changeset audit events record each lifecycle transition; complete authenticated API workflow tests cover registration through merge and negative gate/authorization cases.
 
 Known adapter boundary:
-- The first provider is operator-provisioned local Git storage, not a remote GitHub/GitLab API integration.
+- The existing local Git adapter is an early internal storage implementation, not a complete AgentForge Git Hosting Engine. Smart HTTP clone/fetch/push, transport authentication, receive hooks, durable post-receive events and repository browsing remain separate deliverables.
+- AgentForge is the authoritative Git hosting platform; GitHub/GitLab Provider or synchronization layers are explicitly out of scope.
 - Without the optional Docker evaluator configuration, the default evaluator checks Git diff integrity only; it does not claim to run the repository's complete test suite.
 - The lifecycle API is synchronous; durable background job scheduling, cancellation and streamed execution events remain Phase 5 work.
 
@@ -165,3 +166,43 @@ Delivery order within this initiative:
 7. Remote providers, artifact storage and production hardening.
 
 Acceptance: see the phase-specific measurable criteria in `docs/plans/cicd-development-plan.md`. Do not mark any capability complete until implementation and CI demonstrate it.
+
+
+## Native Git Hosting workstream
+
+The approved target, data model and phased acceptance criteria are documented in:
+- [Native Git Hosting Architecture](../architecture/native-git-hosting.md)
+- [Native Git Hosting API and Data Model](../architecture/native-git-api-and-data-model.md)
+- [Native Git Hosting Delivery Plan](native-git-hosting.md)
+
+The workstream supersedes any earlier proposal that treated GitHub/GitLab as repository providers. Existing local Git code is reusable implementation material, but must be audited against the native hosting security, lifecycle and protocol requirements before it is considered production-ready.
+
+
+## Source Control scaling and Agent-native APIs
+
+The Native Git Hosting workstream now follows the decisions in [Source Control Evolution](../architecture/source-control-evolution.md) and ADR-010 through ADR-013:
+
+1. Keep Git-native storage and standard Git client compatibility as the first canonical implementation.
+2. Implement server-side diff, merge-base, history, tree/blob and integration-preview operations over the Git adapter; all reads are authorized and pinned to immutable commit IDs.
+3. Add versioned, rebuildable Derived Data for commit graph, path history and blame, with eager/lazy computation and canonical Git fallback.
+4. Optimize measured Git bottlenecks using per-ref CAS, immutable pack reuse, bounded streaming, fetch caching and background compaction.
+5. Add sparse/virtualized workspaces only after server-side APIs and usage telemetry demonstrate the need.
+6. Evaluate a Scion-style Changeset WAL only through a separate ADR backed by measured workload, import/export fidelity, shadow-read parity and rollback proof.
+
+Do not implement two complete storage engines or dual-write speculative Changeset logs in the initial delivery. Performance figures published by OpenAI or Anthropic are reference context, not AgentForge targets or guarantees.
+
+
+## Repository Preview and extensible WebIDE
+
+The target architecture and acceptance criteria are defined in [Repository Preview and WebIDE](../architecture/repository-preview-and-webide.md), with ADR-014 and ADR-015.
+
+Delivery is deliberately separated into independently useful increments:
+
+1. Repository Preview: commit-pinned tree/blob/README/history/diff APIs, read-only browser, sanitization, pagination and repository/directory authorization.
+2. Rich inspection: blame, compare, stable permalinks and derived-data acceleration.
+3. WebIDE shell: isolated workspace lifecycle, Monaco editor, explorer, tabs, search, diff and Changeset handoff.
+4. Execution/preview: isolated task workers, terminal/build/test, SSE and sandboxed preview origins.
+5. Extension SDK: versioned manifest, sandboxed extension host, capability grants, first-party extensions and organization-private distribution.
+6. Ecosystem: curated registry and optional Open VSX compatibility only after isolation, signing and revocation controls are proven.
+
+Repository Preview must not require a workspace. WebIDE must not bypass Changeset, review, CI or merge gates. Do not execute untrusted repository code in the API process or trusted browser origin. These stages are planned, not marked implemented.
