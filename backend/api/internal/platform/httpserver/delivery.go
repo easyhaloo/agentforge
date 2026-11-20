@@ -20,6 +20,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
+	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
 )
 
 type Principal = identity.Principal
@@ -72,6 +73,7 @@ type DeliveryDependencies struct {
 	Preview          delivery.RepositoryPreviewReader
 	Locker           delivery.ChangesetLocker
 	Workspaces       workspace.Repository
+	Tasks            *tasks.PostgresStore
 }
 
 type storedChangesetResponse struct {
@@ -113,6 +115,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/changesets", deps.createWorkspaceChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files", deps.readWorkspaceFile)
 	mux.HandleFunc("PUT /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/files", deps.writeWorkspaceFile)
+	deps.taskExecutionRoutes(mux)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)

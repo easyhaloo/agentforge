@@ -2,15 +2,31 @@
 
 **Agent-native Source Control & Verified Change Platform** — React + TypeScript frontend and Go modular-monolith API.
 
-## Architecture and development
+## Documentation
 
-- [Target architecture](docs/architecture/overview.md)
-- [Architecture decisions](docs/architecture/decisions.md)
-- [Native Git Hosting architecture](docs/architecture/native-git-hosting.md)
-- [Native Git Hosting API and data model](docs/architecture/native-git-api-and-data-model.md)
-- [Native Git Hosting delivery plan](docs/plans/native-git-hosting.md)
-- [Development roadmap](docs/plans/development-roadmap.md)
-- [Deployment architecture](docs/deployment/architecture.md)
+### For AI Agents
+- **[AGENTS.md](AGENTS.md)** — Mandatory AI entry guide: core principles, domain rules, workflow (all AI tools)
+- **[CLAUDE.md](CLAUDE.md)** — Claude Code-specific configuration
+
+### For Developers
+- **[Frontend Development](docs/development/frontend.md)** — React, Feature-Sliced architecture, routing, i18n, domain invariants
+- **[Backend Development](docs/development/backend.md)** — Go standards, API design, database, testing
+- **[Testing Guide](docs/testing/setup.md)** — Test environment setup (Docker, DATABASE_URL)
+- **[E2E Testing Guide](docs/testing/e2e.md)** — Playwright E2E tests, execution strategy, debugging
+- **[Contributing Guide](CONTRIBUTING.md)** — How to contribute (to be created)
+
+### Architecture and Planning
+- **[Architecture Overview](docs/architecture/overview.md)** — System design and target architecture
+- **[Architecture Decisions](docs/architecture/decisions.md)** — ADRs and design rationale
+- **[Native Git Hosting Architecture](docs/architecture/native-git-hosting.md)** — Native Git hosting design
+- **[Native Git Hosting API](docs/architecture/native-git-api-and-data-model.md)** — API and data model
+- **[Native Git Hosting Plan](docs/plans/native-git-hosting.md)** — Delivery plan
+- **[Development Roadmap](docs/plans/development-roadmap.md)** — Feature roadmap and phases
+
+### Operations
+- **[Backend API Guide](backend/api/README.md)** — API deployment, configuration, operations
+- **[Deployment Architecture](docs/deployment/architecture.md)** — Deployment guides
+- **[Pipeline Runners](docs/operations/pipeline-runners.md)** — CI/CD operations
 
 ## Development
 
@@ -34,7 +50,13 @@ The frontend lives in `apps/web`; root npm scripts delegate to the workspace. Th
 Git hooks are managed by [Husky](https://typicode.github.io/husky/) and are automatically installed when you run `npm install`. The following hooks are configured:
 
 - **pre-commit**: Runs `npm test` to ensure tests pass before committing
-- **pre-push**: Checks Go code formatting in `backend/api` using `gofmt` to prevent pushing unformatted code
+- **pre-push**: Comprehensive quality checks before pushing:
+  1. Documentation placement validation
+  2. Go code formatting (`gofmt`)
+  3. Go unit/integration tests
+  4. Frontend unit tests (Vitest)
+  5. Frontend build check (TypeScript + Vite)
+  6. E2E tests (Playwright) - skip with `SKIP_E2E=1`
 
 To bypass a hook temporarily (not recommended), use `git commit --no-verify` or `git push --no-verify`.
 

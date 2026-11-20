@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+# Pre-push hook: Check documentation placement compliance
+#
+# This hook verifies that new or moved documentation files follow the
+# placement rules defined in CLAUDE.md.
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+# Get the list of files being pushed
+# Compare against the remote branch we're pushing to
+remote="$1"
+url="$2"
+
+z40=0000000000000000000000000000000000000000
+
+echo "Checking documentation placement..."
+
+violations=()
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_sha" = $z40 ]; then
+        # Branch is being deleted, skip
+        continue
+    fi
+
+    if [ "$remote_sha" = $z40 ]; then
+        # New branch, check all commits
+        range="$local_sha"
+    else
+        # Update to existing branch, check new commits
+        range="$remote_sha..$local_sha"
+    fi
+
+    # Get list of added or modified .md files in this push
+    files=$(git diff --name-only --diff-filter=AM "$range" -- '*.md' 2>/dev/null || true)
+
+    if [ -z "$files" ]; then
+        continue
+    fi
+
+    while IFS= read -r file; do
+        # Skip if file was deleted
+        if [ ! -f "$file" ]; then
+            continue
+        fi
+
+        violation=""
+
+        # Check for common misplaced documentation patterns
+        case "$file" in
+            # Root directory - only specific files allowed
+            README.md|AGENTS.md|CLAUDE.md|CONTRIBUTING.md|LICENSE.md|CHANGELOG.md|CODE_OF_CONDUCT.md)
+                # These are correct in root
+                ;;
+
+            # These files have been moved
+            agent.md)
+                violation="agent.md has been deleted. Use AGENTS.md for universal AI standards, docs/development/frontend.md for frontend guide, docs/development/backend.md for backend guide"
+                ;;
+            TESTING.md)
+                violation="TESTING.md has been moved to docs/testing/setup.md"
+                ;;
+            MERGE_PLAN.md|*MERGE_PLAN*.md)
+                violation="Merge plans should be in docs/plans/, not root directory. Example: docs/plans/merge-plan-phase-2-4-5.md"
+                ;;
+            *IMPLEMENTATION_REPORT*.md|*REPORT*.md)
+                violation="Implementation reports should be in docs/plans/ or docs/_archive/, not root directory"
+                ;;
+
+            # backend/api - only README.md allowed
+            backend/api/README.md)
+                # Correct
+                ;;
+            backend/api/DEVELOPMENT.md|backend/api/GUIDE.md|backend/api/STANDARDS.md)
+                violation="Backend development docs should be in docs/development/backend.md, not $file"
+                ;;
+            backend/api/*.md)
+                # Other .md files in backend/api
+                violation="Documentation in backend/api/ should be limited to README.md. Move $file to docs/ or remove it."
+                ;;
+
+            # apps/web - only README.md allowed
+            apps/web/README.md)
+                # Correct
+                ;;
+            apps/web/DEVELOPMENT.md|apps/web/GUIDE.md|apps/web/STANDARDS.md)
+                violation="Frontend development docs should be in docs/development/frontend.md, not $file"
+                ;;
+            apps/web/*.md)
+                violation="Documentation in apps/web/ should be limited to README.md. Move $file to docs/ or remove it."
+                ;;
+
+            # docs/ subdirectories - check structure
+            docs/architecture/*.md)
+                # Correct
+                ;;
+            docs/development/*.md)
+                # Correct
+                ;;
+            docs/deployment/*.md)
+                # Correct
+                ;;
+            docs/operations/*.md)
+                # Correct
+                ;;
+            docs/product/*.md)
+                # Correct
+                ;;
+            docs/plans/*.md)
+                # Correct
+                ;;
+            docs/testing/*.md)
+                # Correct
+                ;;
+
+            # docs/ root - should be in subdirectories
+            docs/*.md)
+                if [[ ! "$file" =~ docs/_(archive|deprecated)/ ]]; then
+                    violation="Documentation in docs/ root should be in a subdirectory (architecture, development, deployment, operations, product, plans, testing). Move $file to appropriate subdirectory."
+                fi
+                ;;
+
+            # Common wrong patterns
+            *ARCHITECTURE.md|*architecture.md)
+                if [[ ! "$file" =~ ^docs/architecture/ ]]; then
+                    violation="Architecture documentation should be in docs/architecture/, not $file"
+                fi
+                ;;
+            *DEPLOYMENT.md|*deployment.md|*DEPLOY.md)
+                if [[ ! "$file" =~ ^docs/deployment/ ]]; then
+                    violation="Deployment documentation should be in docs/deployment/, not $file"
+                fi
+                ;;
+            *DEVELOPMENT.md|*development.md|*DEV.md)
+                if [[ ! "$file" =~ ^docs/development/ ]] && [[ "$file" != "CLAUDE.md" ]]; then
+                    violation="Development documentation should be in docs/development/, not $file"
+                fi
+                ;;
+            *GUIDE.md|*guide.md)
+                if [[ ! "$file" =~ ^docs/ ]]; then
+                    violation="Guide documentation should be in docs/development/ or appropriate docs/ subdirectory, not $file"
+                fi
+                ;;
+            *STANDARDS.md|*standards.md)
+                if [[ ! "$file" =~ ^docs/development/ ]]; then
+                    violation="Standards documentation should be in docs/development/, not $file"
+                fi
+                ;;
+
+            # Check for files in wrong root-level locations
+            architecture/*.md|deploy/*.md|deployment/*.md|ops/*.md|operations/*.md|specs/*.md|specifications/*.md|plans/*.md|product/*.md)
+                violation="Documentation should be in docs/ subdirectories, not $file. Move to docs/$(dirname "$file")/"
+                ;;
+
+            # .claude/ directory - no documentation
+            .claude/*.md)
+                violation="Documentation should not be in .claude/ directory. Move $file to appropriate location (see CLAUDE.md)"
+                ;;
+
+            *)
+                # Other locations - warn but don't block
+                if [[ "$file" =~ \.md$ ]] && [[ ! "$file" =~ ^(docs/|backend/api/README\.md|apps/web/README\.md) ]] && [[ ! "$file" =~ ^(README|CLAUDE|agent|TESTING|CONTRIBUTING|LICENSE|CHANGELOG|CODE_OF_CONDUCT)\.md$ ]]; then
+                    echo -e "${YELLOW}Warning: Unusual documentation location: $file${NC}"
+                    echo "  Consider if this should be in docs/ (see CLAUDE.md for placement rules)"
+                fi
+                ;;
+        esac
+
+        if [ -n "$violation" ]; then
+            violations+=("$violation")
+        fi
+    done <<< "$files"
+done
+
+# Report violations
+if [ ${#violations[@]} -gt 0 ]; then
+    echo -e "${RED}❌ Documentation placement violations found:${NC}"
+    echo ""
+    for violation in "${violations[@]}"; do
+        echo -e "  ${RED}•${NC} $violation"
+    done
+    echo ""
+    echo -e "${YELLOW}See CLAUDE.md 'Documentation Placement Rules' section for correct locations.${NC}"
+    echo ""
+    echo "Common fixes:"
+    echo "  • Backend dev docs    → docs/development/backend.md"
+    echo "  • Frontend dev docs   → docs/development/frontend.md"
+    echo "  • Architecture docs   → docs/architecture/<topic>.md"
+    echo "  • Deployment docs     → docs/deployment/<topic>.md"
+    echo "  • Operations docs     → docs/operations/<topic>.md"
+    echo ""
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Documentation placement check passed${NC}"
+exit 0

@@ -111,6 +111,19 @@ Routes:
 
 If OIDC configuration is absent or provider discovery fails, SSO login returns `503`. Local sessions can access their organizations and sign out. A successful OIDC login creates or updates a local user by the immutable `(issuer, subject)` pair; it does not grant organization membership. An operator-controlled first-owner/bootstrap step is still required before the user can access tenant-scoped delivery resources.
 
+### Production OIDC Configuration
+
+For production deployment with Google, Okta, Auth0, Microsoft Entra ID, or GitLab, see the complete configuration guide:
+
+**[Production OIDC Configuration](../../deployments/production/OIDC-CONFIGURATION.md)**
+
+The guide includes:
+- Provider-specific setup instructions
+- Environment variable reference
+- Security considerations
+- Kubernetes deployment example
+- Troubleshooting steps
+
 ## First-owner bootstrap (operator-only)
 
 A successful OIDC login creates a local user but never grants organization access. Provision the first owner from a trusted operator environment with direct database access; there is no public bootstrap HTTP endpoint.
