@@ -1,6 +1,5 @@
 {
-  "title": "AgentForge",
-  "tagline": "Agent 原生的源代码控制与验证变更平台",
+  "title": "登录 AgentForge",
   "email": "邮箱地址",
   "password": "密码",
   "signInButton": "登录",
@@ -9,7 +8,6 @@
   "orDivider": "或",
   "orSignInWith": "或使用以下方式登录",
   "ssoButton": "使用 SSO 登录",
-  "trustMessage": "通过 OpenID Connect 安全认证",
   "loading": "登录中...",
   "providers": {
     "oidc": "SSO",

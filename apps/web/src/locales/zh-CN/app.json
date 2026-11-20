@@ -26,26 +26,18 @@
     "noOrganization": "没有可用的组织",
     "noOrganizationHandle": "该账户无法访问组织 “{{handle}}”。",
     "organization": {
-      "signedOutTitle": "登录后可管理组织",
-      "signedOutBody": "组织设置需要已登录的 AgentForge 会话。",
       "unavailableTitle": "组织服务不可用",
       "noOrganization": "该账户没有所属的组织。可向组织所有者申请邀请。"
     },
     "pipelines": {
-      "signedOutTitle": "登录后可查看流水线",
-      "signedOutBody": "工作流归属于您的组织。",
       "unavailableTitle": "流水线服务不可用",
       "noOrganization": "该账户没有所属的组织。"
     },
     "changesets": {
-      "signedOutTitle": "登录后可查看变更集",
-      "signedOutBody": "变更集归属于已认证的组织。",
       "unavailableTitle": "变更集服务不可用",
       "noOrganization": "该账户没有所属的组织。"
     },
     "repositories": {
-      "signedOutTitle": "登录后可查看代码仓库",
-      "signedOutBody": "代码仓库归属于已认证的组织。",
       "unavailableTitle": "代码仓库服务不可用",
       "noOrganization": "该账户没有所属的组织。"
     }

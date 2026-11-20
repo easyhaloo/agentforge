@@ -155,24 +155,42 @@ test("an organization whose own slug is the reserved current alias is addressed 
   expect(pathOf(page)).toBe("/orgs/org-reserved/changesets");
 });
 
-test("signed out, organization pages ask for sign-in while flat pages still render", async ({ page }) => {
+test("signed out, protected URLs redirect to login and public demo pages still render", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
-  await page.goto("/orgs/x/changesets");
-  await expect(page.getByRole("heading", { name: "Sign in to view changesets" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", "/login?return=%2Forgs%2Fx%2Fchangesets");
+  for (const target of [
+    "/?tab=activity#reviews",
+    "/orgs/x/changesets?status=in_review#changes",
+    "/settings/profile?source=menu#avatar",
+    "/orgs/x/pipelines/example/edit?tab=variables#build",
+    "/orgs/x/pipeline-runs/example?step=build#logs",
+  ]) {
+    await page.goto(target);
+    await expect(page).toHaveURL(`/login?${new URLSearchParams({ return: target })}`);
+    await expect(page.getByRole("heading", { name: "Sign in to AgentForge" })).toBeVisible();
+  }
 
-  await openNavigation(page);
-  await sidebarLink(page, "Projects").click();
-  await expect(pageHeading(page)).toHaveText("Projects");
   await page.goto("/projects");
   await expect(pageHeading(page)).toHaveText("Projects");
+});
+
+test("a session service failure stays on the requested page", async ({ page }) => {
+  await installApiMocks(page);
+  await page.route("**/api/v1/me", route => route.fulfill({ status: 503 }));
+  for (const [target, message] of [
+    ["/", "Unable to load account context"],
+    ["/orgs/x/changesets", "Changeset service unavailable"],
+    ["/settings/profile", "Unable to verify authentication"],
+  ]) {
+    await page.goto(target);
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(target);
+  }
 });
 
 test("the SSO entry is a full-page navigation to the backend, never a client route", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
   await page.route("**/auth/oidc/login", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Identity provider</h1>" }));
   await page.goto("/orgs/x/changesets");
-  await page.getByRole("link", { name: "Sign in", exact: true }).click();
   await page.getByRole("link", { name: "SSO", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Identity provider" })).toBeVisible();
   expect(pathOf(page)).toBe("/auth/oidc/login");
@@ -204,17 +222,14 @@ test("switching organization keeps the sub-path and the choice survives leaving 
   await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/demo/changesets");
 });
 
-test("signing out lands on / and the sidebar shows the signed-out state", async ({ page }) => {
+test("signing out opens the login page", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/orgs/demo/settings");
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(pageHeading(page)).toHaveText("Overview");
-  await expect(page.getByText("You have signed out.")).toBeVisible();
-  // Signed-out state in the sidebar: the organization switcher is disabled.
-  await expect(page.getByRole("combobox", { name: "Select organization" })).toBeDisabled();
+  await expect(page).toHaveURL("/login");
+  await expect(page.getByRole("heading", { name: "Sign in to AgentForge" })).toBeVisible();
 });
 
 test("Refresh only simulates a refresh on mock pages and reloads the account on organization pages", async ({ page }) => {
@@ -318,7 +333,6 @@ test("signing out while already on / does not add a history entry", async ({ pag
 
   await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByText("You have signed out.")).toBeVisible();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL("/login");
   expect(await entries()).toBe(before);
 });

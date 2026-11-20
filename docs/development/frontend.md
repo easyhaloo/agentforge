@@ -87,7 +87,6 @@ Pages backed by the real API are organization-scoped:
 
 Mock and fixture pages stay flat (browsable without session):
 ```
-/                    # Overview
 /projects
 /workspaces
 /stacks
@@ -97,9 +96,10 @@ Mock and fixture pages stay flat (browsable without session):
 /security
 /governance
 /usage
-/settings
 /dev/ui
 ```
+
+The overview (`/`) and personal settings (`/settings`) also require a session. Protected routes redirect to `/login` on a session check returning `401`, preserving the requested path, query, and fragment.
 
 Move a page under `/orgs/:org` **only when** a real backend capability replaces its mock data.
 

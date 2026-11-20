@@ -1,6 +1,5 @@
 {
-  "title": "AgentForge",
-  "tagline": "Agent-native Source Control & Verified Change Platform",
+  "title": "Sign in to AgentForge",
   "email": "Email address",
   "password": "Password",
   "signInButton": "Sign in",
@@ -9,7 +8,6 @@
   "orDivider": "or",
   "orSignInWith": "or sign in with",
   "ssoButton": "Continue with SSO",
-  "trustMessage": "Secure authentication via OpenID Connect",
   "loading": "Signing in...",
   "providers": {
     "oidc": "SSO",

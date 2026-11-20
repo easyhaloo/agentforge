@@ -20,12 +20,15 @@ test("local session returns to its repository, reads organization data and signs
   await page.context().clearCookies();
 
   await page.goto(`${base.origin}/orgs/current/repositories?tab=list#catalog`);
-  await expect(page.getByRole("heading", { name: "Sign in to view repositories" })).toBeVisible();
-  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(`${base.origin}/login?return=%2Forgs%2Fcurrent%2Frepositories%3Ftab%3Dlist%23catalog`);
+  await expect(page.getByRole("heading", { name: "Sign in to AgentForge" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("login-real-api.png"), animations: "disabled" });
   await page.locator('[name=email]').fill(email);
   await page.locator('[name=password]').fill(password);
   const repos = page.waitForResponse(r => r.url().includes('/api/v1/organizations/') && new URL(r.url()).pathname.endsWith('/repositories'));
+  const login = page.waitForResponse(r => new URL(r.url()).pathname === '/auth/local/login' && r.request().method() === 'POST');
   await page.locator('button[type=submit]').click();
+  expect((await login).ok()).toBe(true);
   expect((await repos).status()).toBe(200);
   await expect(page).toHaveURL(/\/orgs\/(?!current\/)[^/]+\/repositories\?tab=list#catalog$/);
   const org = new URL(page.url()).pathname.split('/')[2];
@@ -60,6 +63,7 @@ test("local session returns to its repository, reads organization data and signs
   const logout = page.waitForResponse(r => r.url().endsWith('/api/v1/auth/logout'));
   await page.getByRole('button', { name: /Sign out|退出登录/i }).click();
   expect((await logout).status()).toBe(204);
+  await expect(page).toHaveURL(`${base.origin}/login`);
   await page.reload();
   expect(await status("me")).toBe(401);
   // Revocation must also hold for a client retaining the original cookies.

@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { flatPaths } from "../../shared/routing";
 import { AppAccountContext, type AccountState } from "../account-context";
 import { AccountTheme } from "../../features/appearance/AccountTheme";
 import { CommandPalette } from "../components/CommandPalette";
 import { Topbar } from "../components/Topbar";
-import { useNavigateTo } from "../useNavigateTo";
+import { LoginRedirect } from "../LoginRedirect";
 import { useNotify } from "../useNotify";
 
 /**
@@ -21,7 +20,7 @@ import { useNotify } from "../useNotify";
 export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) {
   const { t } = useTranslation("app");
   const notify = useNotify();
-  const navigateTo = useNavigateTo();
+  const navigate = useNavigate();
   const location = useLocation();
   const { pathname } = location;
   const [account, setAccount] = useState<AccountContext | null>(null);
@@ -53,9 +52,7 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
   const signOut = async () => {
     try {
       await authAPI.logout();
-      setAccount(null);
-      setAccountState("signed-out");
-      navigateTo(flatPaths.overview);
+      navigate("/login", { replace: true });
       notify(t("app:notify.signedOut"));
     } catch (cause) {
       setAccountError(translateError(cause, t, "app:errors.signOutFailed"));
@@ -76,7 +73,7 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
 
   // Redirect to login if signed out
   if (accountState === "signed-out") {
-    return <Navigate to="/login" state={{ from: pathname }} replace />;
+    return <LoginRedirect />;
   }
 
   // Show error state but don't redirect (API temporarily unavailable)

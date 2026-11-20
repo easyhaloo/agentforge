@@ -21,15 +21,13 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string }) => {
       const translations: Record<string, string> = {
-        "title": "AgentForge",
-        "tagline": "Agent-native Source Control & Verified Change Platform",
+        "title": "Sign in to AgentForge",
         "email": "Email address",
         "password": "Password",
         "signInButton": "Sign in",
         "orDivider": "or",
         "orSignInWith": "or sign in with",
         "ssoButton": "Continue with SSO",
-        "trustMessage": "Secure authentication via OpenID Connect",
         "loading": "Signing in...",
         "providers.oidc": "SSO",
         "providers.github": "GitHub",
@@ -77,12 +75,11 @@ describe("LoginPage", () => {
     ] as SSOProvider[]);
   });
 
-  it("renders product name and tagline", async () => {
+  it("renders the sign-in heading", async () => {
     renderLoginPage();
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "AgentForge" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Sign in to AgentForge" })).toBeInTheDocument();
     });
-    expect(screen.getByText("Agent-native Source Control & Verified Change Platform")).toBeInTheDocument();
   });
 
   it("renders local login form with email and password inputs", async () => {
@@ -106,13 +103,6 @@ describe("LoginPage", () => {
     renderLoginPage();
     await waitFor(() => {
       expect(screen.getByText("or sign in with")).toBeInTheDocument();
-    });
-  });
-
-  it("shows trust message", async () => {
-    renderLoginPage();
-    await waitFor(() => {
-      expect(screen.getByText("Secure authentication via OpenID Connect")).toBeInTheDocument();
     });
   });
 
