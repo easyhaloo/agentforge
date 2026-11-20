@@ -12,7 +12,6 @@ export const flatPaths = {
   overview: "/",
   projects: "/projects",
   workspaces: "/workspaces",
-  stacks: "/stacks",
   selfHealing: "/self-healing",
   memory: "/memory",
   security: "/security",

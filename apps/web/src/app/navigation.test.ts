@@ -8,7 +8,7 @@ import { itemHref, navigationGroups, navigationItems } from "./navigation";
 // They are deliberately not derived from the code under test, so any drift in copy or order fails here.
 const legacyGroups = [
   { label: "WORKSPACE", items: ["Overview", "Projects", "Repositories", "Changesets", "Workspaces"] },
-  { label: "COORDINATION", items: ["Trails", "Stacks", "Review", "Eval", "Self-healing"] },
+  { label: "COORDINATION", items: ["Trails", "Review", "Eval", "Self-healing"] },
   { label: "INTELLIGENCE", items: ["Memory", "CI / CD"] },
   { label: "DEVELOPER", items: ["WebIDE", "UI Components"] },
   { label: "CONTROL PLANE", items: ["Organization", "Security", "Governance", "Cost & Usage", "Settings"] },
@@ -55,7 +55,6 @@ describe("navigation data source", () => {
       Changesets: "/orgs/demo/changesets",
       Workspaces: "/workspaces",
       Trails: "/orgs/demo/trails",
-      Stacks: "/stacks",
       Review: "/orgs/demo/review",
       Eval: "/orgs/demo/eval",
       "Self-healing": "/self-healing",

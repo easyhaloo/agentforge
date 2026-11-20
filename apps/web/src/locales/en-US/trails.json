@@ -1,0 +1,32 @@
+{
+  "page": {
+    "summary": "{{count}} audit event",
+    "summary_other": "{{count}} audit events",
+    "description": "Audit trail of changeset and organization activity.",
+    "loadingMessage": "Loading audit trail..."
+  },
+  "list": {
+    "title": "Activity Trail",
+    "description": "Changeset workflow and membership activity in {{organizationName}}.",
+    "empty": "No audit events found.",
+    "footer": "Showing {{count}} audit events"
+  },
+  "filters": {
+    "showMembership": "Include membership events"
+  },
+  "columns": {
+    "timestamp": "Time",
+    "type": "Type",
+    "subject": "Subject",
+    "actor": "Actor",
+    "operation": "Operation",
+    "outcome": "Outcome"
+  },
+  "types": {
+    "changeset": "Changeset",
+    "membership": "Membership"
+  },
+  "errors": {
+    "loadFailed": "Failed to load audit trail"
+  }
+}

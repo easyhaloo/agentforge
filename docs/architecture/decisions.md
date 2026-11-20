@@ -77,28 +77,28 @@
 |---|---|---|
 | Overview | `/` | Overview (mock) |
 | Projects | `/projects` | Resource workspace (mock) |
-| Repositories | `/repositories` | Resource workspace (mock) |
+| Repositories | `/orgs/:org/repositories` | Repository workspace (live API) |
 | Workspaces | `/workspaces` | Resource workspace (mock) |
-| Stacks | `/stacks` | Delivery flow (mock) |
 | Self-healing | `/self-healing` | Delivery flow (mock) |
 | Memory | `/memory` | Resource workspace (mock) |
-| CI / CD | `/pipelines` | Resource workspace (mock) |
+| CI / CD | `/orgs/:org/pipelines` | Pipeline workspace (live API) |
 | Security | `/security` | Resource workspace (mock) |
 | Governance | `/governance` | Resource workspace (mock) |
 | Cost & Usage | `/usage` | Resource workspace (mock) |
-| Settings | `/settings` | Resource workspace (mock) |
+| Settings | `/settings` | User settings |
 | UI Components | `/dev/ui` | UI showcase |
 | Changesets | `/orgs/:org/changesets` | Changeset workspace (live API) |
-| Trails | `/orgs/:org/trails` | Changeset workspace (alias) |
-| Review | `/orgs/:org/review` | Changeset workspace (alias) |
-| Eval | `/orgs/:org/eval` | Changeset workspace (alias) |
+| Trails | `/orgs/:org/trails` | Audit trails workspace (live API) |
+| Review | `/orgs/:org/review` | Review queue workspace (live API) |
+| Eval | `/orgs/:org/eval` | Evaluation workspace (live API) |
 | Organization | `/orgs/:org/settings` | Organization management (live API) |
+| WebIDE | `/orgs/:org/webide` | Web-based IDE (live API) |
 | (anything else) | `*` | Not found, inside the shell |
 
 - Consequences:
   - Every page is linkable, and refresh, Back and Forward work. Humans and agents can construct URLs the way they do for GitHub or GitLab views.
   - The Cloudflare Worker already serves `index.html` for unknown paths (`not_found_handling: single-page-application`), so deep links need no server change. `/api/*` and `/auth/*` must reach the backend, not the asset fallback.
-  - Trails, Review and Eval are aliases of the changeset workspace until they get their own pages.
+  - Trails, Review and Eval are now independent organization-scoped workspaces backed by live APIs.
   - A mock page that graduates to a real capability changes URL, from flat to organization-scoped.
   - Adding or changing a URL means updating `app/routes.tsx`, `app/navigation.ts`, the route table tests and this ADR together.
   - Browser tests run against the real entry and deep links instead of a separate harness page.

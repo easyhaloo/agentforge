@@ -1,0 +1,20 @@
+{
+  "page": {
+    "summary": "{{count}} review assigned",
+    "summary_other": "{{count}} reviews assigned",
+    "description": "Review changesets where you are assigned as a reviewer.",
+    "loadingMessage": "Loading reviews..."
+  },
+  "list": {
+    "title": "Review Queue",
+    "description": "Changesets pending your review in {{organizationName}}.",
+    "emptyDefault": "No changesets are assigned to you for review.",
+    "emptyFiltered": "No reviews match the selected filters."
+  },
+  "stats": {
+    "pendingReviews": "{{count}} pending review",
+    "pendingReviews_other": "{{count}} pending reviews",
+    "changesRequested": "{{count}} changes requested",
+    "changesRequested_other": "{{count}} changes requested"
+  }
+}
