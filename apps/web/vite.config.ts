@@ -16,8 +16,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "monaco-editor/min/vs/editor/editor.main.css": fileURLToPath(new URL("./node_modules/monaco-editor/min/vs/editor/editor.main.css", import.meta.url)),
     },
   },
+  worker: { format: "es" },
   server: {
     port: Number(process.env.WEB_PORT ?? 5173),
     proxy: {
