@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.locator(".sidebar .org-switch")).toContainText("AgentForge Demo");
+  await expect(page.locator(".sidebar .org-switch .af-select-trigger__label")).toHaveText("AgentForge Demo");
 });
 
 test("Overview search, status filtering, selection and navigation work together", async ({ page }) => {
