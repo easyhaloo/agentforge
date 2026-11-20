@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -45,15 +46,19 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 // Get retrieves an issue by repository and number
 func (r *IssueRepository) Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error) {
 	var issue issues.Issue
-	var stateStr string
+	var stateStr, stateReasonStr sql.NullString
+	var closedBy sql.NullString
+	var closedAt sql.NullTime
 
 	err := r.store.pool.QueryRow(ctx, `
-		SELECT id, repository, number, title, body, state, created_by, created_at, updated_at
+		SELECT id, repository, number, title, body, state, state_reason,
+		       created_by, created_at, updated_at, closed_at, closed_by
 		FROM issues
 		WHERE organization_id = $1 AND repository = $2 AND number = $3
 	`, organizationID, repository, number).Scan(
 		&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-		&stateStr, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
+		&stateStr, &stateReasonStr, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
+		&closedAt, &closedBy,
 	)
 
 	if err != nil {
@@ -63,7 +68,20 @@ func (r *IssueRepository) Get(ctx context.Context, organizationID, repository st
 		return nil, fmt.Errorf("query issue: %w", err)
 	}
 
-	issue.State = issues.State(stateStr)
+	if stateStr.Valid {
+		issue.State = issues.State(stateStr.String)
+	}
+	if stateReasonStr.Valid {
+		issue.StateReason = issues.StateReason(stateReasonStr.String)
+	}
+	if closedAt.Valid {
+		t := closedAt.Time
+		issue.ClosedAt = &t
+	}
+	if closedBy.Valid {
+		issue.ClosedBy = closedBy.String
+	}
+
 	return &issue, nil
 }
 
