@@ -47,10 +47,17 @@ CREATE TABLE tasks (
     CHECK (attempt <= max_attempts)
 );
 
+-- The deadline and lease expiry are compared against the current time, which is
+-- not an immutable expression, so they cannot appear in the index predicate:
+-- PostgreSQL rejects it with "functions in index predicate must be marked
+-- IMMUTABLE". They stay in the query instead, where the partial index is still
+-- usable because its own predicate is implied by the query. Keeping the time
+-- comparison out of the index also avoids freezing it at row-insert time, which
+-- would have hidden tasks whose deadline had already passed.
 CREATE INDEX tasks_claimable ON tasks(capability, created_at)
-    WHERE status = 'queued' AND attempt < max_attempts AND deadline > now();
+    WHERE status = 'queued' AND attempt < max_attempts;
 CREATE INDEX tasks_lease_expired ON tasks(lease_until)
-    WHERE status = 'leased' AND lease_until <= now();
+    WHERE status = 'leased';
 CREATE INDEX tasks_execution ON tasks(execution_id);
 
 -- Task execution logs for debugging and audit trails
