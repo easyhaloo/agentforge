@@ -98,7 +98,8 @@
     "showPassword": "显示密码",
     "hidePassword": "隐藏密码",
     "switchLanguage": "切换语言",
-    "fileContentAriaLabel": "文件内容"
+    "fileContentAriaLabel": "文件内容",
+    "editorLoadFailed": "代码编辑器加载失败。"
   },
   "delivery": {
     "banner": {
