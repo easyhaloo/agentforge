@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Link, useLocation, useOutletContext, useParams, useRouteError } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
@@ -10,7 +10,7 @@ import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
-import { WebIDEPage } from "../pages/webide/WebIDEPage";
+const WebIDEPage = lazy(() => import("../pages/webide/WebIDEPage").then(module => ({ default: module.WebIDEPage })));
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
@@ -100,7 +100,11 @@ export function RepositoryDetailRoute() {
 
 export function WebIDERoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
-  return <WebIDEPage key={organization.id} organization={organization} />;
+  return (
+    <Suspense fallback={<section className="card org-auth-state" role="status">Loading WebIDE…</section>}>
+      <WebIDEPage key={organization.id} organization={organization} />
+    </Suspense>
+  );
 }
 
 export function OrganizationRoute() {
