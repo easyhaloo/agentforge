@@ -42,6 +42,8 @@ Use the existing stack unless a task explicitly approves a migration:
 
 ### Common Commands
 
+Run from the `apps/web` directory (it owns its own `package.json` and lockfile):
+
 ```bash
 npm install           # Install dependencies
 npm run dev          # Start dev server (port 5173)

@@ -4,7 +4,7 @@ const baseURL = "http://127.0.0.1:4173";
 const startTestStack = process.env.CI && process.env.AGENTFORGE_TEST_ORIGIN === baseURL;
 
 export default defineConfig({
-  testDir: "./apps/web/e2e",
+  testDir: "./e2e",
   testMatch: "**/*.pw.ts",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
@@ -25,8 +25,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: startTestStack
-      ? "WEB_PORT=4173 exec bash scripts/dev-stack.sh up"
-      : "npm run dev --workspace @agentforge/web -- --host 127.0.0.1 --port 4173 --strictPort",
+      ? "WEB_PORT=4173 exec bash ../../scripts/dev-stack.sh up"
+      : "npm run dev -- --host 127.0.0.1 --port 4173 --strictPort",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     // Let the dev stack stop the API and Vite process groups it started.

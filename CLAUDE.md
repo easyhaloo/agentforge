@@ -22,8 +22,12 @@
 - **Branch**: main (default)
 
 ### Package Management
-- **Frontend**: npm (NOT pnpm, despite pnpm-lock.yaml presence)
+- **Frontend**: npm (NOT pnpm) - each package manages dependencies independently
 - **Backend**: Go modules
+- **Structure**: Independent packages (no npm workspaces)
+  - `apps/web/` - Frontend application (has its own node_modules)
+  - `tests/integration/` - Integration tests (has its own node_modules)
+  - Root directory has NO package.json or node_modules
 
 ## Git Workflow
 
@@ -262,13 +266,17 @@ See global `~/.agents/wiki-protocol.md` for memory format.
 ## Environment-Specific Notes
 
 ### Development
-- Frontend: `npm run dev` (port 5173)
-- Backend: `cd backend/api && go run ./cmd/server` (port 8080, requires DATABASE_URL)
-- Database: `docker compose up -d postgres` (port 5432)
+- **Full stack**: `make dev` (starts PostgreSQL, API, and web server)
+- **Frontend only**: `cd apps/web && npm run dev` (port 5173)
+- **Backend only**: `cd backend/api && go run ./cmd/server` (port 8080, requires DATABASE_URL)
+- **Database**: `docker compose up -d postgres` (port 5432)
 
 ### Testing
-- Requires PostgreSQL: `docker-compose -f docker-compose.test.yml up -d`
-- Set `DATABASE_URL` for backend tests (see [Testing Guide](docs/testing/setup.md))
+- **Frontend unit tests**: `cd apps/web && npm test`
+- **Frontend E2E tests**: `cd apps/web && npm run test:e2e`
+- **Backend tests**: Requires PostgreSQL with `DATABASE_URL` set (see [Testing Guide](docs/testing/setup.md))
+- **Integration tests**: `cd tests/integration && npm test`
+- **All checks**: `make test` (runs all frontend and backend tests)
 - Pre-push hook enforces test execution
 
 ## Cross-Project Collaboration

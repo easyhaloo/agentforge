@@ -6,7 +6,7 @@
 #   scripts/dev-stack.sh down     stop the API and the web server (the database data is kept)
 #   scripts/dev-stack.sh status   show what is running
 #   scripts/dev-stack.sh logs     tail the API and web logs
-#   scripts/dev-stack.sh test     run the CI checks (npm test, npm run build, go test ./...)
+#   scripts/dev-stack.sh test     run the CI checks (cd apps/web && npm test, npm run build, go test ./...)
 #
 # Runtime state (PID files, logs, the throwaway Go module file) lives in $RUN_DIR
 # (/tmp/agentforge-dev), never inside the repository working tree.
@@ -84,8 +84,8 @@ stop_process() {
   pid="$(read_pid "$name")"
   [ -n "$pid" ] || return 0
   if process_alive "$pid"; then
-    # The process group is killed, not just the leader, so npm -> vite -> esbuild
-    # goes away with it instead of leaving orphans behind.
+    # The process group is killed, not just the leader, so the npm -> vite -> esbuild
+    # chain goes away with it instead of leaving orphans behind.
     kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
     waited=0
     while [ "$waited" -lt 50 ] && process_alive "$pid"; do
@@ -208,7 +208,7 @@ start_web() {
   start_background "$RUN_DIR/web.log" env \
     WEB_PORT="$WEB_PORT" \
     API_PROXY_TARGET="$API_BASE" \
-    npm run dev --workspace @agentforge/web -- --strictPort
+    bash -c "cd '$REPO_ROOT/apps/web' && npm run dev -- --strictPort"
   echo "$BG_PID" >"$(pid_file web)"
   note "web pid $BG_PID, log $RUN_DIR/web.log"
 }
@@ -353,14 +353,14 @@ cmd_test() {
   mkdir -p "$RUN_DIR"
   step "Ensuring PostgreSQL is up"
   start_postgres
-  if [ ! -d "$REPO_ROOT/node_modules" ]; then
+  if [ ! -d "$REPO_ROOT/apps/web/node_modules" ]; then
     step "Installing web dependencies (npm ci)"
-    (cd "$REPO_ROOT" && npm ci --no-audit --no-fund) || fail "npm ci failed"
+    (cd "$REPO_ROOT/apps/web" && npm ci --no-audit --no-fund) || fail "npm ci failed"
   fi
   step "npm test"
-  (cd "$REPO_ROOT" && npm test) || fail "npm test failed"
+  (cd "$REPO_ROOT/apps/web" && npm test) || fail "npm test failed"
   step "npm run build"
-  (cd "$REPO_ROOT" && npm run build) || fail "npm run build failed"
+  (cd "$REPO_ROOT/apps/web" && npm run build) || fail "npm run build failed"
   step "go test ./..."
   local modfile log skips
   modfile="$(prepare_module_file)"
