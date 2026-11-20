@@ -7,7 +7,7 @@ import { workspaceAPI, type OrganizationSummary, type Workspace, type WorkspaceT
 import { translateError } from "../../shared/api/errors";
 import { detectCodeLanguage } from "../../shared/code/languages";
 import { workspaceEditorModelKey } from "../../shared/code/editorModelKey";
-import { TextAreaEditorAdapter } from "../../shared/code/EditorAdapter";
+import { MonacoEditorAdapter } from "../../shared/code/MonacoEditorAdapter";
 import { workspaceDiffStatusKey, workspaceSourceKey, workspaceStatusKey } from "./workspace-keys";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -134,7 +134,7 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
           <strong>{selected?.path ?? t("repositories:workspace.selectFile")}</strong>
           <span className="changeset-hint">{dirty?t("repositories:workspace.unsaved"):selected?t(`repositories:${workspaceSourceKey(selected.source)}`):t("repositories:workspace.readOnly")}</span>
         </div>
-        <TextAreaEditorAdapter path={selected?.path ?? ""} modelKey={workspace && selected ? workspaceEditorModelKey(workspace.id, selected.path) : undefined} languageId={editorLanguage?.monaco ?? "plaintext"}
+        <MonacoEditorAdapter path={selected?.path ?? ""} modelKey={workspace && selected ? workspaceEditorModelKey(workspace.id, selected.path) : undefined} languageId={editorLanguage?.monaco ?? "plaintext"}
           ariaLabel={t("repositories:workspace.editorLabel")} value={content} onChange={value=>{setContent(value);setDirty(true);}}
           readOnly={editorReadOnly} rows={24}
           editorStyle={{flex:1,minHeight:440,width:"100%",resize:"vertical",fontFamily:"ui-monospace, SFMono-Regular, Menlo, monospace",fontSize:13,lineHeight:1.55,padding:12,border:"1px solid var(--border, #ccc)",borderRadius:8,background:"var(--surface, #fff)",color:"inherit"}} />
