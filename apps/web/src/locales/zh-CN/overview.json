@@ -1,4 +1,5 @@
 {
+  "demoNotice": "示例总览。以下指标、评审动态和变更集使用演示数据。",
   "metrics": {
     "ariaLabel": "工作空间指标",
     "items": {

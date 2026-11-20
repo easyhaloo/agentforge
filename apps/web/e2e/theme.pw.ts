@@ -10,8 +10,8 @@ test("settings and shell render the saved palette, and Auto follows the system",
   });
   const body = page.locator("body");
   const sidebar = page.locator(".settings-sidebar");
-  const light = "rgb(246, 248, 251)";
-  const dark = "rgb(9, 13, 22)";
+  const light = "rgb(255, 255, 255)";
+  const dark = "rgb(13, 17, 23)";
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/settings/account");
   await expect(body).toHaveCSS("background-color", light);
@@ -19,7 +19,7 @@ test("settings and shell render the saved palette, and Auto follows the system",
   await page.getByRole("link", { name: "Appearance" }).click();
   await page.locator('[name=theme][value=auto]').check();
   await expect(body).toHaveCSS("background-color", dark);
-  await expect(sidebar).toHaveCSS("background-color", "rgb(16, 23, 37)");
+  await expect(sidebar).toHaveCSS("background-color", "rgb(22, 27, 34)");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(body).toHaveCSS("background-color", light);
   await page.locator('[name=theme][value=dark]').check();
@@ -46,7 +46,7 @@ test("settings and shell render the saved palette, and Auto follows the system",
   await search.fill("changes");
   release();
   await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-  await expect(page.locator(".topbar")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(page.locator(".topbar")).toHaveCSS("background-color", "rgb(246, 248, 250)");
   await expect(search).toHaveValue("changes");
   await page.keyboard.press("Escape");
   await page.locator(".user-menu-trigger").click();

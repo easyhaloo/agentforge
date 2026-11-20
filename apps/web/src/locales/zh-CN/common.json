@@ -1,4 +1,5 @@
 {
+  "resourceDemoNotice": "此页展示示例数据。更改仅保存在当前浏览器。",
   "actions": {
     "save": "保存",
     "cancel": "取消",

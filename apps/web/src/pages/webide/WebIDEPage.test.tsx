@@ -8,12 +8,11 @@ beforeAll(async () => {
 });
 
 describe("WebIDEPage", () => {
-  it("renders a changeset-aware editor shell without enabling writes before a changeset is selected", () => {
+  it("waits for repository discovery before offering file selection", () => {
     const html = renderToStaticMarkup(<WebIDEPage organization={{ id: "org-1", slug: "demo", name: "Demo", role: "owner" }}/>);
-    expect(html).toContain("WebIDE");
-    expect(html).toContain("READ ONLY");
-    expect(html).toContain("Select a file to edit");
-    expect(html).toContain("Choose a Changeset to enable safe text editing");
+    expect(html).toContain("Loading repository content");
+    expect(html).not.toContain("Select a file to edit");
+    expect(html).not.toContain("No repositories registered");
   });
 
   it("calculates one-based deep-link offsets using actual newline boundaries", () => {

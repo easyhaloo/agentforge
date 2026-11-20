@@ -6,6 +6,7 @@ import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
+import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
@@ -77,6 +78,12 @@ export function PipelineEditorRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const { id = "" } = useParams();
   return <PipelineEditorPage key={`${organization.id}:${id}`} organization={organization} id={id} />;
+}
+
+export function PipelineRunRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { runId = "" } = useParams();
+  return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} runId={runId} />;
 }
 
 export function RepositoriesRoute() {

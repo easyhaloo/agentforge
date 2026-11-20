@@ -111,6 +111,9 @@
   "emptyHint": "Use Create in the upper right to start from a template.",
   "status": "Status",
   "revisionLabel": "Revision",
+  "runDetails": "Run details",
+  "editPipeline": "Edit pipeline",
+  "discardToRun": "Discard unsaved changes and run",
   "backToList": "Back to pipelines",
   "nameHint": "Start with a letter and use up to 64 letters, digits, underscores or hyphens."
 }

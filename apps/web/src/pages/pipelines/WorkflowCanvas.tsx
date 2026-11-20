@@ -81,8 +81,8 @@ export function WorkflowCanvas({ definition, run, selection, onSelect, toolbar }
     <header><Workflow size={18}/><strong>{t(run ? "executionCanvas" : "designCanvas")}</strong><span>{definition.name}</span>{run && badge(run.status)}{toolbar}</header>
     {!graph ? <p>{t("invalidGraph")}</p> : <div className="wf-scroll" tabIndex={0}>
       <div ref={board} className="wf-board">
-        <svg aria-hidden="true"><defs><marker id={marker} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="#9d9fc1"/></marker></defs>
-          {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="#9d9fc1" strokeWidth="1.6" markerEnd={`url(#${marker})`}/>)}</svg>
+        <svg aria-hidden="true"><defs><marker id={marker} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="var(--af-color-text-muted)"/></marker></defs>
+          {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="var(--af-color-text-muted)" strokeWidth="1.6" markerEnd={`url(#${marker})`}/>)}</svg>
         {graph.columns.map((col, c) => <div className="wf-column" key={c}>{col.map(i => {
           const stage = definition.stages[i];
           const stateOf = (id: string) => run?.stepStatuses?.[id] ?? "queued";

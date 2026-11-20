@@ -1,22 +1,19 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { translateError } from "../../shared/api/errors";
-import { pipelines, type Definition, type Pipeline, type Version, type Run } from "../../shared/api/pipelines";
+import { pipelines, type Definition, type Pipeline, type Version } from "../../shared/api/pipelines";
 import { Button, Modal, Select } from "../../shared/ui";
 
 import { manualInput, ParameterField, parseValue, displayValue } from "./ParameterField";
 
-import { WorkflowCanvas } from "./WorkflowCanvas";
-
-
-export type RunVersion = Pick<Version, "number" | "definition">;
+type RunVersion = Pick<Version, "number" | "definition">;
 export type DraftRun = {
   definition: Definition;
   publish?: () => Promise<Pipeline>;
 };
 
-export function RunDialog({ org, pipeline, draft, onCancel, onSubmit, queue = false }: {
-  org: string; pipeline: Pipeline; draft?: DraftRun; onCancel: () => void; queue?: boolean;
+export function RunDialog({ org, pipeline, draft, onCancel, onSubmit, queue = false, confirmDiscard = false }: {
+  org: string; pipeline: Pipeline; draft?: DraftRun; onCancel: () => void; queue?: boolean; confirmDiscard?: boolean;
   onSubmit: (version: RunVersion, inputs: Record<string, unknown>) => Promise<void>;
 }) {
   const { t } = useTranslation("pipelines");
@@ -58,7 +55,7 @@ export function RunDialog({ org, pipeline, draft, onCancel, onSubmit, queue = fa
     await onSubmit(target, inputs);
     onCancel();
   }
-  return <Modal open title={t(queue ? "enqueue" : "runWorkflow")} onCancel={onCancel} okText={t(usingDraft ? (queue ? "publishAndEnqueue" : "publishAndStart") : (queue ? "enqueue" : "start"))}
+  return <Modal open title={t(queue ? "enqueue" : "runWorkflow")} onCancel={onCancel} okText={t(usingDraft ? (queue ? "publishAndEnqueue" : "publishAndStart") : (queue ? "enqueue" : confirmDiscard ? "discardToRun" : "start"))}
     onOk={submit} okDisabled={!definition || missing || (usingDraft && !draft.publish)}>
     {error && <p role="alert">{error} <Button onClick={() => { setError(""); setRetry(n => n + 1); }}>{t("common:actions.refresh")}</Button></p>}
     {!definition && !error ? <p role="status">{t("common:status.loading")}</p> :
@@ -76,34 +73,4 @@ export function RunDialog({ org, pipeline, draft, onCancel, onSubmit, queue = fa
         </div>)}
       </form>}
   </Modal>;
-}
-
-export function LiveRun({ org, receipt, version }: { org: string; receipt: Run; version: RunVersion }) {
-  const { t } = useTranslation("pipelines");
-  const [snapshot, setSnapshot] = useState(receipt);
-  const [stale, setStale] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
-      try {
-        const next = await pipelines.run(org, receipt.id, controller.signal);
-        if (controller.signal.aborted) return;
-        setSnapshot(next);
-        setStale(false);
-        if (next.status !== "queued" && next.status !== "running") return;
-      } catch {
-        if (controller.signal.aborted) return;
-        setStale(true);
-      }
-      timer = setTimeout(refresh, 1500);
-    }
-    void refresh();
-    return () => { controller.abort(); clearTimeout(timer); };
-  }, [org, receipt.id]);
-  return <div>
-    <p role="status">{t("run", {id:receipt.id, version:receipt.version, status:t(snapshot.status)})}</p>
-    {stale && <p role="alert">{t("staleRun")}</p>}
-    <WorkflowCanvas definition={version.definition} run={snapshot}/>
-  </div>;
 }

@@ -43,27 +43,18 @@ export function Sidebar({ account, selectedOrganization: selected, linkHandle, o
             <NavLink
               key={item.label}
               to={href}
+              aria-label={t(labelToNavKey(item.label))}
+              title={t(labelToNavKey(item.label))}
               end
               className={({isActive})=>`${linkButton} nav-item${isActive?" active":""}`}
             >
               <item.icon size={16}/>
               <span>{t(labelToNavKey(item.label))}</span>
-              {item.label==="Changesets"&&<em>8</em>}
             </NavLink>
           );
         })}
       </section>
     ))}
-  </div>
-  <div className="sidebar-bottom">
-    <div className="usage">
-      <div className="usage-head">
-        <span>{t("sidebar.monthlyUsage")}</span>
-        <b>—</b>
-      </div>
-      <div className="progress"><i style={{width:"0%"}}/></div>
-      <small>{t("sidebar.usageNotConnected")}</small>
-    </div>
   </div>
  </aside>;
 }
