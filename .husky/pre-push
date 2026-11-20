@@ -3,12 +3,11 @@
 # Git pre-push hook: Check documentation, code quality, and tests
 #
 # This hook runs:
-# 1. Documentation placement check (per CLAUDE.md rules)
-# 2. Go code formatting check (gofmt)
-# 3. Go unit/integration tests
-# 4. Frontend unit tests (Vitest)
-# 5. Frontend build check (TypeScript + Vite)
-# 6. E2E tests (Playwright) - MANDATORY, no skip option
+# 1. Path detection (smart filtering like CI)
+# 2. Documentation placement check (always)
+# 3. Go code formatting + tests (only if backend changed)
+# 4. Frontend unit tests + build (only if frontend changed)
+# 5. E2E tests (if any code changed)
 #
 # If any check fails, the push is rejected.
 #
@@ -24,115 +23,191 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# 1. Check documentation placement
+# ============================================================================
+# Path Detection (Smart Filtering)
+# ============================================================================
+
+echo ""
+echo -e "${CYAN}🔍 Detecting changed paths...${NC}"
+
+# Compare current branch against origin/main (like CI changes job)
+# If detection fails (e.g., origin/main doesn't exist), run all checks
+if changed_files=$(git diff --name-only origin/main...HEAD 2>/dev/null); then
+    # Detect web changes (apps/web, package.json, etc.)
+    if echo "$changed_files" | grep -qE '^(apps/web/|package\.json|package-lock\.json|\.npmrc|wrangler\.jsonc)'; then
+        WEB_CHANGED=true
+    else
+        WEB_CHANGED=false
+    fi
+
+    # Detect API changes (backend/api)
+    if echo "$changed_files" | grep -qE '^backend/api/'; then
+        API_CHANGED=true
+    else
+        API_CHANGED=false
+    fi
+
+    echo "   📱 Web: $WEB_CHANGED"
+    echo "   🔧 API: $API_CHANGED"
+
+    # Fast path: only docs/config changes, no code
+    if [ "$WEB_CHANGED" = "false" ] && [ "$API_CHANGED" = "false" ]; then
+        echo ""
+        echo -e "${GREEN}ℹ️  No code changes detected (only docs/config)${NC}"
+        echo "   Running document placement check only..."
+
+        # Only run document placement check
+        if [ -x "$REPO_ROOT/.husky/check-doc-placement" ]; then
+            "$REPO_ROOT/.husky/check-doc-placement" "$@"
+        fi
+
+        echo ""
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${GREEN}✅ Pre-push checks passed (fast path: ~5s)${NC}"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        exit 0
+    fi
+else
+    # Cannot detect changes, run all checks (safe default)
+    WEB_CHANGED=true
+    API_CHANGED=true
+    echo -e "${YELLOW}   ⚠️  Cannot detect changes, running all checks${NC}"
+fi
+
+# ============================================================================
+# Documentation Placement Check (Always Run)
+# ============================================================================
+
 if [ -x "$REPO_ROOT/.husky/check-doc-placement" ]; then
     "$REPO_ROOT/.husky/check-doc-placement" "$@"
 fi
 
-echo ""
-echo "🔍 Checking Go code formatting..."
+# ============================================================================
+# Go Checks (Only if API Changed)
+# ============================================================================
 
-cd "$REPO_ROOT/backend/api"
+if [ "$API_CHANGED" = "true" ]; then
+    echo ""
+    echo "🔍 Checking Go code formatting..."
 
-# Check for unformatted Go files
-UNFORMATTED=$(gofmt -l . 2>&1)
+    cd "$REPO_ROOT/backend/api"
 
-if [ -n "$UNFORMATTED" ]; then
+    # Check for unformatted Go files
+    UNFORMATTED=$(gofmt -l . 2>&1)
+
+    if [ -n "$UNFORMATTED" ]; then
+        echo ""
+        echo -e "${RED}❌ Go code formatting check failed!${NC}"
+        echo ""
+        echo "The following files are not formatted correctly:"
+        echo "$UNFORMATTED"
+        echo ""
+        echo "Please run 'gofmt -w .' in backend/api to format your code."
+        echo "Or run: cd backend/api && gofmt -w ."
+        echo ""
+        echo "To bypass this check (not recommended): git push --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ All Go files are properly formatted${NC}"
+
     echo ""
-    echo -e "${RED}❌ Go code formatting check failed!${NC}"
+    echo "🧪 Running Go tests..."
+
+    # Run Go tests
+    if ! go test ./... 2>&1; then
+        echo ""
+        echo -e "${RED}❌ Go tests failed!${NC}"
+        echo ""
+        echo "Please fix the failing tests before pushing."
+        echo "Run 'go test ./...' in backend/api to see detailed errors."
+        echo ""
+        echo "To bypass this check (not recommended): git push --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ All Go tests passed${NC}"
+else
     echo ""
-    echo "The following files are not formatted correctly:"
-    echo "$UNFORMATTED"
-    echo ""
-    echo "Please run 'gofmt -w .' in backend/api to format your code."
-    echo "Or run: cd backend/api && gofmt -w ."
-    echo ""
-    echo "To bypass this check (not recommended): git push --no-verify"
-    exit 1
+    echo -e "${CYAN}⏭️  Skipping Go checks (no API changes)${NC}"
 fi
 
-echo -e "${GREEN}✅ All Go files are properly formatted${NC}"
-
-echo ""
-echo "🧪 Running Go tests..."
-
-# Git exports GIT_DIR (and friends) to the hook, so every git command the tests
-# run would act on this repository instead of the temporary repositories they
-# create, and they fail with "this operation must be run in a work tree".
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
-
-# Run Go tests
-if ! go test ./... 2>&1; then
-    echo ""
-    echo -e "${RED}❌ Go tests failed!${NC}"
-    echo ""
-    echo "Please fix the failing tests before pushing."
-    echo "Run 'go test ./...' in backend/api to see detailed errors."
-    echo ""
-    echo "To bypass this check (not recommended): git push --no-verify"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ All Go tests passed${NC}"
-
-# Switch to frontend
+# Switch to root for frontend checks
 cd "$REPO_ROOT"
 
-echo ""
-echo "🧪 Running frontend unit tests..."
+# ============================================================================
+# Frontend Checks (Only if Web Changed)
+# ============================================================================
 
-# Run frontend unit tests
-if ! npm test 2>&1; then
+if [ "$WEB_CHANGED" = "true" ]; then
     echo ""
-    echo -e "${RED}❌ Frontend unit tests failed!${NC}"
+    echo "🧪 Running frontend unit tests..."
+
+    # Run frontend unit tests
+    if ! npm test 2>&1; then
+        echo ""
+        echo -e "${RED}❌ Frontend unit tests failed!${NC}"
+        echo ""
+        echo "Please fix the failing tests before pushing."
+        echo "Run 'npm test' to see detailed errors."
+        echo ""
+        echo "To bypass this check (not recommended): git push --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ All frontend unit tests passed${NC}"
+
     echo ""
-    echo "Please fix the failing tests before pushing."
-    echo "Run 'npm test' to see detailed errors."
+    echo "🏗️  Checking frontend build..."
+
+    # Run frontend build check (TypeScript + Vite)
+    if ! npm run build 2>&1; then
+        echo ""
+        echo -e "${RED}❌ Frontend build failed!${NC}"
+        echo ""
+        echo "Please fix the build errors before pushing."
+        echo "Run 'npm run build' to see detailed errors."
+        echo ""
+        echo "To bypass this check (not recommended): git push --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ Frontend build successful${NC}"
+else
     echo ""
-    echo "To bypass this check (not recommended): git push --no-verify"
-    exit 1
+    echo -e "${CYAN}⏭️  Skipping frontend unit tests and build (no web changes)${NC}"
 fi
 
-echo -e "${GREEN}✅ All frontend unit tests passed${NC}"
+# ============================================================================
+# E2E Tests (If Any Code Changed)
+# ============================================================================
 
-echo ""
-echo "🏗️  Checking frontend build..."
+if [ "$WEB_CHANGED" = "true" ] || [ "$API_CHANGED" = "true" ]; then
+    echo ""
+    echo "🎭 Running E2E tests (Playwright)..."
+    echo "   E2E tests are mandatory and cannot be skipped"
 
-# Run frontend build check (TypeScript + Vite)
-if ! npm run build 2>&1; then
+    # Run E2E tests
+    if ! npm run test:e2e 2>&1; then
+        echo ""
+        echo -e "${RED}❌ E2E tests failed!${NC}"
+        echo ""
+        echo "Please fix the failing E2E tests before pushing."
+        echo "Run 'npm run test:e2e' to see detailed errors."
+        echo ""
+        echo "E2E tests are mandatory for code quality."
+        echo "To bypass all checks (not recommended): git push --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ All E2E tests passed${NC}"
+else
     echo ""
-    echo -e "${RED}❌ Frontend build failed!${NC}"
-    echo ""
-    echo "Please fix the build errors before pushing."
-    echo "Run 'npm run build' to see detailed errors."
-    echo ""
-    echo "To bypass this check (not recommended): git push --no-verify"
-    exit 1
+    echo -e "${CYAN}⏭️  Skipping E2E tests (no code changes)${NC}"
 fi
-
-echo -e "${GREEN}✅ Frontend build successful${NC}"
-
-# E2E tests (MANDATORY)
-echo ""
-echo "🎭 Running E2E tests (Playwright)..."
-echo "   E2E tests are mandatory and cannot be skipped"
-
-# Run E2E tests
-if ! npm run test:e2e 2>&1; then
-    echo ""
-    echo -e "${RED}❌ E2E tests failed!${NC}"
-    echo ""
-    echo "Please fix the failing E2E tests before pushing."
-    echo "Run 'npm run test:e2e' to see detailed errors."
-    echo ""
-    echo "E2E tests are mandatory for code quality."
-    echo "To bypass all checks (not recommended): git push --no-verify"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ All E2E tests passed${NC}"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
