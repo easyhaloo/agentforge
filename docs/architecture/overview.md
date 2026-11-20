@@ -12,9 +12,12 @@
 - Backend hosting: an independently deployed Go service.
 - Execution: isolated workers/workspaces; never run untrusted repository code inside an API request handler.
 
-This document describes the approved target architecture. It does not claim that the Go backend, database, or execution workers already exist.
+This document describes the approved target architecture. It does not claim that the Go backend, database, Git Smart HTTP transport, or execution workers already exist.
 
 ## 1. Product boundary
+
+AgentForge is an independent Git hosting platform, on the same product category level as GitHub and GitLab. AgentForge owns Git repository storage, refs, transport, authentication, authorization and browsing. GitHub/GitLab are not upstream sources or provider dependencies for core repository operations. See [ADR-009](decisions.md#adr-009-native-agentforge-git-hosting) and [Native Git Hosting Architecture](native-git-hosting.md).
+
 
 AgentForge is an **Agent-native Source Control & Verified Change Platform**. It coordinates changes and verifies delivery; it is not itself an Agent Runtime and must not be reduced to an AI-themed Git hosting interface.
 
@@ -92,7 +95,11 @@ Suggested business modules:
 | --- | --- |
 | identity | Authentication, principals, credentials and authorization context |
 | organization | Organizations and memberships |
-| repository | Repository metadata and Git provider connections |
+| repository | Native AgentForge repository metadata, lifecycle and access policy |
+| git | Bare repository lifecycle, safe Git command boundary, refs and object access |
+| gittransport | Git Smart HTTP protocol gateway and bounded process execution |
+| gitpolicy | Push rules, branch protection and repository quotas |
+| git-events | Durable post-receive events, idempotent consumers and reconciliation |
 | changeset | Changeset lifecycle and invariants |
 | revision | Revision identity, ancestry and commit association |
 | evaluation | Evaluation lifecycle and result aggregation |
@@ -174,7 +181,7 @@ Do not introduce GraphQL or gRPC in the initial implementation without a demonst
 
 PostgreSQL is the initial system of record for business state and durable execution metadata.
 
-Object storage is used for larger artifacts such as logs, test reports and evidence files; relational records store metadata and immutable references.
+Object storage is used for larger artifacts such as logs, test reports and evidence files, and later Git LFS payloads; relational records store metadata and immutable references. Native Git objects and refs live in AgentForge-managed bare repositories, not PostgreSQL.
 
 Do not introduce Redis or a separate message broker until concrete concurrency, throughput, or coordination requirements justify the operational cost. The first durable scheduler can use PostgreSQL-backed records and transactional claiming if that is sufficient.
 
@@ -242,3 +249,19 @@ Key invariants:
 - PostgreSQL remains the initial system of record and durable scheduler; add brokers or workflow infrastructure only when measured requirements justify them.
 
 These are target decisions, not claims that the CI/CD product capabilities are already implemented.
+
+
+## 14. Source Control evolution
+
+AgentForge keeps Git as its canonical interoperable storage model while adopting server-side source-control APIs and rebuildable derived indexes. Pando-inspired work (per-ref concurrency, immutable pack reuse, bounded streaming, caching and compaction) improves the Git-native data plane. Scion-inspired work (server-side diff/history/blame APIs, sparse workspaces and versioned Derived Data) reduces the need for full client checkouts without replacing Git.
+
+A Scion-style Changeset WAL is explicitly deferred until AgentForge workload metrics justify a separately versioned storage backend and a verified migration path. Git commit IDs and AgentForge Changeset/Revision IDs remain distinct.
+
+See [Source Control Evolution](source-control-evolution.md) and ADR-010 through ADR-013 in [Architecture Decisions](decisions.md).
+
+
+## 15. Repository Preview and WebIDE
+
+Repository Preview is the zero-clone, read-only interface over immutable commit-pinned Source Control APIs. WebIDE is a browser client of isolated server-managed workspaces and hands changes back through the existing Changeset lifecycle. Its extension SDK is versioned and capability-scoped; extensions and preview runtimes never receive unrestricted host access.
+
+See [Repository Preview and WebIDE](repository-preview-and-webide.md) and ADR-014/ADR-015 in [Architecture Decisions](decisions.md).

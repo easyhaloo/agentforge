@@ -39,6 +39,10 @@ export function changesetPath(handle: string, changesetID: string, tab: Changese
   return tab === "overview" ? base : `${base}/${tab}`;
 }
 
+export function pipelineRunPath(handle: string, runId: string): string {
+  return `/orgs/${encodeURIComponent(handle)}/pipeline-runs/${encodeURIComponent(runId)}`;
+}
+
 export function pipelineEditPath(handle: string, id: string): string {
   return `${orgPath(handle, "pipelines")}/${encodeURIComponent(id)}/edit`;
 }

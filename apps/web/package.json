@@ -11,6 +11,7 @@
     "check:i18n": "vitest run src/architecture/i18n-keys.test.ts src/locales/locales.test.ts"
   },
   "dependencies": {
+    "shiki": "4.6.0",
     "i18next": "^27.1.5",
     "i18next-browser-languagedetector": "^8.3.1",
     "lucide-react": "0.468.0",

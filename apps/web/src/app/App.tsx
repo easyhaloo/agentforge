@@ -111,10 +111,7 @@ function App() {
             {(label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
               <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
-            <footer>
-              <span>{t("app:footer.prototype")} <b>{t("app:footer.version")}</b></span>
-              <span><i className="live-dot" /> {t("app:footer.operational")} <span className="footer-sep">·</span> {t("app:footer.mockEnvironment")}</span>
-            </footer>
+            {!urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>
         </main>
         <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />

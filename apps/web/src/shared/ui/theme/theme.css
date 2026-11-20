@@ -1,17 +1,24 @@
 :root {
-  --af-color-primary: #8878f6;
-  --af-color-primary-hover: #9a8cff;
-  --af-color-success: #65c89b;
-  --af-color-warning: #e5a66b;
-  --af-color-danger: #e28d98;
-  --af-color-info: #65a9e8;
-  --af-color-text: #e8eaf2;
-  --af-color-text-secondary: #98a3b8;
-  --af-color-text-muted: #69758c;
-  --af-color-border: #273248;
-  --af-color-surface: #101725;
-  --af-color-surface-raised: #141c2b;
-  --af-color-background: #090d16;
+  color-scheme: dark;
+  --af-color-background: #0d1117;
+  --af-color-surface: #161b22;
+  --af-color-surface-raised: #212830;
+  --af-color-border: #3d444d;
+  --af-color-text: #f0f6fc;
+  --af-color-text-secondary: #b1bac4;
+  --af-color-text-muted: #9198a1;
+  --af-color-primary: #58a6ff;
+  --af-color-primary-hover: #79c0ff;
+  --af-color-action: #238636;
+  --af-color-action-hover: #29903b;
+  --af-color-success: #56d364;
+  --af-color-warning: #e3b341;
+  --af-color-danger: #ff7b72;
+  --af-color-info: #58a6ff;
+  --af-color-primary-subtle: color-mix(in srgb, var(--af-color-primary) 12%, var(--af-color-surface));
+  --af-color-success-subtle: color-mix(in srgb, var(--af-color-success) 12%, var(--af-color-surface));
+  --af-color-warning-subtle: color-mix(in srgb, var(--af-color-warning) 12%, var(--af-color-surface));
+  --af-color-danger-subtle: color-mix(in srgb, var(--af-color-danger) 12%, var(--af-color-surface));
   --af-radius-sm: 5px;
   --af-radius-md: 7px;
   --af-radius-lg: 10px;
@@ -31,25 +38,22 @@
 }
 
 :root[data-theme="light"] {
-  --af-color-background: #f6f8fb;
+  color-scheme: light;
+  --af-color-background: #ffffff;
   --af-color-surface: #ffffff;
-  --af-color-surface-raised: #edf1f7;
-  --af-color-border: #c9d1de;
-  --af-color-text: #172033;
-  --af-color-text-secondary: #455269;
-  --af-color-text-muted: #58667c;
-  --af-color-primary: #5944b8;
-  --af-color-danger: #aa3045;
-}
-
-:root[data-theme], :root[data-theme] body, .focused-shell {
-  background-color: var(--af-color-background);
-}
-
-/* The business pages still use their original dark canvas and foreground. */
-.shell > .main {
-  background-color: #090d16;
-  color: #e8eaf2;
+  --af-color-surface-raised: #f6f8fa;
+  --af-color-border: #d1d9e0;
+  --af-color-text: #1f2328;
+  --af-color-text-secondary: #59636e;
+  --af-color-text-muted: #59636e;
+  --af-color-primary: #0969da;
+  --af-color-primary-hover: #0550ae;
+  --af-color-action: #1f7e36;
+  --af-color-action-hover: #196c2e;
+  --af-color-success: #116329;
+  --af-color-warning: #895700;
+  --af-color-danger: #b62324;
+  --af-color-info: #0969da;
 }
 
 .settings-layout {
@@ -66,33 +70,4 @@
   --color-bg-active: var(--color-primary-bg);
   --color-error: var(--af-color-danger);
   --color-error-bg: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
-}
-
-[data-theme="dark"] :is(.settings-layout, .sidebar, .topbar) { color-scheme: dark; }
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) { color-scheme: light; }
-[data-theme="light"] :is(.sidebar, .topbar) {
-  background: var(--af-color-surface);
-  color: var(--af-color-text);
-  border-color: var(--af-color-border);
-}
-[data-theme="light"] :is(.sidebar .brand, .sidebar-bottom, .searchbox kbd) { border-color: var(--af-color-border); }
-[data-theme="light"] :is(.sidebar .af-button.nav-item, .breadcrumbs, .usage-head, .usage small, .nav-label) { color: var(--af-color-text-secondary); }
-[data-theme="light"] .sidebar .af-button.nav-item:is(:hover, .active),
-[data-theme="light"] .sidebar .nav-item em { background: var(--af-color-surface-raised); color: var(--af-color-primary); }
-[data-theme="light"] :is(.breadcrumbs b, .usage-head b) { color: var(--af-color-text); }
-
-/* Theme the shared controls where the surrounding surface also follows the theme. */
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) :is(.af-field, .af-field__label, .af-choice, .af-modal__header h2, .af-modal__body, .user-menu-header__name) { color: var(--af-color-text); }
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) :is(.af-field__hint, .user-menu-header__email) { color: var(--af-color-text-muted); }
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) :is(.af-input, .af-textarea, .af-select-trigger, .af-select-dropdown, .af-modal, .af-popover__content, .af-popover__trigger),
-[data-theme="light"] .topbar .af-button:not(.user-menu-item) {
-  background: var(--af-color-surface-raised);
-  border-color: var(--af-color-border);
-  color: var(--af-color-text);
-}
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) :is(.af-input, .af-textarea, .af-select-trigger):focus { border-color: var(--af-color-primary); }
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) :is(.af-select-option, .user-menu-item) { color: var(--af-color-text-secondary); }
-[data-theme="light"] :is(.settings-layout, .sidebar, .topbar) :is(.af-select-option:hover, .af-select-option:focus, .af-select-option--highlighted, .af-select-option--selected, .user-menu-item:hover) {
-  background: var(--af-color-surface);
-  color: var(--af-color-primary);
 }

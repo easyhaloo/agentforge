@@ -13,7 +13,9 @@ import {
   type StoredChangeset,
 } from "../../shared/api/identity";
 import { useTranslation } from "react-i18next";
-import { Button, ConfirmDialog, Select } from "../../shared/ui";
+import { Link } from "react-router-dom";
+import { organizationHandle, orgPath } from "../../shared/routing";
+import { Alert, Button, ConfirmDialog, Empty, Loading, Select } from "../../shared/ui";
 import { detectCodeLanguage } from "../../shared/code/languages";
 import { TextAreaEditorAdapter, type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
 import { translateError } from "../../shared/api/errors";
@@ -43,7 +45,8 @@ function lineDiff(before: string, after: string): DiffLine[] {
 export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEditorAdapter }: { organization: OrganizationSummary; editorAdapter?: EditorAdapter }) {
   const { t } = useTranslation("repositories");
   const initial = useMemo(() => new URLSearchParams(window.location.search), []);
-  const [repositories, setRepositories] = useState<RepositoryMetadata[]>([]);
+  const [repositories, setRepositories] = useState<RepositoryMetadata[] | null>(null);
+  const [repositoryError, setRepositoryError] = useState("");
   const [changesets, setChangesets] = useState<StoredChangeset[]>([]);
   const [selectedRepository, setSelectedRepository] = useState(initial.get("repository") ?? "");
   const [selectedChangesetID, setSelectedChangesetID] = useState(initial.get("changeset") ?? "");
@@ -85,7 +88,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
       if (!active) return;
       setRepositories(result.items);
       setSelectedRepository(current => current || result.items[0]?.slug || "");
-    }).catch(cause => { if (active) setError(translateError(cause, t, "repositories:webide.errors.repositoriesFailed")); });
+    }).catch(cause => { if (active) setRepositoryError(translateError(cause, t, "repositories:webide.errors.repositoriesFailed")); });
     void changesetAPI.list(organization.id).then(result => {
       if (!active) return;
       setChangesets(result.items);
@@ -220,6 +223,15 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [canEdit, dirty, saving, save]);
+
+  if (repositoryError) return <Alert status="error">{repositoryError}</Alert>;
+  if (!repositories) return <Loading label={t("repositories:webide.loading")} />;
+  if (repositories.length === 0) return <>
+    {error && <Alert status="error">{error}</Alert>}
+    <Empty title={t("repositories:empty")} description={t("repositories:webide.noRepositoryHint")} action={
+      <Link className="button secondary" to={orgPath(organizationHandle(organization), "repositories")}>{t("repositories:webide.openRepositories")}</Link>
+    } />
+  </>;
 
   return <section className="webide-page">
     <header className="webide-heading">
