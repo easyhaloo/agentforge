@@ -19,8 +19,8 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
-	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
+	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 )
 
 type Principal = identity.Principal
