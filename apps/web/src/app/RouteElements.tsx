@@ -6,13 +6,17 @@ import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
-import { PipelinesPage } from "../pages/pipelines/PipelinesPage";
+import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
+import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
+import { PageHeader } from "./components/PageHeader";
+import { useAppAccount } from "./account-context";
 import { useNotify } from "./useNotify";
 import { LoginPage } from "../pages/login";
 import { RegisterPage } from "../pages/register/RegisterPage";
@@ -30,15 +34,9 @@ export function RegisterRoute() {
 
 export function SettingsRoute() {
   const notify = useNotify();
-  // TODO: Get actual user data from context or API
-  // For now, using placeholder values until user context is available
-  return (
-    <SettingsLayout
-      username="user"
-      displayName="User"
-      onNotify={notify}
-    />
-  );
+  const { account, updateDisplayName } = useAppAccount();
+  if (!account) return null;
+  return <SettingsLayout organizations={account.organizations} notify={notify} updateDisplayName={updateDisplayName} />;
 }
 
 export function OverviewRoute() {
@@ -72,13 +70,32 @@ export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
 
 export function PipelinesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
-  return <PipelinesPage key={organization.id} organization={organization} />;
+  return <PipelinesPage key={organization.id} organization={organization} renderHeader={actions =>
+    <PageHeader label="CI / CD" descriptionKey="navigation:descriptions.cicd" {...actions} />} />;
+}
+
+export function PipelineEditorRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { id = "" } = useParams();
+  return <PipelineEditorPage key={`${organization.id}:${id}`} organization={organization} id={id} />;
+}
+
+export function PipelineRunRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { runId = "" } = useParams();
+  return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} runId={runId} />;
 }
 
 export function RepositoriesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function RepositoryDetailRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { repositorySlug = "" } = useParams();
+  return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
 }
 
 export function WebIDERoute() {

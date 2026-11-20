@@ -51,12 +51,14 @@ type LocalAuthHandler interface {
 type DeliveryDependencies struct {
 	Repository       delivery.Repository
 	Identity         identity.PrincipalResolver
+	RevokeSession    func(context.Context, string) error
 	CSRF             identity.CSRFValidator
 	AllowedOrigin    string
 	OIDC             identity.OIDCHandler
 	LocalAuth        LocalAuthHandler
 	Membership       MembershipRepository
 	Account          AccountRepository
+	Settings         SettingsRepository
 	Git              delivery.GitProvider
 	IntegrationGit   delivery.IntegrationGitProvider
 	Evaluator        delivery.Evaluator
@@ -357,29 +359,49 @@ func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request
 
 func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
-	if !locked { return }
+	if !locked {
+		return
+	}
 	defer unlock()
 	writer, supported := d.Git.(delivery.RepositoryFileWriter)
-	if !supported { writeProblem(w, http.StatusServiceUnavailable, "Repository editing unavailable", "The configured Git provider does not support safe changeset writes"); return }
-	if d.Preview == nil { writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A trusted repository preview reader is required to verify the base blob"); return }
-	var input struct {
-		Path string `json:"path"`
-		BaseCommitSHA string `json:"base_commit_sha"`
-		BaseBlobSHA string `json:"base_blob_sha"`
-		Content string `json:"content"`
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository editing unavailable", "The configured Git provider does not support safe changeset writes")
+		return
 	}
-	if !decodeJSON(w, r, &input) { return }
+	if d.Preview == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A trusted repository preview reader is required to verify the base blob")
+		return
+	}
+	var input struct {
+		Path          string `json:"path"`
+		BaseCommitSHA string `json:"base_commit_sha"`
+		BaseBlobSHA   string `json:"base_blob_sha"`
+		Content       string `json:"content"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
 	if len(input.Content) > 1<<20 || !utf8.ValidString(input.Content) {
 		writeProblem(w, http.StatusRequestEntityTooLarge, "File content too large or invalid", "WebIDE accepts UTF-8 text files up to 1 MiB")
 		return
 	}
 	stored, ok := d.load(w, r, principal.OrganizationID)
-	if !ok { return }
-	if stored.Changeset.Merge != nil { writeProblem(w, http.StatusConflict, "Changeset already merged", "A merged changeset cannot receive additional file revisions"); return }
+	if !ok {
+		return
+	}
+	if stored.Changeset.Merge != nil {
+		writeProblem(w, http.StatusConflict, "Changeset already merged", "A merged changeset cannot receive additional file revisions")
+		return
+	}
 	revision, exists := stored.Changeset.CurrentRevision()
-	if !exists || revision.CommitSHA == "" { writeProblem(w, http.StatusConflict, "Revision required", "Resolve an initial Git revision before editing files"); return }
+	if !exists || revision.CommitSHA == "" {
+		writeProblem(w, http.StatusConflict, "Revision required", "Resolve an initial Git revision before editing files")
+		return
+	}
 	if input.BaseCommitSHA != revision.CommitSHA {
 		writeProblem(w, http.StatusConflict, "Stale editor revision", "The changeset revision advanced; reload the file before saving")
 		return
@@ -403,19 +425,25 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 		return
 	}
 	id, err := newID()
-	if err != nil { writeProblem(w, http.StatusInternalServerError, "Unable to record file revision", "An identifier could not be generated"); return }
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to record file revision", "An identifier could not be generated")
+		return
+	}
 	if err = stored.Changeset.AddGitRevision(delivery.ID(id), result.Branch, result.CommitSHA, revision.CommitSHA, principal.UserID, time.Now().UTC()); err != nil {
 		writeDeliveryError(w, err)
 		return
 	}
 	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
-	if err != nil { writeRepositoryError(w, err); return }
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"changeset": toChangesetResponse(updated),
-		"path": input.Path,
-		"branch": result.Branch,
+		"changeset":  toChangesetResponse(updated),
+		"path":       input.Path,
+		"branch":     result.Branch,
 		"commit_sha": result.CommitSHA,
-		"blob_sha": result.BlobSHA,
+		"blob_sha":   result.BlobSHA,
 	})
 }
 
@@ -1084,6 +1112,23 @@ func writeInvitationError(w http.ResponseWriter, err error) {
 	}
 }
 
+func (d DeliveryDependencies) logout(w http.ResponseWriter, r *http.Request) {
+	if d.RevokeSession == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Logout unavailable", "Session storage is not configured")
+		return
+	}
+	if cookie, err := r.Cookie(identity.SessionCookieName); err == nil && cookie.Value != "" {
+		if err := d.RevokeSession(r.Context(), cookie.Value); err != nil && !errors.Is(err, identity.ErrUnauthenticated) {
+			writeProblem(w, http.StatusServiceUnavailable, "Logout temporarily unavailable", "The active session could not be revoked")
+			return
+		}
+	}
+	sessionCookie, csrfCookie := identity.ClearSessionCookies()
+	http.SetCookie(w, sessionCookie)
+	http.SetCookie(w, csrfCookie)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (d DeliveryDependencies) currentAccount(w http.ResponseWriter, r *http.Request) {
 	if d.Account == nil {
 		writeProblem(w, http.StatusServiceUnavailable, "Account context unavailable", "The authenticated account repository is not configured")
@@ -1108,40 +1153,12 @@ func (d DeliveryDependencies) currentAccount(w http.ResponseWriter, r *http.Requ
 
 // getProfile returns the current user's profile information
 func (d DeliveryDependencies) getProfile(w http.ResponseWriter, r *http.Request) {
-	if d.Account == nil {
-		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "The account repository is not configured")
-		return
-	}
-
-	// Get session cookie to extract user ID
-	cookie, err := r.Cookie(identity.SessionCookieName)
-	if err != nil || cookie.Value == "" {
-		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
-		return
-	}
-
-	// Validate session and get user ID
-	account, err := d.Account.CurrentAccount(r.Context(), cookie.Value)
-	if errors.Is(err, identity.ErrUnauthenticated) {
-		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
-		return
-	}
-	if err != nil {
-		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "Could not load account context")
-		return
-	}
-
-	// Get profile using Repository (which is *postgres.Store)
-	type profileGetter interface {
-		GetUserProfile(context.Context, string) (identity.UserProfile, error)
-	}
-	repo, ok := d.Repository.(profileGetter)
+	userID, ok := d.authenticateUser(w, r)
 	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Profile unavailable", "Profile repository is not configured")
 		return
 	}
 
-	profile, err := repo.GetUserProfile(r.Context(), account.UserID)
+	profile, err := d.Settings.GetUserProfile(r.Context(), userID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Profile unavailable", err.Error())
 		return
@@ -1152,61 +1169,25 @@ func (d DeliveryDependencies) getProfile(w http.ResponseWriter, r *http.Request)
 
 // updateProfile updates the current user's profile information
 func (d DeliveryDependencies) updateProfile(w http.ResponseWriter, r *http.Request) {
-	if d.Account == nil {
-		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "The account repository is not configured")
-		return
-	}
-
-	// Get session cookie to extract user ID
-	cookie, err := r.Cookie(identity.SessionCookieName)
-	if err != nil || cookie.Value == "" {
-		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
-		return
-	}
-
-	// Validate session and get user ID
-	account, err := d.Account.CurrentAccount(r.Context(), cookie.Value)
-	if errors.Is(err, identity.ErrUnauthenticated) {
-		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
-		return
-	}
-	if err != nil {
-		writeProblem(w, http.StatusServiceUnavailable, "Account unavailable", "Could not load account context")
-		return
-	}
-
-	// Parse request body
-	var updateReq struct {
-		DisplayName string `json:"display_name"`
-		Bio         string `json:"bio"`      // TODO: Not yet supported in DB
-		Location    string `json:"location"` // TODO: Not yet supported in DB
-	}
-	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
-		writeProblem(w, http.StatusBadRequest, "Invalid request", "Request body must be valid JSON")
-		return
-	}
-
-	// Validate display_name
-	if strings.TrimSpace(updateReq.DisplayName) == "" {
-		writeProblem(w, http.StatusBadRequest, "Invalid request", "display_name is required")
-		return
-	}
-	if len(updateReq.DisplayName) > 100 {
-		writeProblem(w, http.StatusBadRequest, "Invalid request", "display_name must not exceed 100 characters")
-		return
-	}
-
-	// Update profile using Repository (which is *postgres.Store)
-	type profileUpdater interface {
-		UpdateUserProfile(context.Context, string, string) (identity.UserProfile, error)
-	}
-	repo, ok := d.Repository.(profileUpdater)
+	userID, ok := d.authenticateUser(w, r)
 	if !ok {
-		writeProblem(w, http.StatusServiceUnavailable, "Profile unavailable", "Profile repository is not configured")
 		return
 	}
 
-	profile, err := repo.UpdateUserProfile(r.Context(), account.UserID, updateReq.DisplayName)
+	var patch struct {
+		DisplayName *string `json:"display_name"`
+		Bio         *string `json:"bio"`
+		Location    *string `json:"location"`
+	}
+	if !decodeJSON(w, r, &patch) {
+		return
+	}
+	if patch.DisplayName != nil && (strings.TrimSpace(*patch.DisplayName) == "" || len(*patch.DisplayName) > 100) {
+		writeProblem(w, http.StatusBadRequest, "Invalid display name", "display_name must be nonblank and at most 100 bytes")
+		return
+	}
+
+	profile, err := d.Settings.UpdateUserProfile(r.Context(), userID, patch.DisplayName, patch.Bio, patch.Location)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Profile update failed", err.Error())
 		return

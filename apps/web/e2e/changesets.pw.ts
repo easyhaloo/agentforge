@@ -67,6 +67,21 @@ test("a changeset has its own detail page", async ({ page }) => {
   await expect(page.getByRole("cell")).toHaveCount(0);
 });
 
+test("the detail page offers the files of the changeset in the WebIDE", async ({ page }) => {
+  await page.goto("/orgs/demo/changesets/CS-E2E-01");
+
+  // The entry point is a link: a button would render, but it would not navigate.
+  const entry = page.getByRole("link", { name: "View files in WebIDE" });
+  await expect(entry).toBeVisible();
+  await entry.click();
+
+  await expect(page).toHaveURL(/\/orgs\/demo\/webide/);
+  const query = new URL(page.url()).searchParams;
+  expect(query.get("repository")).toBe("easyhaloo/agentforge");
+  expect(query.get("commit")).toBe("sha-main");
+  expect(query.get("changeset")).toBe("CS-E2E-01");
+});
+
 test("the audit trail shows the operations in words, not as the server's codes", async ({ page }) => {
   await page.goto("/orgs/demo/changesets/CS-E2E-04");
   await expect(page.getByText("Changeset created")).toBeVisible();

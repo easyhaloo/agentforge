@@ -15,6 +15,7 @@
     "changesets": "变更集",
     "changeset": "变更集",
     "repositories": "代码仓库",
+    "repository": "仓库",
     "trails": "轨迹",
     "review": "代码审查",
     "eval": "评估",
@@ -49,7 +50,7 @@
     "governance": "政策、批准和组织范围的控制。",
     "usage": "了解智能体、模型和计算消耗。",
     "settings": "配置您的组织和开发者体验。",
-    "webide": "在锁定提交的只读编辑器中打开仓库文件。"
+    "webide": "浏览指定提交的文件，或在变更集分支中编辑。"
   },
   "sidebar": {
     "brand": "agentforge",

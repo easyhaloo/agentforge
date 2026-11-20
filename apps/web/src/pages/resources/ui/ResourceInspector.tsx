@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, Check, GitCommitHorizontal, ShieldCheck } from "lucide-react";
+import { Activity, ArrowRight, Check, GitCommitHorizontal } from "lucide-react";
 import { Button, Empty } from "../../../shared/ui";
 import type { PageConfig } from "../data/resourceConfigs";
 import type { ResourceRow } from "../data/resourceRecords";
@@ -29,6 +29,5 @@ export function ResourceInspector({ current, config, activity, onClose }: Props)
       <h4><Activity size={13} /> Local activity</h4>
       {activity.map((message, index) => <p key={message + index}><Check size={12} />{message}</p>)}
     </div>}
-    <div className="prototype-callout"><ShieldCheck size={14} /><span>Demo environment. Actions update local UI state only; no remote operation is performed.</span></div>
   </aside>;
 }

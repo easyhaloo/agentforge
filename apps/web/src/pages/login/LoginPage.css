@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
-  background: #090d16;
+  background: var(--af-color-surface-raised);
 }
 
 .login-card {
@@ -14,8 +14,8 @@
   max-width: 480px;
   padding: 48px 40px;
   text-align: center;
-  background: #101725;
-  border: 1px solid #242e42;
+  background: var(--af-color-surface);
+  border: 1px solid var(--af-color-border);
   border-radius: 10px;
 }
 
@@ -28,7 +28,7 @@
   height: 48px;
   margin: 0 auto 12px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #8d7bff, #5c55c9);
+  background: linear-gradient(145deg, var(--af-color-primary), var(--af-color-primary));
   display: grid;
   place-items: center;
   color: white;
@@ -41,14 +41,14 @@
   font-size: clamp(20px, 4vw, 24px);
   font-weight: 600;
   letter-spacing: -0.6px;
-  color: #e8eaf2;
+  color: var(--af-color-text);
   margin: 0 0 16px;
 }
 
 .tagline {
   font-size: clamp(13px, 2.5vw, 15px);
   line-height: 1.5;
-  color: #8995aa;
+  color: var(--af-color-text-secondary);
   max-width: 360px;
   margin: 0 auto;
 }
@@ -70,7 +70,7 @@
   background: rgba(207, 34, 46, 0.1);
   border: 1px solid rgba(207, 34, 46, 0.3);
   border-radius: 6px;
-  color: #ff6b7a;
+  color: var(--af-color-danger);
   font-size: 13px;
   line-height: 1.5;
   text-align: left;
@@ -94,18 +94,18 @@
 }
 
 .login-button:focus-visible {
-  outline: 2px solid #8171ed;
+  outline: 2px solid var(--af-color-primary);
   outline-offset: 2px;
 }
 
 .auth-link {
   margin: 0 0 24px;
   font-size: 13px;
-  color: #8995aa;
+  color: var(--af-color-text-secondary);
 }
 
 .auth-link a {
-  color: #539bf5;
+  color: var(--af-color-primary);
   text-decoration: none;
 }
 
@@ -118,7 +118,7 @@
   align-items: center;
   gap: 16px;
   margin: 24px 0;
-  color: #64718a;
+  color: var(--af-color-text-muted);
   font-size: 12px;
   text-transform: lowercase;
 }
@@ -128,7 +128,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: #242e42;
+  background: var(--af-color-surface-raised);
 }
 
 .sso-providers {
@@ -150,14 +150,14 @@
   justify-content: center;
   gap: 6px;
   font-size: 11px;
-  color: #78859b;
+  color: var(--af-color-text-secondary);
   margin: 24px 0 0;
 }
 
 .login-footer {
   margin-top: 32px;
   font-size: 10px;
-  color: #64718a;
+  color: var(--af-color-text-muted);
   text-align: center;
 }
 
@@ -167,13 +167,13 @@
 }
 
 .login-footer a:hover {
-  color: #8995aa;
+  color: var(--af-color-text-secondary);
 }
 
 .login-loading {
   padding: 20px;
   text-align: center;
-  color: #8995aa;
+  color: var(--af-color-text-secondary);
   font-size: 12px;
 }
 

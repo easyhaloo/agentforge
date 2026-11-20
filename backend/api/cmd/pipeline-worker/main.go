@@ -1,4 +1,4 @@
-// The worker has a single execution slot and only runs operator-pinned, network-isolated checks.
+// The worker has a single execution slot and runs checks and scripts in operator-pinned, network-isolated containers.
 package main
 
 import (
@@ -12,10 +12,12 @@ import (
 	"os/exec"
 	"os/signal"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
@@ -101,10 +103,14 @@ func manageRunner(ctx context.Context, s *postgres.Store, args []string, token s
 }
 
 // Capture a bounded prefix while continuing to drain stdout.
-type logPrefix struct{ buf bytes.Buffer }
+type logPrefix struct {
+	buf       bytes.Buffer
+	truncated bool
+}
 
 func (w *logPrefix) Write(p []byte) (int, error) {
 	n := min(len(p), 8192-w.buf.Len())
+	w.truncated = w.truncated || n < len(p)
 	w.buf.Write(p[:n])
 	return len(p), nil
 }
@@ -120,7 +126,8 @@ func (w *logPrefix) text() string {
 func runTask(ctx context.Context, s *postgres.Store, t execution.Task, image string) {
 	outcome := "waiting"
 	var output logPrefix
-	if t.Capability == pipeline.ContainerCheck {
+	if t.Capability == pipeline.ContainerCheck || t.Capability == pipeline.ShellScript {
+		t.Exports = make(map[string]string)
 		outcome = runCheck(ctx, s, t, image, &output)
 	} else if t.Capability != pipeline.Approval {
 		outcome = "failed"
@@ -180,7 +187,28 @@ func containerCheck(ctx context.Context, t execution.Task, image string, output 
 		defer cleanup()
 		args = append(args, "--volume", dir+":/workspace:ro", "--workdir", "/workspace", "--env", "AGENTFORGE_REVISION_SHA="+t.Integration.CandidateSHA)
 	}
-	args = append(args, image, "-s", "KILL", "115", "/usr/local/bin/agentforge-check")
+	var env []string
+	var exports logPrefix
+	program := []string{"/usr/local/bin/agentforge-check"}
+	if t.Capability == pipeline.ShellScript {
+		if len(t.SecretRefs) > 0 {
+			return errors.New("script steps cannot receive secret bindings")
+		}
+		program = []string{"/bin/sh", "-ec", `export AF_ENV_FILE=/tmp/af-outputs FLOW_ENV=/tmp/af-outputs
+: > "$AF_ENV_FILE"
+/bin/sh -es >&2
+head -c 8193 "$AF_ENV_FILE"`}
+		args = append(args, "--interactive")
+		for k, v := range t.Env {
+			if k != "AF_PARAMS_JSON" && !strings.HasPrefix(k, "AF_PARAM_") && !strings.HasPrefix(k, "AF_VAR_") || strings.ContainsAny(k, "=\x00") {
+				return errors.New("invalid script environment")
+			}
+			args = append(args, "--env", k)
+			env = append(env, k+"="+v)
+		}
+	}
+	args = append(args, image, "-s", "KILL", "115")
+	args = append(args, program...)
 	var input io.Reader
 	if len(t.SecretRefs) > 0 {
 		var err error
@@ -194,11 +222,46 @@ func containerCheck(ctx context.Context, t execution.Task, image string, output 
 	command := exec.CommandContext(ctx, "docker", args...)
 	command.Stdin = input
 	command.Stdout = output
+	if t.Capability == pipeline.ShellScript {
+		command.Env = append(os.Environ(), env...)
+		command.Stdin = strings.NewReader(t.Script)
+		command.Stdout = &exports
+		command.Stderr = output
+	}
 	err := command.Run()
+	if err == nil && t.Capability == pipeline.ShellScript {
+		if err = readExports(exports, t.OutputNames, t.Exports); err != nil {
+			fmt.Fprintln(output, err)
+		}
+	}
 	if ctx.Err() != nil {
 		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = exec.CommandContext(cleanup, "docker", "rm", "-f", name).Run()
 	}
 	return err
+}
+
+// Parse the output channel as data. Export values are never evaluated as shell source.
+func readExports(raw logPrefix, names []string, dst map[string]string) error {
+	if raw.truncated || !utf8.Valid(raw.buf.Bytes()) {
+		return errors.New("invalid output file or size exceeds 8 KiB")
+	}
+	for line := range strings.SplitSeq(strings.TrimSuffix(raw.buf.String(), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || !slices.Contains(names, key) || len(value) > 1024 || strings.ContainsAny(value, "\r\x00") {
+			return errors.New("invalid or undeclared output variable")
+		}
+		if _, exists := dst[key]; exists {
+			return errors.New("duplicate output variable")
+		}
+		dst[key] = value
+	}
+	if len(dst) != len(names) {
+		return errors.New("script did not produce every declared output")
+	}
+	return nil
 }

@@ -6,6 +6,7 @@ import { translateError } from "../shared/api/errors";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
+import { AccountTheme } from "../features/appearance/AccountTheme";
 import { Topbar } from "./components/Topbar";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
@@ -101,17 +102,16 @@ function App() {
 
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
+      {account && <AccountTheme key={account.user_id} />}
       <div className="shell">
         <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} />
         <main className="main">
           <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} onSignOut={() => void signOut()} />
           <div className="content">
-            <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />
+            {(label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
+              <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
-            <footer>
-              <span>{t("app:footer.prototype")} <b>{t("app:footer.version")}</b></span>
-              <span><i className="live-dot" /> {t("app:footer.operational")} <span className="footer-sep">·</span> {t("app:footer.mockEnvironment")}</span>
-            </footer>
+            {!urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>
         </main>
         <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />

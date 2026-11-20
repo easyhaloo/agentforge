@@ -15,6 +15,7 @@
     "changesets": "Changesets",
     "changeset": "Changeset",
     "repositories": "Repositories",
+    "repository": "Repository",
     "trails": "Trails",
     "review": "Review",
     "eval": "Eval",
@@ -49,7 +50,7 @@
     "governance": "Policies, approvals and organization-wide controls.",
     "usage": "Understand agent, model and compute consumption.",
     "settings": "Configure your organization and developer experience.",
-    "webide": "Open repository files in a commit-pinned, read-only editor workspace."
+    "webide": "Browse files at a pinned commit or edit them on a changeset branch."
   },
   "sidebar": {
     "brand": "agentforge",

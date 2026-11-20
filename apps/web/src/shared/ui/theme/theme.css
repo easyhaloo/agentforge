@@ -1,17 +1,24 @@
 :root {
-  --af-color-primary: #8878f6;
-  --af-color-primary-hover: #9a8cff;
-  --af-color-success: #65c89b;
-  --af-color-warning: #e5a66b;
-  --af-color-danger: #e28d98;
-  --af-color-info: #65a9e8;
-  --af-color-text: #e8eaf2;
-  --af-color-text-secondary: #98a3b8;
-  --af-color-text-muted: #69758c;
-  --af-color-border: #273248;
-  --af-color-surface: #101725;
-  --af-color-surface-raised: #141c2b;
-  --af-color-background: #090d16;
+  color-scheme: dark;
+  --af-color-background: #0d1117;
+  --af-color-surface: #161b22;
+  --af-color-surface-raised: #212830;
+  --af-color-border: #3d444d;
+  --af-color-text: #f0f6fc;
+  --af-color-text-secondary: #b1bac4;
+  --af-color-text-muted: #9198a1;
+  --af-color-primary: #58a6ff;
+  --af-color-primary-hover: #79c0ff;
+  --af-color-action: #238636;
+  --af-color-action-hover: #29903b;
+  --af-color-success: #56d364;
+  --af-color-warning: #e3b341;
+  --af-color-danger: #ff7b72;
+  --af-color-info: #58a6ff;
+  --af-color-primary-subtle: color-mix(in srgb, var(--af-color-primary) 12%, var(--af-color-surface));
+  --af-color-success-subtle: color-mix(in srgb, var(--af-color-success) 12%, var(--af-color-surface));
+  --af-color-warning-subtle: color-mix(in srgb, var(--af-color-warning) 12%, var(--af-color-surface));
+  --af-color-danger-subtle: color-mix(in srgb, var(--af-color-danger) 12%, var(--af-color-surface));
   --af-radius-sm: 5px;
   --af-radius-md: 7px;
   --af-radius-lg: 10px;
@@ -28,4 +35,39 @@
 .af-ui-root {
   min-height: 100vh;
   color: var(--af-color-text);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --af-color-background: #ffffff;
+  --af-color-surface: #ffffff;
+  --af-color-surface-raised: #f6f8fa;
+  --af-color-border: #d1d9e0;
+  --af-color-text: #1f2328;
+  --af-color-text-secondary: #59636e;
+  --af-color-text-muted: #59636e;
+  --af-color-primary: #0969da;
+  --af-color-primary-hover: #0550ae;
+  --af-color-action: #1f7e36;
+  --af-color-action-hover: #196c2e;
+  --af-color-success: #116329;
+  --af-color-warning: #895700;
+  --af-color-danger: #b62324;
+  --af-color-info: #0969da;
+}
+
+.settings-layout {
+  --color-bg: var(--af-color-background);
+  --color-surface: var(--af-color-surface);
+  --color-bg-hover: var(--af-color-surface-raised);
+  --color-border: var(--af-color-border);
+  --color-text-primary: var(--af-color-text);
+  --color-text-secondary: var(--af-color-text-secondary);
+  --color-text-tertiary: var(--af-color-text-muted);
+  --color-text-inverted: #fff;
+  --color-primary: var(--af-color-primary);
+  --color-primary-bg: color-mix(in srgb, var(--color-primary) 13%, var(--color-surface));
+  --color-bg-active: var(--color-primary-bg);
+  --color-error: var(--af-color-danger);
+  --color-error-bg: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
 }

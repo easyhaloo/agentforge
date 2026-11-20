@@ -1,0 +1,55 @@
+import { expect, test } from "@playwright/test";
+import { installApiMocks } from "./support/api-mocks";
+
+test("settings and shell render the saved palette, and Auto follows the system", async ({ page }) => {
+  await installApiMocks(page);
+  let theme = "light";
+  await page.route("**/api/v1/users/me/preferences", route => {
+    if (route.request().method() === "PATCH") theme = route.request().postDataJSON().theme;
+    return route.fulfill({ json: { theme, language: "en-US", timezone: "UTC" } });
+  });
+  const body = page.locator("body");
+  const sidebar = page.locator(".settings-sidebar");
+  const light = "rgb(255, 255, 255)";
+  const dark = "rgb(13, 17, 23)";
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/settings/account");
+  await expect(body).toHaveCSS("background-color", light);
+  await expect(sidebar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await page.getByRole("link", { name: "Appearance" }).click();
+  await page.locator('[name=theme][value=auto]').check();
+  await expect(body).toHaveCSS("background-color", dark);
+  await expect(sidebar).toHaveCSS("background-color", "rgb(22, 27, 34)");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(body).toHaveCSS("background-color", light);
+  await page.locator('[name=theme][value=dark]').check();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
+  await expect(body).toHaveCSS("background-color", light);
+  await page.getByRole("link", { name: "Appearance" }).click();
+  await page.locator('[name=theme][value=dark]').check();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => theme).toBe("dark");
+  await page.reload();
+  await expect(body).toHaveCSS("background-color", dark);
+  await expect(page.locator('[name=theme][value=dark]')).toBeChecked();
+  await page.locator('[name=theme][value=light]').check();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => theme).toBe("light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  // A shell route can be interactive before its account request resolves.
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/v1/me", async route => { await pending; await route.fallback(); });
+  await page.goto("/projects");
+  await page.getByRole("button", { name: /Search anything/ }).click();
+  const search = page.getByRole("textbox", { name: "Search pages" });
+  await search.fill("changes");
+  release();
+  await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(page.locator(".topbar")).toHaveCSS("background-color", "rgb(246, 248, 250)");
+  await expect(search).toHaveValue("changes");
+  await page.keyboard.press("Escape");
+  await page.locator(".user-menu-trigger").click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(body).toHaveCSS("background-color", dark);
+});

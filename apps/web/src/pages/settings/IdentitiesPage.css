@@ -3,7 +3,7 @@
   padding: 24px;
   max-width: 1000px;
   margin: 0 auto;
-  background: #ffffff;
+  background: var(--af-color-surface);
   min-height: 100vh;
 }
 
@@ -15,20 +15,20 @@
 /* Page Header */
 .page-header {
   padding-bottom: 16px;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--af-color-border);
 }
 
 .page-header .header-content h1 {
   font-size: 24px;
   font-weight: 600;
-  color: #24292f;
+  color: var(--af-color-text);
   margin: 0 0 4px;
   letter-spacing: -0.3px;
 }
 
 .page-header .page-description {
   font-size: 14px;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -42,7 +42,7 @@
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  color: #24292f;
+  color: var(--af-color-text);
   margin: 0 0 8px;
 }
 
@@ -58,14 +58,14 @@
   align-items: flex-start;
   gap: 16px;
   padding: 16px;
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--af-color-surface);
+  border: 1px solid var(--af-color-border);
   border-radius: 6px;
   transition: border-color 0.2s ease;
 }
 
 .identity-card:hover {
-  border-color: #8c959f;
+  border-color: var(--af-color-text-muted);
 }
 
 .identity-card__icon {
@@ -74,10 +74,10 @@
   height: 40px;
   display: grid;
   place-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--af-color-surface-raised);
+  border: 1px solid var(--af-color-border);
   border-radius: 6px;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
 }
 
 .identity-card__content {
@@ -92,19 +92,19 @@
 .identity-card__title {
   font-size: 14px;
   font-weight: 600;
-  color: #24292f;
+  color: var(--af-color-text);
   margin: 0 0 4px;
 }
 
 .identity-card__email {
   font-size: 14px;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
   margin: 0;
 }
 
 .identity-card__meta {
   font-size: 12px;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
   margin: 0;
 }
 
@@ -119,8 +119,8 @@
 .add-identity-placeholder {
   padding: 16px;
   text-align: center;
-  background: #f6f8fa;
-  border: 1px dashed #d0d7de;
+  background: var(--af-color-surface-raised);
+  border: 1px dashed var(--af-color-border);
   border-radius: 6px;
 }
 
@@ -131,33 +131,33 @@
 .hint-text {
   margin: 0;
   font-size: 12px;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
 }
 
 /* Messages */
 .loading-message {
   padding: 40px 20px;
   text-align: center;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
   font-size: 14px;
 }
 
 .success-message {
   padding: 12px 16px;
-  background: #dafbe1;
-  border: 1px solid #2da44e;
+  background: var(--af-color-success-subtle);
+  border: 1px solid var(--af-color-action);
   border-radius: 6px;
-  color: #1a7f37;
+  color: var(--af-color-success);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .error-message {
   padding: 12px 16px;
-  background: #ffebe9;
-  border: 1px solid #cf222e;
+  background: var(--af-color-danger-subtle);
+  border: 1px solid var(--af-color-danger);
   border-radius: 6px;
-  color: #cf222e;
+  color: var(--af-color-danger);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -165,7 +165,7 @@
 .empty-state {
   padding: 40px 20px;
   text-align: center;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
   font-size: 14px;
 }
 
@@ -177,13 +177,13 @@
 .empty-state h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #24292f;
+  color: var(--af-color-text);
   margin: 0 0 8px;
 }
 
 .empty-state p {
   font-size: 14px;
-  color: #57606a;
+  color: var(--af-color-text-secondary);
   margin: 0;
 }
 
@@ -202,22 +202,22 @@
 .dialog {
   width: 100%;
   max-width: 480px;
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--af-color-surface);
+  border: 1px solid var(--af-color-border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(27, 31, 36, 0.12);
 }
 
 .dialog-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--af-color-border);
 }
 
 .dialog-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #24292f;
+  color: var(--af-color-text);
 }
 
 .dialog-body {

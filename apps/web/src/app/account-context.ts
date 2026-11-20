@@ -9,6 +9,7 @@ export type AppAccount = {
   accountState: AccountState;
   accountError: string;
   reload: () => Promise<void>;
+  updateDisplayName?: (displayName: string) => void;
   selectedOrganization: OrganizationSummary | undefined;
 };
 

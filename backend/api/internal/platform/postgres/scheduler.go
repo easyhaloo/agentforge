@@ -78,7 +78,7 @@ func (s *Store) ClaimTask(ctx context.Context, token string) (*execution.Task, e
 		}
 		return nil, tx.Commit(ctx)
 	}
-	err = tx.QueryRow(ctx, `SELECT t.id,t.capability,t.attempt,t.secret_refs FROM pipeline_runs r CROSS JOIN LATERAL (SELECT t.id,t.capability,t.attempt,t.secret_refs`+runnableTasks+` ORDER BY t.job_id,t.position LIMIT 1)t WHERE r.id=$1`, task.RunID, caps).Scan(&task.StepID, &task.Capability, &task.Attempt, &task.SecretRefs)
+	err = tx.QueryRow(ctx, `SELECT t.id,t.capability,t.attempt,t.secret_refs,t.script,t.output_names FROM pipeline_runs r CROSS JOIN LATERAL (SELECT t.id,t.capability,t.attempt,t.secret_refs,t.script,t.output_names`+runnableTasks+` ORDER BY t.job_id,t.position LIMIT 1)t WHERE r.id=$1`, task.RunID, caps).Scan(&task.StepID, &task.Capability, &task.Attempt, &task.SecretRefs, &task.Script, &task.OutputNames)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +87,11 @@ func (s *Store) ClaimTask(ctx context.Context, token string) (*execution.Task, e
 			return nil, err
 		}
 		return nil, tx.Commit(ctx)
+	}
+	if task.Capability == pipeline.ShellScript {
+		if err := loadScriptEnv(ctx, tx, &task); err != nil {
+			return nil, err
+		}
 	}
 	task.Attempt++
 	// Pass only this attempt's receipt to the task. Store the public runner ID for audit.
@@ -172,6 +177,15 @@ func (s *Store) FinishTask(ctx context.Context, t execution.Task, outcome, outpu
 	}
 	if err != nil {
 		return err
+	}
+	if outcome == "succeeded" && len(t.Exports) > 0 {
+		tag, err := tx.Exec(ctx, `UPDATE pipeline_step_runs SET exports=$3 WHERE run_id=$1 AND id=$2 AND capability=$4 AND ARRAY(SELECT jsonb_object_keys($3::jsonb)) <@ output_names`, t.RunID, t.StepID, t.Exports, pipeline.ShellScript)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return errors.New("undeclared script output")
+		}
 	}
 	if err = s.RecordTaskOutput(ctx, tx, t, worker, outcome, output, suppressOutput); err != nil {
 		return err

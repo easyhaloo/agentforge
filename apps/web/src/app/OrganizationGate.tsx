@@ -62,7 +62,7 @@ export function OrganizationGate({ variant }: { variant: keyof typeof copy }) {
     <section className="card org-auth-state">
       <h2>{t(text.signedOutTitle)}</h2>
       <p>{t(text.signedOutBody)}</p>
-      <a className="button primary" href="/auth/oidc/login">{t("app:organizationGate.continueWithSSO")}</a>
+      <a className="button primary" href={`/login?return=${encodeURIComponent(location.pathname + location.search + location.hash)}`}>{t("login:signInButton")}</a>
       {text.retryWhenSignedOut && <Button className="button secondary" onClick={() => void reload()}>{t("app:organizationGate.retry")}</Button>}
     </section>
   );

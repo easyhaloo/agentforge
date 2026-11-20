@@ -1,77 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
-import { AlertTriangle } from "lucide-react";
 import { Button } from "../../shared/ui/components";
 import { Checkbox, RadioGroup, Switch } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type AgentPreferences } from "../../shared/api/settings";
 import { translateError } from "../../shared/api/errors";
 import type { SettingsOutletContext } from "./SettingsLayout";
-
-// Simple confirm dialog component
-function ConfirmDialog({
-  open,
-  title,
-  description,
-  confirmText,
-  cancelText,
-  danger,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean;
-  title: string;
-  description: string;
-  confirmText: string;
-  cancelText?: string;
-  danger?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation("settings");
-
-  if (!open) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-      }}
-      onClick={onCancel}
-    >
-      <div
-        style={{
-          backgroundColor: "var(--color-surface)",
-          borderRadius: "8px",
-          padding: "24px",
-          maxWidth: "500px",
-          width: "90%",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "18px", fontWeight: 600 }}>{title}</h3>
-        <p style={{ margin: "0 0 24px 0", color: "var(--color-text-secondary)" }}>{description}</p>
-        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-          <Button variant="ghost" onClick={onCancel}>
-            {cancelText || t("common:actions.cancel")}
-          </Button>
-          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
-            {confirmText}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function AgentSettingsPage() {
   const { t } = useTranslation("settings");
@@ -81,9 +15,6 @@ export function AgentSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [showClearMemoryDialog, setShowClearMemoryDialog] = useState(false);
-  const [clearingMemory, setClearingMemory] = useState(false);
-
   // Load agent preferences on mount
   useEffect(() => {
     let mounted = true;
@@ -95,10 +26,8 @@ export function AgentSettingsPage() {
         if (mounted) {
           setPreferences(data);
         }
-      } catch (err) {
-        if (mounted) {
-          notify(translateError(err, t, "settings:errors.loadAgentPreferencesFailed"));
-        }
+      } catch {
+        if (mounted) setPreferences(null);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -111,7 +40,7 @@ export function AgentSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, []);
 
   const handleFieldChange = <K extends keyof AgentPreferences>(field: K, value: AgentPreferences[K]) => {
     if (!preferences) return;
@@ -148,20 +77,6 @@ export function AgentSettingsPage() {
     }
   };
 
-  const handleClearMemory = async () => {
-    setClearingMemory(true);
-
-    try {
-      await settingsAPI.clearAgentMemory();
-      notify(t("agents.memoryCleared"));
-    } catch (err) {
-      notify(translateError(err, t, "settings:errors.clearAgentMemoryFailed"));
-    } finally {
-      setClearingMemory(false);
-      setShowClearMemoryDialog(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="settings-page">
@@ -183,8 +98,8 @@ export function AgentSettingsPage() {
           <h1 className="settings-page-title">{t("agents.title")}</h1>
           <p className="settings-page-description">{t("agents.description")}</p>
         </header>
-        <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          {t("errors.loadAgentPreferencesFailed")}
+        <div className="settings-placeholder" role="alert">
+          {t("agents.loadError")}
         </div>
       </div>
     );
@@ -279,31 +194,13 @@ export function AgentSettingsPage() {
             <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "var(--color-text-primary)" }}>
               {t("agents.crossSessionMemory")}
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Switch
-                id="cross-session-memory"
-                name="cross_session_memory_enabled"
-                checked={preferences.cross_session_memory_enabled}
-                onChange={(e) => handleFieldChange("cross_session_memory_enabled", e.target.checked)}
-                label={t("agents.crossSessionMemoryDescription")}
-              />
-              <div>
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="small"
-                  onClick={() => setShowClearMemoryDialog(true)}
-                  disabled={clearingMemory}
-                  style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
-                >
-                  <AlertTriangle size={16} />
-                  {t("agents.clearMemory")}
-                </Button>
-                <p style={{ fontSize: "13px", color: "var(--color-text-tertiary)", marginTop: "8px" }}>
-                  {t("agents.clearMemoryConfirm")}
-                </p>
-              </div>
-            </div>
+            <Switch
+              id="cross-session-memory"
+              name="cross_session_memory_enabled"
+              checked={preferences.cross_session_memory_enabled}
+              onChange={(e) => handleFieldChange("cross_session_memory_enabled", e.target.checked)}
+              label={t("agents.crossSessionMemoryDescription")}
+            />
           </section>
 
           {/* 5. Changeset Evaluation Preferences */}
@@ -417,17 +314,6 @@ export function AgentSettingsPage() {
           </div>
         </div>
       </form>
-
-      {/* Clear Memory Confirmation Dialog */}
-      <ConfirmDialog
-        open={showClearMemoryDialog}
-        title={t("agents.clearMemory")}
-        description={t("agents.clearMemoryConfirm")}
-        confirmText={t("agents.clearMemory")}
-        danger
-        onConfirm={handleClearMemory}
-        onCancel={() => setShowClearMemoryDialog(false)}
-      />
     </div>
   );
 }

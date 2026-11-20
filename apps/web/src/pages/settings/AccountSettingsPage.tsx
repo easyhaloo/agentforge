@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { settingsAPI, type UserProfile } from "../../shared/api/settings";
 import { translateError } from "../../shared/api/errors";
@@ -41,79 +42,43 @@ export function AccountSettingsPage() {
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="settings-page">
-        <header className="settings-page-header">
-          <h1 className="settings-page-title">{t("account.title")}</h1>
-          <p className="settings-page-description">{t("account.description")}</p>
-        </header>
-        <div className="settings-placeholder">
-          {t("common:status.loading", { ns: "common" })}
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <div className="settings-page">
-        <header className="settings-page-header">
-          <h1 className="settings-page-title">{t("account.title")}</h1>
-          <p className="settings-page-description">{t("account.description")}</p>
-        </header>
-        <div className="settings-placeholder" style={{ color: "var(--color-error)" }}>
-          {error || t("errors.loadAccountFailed")}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="settings-page">
       <header className="settings-page-header">
         <h1 className="settings-page-title">{t("account.title")}</h1>
         <p className="settings-page-description">{t("account.description")}</p>
       </header>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-        {/* Account Information Section */}
-        <section>
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {/* Username */}
-            <div className="settings-field-readonly">
-              <label className="settings-field-readonly-label">{t("account.username")}</label>
-              <div className="settings-field-readonly-value">{profile.username}</div>
+      {loading ? (
+        <div className="settings-placeholder" role="status">{t("common:status.loading")}</div>
+      ) : error || !profile ? (
+        <div className="settings-placeholder" role="alert">{error || t("errors.loadAccountFailed")}</div>
+      ) : (
+        <div className="settings-stack">
+          <section>
+            <h2 className="settings-section-heading">{t("profile.displayName")}</h2>
+            <div className="settings-account-name">
+              <strong>{profile.display_name}</strong>
+              <Link className="settings-action-link" to="/settings/profile">{t("account.editProfile")}</Link>
             </div>
-
-            {/* Email */}
-            <div className="settings-field-readonly">
-              <label className="settings-field-readonly-label">{t("account.email")}</label>
-              <div className="settings-field-readonly-value">{profile.email}</div>
-              <div style={{ fontSize: "13px", color: "var(--color-text-tertiary)", marginTop: "4px" }}>
-                {t("account.emailDescription")}
+          </section>
+          <section>
+            <h2 className="settings-section-heading">{t("account.details")}</h2>
+            <dl className="settings-box settings-account-details">
+              {profile.username && (
+                <div className="settings-box-row"><dt>{t("account.username")}</dt><dd>{profile.username}</dd></div>
+              )}
+              <div className="settings-box-row">
+                <dt>{t("account.email")}</dt>
+                <dd>{profile.email}<small className="settings-note">{t("account.emailDescription")}</small></dd>
               </div>
-            </div>
-
-            {/* Account Created */}
-            <div className="settings-field-readonly">
-              <label className="settings-field-readonly-label">{t("account.createdAt")}</label>
-              <div className="settings-field-readonly-value">{formatDateTime(profile.created_at)}</div>
-            </div>
-
-            {/* Account Type */}
-            <div className="settings-field-readonly">
-              <label className="settings-field-readonly-label">{t("account.accountType")}</label>
-              <div className="settings-field-readonly-value">
-                {t("account.provider")}
-                <div style={{ fontSize: "14px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
-                  {t("account.accountTypeDesc")}
-                </div>
+              <div className="settings-box-row">
+                <dt>{t("account.createdAt")}</dt>
+                <dd><time dateTime={profile.created_at}>{formatDateTime(profile.created_at)}</time></dd>
               </div>
-            </div>
-          </div>
-        </section>
-      </div>
+            </dl>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { Alert } from "../../shared/ui";
 import { usePersistentState } from "../../shared/hooks/usePersistentState";
 import { buildResourceCsv } from "./data/resourceExport";
 import { configs } from "./data/resourceConfigs";
@@ -22,6 +24,7 @@ function downloadCsv(content: string, filename: string) {
 }
 
 export function ResourceWorkspacePage({ page, onNotify }: Props) {
+  const { t } = useTranslation("common");
   const config = configs[page] ?? configs.Changesets;
   const [selected, setSelected] = useState(config.items[0]?.id ?? "");
   const [storedRecords, setStoredRecords] = usePersistentState<unknown>("agentforge:resources:" + page, config.items);
@@ -77,6 +80,7 @@ export function ResourceWorkspacePage({ page, onNotify }: Props) {
   };
 
   return <div className="resource-workspace">
+    <Alert>{t("resourceDemoNotice")}</Alert>
     <div className="resource-stats">
       {config.stats.map(([label, value, caption]) => <div className="card resource-stat" key={label}>
         <span>{label}</span><strong>{value}</strong><small>{caption}</small>
