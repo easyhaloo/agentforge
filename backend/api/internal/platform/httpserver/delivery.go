@@ -16,7 +16,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
 type Principal = identity.Principal
@@ -37,22 +39,37 @@ type MembershipRepository interface {
 	ListMembershipAudit(context.Context, string, int, int) ([]identity.MembershipAuditEvent, error)
 }
 
-type ReviewerAuthorizer interface { IsActiveMember(context.Context, string, string) (bool, error) }
+type ReviewerAuthorizer interface {
+	IsActiveMember(context.Context, string, string) (bool, error)
+}
+
+type LocalAuthHandler interface {
+	Login(http.ResponseWriter, *http.Request)
+	Register(http.ResponseWriter, *http.Request)
+}
 
 type DeliveryDependencies struct {
-	Repository  delivery.Repository
-	Identity    identity.PrincipalResolver
-	CSRF        identity.CSRFValidator
-	AllowedOrigin string
-	OIDC          identity.OIDCHandler
-	Membership    MembershipRepository
-	Account       AccountRepository
-	Git delivery.GitProvider
-	Evaluator delivery.Evaluator
-	Evidence delivery.EvidenceStore
-	Reviewers ReviewerAuthorizer
-	Catalog delivery.RepositoryCatalog
-	Locker delivery.ChangesetLocker
+	Repository       delivery.Repository
+	Identity         identity.PrincipalResolver
+	RevokeSession    func(context.Context, string) error
+	CSRF             identity.CSRFValidator
+	AllowedOrigin    string
+	OIDC             identity.OIDCHandler
+	LocalAuth        LocalAuthHandler
+	Membership       MembershipRepository
+	Account          AccountRepository
+	Settings         SettingsRepository
+	Git              delivery.GitProvider
+	IntegrationGit   delivery.IntegrationGitProvider
+	Evaluator        delivery.Evaluator
+	Evidence         delivery.EvidenceStore
+	Reviewers        ReviewerAuthorizer
+	WebhookDirectory string
+	Runs             execution.Store
+	Pipelines        pipeline.Store
+	Catalog          delivery.RepositoryCatalog
+	Preview          delivery.RepositoryPreviewReader
+	Locker           delivery.ChangesetLocker
 }
 
 type storedChangesetResponse struct {
@@ -84,6 +101,9 @@ type problemResponse struct {
 
 func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
+	deps.pipelineRoutes(mux)
+	deps.executionRoutes(mux)
+	deps.mergePreviewRoutes(mux)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/members", deps.listMembers)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/members/{userID}", deps.updateMember)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/members/{userID}", deps.removeMember)
@@ -92,11 +112,19 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/invitations/{invitationID}", deps.revokeInvitation)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs", deps.listRepositoryRefs)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob", deps.readRepositoryBlob)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history", deps.listRepositoryHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/compare", deps.compareRepositoryCommits)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/file-history", deps.listRepositoryFileHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blame", deps.blameRepositoryFile)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories", deps.registerRepository)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}", deps.getChangeset)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/revisions", deps.addRevision)
+	mux.HandleFunc("PUT /api/v1/organizations/{organizationID}/changesets/{id}/files", deps.saveChangesetFile)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evaluations", deps.recordEvaluation)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evidence", deps.attachEvidence)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
@@ -105,25 +133,60 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	return mux
 }
 
-
-type repositoryRegistrationRequest struct { Slug string `json:"slug"`; DefaultBranch string `json:"default_branch"` }
-func (d DeliveryDependencies) listRepositories(w http.ResponseWriter,r *http.Request) {
-	principal,ok:=d.principal(w,r,false);if !ok{return}
-	if d.Catalog==nil {writeProblem(w,503,"Repository catalog unavailable","Repository metadata storage is not configured");return}
-	items,err:=d.Catalog.ListRepositories(r.Context(),principal.OrganizationID);if err!=nil{writeProblem(w,500,"Unable to list repositories","The repository catalog query failed");return}
-	writeJSON(w,200,map[string]any{"items":items})
+type repositoryRegistrationRequest struct {
+	Slug          string `json:"slug"`
+	DefaultBranch string `json:"default_branch"`
 }
-func (d DeliveryDependencies) registerRepository(w http.ResponseWriter,r *http.Request) {
-	principal,ok:=d.principal(w,r,true);if !ok{return}
-	if principal.Role!="owner"&&principal.Role!="admin" {writeProblem(w,403,"Insufficient permissions","Only organization owners and administrators can register repositories");return}
-	if d.Catalog==nil||d.Git==nil {writeProblem(w,503,"Repository integration unavailable","A repository catalog and trusted Git provider are required");return}
-	var input repositoryRegistrationRequest;if !decodeJSON(w,r,&input){return}
-	input.Slug=strings.TrimSpace(input.Slug);input.DefaultBranch=strings.TrimSpace(input.DefaultBranch)
-	if _,err:=d.Git.ResolveRevision(r.Context(),principal.OrganizationID,input.Slug,input.DefaultBranch);err!=nil {writeProblem(w,422,"Repository not available","The repository must exist under the configured organization Git root and its default branch must resolve");return}
-	item,err:=d.Catalog.RegisterRepository(r.Context(),delivery.RepositoryMetadata{OrganizationID:principal.OrganizationID,Slug:input.Slug,DefaultBranch:input.DefaultBranch,CreatedBy:principal.UserID})
-	if errors.Is(err,delivery.ErrVersionConflict){writeProblem(w,409,"Repository already registered","This repository is already registered for the organization");return}
-	if err!=nil{writeProblem(w,500,"Unable to register repository","Repository metadata could not be persisted");return}
-	writeJSON(w,201,item)
+
+func (d DeliveryDependencies) listRepositories(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	if d.Catalog == nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "Repository metadata storage is not configured")
+		return
+	}
+	items, err := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
+	if err != nil {
+		writeProblem(w, 500, "Unable to list repositories", "The repository catalog query failed")
+		return
+	}
+	writeJSON(w, 200, map[string]any{"items": items})
+}
+func (d DeliveryDependencies) registerRepository(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	if principal.Role != "owner" && principal.Role != "admin" {
+		writeProblem(w, 403, "Insufficient permissions", "Only organization owners and administrators can register repositories")
+		return
+	}
+	if d.Catalog == nil || d.Git == nil {
+		writeProblem(w, 503, "Repository integration unavailable", "A repository catalog and trusted Git provider are required")
+		return
+	}
+	var input repositoryRegistrationRequest
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	input.Slug = strings.TrimSpace(input.Slug)
+	input.DefaultBranch = strings.TrimSpace(input.DefaultBranch)
+	if _, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, input.Slug, input.DefaultBranch); err != nil {
+		writeProblem(w, 422, "Repository not available", "The repository must exist under the configured organization Git root and its default branch must resolve")
+		return
+	}
+	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: input.Slug, DefaultBranch: input.DefaultBranch, CreatedBy: principal.UserID})
+	if errors.Is(err, delivery.ErrVersionConflict) {
+		writeProblem(w, 409, "Repository already registered", "This repository is already registered for the organization")
+		return
+	}
+	if err != nil {
+		writeProblem(w, 500, "Unable to register repository", "Repository metadata could not be persisted")
+		return
+	}
+	writeJSON(w, 201, item)
 }
 
 // maxChangesetQueryLength bounds the free-text q filter, counted in characters.
@@ -203,10 +266,21 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 	}
 	if d.Catalog != nil {
 		repositories, catalogErr := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
-		if catalogErr != nil { writeProblem(w,503,"Repository catalog unavailable","Registered repositories could not be verified"); return }
+		if catalogErr != nil {
+			writeProblem(w, 503, "Repository catalog unavailable", "Registered repositories could not be verified")
+			return
+		}
 		registered := false
-		for _, repository := range repositories { if repository.Slug == strings.TrimSpace(input.Repository) { registered = true; break } }
-		if !registered { writeProblem(w,422,"Repository is not registered","Register this repository with the organization before creating a changeset"); return }
+		for _, repository := range repositories {
+			if repository.Slug == strings.TrimSpace(input.Repository) {
+				registered = true
+				break
+			}
+		}
+		if !registered {
+			writeProblem(w, 422, "Repository is not registered", "Register this repository with the organization before creating a changeset")
+			return
+		}
 	}
 	changeset, err := delivery.NewChangeset(delivery.ID(id), strings.TrimSpace(input.Repository), strings.TrimSpace(input.Title), principal.UserID, time.Now().UTC())
 	if err != nil {
@@ -238,127 +312,481 @@ func (d DeliveryDependencies) getChangeset(w http.ResponseWriter, r *http.Reques
 }
 
 func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request) {
-	principal, ok := d.principal(w, r, true); if !ok { return }
-	unlock, locked := d.lockChangeset(w,r,principal.OrganizationID); if !locked { return }; defer unlock()
-	if d.Git == nil { writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted local Git provider before creating revisions"); return }
-	var input struct { Ref string `json:"ref"` }; if !decodeJSON(w,r,&input) { return }
-	stored, ok := d.load(w,r,principal.OrganizationID); if !ok { return }
-	revision, err := d.Git.ResolveRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,input.Ref)
-	if err != nil { writeProblem(w,http.StatusUnprocessableEntity,"Git revision unavailable","The requested ref could not be resolved in the organization's configured repository"); return }
-	id,err:=newID(); if err!=nil { writeProblem(w,500,"Unable to create revision","An identifier could not be generated"); return }
-	if err=stored.Changeset.AddGitRevision(delivery.ID(id),revision.Ref,revision.CommitSHA,revision.ParentSHA,principal.UserID,time.Now().UTC());err!=nil { writeDeliveryError(w,err); return }
-	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version); if err!=nil { writeRepositoryError(w,err); return }
-	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	if d.Git == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted local Git provider before creating revisions")
+		return
+	}
+	var input struct {
+		Ref string `json:"ref"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	revision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, input.Ref)
+	if err != nil {
+		writeProblem(w, http.StatusUnprocessableEntity, "Git revision unavailable", "The requested ref could not be resolved in the organization's configured repository")
+		return
+	}
+	id, err := newID()
+	if err != nil {
+		writeProblem(w, 500, "Unable to create revision", "An identifier could not be generated")
+		return
+	}
+	if err = stored.Changeset.AddGitRevision(delivery.ID(id), revision.Ref, revision.CommitSHA, revision.ParentSHA, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	writer, supported := d.Git.(delivery.RepositoryFileWriter)
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository editing unavailable", "The configured Git provider does not support safe changeset writes")
+		return
+	}
+	if d.Preview == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A trusted repository preview reader is required to verify the base blob")
+		return
+	}
+	var input struct {
+		Path          string `json:"path"`
+		BaseCommitSHA string `json:"base_commit_sha"`
+		BaseBlobSHA   string `json:"base_blob_sha"`
+		Content       string `json:"content"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if len(input.Content) > 1<<20 || !utf8.ValidString(input.Content) {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "File content too large or invalid", "WebIDE accepts UTF-8 text files up to 1 MiB")
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if stored.Changeset.Merge != nil {
+		writeProblem(w, http.StatusConflict, "Changeset already merged", "A merged changeset cannot receive additional file revisions")
+		return
+	}
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists || revision.CommitSHA == "" {
+		writeProblem(w, http.StatusConflict, "Revision required", "Resolve an initial Git revision before editing files")
+		return
+	}
+	if input.BaseCommitSHA != revision.CommitSHA {
+		writeProblem(w, http.StatusConflict, "Stale editor revision", "The changeset revision advanced; reload the file before saving")
+		return
+	}
+	_, currentBlob, readErr := d.Preview.ReadBlob(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.Path, 1<<20)
+	if readErr != nil || currentBlob != input.BaseBlobSHA {
+		writeProblem(w, http.StatusConflict, "Stale file content", "The file changed or is not a regular text blob at the current changeset revision")
+		return
+	}
+	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content))
+	if errors.Is(err, delivery.ErrWriteConflict) {
+		writeProblem(w, http.StatusConflict, "Concurrent file update", "The changeset branch or file changed while saving; reload and reapply your edits")
+		return
+	}
+	if errors.Is(err, delivery.ErrWriteInvalid) {
+		writeProblem(w, http.StatusBadRequest, "Invalid file update", "Only normalized paths to existing regular UTF-8 text files up to 1 MiB can be edited")
+		return
+	}
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Unable to save file", "The trusted Git provider could not complete the lease-protected write")
+		return
+	}
+	id, err := newID()
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to record file revision", "An identifier could not be generated")
+		return
+	}
+	if err = stored.Changeset.AddGitRevision(delivery.ID(id), result.Branch, result.CommitSHA, revision.CommitSHA, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"changeset":  toChangesetResponse(updated),
+		"path":       input.Path,
+		"branch":     result.Branch,
+		"commit_sha": result.CommitSHA,
+		"blob_sha":   result.BlobSHA,
+	})
 }
 
 func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Request) {
-	principal,ok:=d.principal(w,r,true);if !ok{return}
-	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
-	if d.Evaluator==nil || d.Git==nil { writeProblem(w,503,"Evaluation worker unavailable","A trusted evaluation adapter and Git provider are required");return }
-	if d.Evidence==nil { writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return }
-	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
-	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" { writeProblem(w,409,"Revision required","Resolve a Git commit before evaluating this changeset");return }
-	if d.Catalog==nil {writeProblem(w,503,"Repository catalog unavailable","The target branch cannot be verified");return}
-	repositories,catalogErr:=d.Catalog.ListRepositories(r.Context(),principal.OrganizationID)
-	if catalogErr!=nil {writeProblem(w,503,"Repository catalog unavailable","The target branch could not be loaded");return}
-	baseRef:=""
-	for _,repository:=range repositories {if repository.Slug==stored.Changeset.Repository {baseRef=repository.DefaultBranch;break}}
-	if baseRef=="" {writeProblem(w,409,"Repository not registered","Register this repository before evaluating changesets");return}
-	baseRevision,baseErr:=d.Git.ResolveRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,baseRef)
-	if baseErr!=nil {writeProblem(w,409,"Target branch unavailable","The registered default branch could not be resolved");return}
-	evaluationID,err:=newID();if err!=nil{writeProblem(w,500,"Unable to create evaluation job","An identifier could not be generated");return}
-	job:=delivery.EvaluationJob{ID:evaluationID,OrganizationID:principal.OrganizationID,ChangesetID:stored.Changeset.ID,RevisionID:revision.ID,Repository:stored.Changeset.Repository,BaseSHA:baseRevision.CommitSHA,RevisionSHA:revision.CommitSHA}
-	result,evalErr:=d.Evaluator.Evaluate(r.Context(),job)
-	if result.JobID!=job.ID||result.OrganizationID!=job.OrganizationID||result.ChangesetID!=job.ChangesetID||result.RevisionID!=job.RevisionID||result.BaseSHA!=job.BaseSHA||result.RevisionSHA!=job.RevisionSHA {
-		writeProblem(w,502,"Invalid evaluation result","The trusted evaluator returned a result that does not match the server-issued job identity and immutable revision");return
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
 	}
-	status:=delivery.EvaluationPassed;if evalErr!=nil||!result.Passed {status=delivery.EvaluationFailed}
-	if err=stored.Changeset.RecordEvaluationAgainstBase(delivery.ID(evaluationID),revision.ID,baseRevision.CommitSHA,status,result.Summary,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
-	if len(result.Report)>0 {
-		artifact,putErr:=d.Evidence.Put(r.Context(),principal.OrganizationID,string(stored.Changeset.ID),result.Report)
-		if putErr!=nil { writeProblem(w,503,"Evidence storage failed","The evaluation report could not be persisted");return }
-		if status==delivery.EvaluationPassed {
-			evidenceID,idErr:=newID();if idErr!=nil{writeProblem(w,500,"Unable to record evidence","An identifier could not be generated");return}
-			if err=stored.Changeset.AttachEvidenceArtifact(delivery.ID(evidenceID),revision.ID,delivery.ID(evaluationID),"evaluation-report",artifact.URI,artifact.SHA256,artifact.Size,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	if d.Evaluator == nil || d.Git == nil {
+		writeProblem(w, 503, "Evaluation worker unavailable", "A trusted evaluation adapter and Git provider are required")
+		return
+	}
+	if d.Evidence == nil {
+		writeProblem(w, 503, "Evidence storage unavailable", "A content-addressed evidence store is not configured")
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists || revision.CommitSHA == "" {
+		writeProblem(w, 409, "Revision required", "Resolve a Git commit before evaluating this changeset")
+		return
+	}
+	if d.Catalog == nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "The target branch cannot be verified")
+		return
+	}
+	repositories, catalogErr := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
+	if catalogErr != nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "The target branch could not be loaded")
+		return
+	}
+	baseRef := ""
+	for _, repository := range repositories {
+		if repository.Slug == stored.Changeset.Repository {
+			baseRef = repository.DefaultBranch
+			break
 		}
 	}
-	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
-	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+	if baseRef == "" {
+		writeProblem(w, 409, "Repository not registered", "Register this repository before evaluating changesets")
+		return
+	}
+	baseRevision, baseErr := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, baseRef)
+	if baseErr != nil {
+		writeProblem(w, 409, "Target branch unavailable", "The registered default branch could not be resolved")
+		return
+	}
+	evaluationID, err := newID()
+	if err != nil {
+		writeProblem(w, 500, "Unable to create evaluation job", "An identifier could not be generated")
+		return
+	}
+	job := delivery.EvaluationJob{ID: evaluationID, OrganizationID: principal.OrganizationID, ChangesetID: stored.Changeset.ID, RevisionID: revision.ID, Repository: stored.Changeset.Repository, BaseSHA: baseRevision.CommitSHA, RevisionSHA: revision.CommitSHA}
+	result, evalErr := d.Evaluator.Evaluate(r.Context(), job)
+	if result.JobID != job.ID || result.OrganizationID != job.OrganizationID || result.ChangesetID != job.ChangesetID || result.RevisionID != job.RevisionID || result.BaseSHA != job.BaseSHA || result.RevisionSHA != job.RevisionSHA {
+		writeProblem(w, 502, "Invalid evaluation result", "The trusted evaluator returned a result that does not match the server-issued job identity and immutable revision")
+		return
+	}
+	status := delivery.EvaluationPassed
+	if evalErr != nil || !result.Passed {
+		status = delivery.EvaluationFailed
+	}
+	if err = stored.Changeset.RecordEvaluationAgainstBase(delivery.ID(evaluationID), revision.ID, baseRevision.CommitSHA, status, result.Summary, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	if len(result.Report) > 0 {
+		artifact, putErr := d.Evidence.Put(r.Context(), principal.OrganizationID, string(stored.Changeset.ID), result.Report)
+		if putErr != nil {
+			writeProblem(w, 503, "Evidence storage failed", "The evaluation report could not be persisted")
+			return
+		}
+		if status == delivery.EvaluationPassed {
+			evidenceID, idErr := newID()
+			if idErr != nil {
+				writeProblem(w, 500, "Unable to record evidence", "An identifier could not be generated")
+				return
+			}
+			if err = stored.Changeset.AttachEvidenceArtifact(delivery.ID(evidenceID), revision.ID, delivery.ID(evaluationID), "evaluation-report", artifact.URI, artifact.SHA256, artifact.Size, principal.UserID, time.Now().UTC()); err != nil {
+				writeDeliveryError(w, err)
+				return
+			}
+		}
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) attachEvidence(w http.ResponseWriter, r *http.Request) {
-	principal,ok:=d.principal(w,r,true);if !ok{return}
-	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
-	if d.Evidence==nil {writeProblem(w,503,"Evidence storage unavailable","A content-addressed evidence store is not configured");return}
-	var input struct { EvaluationID string `json:"evaluation_id"` };if !decodeJSON(w,r,&input){return}
-	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
-	revision,exists:=stored.Changeset.CurrentRevision();if !exists{writeProblem(w,409,"Revision required","A current revision is required");return}
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	if d.Evidence == nil {
+		writeProblem(w, 503, "Evidence storage unavailable", "A content-addressed evidence store is not configured")
+		return
+	}
+	var input struct {
+		EvaluationID string `json:"evaluation_id"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists {
+		writeProblem(w, 409, "Revision required", "A current revision is required")
+		return
+	}
 	var report []byte
-	for _,evaluation:=range stored.Changeset.Evaluations {if string(evaluation.ID)==input.EvaluationID&&evaluation.RevisionID==revision.ID&&evaluation.Status==delivery.EvaluationPassed {report,_=json.Marshal(evaluation)}}
-	if len(report)==0 {writeProblem(w,409,"Passed evaluation required","Evidence can only be derived from a persisted passing evaluation for the current revision");return}
-	artifact,err:=d.Evidence.Put(r.Context(),principal.OrganizationID,string(stored.Changeset.ID),report);if err!=nil{writeProblem(w,503,"Evidence storage failed","The evidence artifact could not be persisted");return}
-	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to attach evidence","An identifier could not be generated");return}
-	if err=stored.Changeset.AttachEvidenceArtifact(delivery.ID(id),revision.ID,delivery.ID(input.EvaluationID),"evaluation-report",artifact.URI,artifact.SHA256,artifact.Size,principal.UserID,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
-	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
-	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+	for _, evaluation := range stored.Changeset.Evaluations {
+		if string(evaluation.ID) == input.EvaluationID && evaluation.RevisionID == revision.ID && evaluation.Status == delivery.EvaluationPassed {
+			report, _ = json.Marshal(evaluation)
+		}
+	}
+	if len(report) == 0 {
+		writeProblem(w, 409, "Passed evaluation required", "Evidence can only be derived from a persisted passing evaluation for the current revision")
+		return
+	}
+	artifact, err := d.Evidence.Put(r.Context(), principal.OrganizationID, string(stored.Changeset.ID), report)
+	if err != nil {
+		writeProblem(w, 503, "Evidence storage failed", "The evidence artifact could not be persisted")
+		return
+	}
+	id, err := newID()
+	if err != nil {
+		writeProblem(w, 500, "Unable to attach evidence", "An identifier could not be generated")
+		return
+	}
+	if err = stored.Changeset.AttachEvidenceArtifact(delivery.ID(id), revision.ID, delivery.ID(input.EvaluationID), "evaluation-report", artifact.URI, artifact.SHA256, artifact.Size, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) submitReview(w http.ResponseWriter, r *http.Request) {
-	principal,ok:=d.principal(w,r,true);if !ok{return}
-	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
-	if d.Reviewers==nil {writeProblem(w,503,"Review assignment unavailable","Organization membership verification is not configured");return}
-	var input struct { ReviewerID string `json:"reviewer_id"`; Comment string `json:"comment"` };if !decodeJSON(w,r,&input){return}
-	active,err:=d.Reviewers.IsActiveMember(r.Context(),principal.OrganizationID,input.ReviewerID)
-	if err!=nil {writeProblem(w,503,"Review assignment unavailable","The reviewer membership could not be verified");return}
-	if !active {writeProblem(w,422,"Invalid reviewer","The assigned reviewer must be an active member of this organization");return}
-	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
-	revision,exists:=stored.Changeset.CurrentRevision();if !exists {writeProblem(w,409,"Revision required","A current revision is required");return}
-	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to assign review","An identifier could not be generated");return}
-	if err=stored.Changeset.AssignReview(delivery.ID(id),revision.ID,input.ReviewerID,principal.UserID,input.Comment,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
-	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
-	writeJSON(w,http.StatusCreated,toChangesetResponse(updated))
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	if d.Reviewers == nil {
+		writeProblem(w, 503, "Review assignment unavailable", "Organization membership verification is not configured")
+		return
+	}
+	var input struct {
+		ReviewerID string `json:"reviewer_id"`
+		Comment    string `json:"comment"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	active, err := d.Reviewers.IsActiveMember(r.Context(), principal.OrganizationID, input.ReviewerID)
+	if err != nil {
+		writeProblem(w, 503, "Review assignment unavailable", "The reviewer membership could not be verified")
+		return
+	}
+	if !active {
+		writeProblem(w, 422, "Invalid reviewer", "The assigned reviewer must be an active member of this organization")
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists {
+		writeProblem(w, 409, "Revision required", "A current revision is required")
+		return
+	}
+	id, err := newID()
+	if err != nil {
+		writeProblem(w, 500, "Unable to assign review", "An identifier could not be generated")
+		return
+	}
+	if err = stored.Changeset.AssignReview(delivery.ID(id), revision.ID, input.ReviewerID, principal.UserID, input.Comment, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) decideReview(w http.ResponseWriter, r *http.Request) {
-	principal,ok:=d.principal(w,r,true);if !ok{return}
-	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
-	var input struct { Approved bool `json:"approved"`; Comment string `json:"comment"` };if !decodeJSON(w,r,&input){return}
-	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
-	if err:=stored.Changeset.DecideReview(delivery.ID(r.PathValue("reviewID")),input.Approved,principal.UserID,input.Comment,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
-	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
-	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	var input struct {
+		Approved bool   `json:"approved"`
+		Comment  string `json:"comment"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if err := stored.Changeset.DecideReview(delivery.ID(r.PathValue("reviewID")), input.Approved, principal.UserID, input.Comment, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Request) {
-	principal,ok:=d.principal(w,r,true);if !ok{return}
-	unlock,locked:=d.lockChangeset(w,r,principal.OrganizationID);if !locked{return};defer unlock()
-	if d.Git==nil {writeProblem(w,503,"Git provider unavailable","A trusted Git provider is not configured");return}
-	var input struct { TargetRef string `json:"target_ref"` };if !decodeJSON(w,r,&input){return}
-	stored,ok:=d.load(w,r,principal.OrganizationID);if !ok{return}
-	if d.Catalog==nil {writeProblem(w,503,"Repository catalog unavailable","The merge target cannot be verified");return}
-	repositories,catalogErr:=d.Catalog.ListRepositories(r.Context(),principal.OrganizationID)
-	if catalogErr!=nil {writeProblem(w,503,"Repository catalog unavailable","The merge target could not be loaded");return}
-	allowedTarget:=""
-	for _,repository:=range repositories {if repository.Slug==stored.Changeset.Repository {allowedTarget=repository.DefaultBranch;break}}
-	if allowedTarget==""||input.TargetRef!=allowedTarget {writeProblem(w,422,"Invalid merge target","Changesets can only merge into the registered default branch");return}
-	revision,exists:=stored.Changeset.CurrentRevision();if !exists||revision.CommitSHA=="" {writeProblem(w,409,"Revision required","A resolved Git revision is required");return}
-	if err:=stored.Changeset.ValidateMerge();err!=nil {writeDeliveryError(w,err);return}
-	if d.Locker==nil {writeProblem(w,503,"Repository merge lock unavailable","A distributed repository lock is required before merging");return}
-	unlockRepository,lockErr:=d.Locker.LockChangeset(r.Context(),principal.OrganizationID,"repository:"+stored.Changeset.Repository)
-	if lockErr!=nil {writeProblem(w,503,"Repository merge lock unavailable","The repository could not be safely locked for merge");return}
-	defer unlockRepository()
-	baseRevision,baseErr:=d.Git.ResolveRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,allowedTarget)
-	if baseErr!=nil {writeProblem(w,409,"Target branch unavailable","The registered default branch could not be resolved under the merge lock");return}
-	currentEvaluation,hasEvaluation:=stored.Changeset.LatestEvaluation(revision.ID)
-	if !hasEvaluation || currentEvaluation.Status!=delivery.EvaluationPassed || currentEvaluation.BaseSHA=="" || currentEvaluation.BaseSHA!=baseRevision.CommitSHA {
-		writeProblem(w,409,"Evaluation is stale","The target branch changed after evaluation; rerun trusted evaluation before merging");return
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
 	}
-	id,err:=newID();if err!=nil{writeProblem(w,500,"Unable to record merge","An identifier could not be generated");return}
-	merged,err:=d.Git.MergeRevision(r.Context(),principal.OrganizationID,stored.Changeset.Repository,revision.CommitSHA,input.TargetRef)
-	if err!=nil {writeProblem(w,409,"Git merge rejected","The target branch could not be merged cleanly; no merge record was written");return}
-	if err=stored.Changeset.CompleteMerge(delivery.ID(id),principal.UserID,merged.TargetRef,merged.CommitSHA,time.Now().UTC());err!=nil{writeDeliveryError(w,err);return}
-	updated,err:=d.Repository.Update(r.Context(),principal.OrganizationID,stored.Changeset,stored.Version);if err!=nil{writeRepositoryError(w,err);return}
-	writeJSON(w,http.StatusOK,toChangesetResponse(updated))
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	if d.Git == nil {
+		writeProblem(w, 503, "Git provider unavailable", "A trusted Git provider is not configured")
+		return
+	}
+	var input struct {
+		TargetRef string `json:"target_ref"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if d.Catalog == nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "The merge target cannot be verified")
+		return
+	}
+	repositories, catalogErr := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
+	if catalogErr != nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "The merge target could not be loaded")
+		return
+	}
+	allowedTarget := ""
+	for _, repository := range repositories {
+		if repository.Slug == stored.Changeset.Repository {
+			allowedTarget = repository.DefaultBranch
+			break
+		}
+	}
+	if allowedTarget == "" || input.TargetRef != allowedTarget {
+		writeProblem(w, 422, "Invalid merge target", "Changesets can only merge into the registered default branch")
+		return
+	}
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists || revision.CommitSHA == "" {
+		writeProblem(w, 409, "Revision required", "A resolved Git revision is required")
+		return
+	}
+	if err := stored.Changeset.ValidateMerge(); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	if d.Locker == nil {
+		writeProblem(w, 503, "Repository merge lock unavailable", "A distributed repository lock is required before merging")
+		return
+	}
+	unlockRepository, lockErr := d.Locker.LockChangeset(r.Context(), principal.OrganizationID, "repository:"+stored.Changeset.Repository)
+	if lockErr != nil {
+		writeProblem(w, 503, "Repository merge lock unavailable", "The repository could not be safely locked for merge")
+		return
+	}
+	defer unlockRepository()
+	baseRevision, baseErr := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, allowedTarget)
+	if baseErr != nil {
+		writeProblem(w, 409, "Target branch unavailable", "The registered default branch could not be resolved under the merge lock")
+		return
+	}
+	currentEvaluation, hasEvaluation := stored.Changeset.LatestEvaluation(revision.ID)
+	if !hasEvaluation || currentEvaluation.Status != delivery.EvaluationPassed || currentEvaluation.BaseSHA == "" || currentEvaluation.BaseSHA != baseRevision.CommitSHA {
+		writeProblem(w, 409, "Evaluation is stale", "The target branch changed after evaluation; rerun trusted evaluation before merging")
+		return
+	}
+	id, err := newID()
+	if err != nil {
+		writeProblem(w, 500, "Unable to record merge", "An identifier could not be generated")
+		return
+	}
+	merged, err := d.Git.MergeRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef)
+	if err != nil {
+		writeProblem(w, 409, "Git merge rejected", "The target branch could not be merged cleanly; no merge record was written")
+		return
+	}
+	if err = stored.Changeset.CompleteMerge(delivery.ID(id), principal.UserID, merged.TargetRef, merged.CommitSHA, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }
 
 func (d DeliveryDependencies) load(w http.ResponseWriter, r *http.Request, organizationID string) (delivery.StoredChangeset, bool) {
@@ -467,15 +895,16 @@ func writeProblem(w http.ResponseWriter, status int, title, detail string) {
 	_ = json.NewEncoder(w).Encode(problemResponse{Type: "about:blank", Title: title, Status: status, Detail: detail})
 }
 
-
 type updateMemberRequest struct {
-	Role *string `json:"role,omitempty"`
+	Role   *string `json:"role,omitempty"`
 	Status *string `json:"status,omitempty"`
 }
 
 func (d DeliveryDependencies) membershipAdmin(w http.ResponseWriter, r *http.Request) (Principal, bool) {
 	principal, ok := d.principal(w, r, true)
-	if !ok { return Principal{}, false }
+	if !ok {
+		return Principal{}, false
+	}
 	if principal.Role != "owner" && principal.Role != "admin" {
 		writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only organization owners and administrators can manage members")
 		return Principal{}, false
@@ -489,12 +918,18 @@ func (d DeliveryDependencies) membershipAdmin(w http.ResponseWriter, r *http.Req
 
 func (d DeliveryDependencies) listMembers(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.membershipAdmin(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	limit, offset := 50, 0
 	var err error
-	if raw := r.URL.Query().Get("limit"); raw != "" { limit, err = strconv.Atoi(raw) }
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		limit, err = strconv.Atoi(raw)
+	}
 	if err == nil {
-		if raw := r.URL.Query().Get("offset"); raw != "" { offset, err = strconv.Atoi(raw) }
+		if raw := r.URL.Query().Get("offset"); raw != "" {
+			offset, err = strconv.Atoi(raw)
+		}
 	}
 	if err != nil || limit < 1 || limit > 100 || offset < 0 {
 		writeProblem(w, http.StatusBadRequest, "Invalid pagination", "limit must be 1-100 and offset must be zero or greater")
@@ -506,31 +941,41 @@ func (d DeliveryDependencies) listMembers(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, struct {
-		Items []identity.OrganizationMember `json:"items"`
-		Limit int `json:"limit"`
-		Offset int `json:"offset"`
+		Items  []identity.OrganizationMember `json:"items"`
+		Limit  int                           `json:"limit"`
+		Offset int                           `json:"offset"`
 	}{Items: members, Limit: limit, Offset: offset})
 }
 
 func (d DeliveryDependencies) updateMember(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.membershipAdmin(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var input updateMemberRequest
-	if !decodeJSON(w, r, &input) { return }
+	if !decodeJSON(w, r, &input) {
+		return
+	}
 	if input.Role == nil && input.Status == nil {
 		writeProblem(w, http.StatusBadRequest, "Invalid membership update", "At least one of role or status is required")
 		return
 	}
 	member, err := d.Membership.UpdateMembership(r.Context(), principal.OrganizationID, principal.UserID, r.PathValue("userID"), input.Role, input.Status)
-	if err != nil { writeMembershipError(w, err); return }
+	if err != nil {
+		writeMembershipError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, member)
 }
 
 func (d DeliveryDependencies) removeMember(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.membershipAdmin(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if err := d.Membership.RemoveMembership(r.Context(), principal.OrganizationID, principal.UserID, r.PathValue("userID")); err != nil {
-		writeMembershipError(w, err); return
+		writeMembershipError(w, err)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -550,135 +995,246 @@ func writeMembershipError(w http.ResponseWriter, err error) {
 	}
 }
 
-
 type createInvitationRequest struct {
 	Email string `json:"email"`
-	Role string `json:"role"`
+	Role  string `json:"role"`
 }
 
 func (d DeliveryDependencies) invitationPage(w http.ResponseWriter, r *http.Request) (Principal, int, int, bool) {
 	principal, ok := d.membershipAdmin(w, r)
-	if !ok { return Principal{},0,0,false }
-	limit,offset:=50,0
-	var err error
-	if raw:=r.URL.Query().Get("limit"); raw!="" { limit,err=strconv.Atoi(raw) }
-	if err==nil { if raw:=r.URL.Query().Get("offset"); raw!="" { offset,err=strconv.Atoi(raw) } }
-	if err!=nil || limit<1 || limit>100 || offset<0 {
-		writeProblem(w,http.StatusBadRequest,"Invalid pagination","limit must be 1-100 and offset must be zero or greater")
-		return Principal{},0,0,false
+	if !ok {
+		return Principal{}, 0, 0, false
 	}
-	return principal,limit,offset,true
+	limit, offset := 50, 0
+	var err error
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		limit, err = strconv.Atoi(raw)
+	}
+	if err == nil {
+		if raw := r.URL.Query().Get("offset"); raw != "" {
+			offset, err = strconv.Atoi(raw)
+		}
+	}
+	if err != nil || limit < 1 || limit > 100 || offset < 0 {
+		writeProblem(w, http.StatusBadRequest, "Invalid pagination", "limit must be 1-100 and offset must be zero or greater")
+		return Principal{}, 0, 0, false
+	}
+	return principal, limit, offset, true
 }
 
-func (d DeliveryDependencies) listInvitations(w http.ResponseWriter,r *http.Request) {
-	principal,limit,offset,ok:=d.invitationPage(w,r); if !ok { return }
-	items,err:=d.Membership.ListInvitations(r.Context(),principal.OrganizationID,limit,offset)
-	if err!=nil { writeProblem(w,http.StatusInternalServerError,"Unable to list invitations","The organization invitation query failed"); return }
-	writeJSON(w,http.StatusOK,struct {
-		Items []identity.OrganizationInvitation `json:"items"`
-		Limit int `json:"limit"`
-		Offset int `json:"offset"`
-	}{items,limit,offset})
+func (d DeliveryDependencies) listInvitations(w http.ResponseWriter, r *http.Request) {
+	principal, limit, offset, ok := d.invitationPage(w, r)
+	if !ok {
+		return
+	}
+	items, err := d.Membership.ListInvitations(r.Context(), principal.OrganizationID, limit, offset)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to list invitations", "The organization invitation query failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Items  []identity.OrganizationInvitation `json:"items"`
+		Limit  int                               `json:"limit"`
+		Offset int                               `json:"offset"`
+	}{items, limit, offset})
 }
 
-func (d DeliveryDependencies) createInvitation(w http.ResponseWriter,r *http.Request) {
-	principal,ok:=d.membershipAdmin(w,r); if !ok { return }
+func (d DeliveryDependencies) createInvitation(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.membershipAdmin(w, r)
+	if !ok {
+		return
+	}
 	var input createInvitationRequest
-	if !decodeJSON(w,r,&input) { return }
-	token,err:=identity.GenerateToken()
-	if err!=nil { writeProblem(w,http.StatusInternalServerError,"Unable to create invitation","A secure invitation token could not be generated"); return }
-	expiresAt:=time.Now().UTC().Add(7*24*time.Hour)
-	invitation,err:=d.Membership.CreateInvitation(r.Context(),principal.OrganizationID,principal.UserID,input.Email,input.Role,identity.HashToken(token),expiresAt)
-	if err!=nil { writeInvitationError(w,err); return }
-	writeJSON(w,http.StatusCreated,struct {
-		Invitation identity.OrganizationInvitation `json:"invitation"`
-		InvitationURL string `json:"invitation_url"`
-		Token string `json:"token"`
-	}{invitation,strings.TrimRight(d.AllowedOrigin,"/")+"/auth/invitations/accept?token="+url.QueryEscape(token),token})
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	token, err := identity.GenerateToken()
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to create invitation", "A secure invitation token could not be generated")
+		return
+	}
+	expiresAt := time.Now().UTC().Add(7 * 24 * time.Hour)
+	invitation, err := d.Membership.CreateInvitation(r.Context(), principal.OrganizationID, principal.UserID, input.Email, input.Role, identity.HashToken(token), expiresAt)
+	if err != nil {
+		writeInvitationError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, struct {
+		Invitation    identity.OrganizationInvitation `json:"invitation"`
+		InvitationURL string                          `json:"invitation_url"`
+		Token         string                          `json:"token"`
+	}{invitation, strings.TrimRight(d.AllowedOrigin, "/") + "/auth/invitations/accept?token=" + url.QueryEscape(token), token})
 }
 
-func (d DeliveryDependencies) revokeInvitation(w http.ResponseWriter,r *http.Request) {
-	principal,ok:=d.membershipAdmin(w,r); if !ok { return }
-	if err:=d.Membership.RevokeInvitation(r.Context(),principal.OrganizationID,principal.UserID,r.PathValue("invitationID")); err!=nil { writeInvitationError(w,err); return }
+func (d DeliveryDependencies) revokeInvitation(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.membershipAdmin(w, r)
+	if !ok {
+		return
+	}
+	if err := d.Membership.RevokeInvitation(r.Context(), principal.OrganizationID, principal.UserID, r.PathValue("invitationID")); err != nil {
+		writeInvitationError(w, err)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (d DeliveryDependencies) listMembershipAudit(w http.ResponseWriter,r *http.Request) {
-	principal,limit,offset,ok:=d.invitationPage(w,r); if !ok { return }
-	events,err:=d.Membership.ListMembershipAudit(r.Context(),principal.OrganizationID,limit,offset)
-	if err!=nil { writeProblem(w,http.StatusInternalServerError,"Unable to load membership audit","The organization audit query failed"); return }
-	writeJSON(w,http.StatusOK,struct {
-		Items []identity.MembershipAuditEvent `json:"items"`
-		Limit int `json:"limit"`
-		Offset int `json:"offset"`
-	}{events,limit,offset})
+func (d DeliveryDependencies) listMembershipAudit(w http.ResponseWriter, r *http.Request) {
+	principal, limit, offset, ok := d.invitationPage(w, r)
+	if !ok {
+		return
+	}
+	events, err := d.Membership.ListMembershipAudit(r.Context(), principal.OrganizationID, limit, offset)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to load membership audit", "The organization audit query failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Items  []identity.MembershipAuditEvent `json:"items"`
+		Limit  int                             `json:"limit"`
+		Offset int                             `json:"offset"`
+	}{events, limit, offset})
 }
 
-func writeInvitationError(w http.ResponseWriter,err error) {
+func writeInvitationError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err,identity.ErrInvitationNotFound):
-		writeProblem(w,http.StatusNotFound,"Invitation not found","The invitation is expired, revoked, accepted, or does not belong to this organization")
-	case errors.Is(err,identity.ErrInvitationAlreadyMember):
-		writeProblem(w,http.StatusConflict,"Already a member","This verified email already belongs to an active or suspended organization member")
-	case errors.Is(err,identity.ErrInvitationPending):
-		writeProblem(w,http.StatusConflict,"Invitation already pending","A pending invitation already exists for this email in this organization")
-	case errors.Is(err,identity.ErrMembershipForbidden):
-		writeProblem(w,http.StatusForbidden,"Invitation operation forbidden","Your organization role cannot perform this invitation operation")
-	case errors.Is(err,identity.ErrInvalidInvitation):
-		writeProblem(w,http.StatusBadRequest,"Invalid invitation","Provide a valid email and an allowed organization role")
+	case errors.Is(err, identity.ErrInvitationNotFound):
+		writeProblem(w, http.StatusNotFound, "Invitation not found", "The invitation is expired, revoked, accepted, or does not belong to this organization")
+	case errors.Is(err, identity.ErrInvitationAlreadyMember):
+		writeProblem(w, http.StatusConflict, "Already a member", "This verified email already belongs to an active or suspended organization member")
+	case errors.Is(err, identity.ErrInvitationPending):
+		writeProblem(w, http.StatusConflict, "Invitation already pending", "A pending invitation already exists for this email in this organization")
+	case errors.Is(err, identity.ErrMembershipForbidden):
+		writeProblem(w, http.StatusForbidden, "Invitation operation forbidden", "Your organization role cannot perform this invitation operation")
+	case errors.Is(err, identity.ErrInvalidInvitation):
+		writeProblem(w, http.StatusBadRequest, "Invalid invitation", "Provide a valid email and an allowed organization role")
 	default:
-		writeProblem(w,http.StatusInternalServerError,"Invitation operation failed","The organization invitation could not be processed")
+		writeProblem(w, http.StatusInternalServerError, "Invitation operation failed", "The organization invitation could not be processed")
 	}
 }
 
+func (d DeliveryDependencies) logout(w http.ResponseWriter, r *http.Request) {
+	if d.RevokeSession == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Logout unavailable", "Session storage is not configured")
+		return
+	}
+	if cookie, err := r.Cookie(identity.SessionCookieName); err == nil && cookie.Value != "" {
+		if err := d.RevokeSession(r.Context(), cookie.Value); err != nil && !errors.Is(err, identity.ErrUnauthenticated) {
+			writeProblem(w, http.StatusServiceUnavailable, "Logout temporarily unavailable", "The active session could not be revoked")
+			return
+		}
+	}
+	sessionCookie, csrfCookie := identity.ClearSessionCookies()
+	http.SetCookie(w, sessionCookie)
+	http.SetCookie(w, csrfCookie)
+	w.WriteHeader(http.StatusNoContent)
+}
 
-func (d DeliveryDependencies) currentAccount(w http.ResponseWriter,r *http.Request) {
-	if d.Account==nil {
-		writeProblem(w,http.StatusServiceUnavailable,"Account context unavailable","The authenticated account repository is not configured")
+func (d DeliveryDependencies) currentAccount(w http.ResponseWriter, r *http.Request) {
+	if d.Account == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account context unavailable", "The authenticated account repository is not configured")
 		return
 	}
-	cookie,err:=r.Cookie(identity.SessionCookieName)
-	if err!=nil || cookie.Value=="" {
-		writeProblem(w,http.StatusUnauthorized,"Authentication required","A valid application session is required")
+	cookie, err := r.Cookie(identity.SessionCookieName)
+	if err != nil || cookie.Value == "" {
+		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session is required")
 		return
 	}
-	account,err:=d.Account.CurrentAccount(r.Context(),cookie.Value)
-	if errors.Is(err,identity.ErrUnauthenticated) {
-		writeProblem(w,http.StatusUnauthorized,"Authentication required","A valid application session with active organization membership is required")
+	account, err := d.Account.CurrentAccount(r.Context(), cookie.Value)
+	if errors.Is(err, identity.ErrUnauthenticated) {
+		writeProblem(w, http.StatusUnauthorized, "Authentication required", "A valid application session with active organization membership is required")
 		return
 	}
-	if err!=nil {
-		writeProblem(w,http.StatusServiceUnavailable,"Account context unavailable","The authenticated account and organization context could not be loaded")
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Account context unavailable", "The authenticated account and organization context could not be loaded")
 		return
 	}
-	writeJSON(w,http.StatusOK,account)
+	writeJSON(w, http.StatusOK, account)
+}
+
+// getProfile returns the current user's profile information
+func (d DeliveryDependencies) getProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := d.authenticateUser(w, r)
+	if !ok {
+		return
+	}
+
+	profile, err := d.Settings.GetUserProfile(r.Context(), userID)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Profile unavailable", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, profile)
+}
+
+// updateProfile updates the current user's profile information
+func (d DeliveryDependencies) updateProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := d.authenticateUser(w, r)
+	if !ok {
+		return
+	}
+
+	var patch struct {
+		DisplayName *string `json:"display_name"`
+		Bio         *string `json:"bio"`
+		Location    *string `json:"location"`
+	}
+	if !decodeJSON(w, r, &patch) {
+		return
+	}
+	if patch.DisplayName != nil && (strings.TrimSpace(*patch.DisplayName) == "" || len(*patch.DisplayName) > 100) {
+		writeProblem(w, http.StatusBadRequest, "Invalid display name", "display_name must be nonblank and at most 100 bytes")
+		return
+	}
+
+	profile, err := d.Settings.UpdateUserProfile(r.Context(), userID, patch.DisplayName, patch.Bio, patch.Location)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Profile update failed", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, profile)
 }
 
 func writeDeliveryError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err,delivery.ErrRevisionNotCurrent),errors.Is(err,delivery.ErrEvaluationRequired),errors.Is(err,delivery.ErrEvidenceRequired),errors.Is(err,delivery.ErrReviewRequired),errors.Is(err,delivery.ErrAlreadyMerged):
-		writeProblem(w,http.StatusConflict,"Delivery precondition failed",err.Error())
-	case errors.Is(err,delivery.ErrReviewAlreadyApproved):
-		writeProblem(w,http.StatusConflict,"Review already approved","The current revision already has an approved review. Add a new revision to request another review.")
-	case errors.Is(err,delivery.ErrReviewForbidden):
-		writeProblem(w,http.StatusForbidden,"Review decision forbidden",err.Error())
-	case errors.Is(err,delivery.ErrInvalidInput):
-		writeProblem(w,http.StatusBadRequest,"Invalid delivery operation",err.Error())
+	case errors.Is(err, delivery.ErrRevisionNotCurrent), errors.Is(err, delivery.ErrEvaluationRequired), errors.Is(err, delivery.ErrEvidenceRequired), errors.Is(err, delivery.ErrReviewRequired), errors.Is(err, delivery.ErrAlreadyMerged):
+		writeProblem(w, http.StatusConflict, "Delivery precondition failed", err.Error())
+	case errors.Is(err, delivery.ErrReviewAlreadyApproved):
+		writeProblem(w, http.StatusConflict, "Review already approved", "The current revision already has an approved review. Add a new revision to request another review.")
+	case errors.Is(err, delivery.ErrReviewForbidden):
+		writeProblem(w, http.StatusForbidden, "Review decision forbidden", err.Error())
+	case errors.Is(err, delivery.ErrInvalidInput):
+		writeProblem(w, http.StatusBadRequest, "Invalid delivery operation", err.Error())
 	default:
-		writeProblem(w,http.StatusUnprocessableEntity,"Delivery operation rejected",err.Error())
+		writeProblem(w, http.StatusUnprocessableEntity, "Delivery operation rejected", err.Error())
 	}
 }
 func writeRepositoryError(w http.ResponseWriter, err error) {
-	if errors.Is(err,delivery.ErrVersionConflict) {writeProblem(w,http.StatusConflict,"Changeset changed concurrently","Reload the changeset and retry the operation");return}
-	if errors.Is(err,delivery.ErrNotFound) {writeProblem(w,http.StatusNotFound,"Changeset not found","The changeset does not exist in this organization");return}
-	writeProblem(w,http.StatusInternalServerError,"Unable to persist delivery state","The changeset state could not be saved")
+	if errors.Is(err, delivery.ErrVersionConflict) {
+		writeProblem(w, http.StatusConflict, "Changeset changed concurrently", "Reload the changeset and retry the operation")
+		return
+	}
+	if errors.Is(err, delivery.ErrNotFound) {
+		writeProblem(w, http.StatusNotFound, "Changeset not found", "The changeset does not exist in this organization")
+		return
+	}
+	writeProblem(w, http.StatusInternalServerError, "Unable to persist delivery state", "The changeset state could not be saved")
 }
 
-func (d DeliveryDependencies) lockChangeset(w http.ResponseWriter,r *http.Request,organizationID string)(func(),bool){
-	if d.Locker==nil{return func(){},true}
-	id:=strings.TrimSpace(r.PathValue("id"))
-	if id==""{writeProblem(w,http.StatusBadRequest,"Changeset ID required","A changeset identifier is required");return nil,false}
-	unlock,err:=d.Locker.LockChangeset(r.Context(),organizationID,id)
-	if err!=nil{writeProblem(w,http.StatusServiceUnavailable,"Changeset lock unavailable","The changeset could not be safely locked for mutation");return nil,false}
-	return unlock,true
+func (d DeliveryDependencies) lockChangeset(w http.ResponseWriter, r *http.Request, organizationID string) (func(), bool) {
+	if d.Locker == nil {
+		return func() {}, true
+	}
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeProblem(w, http.StatusBadRequest, "Changeset ID required", "A changeset identifier is required")
+		return nil, false
+	}
+	unlock, err := d.Locker.LockChangeset(r.Context(), organizationID, id)
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Changeset lock unavailable", "The changeset could not be safely locked for mutation")
+		return nil, false
+	}
+	return unlock, true
 }

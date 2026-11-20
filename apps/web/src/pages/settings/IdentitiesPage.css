@@ -1,0 +1,285 @@
+/* Settings Page Layout */
+.settings-page {
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: var(--af-color-surface);
+  min-height: 100vh;
+}
+
+.settings-content {
+  display: grid;
+  gap: 32px;
+}
+
+/* Page Header */
+.page-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--af-color-border);
+}
+
+.page-header .header-content h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--af-color-text);
+  margin: 0 0 4px;
+  letter-spacing: -0.3px;
+}
+
+.page-header .page-description {
+  font-size: 14px;
+  color: var(--af-color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Section */
+.identities-section {
+  display: grid;
+  gap: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--af-color-text);
+  margin: 0 0 8px;
+}
+
+/* Identities List */
+.identities-list {
+  display: grid;
+  gap: 16px;
+}
+
+/* Identity Card - GitHub Style */
+.identity-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: var(--af-color-surface);
+  border: 1px solid var(--af-color-border);
+  border-radius: 6px;
+  transition: border-color 0.2s ease;
+}
+
+.identity-card:hover {
+  border-color: var(--af-color-text-muted);
+}
+
+.identity-card__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: var(--af-color-surface-raised);
+  border: 1px solid var(--af-color-border);
+  border-radius: 6px;
+  color: var(--af-color-text-secondary);
+}
+
+.identity-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.identity-card__header {
+  margin-bottom: 8px;
+}
+
+.identity-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--af-color-text);
+  margin: 0 0 4px;
+}
+
+.identity-card__email {
+  font-size: 14px;
+  color: var(--af-color-text-secondary);
+  margin: 0;
+}
+
+.identity-card__meta {
+  font-size: 12px;
+  color: var(--af-color-text-secondary);
+  margin: 0;
+}
+
+.identity-card__actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Add Identity Placeholder */
+.add-identity-placeholder {
+  padding: 16px;
+  text-align: center;
+  background: var(--af-color-surface-raised);
+  border: 1px dashed var(--af-color-border);
+  border-radius: 6px;
+}
+
+.add-identity-placeholder button {
+  margin-bottom: 8px;
+}
+
+.hint-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--af-color-text-secondary);
+}
+
+/* Messages */
+.loading-message {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--af-color-text-secondary);
+  font-size: 14px;
+}
+
+.success-message {
+  padding: 12px 16px;
+  background: var(--af-color-success-subtle);
+  border: 1px solid var(--af-color-action);
+  border-radius: 6px;
+  color: var(--af-color-success);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.error-message {
+  padding: 12px 16px;
+  background: var(--af-color-danger-subtle);
+  border: 1px solid var(--af-color-danger);
+  border-radius: 6px;
+  color: var(--af-color-danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--af-color-text-secondary);
+  font-size: 14px;
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--af-color-text);
+  margin: 0 0 8px;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: var(--af-color-text-secondary);
+  margin: 0;
+}
+
+/* Dialog Overlay */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(27, 31, 36, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 480px;
+  background: var(--af-color-surface);
+  border: 1px solid var(--af-color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(27, 31, 36, 0.12);
+}
+
+.dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--af-color-border);
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--af-color-text);
+}
+
+.dialog-body {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .settings-page {
+    padding: 16px;
+  }
+
+  .page-header .header-content h1 {
+    font-size: 20px;
+  }
+
+  .identity-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .identity-card__actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .identity-card__actions button {
+    width: 100%;
+  }
+
+  .dialog {
+    max-width: 100%;
+    margin: 16px;
+  }
+
+  .dialog-body {
+    padding: 16px;
+  }
+
+  .dialog-footer {
+    flex-direction: column-reverse;
+  }
+
+  .dialog-footer button {
+    width: 100%;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .identity-card,
+  .button {
+    transition: none;
+  }
+}

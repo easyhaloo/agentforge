@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Form, Input, Modal, Select, TextArea } from "../../shared/ui";
 
 type Props = { open: boolean; onClose: () => void; onCreate: (title: string) => void };
@@ -11,6 +12,7 @@ const projectOptions = [
 ];
 
 export function CreateChangesetDialog({ open, onClose, onCreate }: Props) {
+  const { t } = useTranslation("changesets");
   const [title, setTitle] = useState("");
   const [project, setProject] = useState("agentforge-core");
   const [description, setDescription] = useState("");
@@ -35,36 +37,36 @@ export function CreateChangesetDialog({ open, onClose, onCreate }: Props) {
 
   return <Modal
     open={open}
-    title="Create changeset"
+    title={t("create.title")}
     onCancel={onClose}
     onOk={create}
-    okText="Create resource"
+    okText={t("create.okButton")}
     width={560}
   >
-    <div className="eyebrow">NEW RESOURCE</div>
+    <div className="eyebrow">{t("create.newResourceEyebrow")}</div>
     <Form onSubmit={submit}>
       <Input
         ref={titleInputRef}
-        label="Title"
+        label={t("create.titleLabel")}
         required
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder="Describe the change or goal"
+        placeholder={t("create.titlePlaceholder")}
       />
       <Select
-        label="Project"
+        label={t("create.projectLabel")}
         options={projectOptions}
         value={project}
         onChange={(event) => setProject(event.target.value)}
       />
       <TextArea
-        label="Description"
+        label={t("create.descriptionLabel")}
         value={description}
         onChange={(event) => setDescription(event.target.value)}
-        placeholder="What should this change accomplish?"
+        placeholder={t("create.descriptionPlaceholder")}
         rows={3}
       />
     </Form>
-    <p className="mock-note"><Sparkles size={13} /> This creates a local demo record only. No Git or backend operation is performed.</p>
+    <p className="mock-note"><Sparkles size={13} /> {t("create.mockNote")}</p>
   </Modal>;
 }

@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { demoOrganization, installApiMocks, labsOrganization } from "./support/api-mocks";
+import { selectOption } from "./support/select-option";
 
 const pageHeading = (page: Page) => page.getByRole("main").locator(".page-heading h1");
 const sidebarLink = (page: Page, name: string) => page.locator(".sidebar").getByRole("link", { name, exact: true });
 // The Changesets item carries a count badge inside the link, so match it by prefix.
 const changesetsLink = (page: Page) => page.locator(".sidebar").getByRole("link", { name: /^Changesets/ });
-const selectedOrganizationName = (page: Page) => page.locator(".sidebar .org-switch__select b");
+const selectedOrganizationName = (page: Page) => page.locator(".sidebar .org-switch .af-select-trigger__label");
 const pathOf = (page: Page) => { const { pathname, search, hash } = new URL(page.url()); return pathname + search + hash; };
 
 test.beforeEach(async ({ page }) => {
@@ -51,11 +52,10 @@ const flatPages = [
   ["/stacks", "Stacks"],
   ["/self-healing", "Self-healing"],
   ["/memory", "Memory"],
-  ["/pipelines", "CI / CD"],
   ["/security", "Security"],
   ["/governance", "Governance"],
   ["/usage", "Cost & Usage"],
-  ["/settings", "Settings"],
+  // /settings is excluded - it redirects to /settings/profile
   ["/dev/ui", "UI Components"],
 ] as const;
 
@@ -90,8 +90,10 @@ test("/orgs/current is replaced by the canonical organization URL, keeping query
 
 test("a mixed-case /ORGS URL is served like /orgs and the current alias is still replaced", async ({ page }) => {
   await installApiMocks(page);
+  await page.clock.install();
   await page.goto("/ORGS/current/changesets");
   await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await page.clock.fastForward(500); // Mounting the search field must not submit an empty filter.
   expect(pathOf(page)).toBe("/orgs/demo/changesets");
   await expect(changesetsLink(page)).toHaveAttribute("aria-current", "page");
 });
@@ -100,7 +102,7 @@ test("switching organization works on a mixed-case /Orgs URL", async ({ page }) 
   await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
   await page.goto("/Orgs/demo/settings");
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
-  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-labs");
+  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
   await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
   await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
 });
@@ -139,12 +141,11 @@ test("an organization whose own slug is the reserved current alias is addressed 
   expect(pathOf(page)).toBe("/orgs/org-reserved/changesets");
 });
 
-test("signed out, organization pages ask for SSO while flat pages still render", async ({ page }) => {
+test("signed out, organization pages ask for sign-in while flat pages still render", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
   await page.goto("/orgs/x/changesets");
   await expect(page.getByRole("heading", { name: "Sign in to view changesets" })).toBeVisible();
-  const sso = page.getByRole("link", { name: "Continue with SSO" });
-  await expect(sso).toHaveAttribute("href", "/auth/oidc/login");
+  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", "/login?return=%2Forgs%2Fx%2Fchangesets");
 
   await sidebarLink(page, "Projects").click();
   await expect(pageHeading(page)).toHaveText("Projects");
@@ -156,7 +157,8 @@ test("the SSO entry is a full-page navigation to the backend, never a client rou
   await installApiMocks(page, { signedOut: true });
   await page.route("**/auth/oidc/login", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Identity provider</h1>" }));
   await page.goto("/orgs/x/changesets");
-  await page.getByRole("link", { name: "Continue with SSO" }).click();
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await page.getByRole("link", { name: "SSO", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Identity provider" })).toBeVisible();
   expect(pathOf(page)).toBe("/auth/oidc/login");
 });
@@ -167,7 +169,7 @@ test("switching organization keeps the sub-path and the choice survives leaving 
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
 
-  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-labs");
+  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
   await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
   await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
@@ -177,7 +179,7 @@ test("switching organization keeps the sub-path and the choice survives leaving 
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
   await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/labs/changesets");
 
-  await page.getByRole("combobox", { name: "Select organization" }).selectOption("org-demo");
+  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Demo");
   await expect(page).toHaveURL(/\/projects$/);
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
   await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/demo/changesets");
@@ -187,12 +189,13 @@ test("signing out lands on / and the sidebar shows the signed-out state", async 
   await installApiMocks(page);
   await page.goto("/orgs/demo/settings");
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
+  await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(pageHeading(page)).toHaveText("Overview");
   await expect(page.getByText("You have signed out.")).toBeVisible();
-  await expect(selectedOrganizationName(page)).toHaveText("No organization");
-  await expect(page.locator(".sidebar .profile")).toContainText("Not signed in");
+  // Signed-out state in the sidebar: the organization switcher is disabled.
+  await expect(page.getByRole("combobox", { name: "Select organization" })).toBeDisabled();
 });
 
 test("Refresh only simulates a refresh on mock pages and reloads the account on organization pages", async ({ page }) => {
@@ -290,6 +293,7 @@ test("signing out while already on / does not add a history entry", async ({ pag
   const entries = () => page.evaluate(() => history.length);
   const before = await entries();
 
+  await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByText("You have signed out.")).toBeVisible();
   await expect(page).toHaveURL(/\/$/);

@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("changeset not found")
+	ErrNotFound        = errors.New("changeset not found")
 	ErrVersionConflict = errors.New("changeset version conflict")
 )
 

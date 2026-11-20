@@ -1,0 +1,121 @@
+openapi: 3.1.0
+info: {title: Git merge previews, version: 1.0.0}
+paths:
+  /api/v1/organizations/{organizationID}/merge-preview/capabilities:
+    parameters: [{$ref: '#/components/parameters/Org'}]
+    get:
+      operationId: getMergePreviewCapabilities
+      summary: Query support for ordered merge simulation
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Provider capabilities
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orderedMergePreview]
+                properties: {orderedMergePreview: {type: boolean}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/merge-preview:
+    parameters: [{$ref: '#/components/parameters/Org'}]
+    post:
+      operationId: previewOrderedMerge
+      summary: Test an ordered sequence of sources against a pinned target
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repository, target, sources]
+              additionalProperties: false
+              properties:
+                repository: {type: string}
+                target: {type: string}
+                strategy: {type: string, enum: [merge-commit, ff-only]}
+                sources: {type: array, minItems: 1, maxItems: 32, items: {type: string}}
+      responses:
+        '200':
+          description: Clean candidate or conflict at the zero-based source index
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergePreview'
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/integration-runs:
+    parameters:
+      - {$ref: '#/components/parameters/Org'}
+      - {name: id, in: path, required: true, schema: {type: string}}
+      - {name: number, in: path, required: true, schema: {type: integer, minimum: 1}}
+    post:
+      operationId: createIntegrationRun
+      summary: Build an ordered integration candidate with a published workflow
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repository, target, sources]
+              additionalProperties: false
+              properties:
+                repository: {type: string}
+                target: {type: string}
+                sources: {type: array, minItems: 1, maxItems: 32, items: {type: string}}
+                strategy: {type: string, enum: [merge-commit, ff-only]}
+                inputs: {type: object, additionalProperties: true}
+      responses:
+        '201':
+          description: Candidate build queued
+          content: {application/json: {schema: {$ref: './pipelines.yaml#/components/schemas/Run'}}}
+        '409':
+          description: Merge conflict, incompatible history or workflow lifecycle
+          content: {application/json: {schema: {$ref: '#/components/schemas/MergePreview'}}, application/problem+json: {schema: {$ref: './openapi.yaml#/components/schemas/Problem'}}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/promote:
+    parameters:
+      - {$ref: '#/components/parameters/Org'}
+      - {name: run, in: path, required: true, schema: {type: string}}
+    post:
+      operationId: promoteIntegrationRun
+      summary: Approve and promote a tested candidate against its original target
+      security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [candidateSHA], additionalProperties: false, properties: {candidateSHA: {type: string}}}
+      responses:
+        '200':
+          description: Promotion recorded
+          content: {application/json: {schema: {type: object, required: [promotedSHA], properties: {promotedSHA: {type: string}}}}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+components:
+  parameters:
+    Org: {name: organizationID, in: path, required: true, schema: {type: string}}
+  schemas:
+    MergePreview:
+      type: object
+      required: [status, target, sources]
+      properties:
+        status: {type: string, enum: [clean, conflict, non_fast_forward]}
+        target: {$ref: '#/components/schemas/PinnedRef'}
+        sources: {type: array, items: {$ref: '#/components/schemas/PinnedRef'}}
+        candidateSHA: {type: string}
+        treeSHA: {type: string}
+        conflictAt: {type: integer, minimum: 0}
+        conflictPaths: {type: array, items: {type: string}}
+    PinnedRef:
+      type: object
+      required: [ref, sha]
+      properties: {ref: {type: string}, sha: {type: string}}
+  securitySchemes:
+    sessionCookie: {$ref: './openapi.yaml#/components/securitySchemes/sessionCookie'}
+    csrfCookie: {$ref: './openapi.yaml#/components/securitySchemes/csrfCookie'}
+    csrfToken: {$ref: './openapi.yaml#/components/securitySchemes/csrfToken'}

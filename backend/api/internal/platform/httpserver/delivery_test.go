@@ -189,14 +189,13 @@ func TestDeliveryAPIRejectsUnconfiguredLifecycleAdapters(t *testing.T) {
 
 var _ delivery.Repository = (*memoryRepository)(nil)
 
-
 type fakeMembershipRepository struct {
-	members []identity.OrganizationMember
-	updatedRole string
-	updatedStatus string
-	removedUser string
-	invitations []identity.OrganizationInvitation
-	audit []identity.MembershipAuditEvent
+	members          []identity.OrganizationMember
+	updatedRole      string
+	updatedStatus    string
+	removedUser      string
+	invitations      []identity.OrganizationInvitation
+	audit            []identity.MembershipAuditEvent
 	createdTokenHash string
 }
 
@@ -204,29 +203,40 @@ func (f *fakeMembershipRepository) ListMembers(context.Context, string, int, int
 	return f.members, nil
 }
 func (f *fakeMembershipRepository) UpdateMembership(_ context.Context, _, _, userID string, role, status *string) (identity.OrganizationMember, error) {
-	member := identity.OrganizationMember{UserID:userID, Role:"member", Status:"active"}
-	if role != nil { member.Role = *role; f.updatedRole = *role }
-	if status != nil { member.Status = *status; f.updatedStatus = *status }
+	member := identity.OrganizationMember{UserID: userID, Role: "member", Status: "active"}
+	if role != nil {
+		member.Role = *role
+		f.updatedRole = *role
+	}
+	if status != nil {
+		member.Status = *status
+		f.updatedStatus = *status
+	}
 	return member, nil
 }
 func (f *fakeMembershipRepository) RemoveMembership(_ context.Context, _, _, userID string) error {
 	f.removedUser = userID
 	return nil
 }
-func (f *fakeMembershipRepository) CreateInvitation(_ context.Context, org, actor, email, role, tokenHash string, expires time.Time) (identity.OrganizationInvitation,error) {
-	f.createdTokenHash=tokenHash
-	return identity.OrganizationInvitation{ID:"invite-1",Email:email,Role:role,Status:"pending",InvitedBy:actor,ExpiresAt:expires},nil
+func (f *fakeMembershipRepository) CreateInvitation(_ context.Context, org, actor, email, role, tokenHash string, expires time.Time) (identity.OrganizationInvitation, error) {
+	f.createdTokenHash = tokenHash
+	return identity.OrganizationInvitation{ID: "invite-1", Email: email, Role: role, Status: "pending", InvitedBy: actor, ExpiresAt: expires}, nil
 }
-func (f *fakeMembershipRepository) ListInvitations(context.Context,string,int,int) ([]identity.OrganizationInvitation,error) { return f.invitations,nil }
-func (f *fakeMembershipRepository) RevokeInvitation(context.Context,string,string,string) error { return nil }
-func (f *fakeMembershipRepository) ListMembershipAudit(context.Context,string,int,int) ([]identity.MembershipAuditEvent,error) { return f.audit,nil }
-
+func (f *fakeMembershipRepository) ListInvitations(context.Context, string, int, int) ([]identity.OrganizationInvitation, error) {
+	return f.invitations, nil
+}
+func (f *fakeMembershipRepository) RevokeInvitation(context.Context, string, string, string) error {
+	return nil
+}
+func (f *fakeMembershipRepository) ListMembershipAudit(context.Context, string, int, int) ([]identity.MembershipAuditEvent, error) {
+	return f.audit, nil
+}
 
 func TestOrganizationMemberManagementRequiresAdminRole(t *testing.T) {
 	for _, role := range []string{"member", "viewer"} {
 		handler := NewHandlerWithDependencies(DeliveryDependencies{
-			Repository:newMemoryRepository(), Identity:fixedIdentity{role:role}, CSRF:allowCSRF{},
-			AllowedOrigin:"https://app.example.test", Membership:&fakeMembershipRepository{},
+			Repository: newMemoryRepository(), Identity: fixedIdentity{role: role}, CSRF: allowCSRF{},
+			AllowedOrigin: "https://app.example.test", Membership: &fakeMembershipRepository{},
 		})
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/organizations/org-a/members", nil)
 		response := httptest.NewRecorder()
@@ -238,22 +248,24 @@ func TestOrganizationMemberManagementRequiresAdminRole(t *testing.T) {
 }
 
 func TestOrganizationMemberManagementUsesAuthenticatedActorAndScopedOrganization(t *testing.T) {
-	repository := &fakeMembershipRepository{members:[]identity.OrganizationMember{{UserID:"member-1",Role:"member",Status:"active"}}}
+	repository := &fakeMembershipRepository{members: []identity.OrganizationMember{{UserID: "member-1", Role: "member", Status: "active"}}}
 	handler := NewHandlerWithDependencies(DeliveryDependencies{
-		Repository:newMemoryRepository(), Identity:fixedIdentity{role:"owner"}, CSRF:allowCSRF{},
-		AllowedOrigin:"https://app.example.test", Membership:repository,
+		Repository: newMemoryRepository(), Identity: fixedIdentity{role: "owner"}, CSRF: allowCSRF{},
+		AllowedOrigin: "https://app.example.test", Membership: repository,
 	})
 	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/organizations/org-a/members", nil)
 	listResponse := httptest.NewRecorder()
 	handler.ServeHTTP(listResponse, listRequest)
-	if listResponse.Code != http.StatusOK { t.Fatalf("list status=%d body=%s",listResponse.Code,listResponse.Body.String()) }
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("list status=%d body=%s", listResponse.Code, listResponse.Body.String())
+	}
 
 	updateRequest := httptest.NewRequest(http.MethodPatch, "/api/v1/organizations/org-a/members/member-1", bytes.NewBufferString(`{"role":"viewer"}`))
 	addValidCSRFCookies(updateRequest)
 	updateResponse := httptest.NewRecorder()
 	handler.ServeHTTP(updateResponse, updateRequest)
 	if updateResponse.Code != http.StatusOK || repository.updatedRole != "viewer" {
-		t.Fatalf("update status=%d role=%q body=%s",updateResponse.Code,repository.updatedRole,updateResponse.Body.String())
+		t.Fatalf("update status=%d role=%q body=%s", updateResponse.Code, repository.updatedRole, updateResponse.Body.String())
 	}
 
 	removeRequest := httptest.NewRequest(http.MethodDelete, "/api/v1/organizations/org-a/members/member-1", nil)
@@ -261,85 +273,98 @@ func TestOrganizationMemberManagementUsesAuthenticatedActorAndScopedOrganization
 	removeResponse := httptest.NewRecorder()
 	handler.ServeHTTP(removeResponse, removeRequest)
 	if removeResponse.Code != http.StatusNoContent || repository.removedUser != "member-1" {
-		t.Fatalf("remove status=%d target=%q",removeResponse.Code,repository.removedUser)
+		t.Fatalf("remove status=%d target=%q", removeResponse.Code, repository.removedUser)
 	}
 }
-
 
 func TestOrganizationInvitationsAndAuditEndpoints(t *testing.T) {
-	repository:=&fakeMembershipRepository{}
-	handler:=NewHandlerWithDependencies(DeliveryDependencies{
-		Repository:newMemoryRepository(),Identity:fixedIdentity{role:"owner"},CSRF:allowCSRF{},
-		AllowedOrigin:"https://app.example.test",Membership:repository,
+	repository := &fakeMembershipRepository{}
+	handler := NewHandlerWithDependencies(DeliveryDependencies{
+		Repository: newMemoryRepository(), Identity: fixedIdentity{role: "owner"}, CSRF: allowCSRF{},
+		AllowedOrigin: "https://app.example.test", Membership: repository,
 	})
-	create:=httptest.NewRequest(http.MethodPost,"/api/v1/organizations/org-a/invitations",bytes.NewBufferString(`{"email":"new@example.test","role":"member"}`))
+	create := httptest.NewRequest(http.MethodPost, "/api/v1/organizations/org-a/invitations", bytes.NewBufferString(`{"email":"new@example.test","role":"member"}`))
 	addValidCSRFCookies(create)
-	created:=httptest.NewRecorder()
-	handler.ServeHTTP(created,create)
-	if created.Code!=http.StatusCreated { t.Fatalf("create invitation status=%d body=%s",created.Code,created.Body.String()) }
-	var payload struct {
-		Invitation identity.OrganizationInvitation `json:"invitation"`
-		InvitationURL string `json:"invitation_url"`
-		Token string `json:"token"`
+	created := httptest.NewRecorder()
+	handler.ServeHTTP(created, create)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create invitation status=%d body=%s", created.Code, created.Body.String())
 	}
-	if err:=json.Unmarshal(created.Body.Bytes(),&payload); err!=nil { t.Fatal(err) }
-	if payload.Token=="" || repository.createdTokenHash!=identity.HashToken(payload.Token) {
+	var payload struct {
+		Invitation    identity.OrganizationInvitation `json:"invitation"`
+		InvitationURL string                          `json:"invitation_url"`
+		Token         string                          `json:"token"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Token == "" || repository.createdTokenHash != identity.HashToken(payload.Token) {
 		t.Fatal("invitation token must be returned once while only its hash is passed to persistence")
 	}
-	parsed,err:=url.Parse(payload.InvitationURL)
-	if err!=nil || parsed.Host!="app.example.test" || parsed.Query().Get("token")!=payload.Token {
-		t.Fatalf("invalid invitation URL %q err=%v",payload.InvitationURL,err)
+	parsed, err := url.Parse(payload.InvitationURL)
+	if err != nil || parsed.Host != "app.example.test" || parsed.Query().Get("token") != payload.Token {
+		t.Fatalf("invalid invitation URL %q err=%v", payload.InvitationURL, err)
 	}
 
-	list:=httptest.NewRequest(http.MethodGet,"/api/v1/organizations/org-a/invitations",nil)
-	listResponse:=httptest.NewRecorder()
-	handler.ServeHTTP(listResponse,list)
-	if listResponse.Code!=http.StatusOK { t.Fatalf("list invitations status=%d",listResponse.Code) }
+	list := httptest.NewRequest(http.MethodGet, "/api/v1/organizations/org-a/invitations", nil)
+	listResponse := httptest.NewRecorder()
+	handler.ServeHTTP(listResponse, list)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("list invitations status=%d", listResponse.Code)
+	}
 
-	audit:=httptest.NewRequest(http.MethodGet,"/api/v1/organizations/org-a/membership-audit",nil)
-	auditResponse:=httptest.NewRecorder()
-	handler.ServeHTTP(auditResponse,audit)
-	if auditResponse.Code!=http.StatusOK { t.Fatalf("audit status=%d body=%s",auditResponse.Code,auditResponse.Body.String()) }
+	audit := httptest.NewRequest(http.MethodGet, "/api/v1/organizations/org-a/membership-audit", nil)
+	auditResponse := httptest.NewRecorder()
+	handler.ServeHTTP(auditResponse, audit)
+	if auditResponse.Code != http.StatusOK {
+		t.Fatalf("audit status=%d body=%s", auditResponse.Code, auditResponse.Body.String())
+	}
 
-	revoke:=httptest.NewRequest(http.MethodDelete,"/api/v1/organizations/org-a/invitations/invite-1",nil)
+	revoke := httptest.NewRequest(http.MethodDelete, "/api/v1/organizations/org-a/invitations/invite-1", nil)
 	addValidCSRFCookies(revoke)
-	revokeResponse:=httptest.NewRecorder()
-	handler.ServeHTTP(revokeResponse,revoke)
-	if revokeResponse.Code!=http.StatusNoContent { t.Fatalf("revoke status=%d body=%s",revokeResponse.Code,revokeResponse.Body.String()) }
+	revokeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(revokeResponse, revoke)
+	if revokeResponse.Code != http.StatusNoContent {
+		t.Fatalf("revoke status=%d body=%s", revokeResponse.Code, revokeResponse.Body.String())
+	}
 }
-
 
 type fakeAccountRepository struct {
 	account identity.AccountContext
-	token string
+	token   string
 }
-func (f *fakeAccountRepository) CurrentAccount(_ context.Context,token string) (identity.AccountContext,error) {
-	f.token=token
-	return f.account,nil
+
+func (f *fakeAccountRepository) CurrentAccount(_ context.Context, token string) (identity.AccountContext, error) {
+	f.token = token
+	return f.account, nil
 }
 
 func TestCurrentAccountRequiresSessionAndReturnsOrganizationContext(t *testing.T) {
-	repository:=&fakeAccountRepository{account:identity.AccountContext{
-		UserID:"user-1",DisplayName:"Test User",Email:"test@example.test",
-		Organizations:[]identity.OrganizationSummary{{ID:"org-a",Name:"Organization A",Role:"owner"}},
+	repository := &fakeAccountRepository{account: identity.AccountContext{
+		UserID: "user-1", DisplayName: "Test User", Email: "test@example.test",
+		Organizations: []identity.OrganizationSummary{{ID: "org-a", Name: "Organization A", Role: "owner"}},
 	}}
-	handler:=NewHandlerWithDependencies(DeliveryDependencies{Account:repository,AllowedOrigin:"https://app.example.test"})
-	unauthenticated:=httptest.NewRequest(http.MethodGet,"/api/v1/me",nil)
-	unauthenticatedResponse:=httptest.NewRecorder()
-	handler.ServeHTTP(unauthenticatedResponse,unauthenticated)
-	if unauthenticatedResponse.Code!=http.StatusUnauthorized { t.Fatalf("without session status=%d",unauthenticatedResponse.Code) }
+	handler := NewHandlerWithDependencies(DeliveryDependencies{Account: repository, AllowedOrigin: "https://app.example.test"})
+	unauthenticated := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+	unauthenticatedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unauthenticatedResponse, unauthenticated)
+	if unauthenticatedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("without session status=%d", unauthenticatedResponse.Code)
+	}
 
-	request:=httptest.NewRequest(http.MethodGet,"/api/v1/me",nil)
-	request.AddCookie(&http.Cookie{Name:identity.SessionCookieName,Value:"session-token-with-enough-length-to-be-valid"})
-	response:=httptest.NewRecorder()
-	handler.ServeHTTP(response,request)
-	if response.Code!=http.StatusOK || repository.token!="session-token-with-enough-length-to-be-valid" {
-		t.Fatalf("current account status=%d token=%q body=%s",response.Code,repository.token,response.Body.String())
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+	request.AddCookie(&http.Cookie{Name: identity.SessionCookieName, Value: "session-token-with-enough-length-to-be-valid"})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || repository.token != "session-token-with-enough-length-to-be-valid" {
+		t.Fatalf("current account status=%d token=%q body=%s", response.Code, repository.token, response.Body.String())
 	}
 	var account identity.AccountContext
-	if err:=json.Unmarshal(response.Body.Bytes(),&account); err!=nil { t.Fatal(err) }
-	if account.UserID!="user-1" || len(account.Organizations)!=1 || account.Organizations[0].ID!="org-a" {
-		t.Fatalf("account context=%#v",account)
+	if err := json.Unmarshal(response.Body.Bytes(), &account); err != nil {
+		t.Fatal(err)
+	}
+	if account.UserID != "user-1" || len(account.Organizations) != 1 || account.Organizations[0].ID != "org-a" {
+		t.Fatalf("account context=%#v", account)
 	}
 }
 

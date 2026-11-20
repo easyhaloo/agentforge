@@ -1,4 +1,5 @@
 {
+  "resourceDemoNotice": "This page shows sample data. Changes are stored in this browser only.",
   "actions": {
     "save": "Save",
     "cancel": "Cancel",
@@ -25,7 +26,8 @@
     "loading": "Loading...",
     "completed": "Completed",
     "pending": "Pending",
-    "failed": "Failed"
+    "failed": "Failed",
+    "saving": "Saving..."
   },
   "pagination": {
     "page": "Page",
@@ -41,5 +43,175 @@
     "networkError": "Network error occurred",
     "unauthorized": "Unauthorized access",
     "notFound": "Resource not found"
+  },
+  "time": {
+    "justNow": "just now",
+    "today": "today",
+    "yesterday": "yesterday",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "a11y": {
+    "secureIcon": "Secure"
+  },
+  "components": {
+    "searchPlaceholder": "Search...",
+    "searchOptionsPlaceholder": "Search options...",
+    "clearSearch": "Clear search",
+    "selectOption": "Select...",
+    "selectAllRows": "Select all rows on this page",
+    "selectRow": "Select row {{id}}",
+    "openRow": "Open row",
+    "columns": "Columns",
+    "all": "All",
+    "filterByColumn": "Filter {{column}}",
+    "noData": "No data",
+    "loading": "Loading…",
+    "loadingLabel": "Loading",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "previous": "Previous",
+    "next": "Next",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "closeDialog": "Close dialog",
+    "closeDrawer": "Close drawer",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "confirmTitle": "Are you sure?",
+    "cannotUndo": "This action cannot be undone.",
+    "additionalOptions": "Additional options",
+    "dismissMessage": "Dismiss message",
+    "dismissNotification": "Dismiss notification",
+    "notifications": "Notifications",
+    "actionFailed": "Unable to complete this action",
+    "optionsFailed": "Unable to load options",
+    "noOptions": "No options",
+    "show": "Show",
+    "hide": "Hide",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "switchLanguage": "Switch language",
+    "fileContentAriaLabel": "File content"
+  },
+  "delivery": {
+    "banner": {
+      "title": "Verified delivery workflow",
+      "description": "One revision is traced through evaluation, human review and delivery. Evidence is always revision-scoped.",
+      "demoBadge": "INTERACTIVE DEMO"
+    },
+    "footer": {
+      "hint": "Try the sequence: New revision → Run Eval → Approve revision → Merge & complete Trail. Then create another revision to see evidence become stale."
+    },
+    "audit": {
+      "eyebrow": "AUDIT TRAIL",
+      "title": "Workflow events",
+      "description": "Ordered activity for this demo changeset.",
+      "emptyTitle": "No workflow events",
+      "emptyDescription": "Changes to this changeset will appear here.",
+      "mergeGateTitle": "Merge gate",
+      "mergeGateDescription": "Merge requires a passing evaluation for the exact current revision and an approval for that same revision.",
+      "invalidationTitle": "Evidence invalidation",
+      "invalidationDescription": "Creating a new revision makes prior evaluation evidence and review decisions stale.",
+      "demoNotice": "All records are local demo state. No Git commit, remote CI, reviewer notification or merge operation is performed."
+    },
+    "stages": {
+      "changeset": "Changeset",
+      "changesetDescription": "Revisioned change",
+      "eval": "Eval",
+      "evalDescription": "Verification evidence",
+      "review": "Review",
+      "reviewDescription": "Human decision",
+      "trail": "Trail",
+      "trailDescription": "Delivery outcome"
+    },
+    "workspace": {
+      "eyebrow": "ACTIVE CHANGESET",
+      "identityHint": "Changeset ID is stable across revisions; Git commit SHAs are separate objects.",
+      "titleLabel": "Change title",
+      "baseBranch": "Base branch",
+      "changedFiles": "Changed files",
+      "stackBase": "Stack base",
+      "newRevision": "New revision",
+      "runEvaluation": "Run Eval",
+      "selfHeal": "Self-heal",
+      "restack": "Restack"
+    },
+    "evidence": {
+      "title": "Evaluation evidence",
+      "current": "Current",
+      "stale": "Stale",
+      "emptyTitle": "No evaluation evidence",
+      "emptyDescription": "Run an evaluation to attach evidence to this revision.",
+      "checks_one": "{{count}} check",
+      "checks_other": "{{count}} checks",
+      "passed": "Passed",
+      "failed": "Failed"
+    },
+    "review": {
+      "title": "Review decision",
+      "notRequested": "Not requested",
+      "pending": "Pending",
+      "approved": "Approved",
+      "changesRequested": "Changes requested",
+      "you": "You",
+      "revisionScoped": "revision-scoped review",
+      "requestChanges": "Request changes",
+      "approveRevision": "Approve revision"
+    },
+    "trail": {
+      "title": "Stack & Trail",
+      "stackName": "STK-018 · Auth service rollout",
+      "trailName": "TRL-042 · Migrate authentication API",
+      "delivered": "Delivered",
+      "inProgress": "In progress",
+      "stackChangesets_one": "{{count}} changeset · base {{base}}",
+      "stackChangesets_other": "{{count}} changesets · base {{base}}",
+      "completed_one": "{{completed}}/{{total}} changeset completed",
+      "completed_other": "{{completed}}/{{total}} changesets completed",
+      "waiting_one": "{{completed}}/{{total}} changeset · waiting on this changeset",
+      "waiting_other": "{{completed}}/{{total}} changesets · waiting on this changeset",
+      "merge": "Merge & complete Trail"
+    },
+    "stageState": {
+      "inProgress": "In progress",
+      "passed": "Passed",
+      "failed": "Failed",
+      "stale": "Stale",
+      "notReviewed": "Not reviewed",
+      "completed": "Completed"
+    },
+    "status": {
+      "draft": "Draft",
+      "evaluating": "Evaluating",
+      "readyForReview": "Ready for review",
+      "changesRequested": "Changes requested",
+      "approved": "Approved",
+      "merged": "Merged"
+    },
+    "events": {
+      "revisionBlocked": "Revision blocked: merged changesets cannot be changed and no revision number is available",
+      "revisionCreated": "Created {{id}} r{{revision}}; previous evidence is now stale",
+      "evaluationBlocked": "Evaluation blocked: the changeset is merged or the revision is not current",
+      "evaluationResult": "{{id}} {{status}} on {{changeset}} r{{revision}}",
+      "reviewBlockedEvidence": "Review blocked: current passing evidence is required",
+      "reviewBlockedRevision": "Review blocked: the decision does not target the active revision",
+      "reviewDecision": "{{decision}} {{id}} r{{revision}}",
+      "mergeBlocked": "Merge blocked: current passing evidence and approval are required",
+      "merged": "{{id}} r{{revision}} merged; Trail TRL-042 completed (demo)",
+      "selfHealingBlocked": "Self-healing blocked: merged changesets cannot be changed",
+      "selfHealingPrepared": "Self-healing prepared a new revision; run Eval again (demo)",
+      "restackBlocked": "Restack blocked: merged changesets cannot be changed",
+      "restacked": "Stack restacked against the latest base (demo)",
+      "seedRevision": "{{id}} r{{revision}} created from {{base}}",
+      "seedEvidence_one": "{{id}} passed {{count}} check",
+      "seedEvidence_other": "{{id}} passed {{count}} checks"
+    }
   }
 }

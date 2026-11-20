@@ -1,0 +1,110 @@
+{
+  "page": {
+    "title": "{{organizationName}}",
+    "description": "Organization access, invitations and membership activity",
+    "loading": "Loading organization data…",
+    "restrictedTitle": "Organization administration restricted",
+    "restrictedDescription": "Your current role is {{role}}. Only organization Owners and Admins can view members, invitations and audit history."
+  },
+  "tabs": {
+    "members": "Members",
+    "invitations": "Invitations",
+    "audit": "Audit history",
+    "ariaLabel": "Organization administration"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member",
+    "viewer": "Viewer"
+  },
+  "statuses": {
+    "active": "Active",
+    "invited": "Invited",
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "suspended": "Suspended",
+    "removed": "Removed",
+    "revoked": "Revoked",
+    "expired": "Expired"
+  },
+  "members": {
+    "title": "Organization members",
+    "description": "Role and status changes are enforced by the server.",
+    "columns": {
+      "member": "MEMBER",
+      "role": "ROLE",
+      "status": "STATUS",
+      "joined": "JOINED",
+      "actions": "ACTIONS"
+    },
+    "actions": {
+      "suspend": "Suspend member",
+      "reactivate": "Reactivate member",
+      "remove": "Remove member",
+      "roleAriaLabel": "Role for {{memberName}}"
+    },
+    "empty": "No organization members found.",
+    "confirmRemove": {
+      "title": "Remove organization member?",
+      "description": "Remove {{memberName}} from this organization? This action cannot be undone.",
+      "descriptionFallback": "This action cannot be undone.",
+      "confirmText": "Remove member"
+    }
+  },
+  "invitations": {
+    "title": "Invitations",
+    "description": "Pending invitations expire after seven days and can only be redeemed once.",
+    "form": {
+      "emailLabel": "Email address",
+      "emailPlaceholder": "teammate@company.com",
+      "roleLabel": "Role",
+      "createButton": "Create invitation",
+      "creating": "Creating…"
+    },
+    "columns": {
+      "email": "EMAIL",
+      "role": "ROLE",
+      "status": "STATUS",
+      "expires": "EXPIRES",
+      "actions": "ACTIONS"
+    },
+    "actions": {
+      "revoke": "Revoke invitation"
+    },
+    "empty": "No invitations found.",
+    "created": {
+      "title": "Invitation created",
+      "description": "This one-time link is shown only now. Send it through your approved secure channel.",
+      "copyButton": "Copy link",
+      "dismissAriaLabel": "Dismiss invitation link"
+    }
+  },
+  "audit": {
+    "title": "Membership audit history",
+    "description": "Newest membership and invitation events first.",
+    "actor": "Actor",
+    "target": "Target",
+    "empty": "No audit events recorded yet.",
+    "actions": {
+      "role_changed": "Role changed",
+      "suspended": "Member suspended",
+      "reactivated": "Member reactivated",
+      "removed": "Member removed",
+      "invite_accepted": "Invitation accepted"
+    }
+  },
+  "feedback": {
+    "loadFailed": "Unable to load organization data",
+    "memberUpdated": "Member updated.",
+    "memberUpdateFailed": "Member update failed",
+    "memberRemoved": "Member removed.",
+    "memberRemovalFailed": "Member removal failed",
+    "invitationCreated": "Invitation created.",
+    "invitationCreationFailed": "Invitation creation failed",
+    "invitationRevoked": "Invitation revoked.",
+    "invitationRevocationFailed": "Invitation revocation failed",
+    "invitationLinkCopied": "Invitation link copied.",
+    "clipboardUnavailable": "Clipboard access is unavailable. Select and copy the invitation URL manually."
+  }
+}

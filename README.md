@@ -29,6 +29,15 @@ go run ./cmd/server
 
 The frontend lives in `apps/web`; root npm scripts delegate to the workspace. The Go API lives in `backend/api` and listens on `PORT` (default `8080`).
 
+### Git Hooks
+
+Git hooks are managed by [Husky](https://typicode.github.io/husky/) and are automatically installed when you run `npm install`. The following hooks are configured:
+
+- **pre-commit**: Runs `npm test` to ensure tests pass before committing
+- **pre-push**: Checks Go code formatting in `backend/api` using `gofmt` to prevent pushing unformatted code
+
+To bypass a hook temporarily (not recommended), use `git commit --no-verify` or `git push --no-verify`.
+
 ## Frontend architecture
 
 ```text
@@ -44,6 +53,8 @@ apps/web/src/
 
 Navigation state lives in the URL (React Router). `app/routes.tsx` is the single route table: mock pages are flat (`/projects`, `/stacks`, `/dev/ui`, ...), and pages backed by the real API are organization-scoped (`/orgs/:org/changesets`, `/orgs/:org/settings`, ...), where `:org` is the organization's slug or id and `current` means the selected organization. See ADR-008 in `docs/architecture/decisions.md`.
 
-## Prototype boundaries
+## Implementation boundaries
 
-Seeded mock data and browser LocalStorage remain in the frontend prototype. Real Git operations, remote CI, Agent Runtime sessions, review notifications, merge operations and backend persistence are not implemented yet.
+The Go API already provides organization-scoped repository registration, local Git ref resolution and merge operations, plus the persisted Changeset, Evaluation, Evidence and Review lifecycle. These capabilities require an operator-provisioned local Git repository root and configured PostgreSQL/evidence dependencies; see [the API guide](backend/api/README.md).
+
+Some flat resource workspaces still use seeded mock data and browser LocalStorage. Durable remote CI execution, Agent Runtime sessions, hosted preview environments, Repository Preview rich inspection (history/diff/blame), WebIDE workspaces and the extension platform are separate delivery phases and must not be inferred from the existing repository catalog or Changeset APIs.

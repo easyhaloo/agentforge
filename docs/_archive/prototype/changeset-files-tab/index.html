@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Changeset Files Tab - Interactive Prototype</title>
+  <style>
+    :root {
+      --af-color-primary: #8878f6;
+      --af-color-primary-hover: #9a8cff;
+      --af-color-success: #65c89b;
+      --af-color-danger: #e28d98;
+      --af-color-text: #e8eaf2;
+      --af-color-text-secondary: #98a3b8;
+      --af-color-text-muted: #69758c;
+      --af-color-border: #273248;
+      --af-color-surface: #101725;
+      --af-color-surface-raised: #141c2b;
+      --af-color-background: #090d16;
+      --af-color-hover: #1b2638;
+      --af-diff-add-bg: #0d3a2e;
+      --af-diff-add-text: #3fb950;
+      --af-diff-del-bg: #3d252f;
+      --af-diff-del-text: #f85149;
+      --af-diff-context: #69758c;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--af-color-background);
+      color: var(--af-color-text);
+      line-height: 1.5;
+    }
+
+    .prototype-container {
+      max-width: 1400px;
+      margin: 20px auto;
+      padding: 0 20px;
+    }
+
+    .prototype-header {
+      background: var(--af-color-surface-raised);
+      border: 1px solid var(--af-color-border);
+      border-radius: 12px 12px 0 0;
+      padding: 20px;
+      border-bottom: none;
+    }
+
+    .prototype-header h1 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: var(--af-color-text);
+    }
+
+    .prototype-header p {
+      font-size: 11px;
+      color: var(--af-color-text-secondary);
+    }
+
+    /* Tabs */
+    .changeset-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--af-color-surface);
+      border: 1px solid var(--af-color-border);
+      border-top: none;
+      padding: 8px 20px;
+    }
+
+    .changeset-tab {
+      padding: 8px 16px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--af-color-text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .changeset-tab:hover {
+      background: var(--af-color-hover);
+      color: var(--af-color-text);
+    }
+
+    .changeset-tab.is-active {
+      background: var(--af-color-surface-raised);
+      border-color: var(--af-color-border);
+      color: var(--af-color-primary);
+    }
+
+    /* Main layout */
+    .files-container {
+      display: flex;
+      background: var(--af-color-surface);
+      border: 1px solid var(--af-color-border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      overflow: hidden;
+      height: 700px;
+    }
+
+    /* Sidebar */
+    .files-sidebar {
+      width: 320px;
+      min-width: 200px;
+      max-width: 600px;
+      background: var(--af-color-surface-raised);
+      border-right: 1px solid var(--af-color-border);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.2s;
+    }
+
+    .files-sidebar.collapsed {
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--af-color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--af-color-text-muted);
+    }
+
+    .collapse-btn {
+      background: transparent;
+      border: 1px solid var(--af-color-border);
+      color: var(--af-color-text-secondary);
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .collapse-btn:hover {
+      background: var(--af-color-hover);
+      border-color: var(--af-color-primary);
+      color: var(--af-color-text);
+    }
+
+    .file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 8px;
+    }
+
+    /* Directory (folder) items */
+    .file-tree-directory {
+      margin-bottom: 4px;
+    }
+
+    .file-tree-directory:first-child {
+      margin-top: 0;
+    }
+
+    .directory-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--af-color-text);
+      transition: background 0.12s;
+      user-select: none;
+    }
+
+    .directory-header:hover {
+      background: var(--af-color-hover);
+    }
+
+    .directory-chevron {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      color: var(--af-color-text-muted);
+      transition: transform 0.15s;
+      display: inline-block;
+    }
+
+    .directory-header.expanded .directory-chevron {
+      transform: rotate(90deg);
+    }
+
+    .directory-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: #6ca0dc;
+    }
+
+    .directory-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .directory-files {
+      display: none;
+      padding-left: 20px;
+    }
+
+    .directory-files.expanded {
+      display: block;
+    }
+
+    /* File items */
+    .file-tree-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      margin: 2px 0;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.6;
+      transition: background 0.12s;
+      user-select: none;
+    }
+
+    .file-tree-item:hover {
+      background: var(--af-color-hover);
+    }
+
+    .file-tree-item.selected {
+      background: rgba(175, 184, 193, 0.12);
+    }
+
+    .file-tree-item.selected .file-name {
+      font-weight: 500;
+    }
+
+    /* GitHub-style status icons */
+    .file-status-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-status-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .file-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--af-color-text);
+    }
+
+    .file-tree-item.selected .file-name {
+      color: #c5bcff;
+      font-weight: 500;
+    }
+
+    .file-stats {
+      font-size: 11px;
+      color: var(--af-color-text-muted);
+      white-space: nowrap;
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .file-stats .additions {
+      color: #3fb950;
+    }
+
+    .file-stats .deletions {
+      color: #f85149;
+    }
+
+    .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--af-color-border);
+      font-size: 10px;
+      color: var(--af-color-text-secondary);
+    }
+
+    .sidebar-footer .total-stats {
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Resize handle */
+    .resize-handle {
+      width: 4px;
+      background: var(--af-color-border);
+      cursor: ew-resize;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .resize-handle:hover,
+    .resize-handle.dragging {
+      background: var(--af-color-primary);
+    }
+
+    /* Diff viewer */
+    .diff-viewer {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .diff-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--af-color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .expand-sidebar-btn {
+      background: transparent;
+      border: 1px solid var(--af-color-border);
+      color: var(--af-color-text-secondary);
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: none;
+    }
+
+    .files-sidebar.collapsed + .resize-handle + .diff-viewer .expand-sidebar-btn {
+      display: block;
+    }
+
+    .expand-sidebar-btn:hover {
+      background: var(--af-color-hover);
+      border-color: var(--af-color-primary);
+      color: var(--af-color-text);
+    }
+
+    .view-mode-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--af-color-background);
+      padding: 4px;
+      border-radius: 6px;
+    }
+
+    .view-mode-btn {
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      color: var(--af-color-text-secondary);
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .view-mode-btn:hover {
+      color: var(--af-color-text);
+    }
+
+    .view-mode-btn.active {
+      background: var(--af-color-surface-raised);
+      color: var(--af-color-primary);
+    }
+
+    .diff-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .diff-file {
+      margin-bottom: 24px;
+    }
+
+    .diff-file-header {
+      background: var(--af-color-surface-raised);
+      padding: 10px 14px;
+      border: 1px solid var(--af-color-border);
+      border-radius: 6px 6px 0 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--af-color-text);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .diff-file-stats {
+      font-size: 10px;
+      color: var(--af-color-text-muted);
+    }
+
+    .diff-code {
+      background: var(--af-color-background);
+      border: 1px solid var(--af-color-border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      overflow-x: auto;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .diff-line {
+      display: grid;
+      grid-template-columns: 40px 40px 1fr;
+    }
+
+    .diff-line.unified {
+      grid-template-columns: 40px 1fr;
+    }
+
+    .line-number {
+      padding: 2px 12px;
+      color: var(--af-color-text-muted);
+      text-align: right;
+      user-select: none;
+      border-right: 1px solid var(--af-color-border);
+    }
+
+    .line-content {
+      padding: 2px 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .diff-line.add {
+      background: var(--af-diff-add-bg);
+    }
+
+    .diff-line.add .line-content {
+      color: var(--af-diff-add-text);
+    }
+
+    .diff-line.add .line-number {
+      background: rgba(101, 200, 155, 0.1);
+    }
+
+    .diff-line.delete {
+      background: var(--af-diff-del-bg);
+    }
+
+    .diff-line.delete .line-content {
+      color: var(--af-diff-del-text);
+    }
+
+    .diff-line.delete .line-number {
+      background: rgba(226, 141, 152, 0.1);
+    }
+
+    .diff-line.context .line-content {
+      color: var(--af-color-text-secondary);
+    }
+
+    .diff-hunk {
+      background: var(--af-color-surface-raised);
+      padding: 4px 12px;
+      color: var(--af-color-primary);
+      font-size: 10px;
+      border-top: 1px solid var(--af-color-border);
+      border-bottom: 1px solid var(--af-color-border);
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--af-color-text-muted);
+      font-size: 12px;
+      gap: 8px;
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      opacity: 0.5;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--af-color-background);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--af-color-border);
+      border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #34405a;
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-container">
+    <div class="prototype-header">
+      <h1>feat: Add WebIDE integration to changeset detail pages</h1>
+      <p>Created by agent-smith in example-repo</p>
+    </div>
+
+    <div class="changeset-tabs">
+      <button class="changeset-tab">Overview</button>
+      <button class="changeset-tab">Revisions</button>
+      <button class="changeset-tab">Evaluation</button>
+      <button class="changeset-tab">Review</button>
+      <button class="changeset-tab is-active">Files</button>
+      <button class="changeset-tab">Merge</button>
+    </div>
+
+    <div class="files-container">
+      <div class="files-sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Files Changed</span>
+          <button class="collapse-btn" id="collapseBtn">Collapse</button>
+        </div>
+        <div class="file-tree" id="fileTree">
+          <!-- File tree will be rendered here -->
+        </div>
+        <div class="sidebar-footer">
+          <div class="total-stats">
+            <span>3 files changed</span>
+            <span class="additions">+30</span>
+            <span class="deletions">−4</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="resize-handle" id="resizeHandle"></div>
+
+      <div class="diff-viewer">
+        <div class="diff-header">
+          <button class="expand-sidebar-btn" id="expandBtn">Show Files</button>
+          <div class="view-mode-toggle">
+            <button class="view-mode-btn active" data-mode="unified">Unified</button>
+            <button class="view-mode-btn" data-mode="split">Split</button>
+          </div>
+        </div>
+        <div class="diff-content" id="diffContent">
+          <!-- Diff content will be rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample data
+    const files = [
+      {
+        path: 'src/app/routes.tsx',
+        status: 'modified',
+        additions: 3,
+        deletions: 1,
+        directory: 'src/app',
+        viewed: false,
+        diff: [
+          { type: 'hunk', content: '@@ -15,6 +15,8 @@ export const routes = [' },
+          { type: 'context', oldLine: 15, newLine: 15, content: '    path: "/changesets/:id/review",' },
+          { type: 'context', oldLine: 16, newLine: 16, content: '    element: <ChangesetDetailPage tab="review" />,' },
+          { type: 'context', oldLine: 17, newLine: 17, content: '  },' },
+          { type: 'add', oldLine: null, newLine: 18, content: '  {' },
+          { type: 'add', oldLine: null, newLine: 19, content: '    path: "/changesets/:id/files",' },
+          { type: 'add', oldLine: null, newLine: 20, content: '    element: <ChangesetDetailPage tab="files" />,' },
+          { type: 'add', oldLine: null, newLine: 21, content: '  },' },
+          { type: 'delete', oldLine: 18, newLine: null, content: '  // TODO: Add files tab' },
+          { type: 'context', oldLine: 19, newLine: 22, content: '  {' },
+          { type: 'context', oldLine: 20, newLine: 23, content: '    path: "/changesets/:id/merge",' },
+        ]
+      },
+      {
+        path: 'src/shared/routing/paths.ts',
+        status: 'modified',
+        additions: 12,
+        deletions: 0,
+        directory: 'src/shared/routing',
+        viewed: false,
+        diff: [
+          { type: 'hunk', content: '@@ -32,7 +32,19 @@ export function orgPath(handle: string, section: OrgSection): string {' },
+          { type: 'context', oldLine: 32, newLine: 32, content: '/** The parts of a changeset. Each one is a route, so every step of the lifecycle is linkable. */' },
+          { type: 'delete', oldLine: 33, newLine: null, content: 'export const changesetTabs = ["overview", "revisions", "evaluation", "review", "merge"] as const;' },
+          { type: 'add', oldLine: null, newLine: 33, content: 'export const changesetTabs = ["overview", "revisions", "evaluation", "review", "files", "merge"] as const;' },
+          { type: 'context', oldLine: 34, newLine: 34, content: 'export type ChangesetTab = typeof changesetTabs[number];' },
+          { type: 'context', oldLine: 35, newLine: 35, content: '' },
+          { type: 'hunk', content: '@@ -60,3 +62,13 @@ export function webIDEPath(handle: string, params: {' },
+          { type: 'context', oldLine: 60, newLine: 62, content: '  if (params.line) query.set("line", String(params.line));' },
+          { type: 'context', oldLine: 61, newLine: 63, content: '  return `${base}?${query.toString()}`;' },
+          { type: 'context', oldLine: 62, newLine: 64, content: '}' },
+          { type: 'add', oldLine: null, newLine: 65, content: '' },
+          { type: 'add', oldLine: null, newLine: 66, content: '/**' },
+          { type: 'add', oldLine: null, newLine: 67, content: ' * Build a changeset files tab URL.' },
+          { type: 'add', oldLine: null, newLine: 68, content: ' */' },
+          { type: 'add', oldLine: null, newLine: 69, content: 'export function changesetFilesPath(handle: string, changesetID: string): string {' },
+          { type: 'add', oldLine: null, newLine: 70, content: '  return changesetPath(handle, changesetID, "files");' },
+          { type: 'add', oldLine: null, newLine: 71, content: '}' },
+        ]
+      },
+      {
+        path: 'src/pages/changesets/ChangesetDetailPage.tsx',
+        status: 'modified',
+        additions: 15,
+        deletions: 3,
+        directory: 'src/pages/changesets',
+        viewed: false,
+        diff: [
+          { type: 'hunk', content: '@@ -1,8 +1,9 @@' },
+          { type: 'context', oldLine: 1, newLine: 1, content: 'import { useCallback, useEffect, useState, type FormEvent } from "react";' },
+          { type: 'context', oldLine: 2, newLine: 2, content: 'import { Link, NavLink, useParams } from "react-router-dom";' },
+          { type: 'delete', oldLine: 3, newLine: null, content: 'import { CheckCircle2, GitBranch, GitMerge, Play, ShieldCheck } from "lucide-react";' },
+          { type: 'add', oldLine: null, newLine: 3, content: 'import { CheckCircle2, Code2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck } from "lucide-react";' },
+          { type: 'context', oldLine: 4, newLine: 4, content: 'import { useTranslation } from "react-i18next";' },
+          { type: 'hunk', content: '@@ -6,7 +7,7 @@ import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "..' },
+          { type: 'context', oldLine: 6, newLine: 7, content: 'import { translateError } from "../../shared/api/errors";' },
+          { type: 'context', oldLine: 7, newLine: 8, content: 'import { formatDateTime } from "../../shared/i18n/format";' },
+          { type: 'delete', oldLine: 8, newLine: null, content: 'import { changesetPath, changesetTabs, organizationHandle, orgPath, type ChangesetTab } from "../../shared/routing";' },
+          { type: 'add', oldLine: null, newLine: 9, content: 'import { changesetPath, changesetTabs, organizationHandle, orgPath, webIDEPath, type ChangesetTab } from "../../shared/routing";' },
+          { type: 'context', oldLine: 9, newLine: 10, content: 'import { Button, Input } from "../../shared/ui";' },
+          { type: 'hunk', content: '@@ -136,6 +137,20 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID,' },
+          { type: 'context', oldLine: 136, newLine: 137, content: '        </div>' },
+          { type: 'context', oldLine: 137, newLine: 138, content: '      </>}' },
+          { type: 'add', oldLine: null, newLine: 139, content: '      {tab === "files" && <>' },
+          { type: 'add', oldLine: null, newLine: 140, content: '        <div className="changeset-workflow">' },
+          { type: 'add', oldLine: null, newLine: 141, content: '          <div><label>Files Changed</label><p>View file changes in the Files tab or open in WebIDE for full code navigation.</p></div>' },
+          { type: 'add', oldLine: null, newLine: 142, content: '        </div>' },
+          { type: 'add', oldLine: null, newLine: 143, content: '        {revision && <div className="org-actions">' },
+          { type: 'add', oldLine: null, newLine: 144, content: '          <Button as={Link} to={webIDEPath(handle, { repository: changeset.repository, commit: revision.commit_sha, changeset: changeset.id })} className="button secondary">' },
+          { type: 'add', oldLine: null, newLine: 145, content: '            <Code2 size={14}/> {t("changesets:detail.viewFilesInWebIDE")}' },
+          { type: 'add', oldLine: null, newLine: 146, content: '          </Button>' },
+          { type: 'add', oldLine: null, newLine: 147, content: '        </div>}' },
+          { type: 'add', oldLine: null, newLine: 148, content: '      </>}' },
+          { type: 'context', oldLine: 138, newLine: 149, content: '      {tab === "merge" && <>' },
+          { type: 'context', oldLine: 139, newLine: 150, content: '        <div className="changeset-workflow">' },
+        ]
+      }
+    ];
+
+    // Group files by directory
+    const directories = {};
+    files.forEach(file => {
+      if (!directories[file.directory]) {
+        directories[file.directory] = [];
+      }
+      directories[file.directory].push(file);
+    });
+
+    let selectedFile = files[0];
+    let viewMode = 'unified';
+    const expandedDirs = new Set(Object.keys(directories)); // All directories expanded by default
+
+    // Get status icon SVG (GitHub style - document icons with status)
+    function getStatusIcon(status) {
+      switch(status) {
+        case 'added':
+          // Green document with plus icon
+          return `<span class="file-status-icon">
+            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+              <path fill="#3fb950" d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+              <path fill="#3fb950" d="M6.5 7.25a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0V11h-1.5a.75.75 0 0 1 0-1.5h1.5V8a.75.75 0 0 1 .75-.75Z"></path>
+            </svg>
+          </span>`;
+        case 'modified':
+          // Gray document icon
+          return `<span class="file-status-icon">
+            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+              <path fill="#57606a" d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+            </svg>
+          </span>`;
+        case 'deleted':
+          // Red document with minus icon
+          return `<span class="file-status-icon">
+            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+              <path fill="#f85149" d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+              <path fill="#f85149" d="M4.75 10a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75Z"></path>
+            </svg>
+          </span>`;
+        default:
+          // Default to gray document
+          return `<span class="file-status-icon">
+            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+              <path fill="#57606a" d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+            </svg>
+          </span>`;
+      }
+    }
+
+    // Render file tree
+    function renderFileTree() {
+      const treeHTML = Object.keys(directories).map(dirPath => {
+        const dirFiles = directories[dirPath];
+        const dirName = dirPath.split('/').pop();
+        const isExpanded = expandedDirs.has(dirPath);
+
+        return `
+          <div class="file-tree-directory">
+            <div class="directory-header ${isExpanded ? 'expanded' : ''}" data-dir="${dirPath}">
+              <span class="directory-chevron">▶</span>
+              <svg class="directory-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"></path>
+              </svg>
+              <span class="directory-name">${dirName}</span>
+            </div>
+            <div class="directory-files ${isExpanded ? 'expanded' : ''}">
+              ${dirFiles.map(file => `
+                <div class="file-tree-item ${file === selectedFile ? 'selected' : ''}" data-path="${file.path}">
+                  ${getStatusIcon(file.status)}
+                  <span class="file-name">${file.path.split('/').pop()}</span>
+                  <span class="file-stats">
+                    <span class="additions">+${file.additions}</span>
+                    <span class="deletions">−${file.deletions}</span>
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('fileTree').innerHTML = treeHTML;
+
+      // Add click handlers for directories
+      document.querySelectorAll('.directory-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const dirPath = header.dataset.dir;
+          if (expandedDirs.has(dirPath)) {
+            expandedDirs.delete(dirPath);
+          } else {
+            expandedDirs.add(dirPath);
+          }
+          renderFileTree();
+        });
+      });
+
+      // Add click handlers for files
+      document.querySelectorAll('.file-tree-item').forEach(item => {
+        if (item.dataset.path) {
+          item.addEventListener('click', () => {
+            const path = item.dataset.path;
+            selectedFile = files.find(f => f.path === path);
+            renderFileTree();
+            renderDiff();
+          });
+        }
+      });
+    }
+
+    // Render diff
+    function renderDiff() {
+      if (!selectedFile) {
+        document.getElementById('diffContent').innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span>Select a file to view diff</span>
+          </div>
+        `;
+        return;
+      }
+
+      const diffHTML = `
+        <div class="diff-file">
+          <div class="diff-file-header">
+            <span>${selectedFile.path}</span>
+            <span class="diff-file-stats">+${selectedFile.additions} -${selectedFile.deletions}</span>
+          </div>
+          <div class="diff-code">
+            ${selectedFile.diff.map(line => {
+              if (line.type === 'hunk') {
+                return `<div class="diff-hunk">${line.content}</div>`;
+              }
+
+              if (viewMode === 'unified') {
+                const lineNum = line.type === 'add' ? line.newLine : line.oldLine;
+                const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
+                return `
+                  <div class="diff-line ${line.type} unified">
+                    <div class="line-number">${lineNum || ''}</div>
+                    <div class="line-content">${prefix} ${line.content}</div>
+                  </div>
+                `;
+              } else {
+                // Split view (simplified - showing same content in both columns)
+                return `
+                  <div class="diff-line ${line.type}">
+                    <div class="line-number">${line.oldLine || ''}</div>
+                    <div class="line-number">${line.newLine || ''}</div>
+                    <div class="line-content">${line.content}</div>
+                  </div>
+                `;
+              }
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('diffContent').innerHTML = diffHTML;
+    }
+
+    // Sidebar collapse/expand
+    const sidebar = document.getElementById('sidebar');
+    const collapseBtn = document.getElementById('collapseBtn');
+    const expandBtn = document.getElementById('expandBtn');
+
+    collapseBtn.addEventListener('click', () => {
+      sidebar.classList.add('collapsed');
+    });
+
+    expandBtn.addEventListener('click', () => {
+      sidebar.classList.remove('collapsed');
+    });
+
+    // Resize handler
+    const resizeHandle = document.getElementById('resizeHandle');
+    let isResizing = false;
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      resizeHandle.classList.add('dragging');
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+
+      const containerRect = document.querySelector('.files-container').getBoundingClientRect();
+      const newWidth = e.clientX - containerRect.left;
+
+      if (newWidth >= 200 && newWidth <= 600) {
+        sidebar.style.width = newWidth + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        resizeHandle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+
+    // View mode toggle
+    document.querySelectorAll('.view-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        viewMode = btn.dataset.mode;
+        renderDiff();
+      });
+    });
+
+    // Initial render
+    renderFileTree();
+    renderDiff();
+  </script>
+</body>
+</html>

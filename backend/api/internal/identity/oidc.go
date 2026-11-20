@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	oidcStateCookieName   = "__Host-agentforge_oidc_state"
-	oidcNonceCookieName   = "__Host-agentforge_oidc_nonce"
-	oidcPKCECookieName    = "__Host-agentforge_oidc_pkce"
+	oidcStateCookieName  = "__Host-agentforge_oidc_state"
+	oidcNonceCookieName  = "__Host-agentforge_oidc_nonce"
+	oidcPKCECookieName   = "__Host-agentforge_oidc_pkce"
 	invitationCookieName = "__Host-agentforge_invitation"
-	oidcTransactionTTL    = 10 * time.Minute
+	oidcTransactionTTL   = 10 * time.Minute
 )
 
 type OIDCConfig struct {
@@ -63,14 +63,14 @@ func NewOIDCAuthenticator(ctx context.Context, configuration OIDCConfig, reposit
 	}
 	return &OIDCAuthenticator{
 		repository: repository,
-		appOrigin: configuration.AppOrigin,
+		appOrigin:  configuration.AppOrigin,
 		sessionTTL: configuration.SessionTTL,
 		oauth: oauth2.Config{
-			ClientID: configuration.ClientID,
+			ClientID:     configuration.ClientID,
 			ClientSecret: configuration.ClientSecret,
-			Endpoint: provider.Endpoint(),
-			RedirectURL: configuration.RedirectURL,
-			Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
+			Endpoint:     provider.Endpoint(),
+			RedirectURL:  configuration.RedirectURL,
+			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 		},
 		verifier: provider.Verifier(&oidc.Config{ClientID: configuration.ClientID}),
 	}, nil
@@ -249,19 +249,6 @@ func (a *OIDCAuthenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.appOrigin, http.StatusSeeOther)
 }
 
-func (a *OIDCAuthenticator) Logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
-		if err := a.repository.RevokeSession(r.Context(), cookie.Value); err != nil && !errors.Is(err, ErrUnauthenticated) {
-			writeAuthProblem(w, http.StatusServiceUnavailable, "Logout temporarily unavailable", "The active session could not be revoked")
-			return
-		}
-	}
-	sessionCookie, csrfCookie := ClearSessionCookies()
-	http.SetCookie(w, sessionCookie)
-	http.SetCookie(w, csrfCookie)
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func setOIDCCookie(w http.ResponseWriter, name, value string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name: name, Value: value, Path: "/", Expires: expiresAt.UTC(),
@@ -283,9 +270,9 @@ func writeAuthProblem(w http.ResponseWriter, status int, title, detail string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(struct {
-		Type string `json:"type"`
-		Title string `json:"title"`
-		Status int `json:"status"`
+		Type   string `json:"type"`
+		Title  string `json:"title"`
+		Status int    `json:"status"`
 		Detail string `json:"detail"`
 	}{Type: "about:blank", Title: title, Status: status, Detail: detail})
 }

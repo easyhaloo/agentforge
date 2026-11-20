@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
+import { translateError } from "../shared/api/errors";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
+import { AccountTheme } from "../features/appearance/AccountTheme";
 import { Topbar } from "./components/Topbar";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
@@ -13,6 +16,7 @@ import { useNotify } from "./useNotify";
 
 /** Root layout: loads the account once and renders the shell around the page the URL selects. */
 function App() {
+  const { t } = useTranslation("app");
   const [commandOpen, setCommandOpen] = useState(false);
   const notify = useNotify();
   const navigateTo = useNavigateTo();
@@ -35,7 +39,7 @@ function App() {
     } catch (cause) {
       setAccount(null);
       if (cause instanceof APIError && cause.status === 401) setAccountState("signed-out");
-      else { setAccountState("unavailable"); setAccountError(cause instanceof Error ? cause.message : "Unable to load account context"); }
+      else { setAccountState("unavailable"); setAccountError(translateError(cause, t, "app:errors.accountLoadFailed")); }
     }
   };
 
@@ -63,9 +67,9 @@ function App() {
       setSelectedOrganizationID("");
       setAccountState("signed-out");
       navigateTo(flatPaths.overview);
-      notify("You have signed out.");
+      notify(t("app:notify.signedOut"));
     } catch (cause) {
-      setAccountError(cause instanceof Error ? cause.message : "Unable to sign out");
+      setAccountError(translateError(cause, t, "app:errors.signOutFailed"));
       setAccountState("unavailable");
     }
   };
@@ -98,17 +102,16 @@ function App() {
 
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
+      {account && <AccountTheme key={account.user_id} />}
       <div className="shell">
-        <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} onSignOut={() => void signOut()} />
+        <Sidebar account={account} selectedOrganization={selectedOrganization} linkHandle={linkHandle} onSelectOrganization={selectOrganization} />
         <main className="main">
-          <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} />
+          <Topbar label={label} onSearch={() => setCommandOpen(true)} onNotify={notify} onSignOut={() => void signOut()} />
           <div className="content">
-            <PageHeader label={label} description={item?.description} onRefresh={item ? refresh : undefined} />
+            {(label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
+              <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
-            <footer>
-              <span>AgentForge Prototype <b>v0.1.0</b></span>
-              <span><i className="live-dot" /> All systems operational <span className="footer-sep">·</span> Mock environment</span>
-            </footer>
+            {!urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>
         </main>
         <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />

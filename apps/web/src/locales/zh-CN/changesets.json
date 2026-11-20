@@ -1,18 +1,25 @@
 {
   "page": {
     "title": "变更集",
-    "summary": "{{count}} 个持久化变更集",
     "description": "组织级 Git 生命周期 · PostgreSQL 状态",
-    "loadingMessage": "加载变更集中…"
+    "loadingMessage": "加载变更集中…",
+    "summary_one": "{{count}} 个持久化变更集",
+    "summary_other": "{{count}} 个持久化变更集"
   },
   "create": {
     "title": "创建变更集",
     "description": "针对已注册的代码仓库启动持久化交付工作流",
     "validated": "服务器验证",
     "titleLabel": "标题",
-    "titlePlaceholder": "描述此变更",
+    "titlePlaceholder": "描述变更或目标",
+    "projectLabel": "项目",
+    "descriptionLabel": "描述",
+    "descriptionPlaceholder": "此变更应该完成什么？",
     "repositoryLabel": "代码仓库",
     "createButton": "创建",
+    "okButton": "创建资源",
+    "newResourceEyebrow": "新资源",
+    "mockNote": "这仅创建本地演示记录。不执行 Git 或后端操作。",
     "successMessage": "变更集已创建并持久化。",
     "errorMessage": "变更集创建失败"
   },
@@ -27,15 +34,86 @@
     "myPendingReviews": "我的待审查项",
     "emptyFiltered": "没有符合筛选条件的变更集。",
     "emptyDefault": "暂无变更集。",
-    "footer": "{{count}} / {{total}} 个变更集",
-    "dataSource": "来自组织 API 的数据"
+    "dataSource": "来自组织 API 的数据",
+    "footer_one": "{{count}} / {{total}} 个变更集",
+    "footer_other": "{{count}} / {{total}} 个变更集"
+  },
+  "columns": {
+    "changeset": "变更集",
+    "repository": "代码仓库",
+    "status": "状态",
+    "revision": "修订版本",
+    "updated": "更新时间",
+    "version": "版本"
+  },
+  "tabs": {
+    "overview": "概览",
+    "revisions": "修订版本",
+    "evaluation": "评估",
+    "review": "审查",
+    "merge": "合并"
+  },
+  "reviewStatus": {
+    "pending": "待处理",
+    "approved": "已批准",
+    "rejected": "已拒绝",
+    "stale": "已失效"
+  },
+  "detail": {
+    "loading": "加载变更集中…",
+    "backToList": "返回变更集列表",
+    "sectionsAriaLabel": "变更集分区",
+    "createdBy": "{{repository}} · 由 {{actor}} 创建",
+    "currentRevision": "当前修订版本",
+    "noRevision": "尚无修订版本。",
+    "resolveRefToStart": "解析一个 Git ref 即可开始",
+    "reviewer": "审查人",
+    "noReviewAssigned": "尚未指派审查。",
+    "auditTitle": "生命周期审计",
+    "auditEntry": "{{actor}} · {{at}}",
+    "resolveRefLabel": "解析 Git ref",
+    "refPlaceholder": "分支、标签或提交 SHA",
+    "addRevisionButton": "添加修订版本",
+    "revisionsTitle": "修订版本",
+    "currentRevisionBadge": "当前修订版本",
+    "evaluationTitle": "可信评估",
+    "evaluationEmpty": "当前修订版本还没有评估结果。",
+    "runEvaluationButton": "运行评估",
+    "evidenceTitle": "证据来源",
+    "evidencePending": "评估通过后会自动生成证据。",
+    "evidenceVerified": "已验证的产物",
+    "evidenceAwaiting": "等待评估通过",
+    "assignReviewLabel": "指派审查（活跃成员 ID）",
+    "reviewerPlaceholder": "审查人用户 ID",
+    "reviewCommentPlaceholder": "审查说明（可选）",
+    "assignReviewButton": "指派审查",
+    "reviewDecisionTitle": "审查结论",
+    "reviewAssigned": "指派给 {{reviewer}} · {{status}}",
+    "approveButton": "批准",
+    "requestChangesButton": "要求修改",
+    "decisionPlaceholder": "结论备注",
+    "mergeTargetLabel": "合并目标",
+    "mergeButton": "合并变更集",
+    "mergedAs": "已合并为 {{commit}}，合并到 {{ref}}",
+    "viewFilesInWebIDE": "在 WebIDE 中查看文件"
+  },
+  "notify": {
+    "revisionResolved": "Git 修订版本已解析并持久化。",
+    "evaluationCompleted": "可信评估已完成。",
+    "reviewAssigned": "审查已指派给组织内的活跃成员。",
+    "reviewApproved": "审查已批准。",
+    "changesRequested": "已要求修改。",
+    "mergeCompleted": "Git 合并已完成并持久化。"
   },
   "empty": {
     "noRepositories": "未注册代码仓库",
     "noRepositoriesDescription": "在创建变更集之前，请先在组织的代码仓库页面注册一个代码仓库。"
   },
   "errors": {
-    "loadFailed": "无法加载交付数据"
+    "loadFailed": "无法加载交付数据",
+    "listFailed": "无法加载变更集",
+    "detailLoadFailed": "无法加载该变更集",
+    "operationFailed": "交付操作失败"
   },
   "status": {
     "draft": "草稿",
@@ -60,5 +138,24 @@
     "readyToMerge": "当前修订版本已有批准的审查。添加新的修订版本以请求另一次审查。",
     "merged": "该变更集已合并，无法再请求审查。",
     "default": "当前修订版本具有活跃证据后才能请求审查。"
+  },
+  "audit": {
+    "operations": {
+      "changeset_created": "创建变更集",
+      "revision_created": "创建修订",
+      "evaluation_recorded": "记录评估",
+      "evidence_attached": "附加证据",
+      "review_assigned": "分配审核",
+      "review_decided": "审核结论",
+      "review_superseded": "审核被取代",
+      "merge_completed": "完成合并"
+    },
+    "outcomes": {
+      "succeeded": "成功",
+      "pending": "待处理",
+      "approved": "已通过",
+      "rejected": "要求修改",
+      "stale": "已失效"
+    }
   }
 }

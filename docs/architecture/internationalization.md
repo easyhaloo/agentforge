@@ -245,6 +245,32 @@ beforeAll(async () => {
 
 react-dom/server's `renderToStaticMarkup` works with i18n once initialized. No special SSR configuration needed.
 
+### Translation Consistency Checks
+
+A missing key does not throw: i18next renders the key path itself, so the UI would quietly show
+`settings.keys.daysAgo` instead of a sentence. Two test files guard against that, and both run as
+part of `npm test` and `npm run check:i18n`:
+
+| File | What it checks |
+|---|---|
+| `src/architecture/i18n-keys.test.ts` | Every key the code asks for exists in every shipped language; the languages agree key by key; they agree on the `{{placeholder}}` names; every navigation label, group, description, settings entry and pipeline state resolves |
+| `src/locales/locales.test.ts` | The runtime behaviour: a missing key renders a readable label rather than a key path, the document language follows the UI, plurals pick the right form |
+
+The check reads the source, so a new `t()` call is covered as soon as it is written. A key built
+at runtime is not visible to it, so such keys are listed in an exported constant that the check
+resolves instead — for example `pages/pipelines/pipeline-states.ts`,
+`pages/settings/settings-nav.ts` and `shared/api/errors.ts`.
+
+**When you add a translation:** add the key to every language file in the same change. The parity
+check fails the build otherwise.
+
+### API Errors
+
+The API answers with RFC 7807 problem details whose prose is English. That prose never reaches
+the interface: `shared/api/errors.ts` maps the HTTP status to a translation key, and the pages
+call `translateError(cause, t, "<namespace>:errors.<key>")`. The fallback key describes the action
+that failed ("unable to load changesets") and is used when the request never reached the API.
+
 ## Migration Strategy
 
 ### Completed
@@ -268,18 +294,19 @@ The ChangesetsPage migration demonstrates the complete pattern:
 Future migrations should follow the established pattern:
 
 **High Priority:**
-- Repositories page
-- Organization settings
-- Error/notification messages
+- The resource pages (Projects, Workspaces, Memory, Security, Governance, Usage). Their demo data
+  tables carry about 500 hardcoded English strings.
 
 **Medium Priority:**
-- Overview page and dashboard widgets
-- Resource pages (Projects, Workspaces, etc.)
-- Delivery pages (Stacks, Self-healing)
+- The delivery pages (Stacks, Self-healing) and the dev/UI showcase page.
 
 **Low Priority:**
-- Dev/UI showcase pages
-- Footer text
+- The demo entity names inside the resource pages. A name like "Core Platform" reads as data
+  rather than as interface copy, so it may stay as it is.
+
+**Done:**
+- The settings pages, the organization page, the changesets and repositories pages, the
+  pipelines and overview pages, the delivery flow, login and register, and the app shell.
 
 ## Adding New Translations
 
@@ -396,22 +423,40 @@ i18n.loadNamespaces('changesets');
 
 ### Pluralization
 
-Add plural forms when needed:
+i18next v27 uses the v4 JSON format: the plural category is a suffix on the key. English selects
+`one` and `other`; Chinese selects `other` only, so it needs the same text in both.
 
 ```json
 {
-  "items": "{{count}} item",
-  "items_plural": "{{count}} items"
+  "daysAgo_one": "{{count}} day ago",
+  "daysAgo_other": "{{count}} days ago"
 }
 ```
 
-### Date/Number Formatting
-
-Integrate i18n formatting for dates and numbers:
+A caller passes the count as the reserved `count` option and i18next picks the form:
 
 ```typescript
-t('date', { val: new Date(), formatParams: { val: { month: 'long' } } })
+t('settings:keys.daysAgo', { count: 1 })   // "1 day ago"
+t('settings:keys.daysAgo', { count: 5 })   // "5 days ago"
 ```
+
+The `architecture/i18n-keys.test.ts` check requires every plural key to define every category its
+language can select, so a missing `_one` fails the build instead of showing the bare key.
+
+### Date/Number Formatting
+
+i18next has no formatter plugin in this project. Use the platform `Intl` API with the active
+language instead of `toLocaleString()` without a locale, so the format follows the UI language
+rather than the browser's. `shared/i18n/format.ts` wraps this:
+
+```typescript
+import { formatDate, formatDateTime, formatRelativeTime } from "../shared/i18n/format";
+
+formatDateTime(commit.authored_at)   // "2026年11月19日 10:00" under zh-CN
+formatRelativeTime(event.at)         // "3 分钟前"
+```
+
+For numbers, use `Intl.NumberFormat(i18n.resolvedLanguage)`.
 
 ## References
 

@@ -1,0 +1,97 @@
+{
+  "demoNotice": "示例总览。以下指标、评审动态和变更集使用演示数据。",
+  "metrics": {
+    "ariaLabel": "工作空间指标",
+    "items": {
+      "activeChangesets": "活跃变更集",
+      "verificationPassRate": "验证通过率",
+      "openTrails": "进行中的 Trail",
+      "agentHoursSaved": "节省的 Agent 工时"
+    },
+    "deltas": {
+      "atRisk_one": "{{count}} 项存在风险",
+      "atRisk_other": "{{count}} 项存在风险",
+      "thisMonth": "本月"
+    }
+  },
+  "recentChangesets": {
+    "title": "最近的变更集",
+    "description": "跟踪正在验证中的最新工作。",
+    "viewAll": "查看全部",
+    "searchAriaLabel": "搜索概览变更集",
+    "searchPlaceholder": "搜索概览...",
+    "filterAriaLabel": "按状态筛选变更集",
+    "moreFilters": "更多筛选",
+    "allStatuses": "所有状态",
+    "columns": {
+      "identifier": "标识符",
+      "name": "名称",
+      "project": "项目",
+      "status": "状态",
+      "updated": "更新时间"
+    },
+    "moreActionsAriaLabel": "{{id}} 的更多操作",
+    "moreActionsNotice": "完整产品中提供更多操作。",
+    "empty": {
+      "title": "没有匹配的变更集",
+      "description": "尝试其他搜索词或重置状态筛选器。"
+    },
+    "statuses": {
+      "all": "全部",
+      "readyForReview": "待审查",
+      "evaluating": "评估中",
+      "changesRequested": "需要修改",
+      "merged": "已合并",
+      "draft": "草稿"
+    },
+    "justNow": "刚刚"
+  },
+  "activityFeed": {
+    "title": "活动流",
+    "description": "工作空间中的最新事件",
+    "viewAll": "查看全部",
+    "events": {
+      "verified": {
+        "title": "变更集已验证",
+        "description_one": "{{changeset}} 已通过全部 {{count}} 项检查",
+        "description_other": "{{changeset}} 已通过全部 {{count}} 项检查"
+      },
+      "reviewRequested": {
+        "title": "已请求评审",
+        "description": "{{reviewer}} 请求评审 {{changeset}}"
+      },
+      "trailAtRisk": {
+        "title": "Trail 存在风险",
+        "description_one": "{{name}} 还在等待 {{count}} 项依赖",
+        "description_other": "{{name}} 还在等待 {{count}} 项依赖"
+      },
+      "workspaceCreated": {
+        "title": "工作空间已创建",
+        "description": "Agent 工作空间 {{workspace}} 已就绪"
+      }
+    }
+  },
+  "changeVelocity": {
+    "title": "变更速度",
+    "description": "已创建和合并的变更集 · 最近 7 天",
+    "timeRangeAriaLabel": "已选择时间范围：{{range}}",
+    "chartAriaLabel": "七天内的变更速度趋势",
+    "last7Days": "最近 7 天",
+    "days": {
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    }
+  },
+  "selectedChangeset": {
+    "label": "已选中的变更集",
+    "summary": "修订版本 r{{revision}} · 基准 {{base}} · {{files}} 个文件变更 · {{checks}} 项检查",
+    "evidenceCurrent": "证据当前有效",
+    "openDetails": "查看详情",
+    "prototypeNotice": "变更集详情视图目前只是原型交互。"
+  }
+}

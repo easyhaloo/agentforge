@@ -6,6 +6,50 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/organizations/{organizationID}/merge-queue:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-queue
+  /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-queue~1{entry}~1cancel
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/merge-queue:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1merge-queue
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/integration-runs:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1integration-runs
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/promote:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1promote
+  /api/v1/organizations/{organizationID}/merge-preview:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-preview
+  /api/v1/organizations/{organizationID}/merge-preview/capabilities:
+    $ref: ./merge-preview.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-preview~1capabilities
+  /hooks/github/{hook}:
+    $ref: ./pipelines.yaml#/paths/~1hooks~1github~1{hook}
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/runs:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1runs
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/cancel:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1cancel
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/steps/{step}/decision:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1steps~1{step}~1decision
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/objects:
+    $ref: ./pipeline-objects.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1objects
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/objects/{object}:
+    $ref: ./pipeline-objects.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1objects~1{object}
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/events:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1events
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions/{number}/validate-inputs:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1validate-inputs"
+  /api/v1/organizations/{organizationID}/pipelines:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines"
+  /api/v1/organizations/{organizationID}/pipelines/{id}:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/draft:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1draft"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/publish:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1publish"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/archive:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1archive"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/versions:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions"
   /healthz:
     get:
       operationId: getHealth
@@ -312,6 +356,365 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listRepositoryRefs
+      summary: List repository branches and tags
+      description: Requires active organization membership and a registered repository. Ref names are selectors; content reads resolve them to immutable commit SHAs. Results are bounded to 1000 refs.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Repository branches and tags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, default_branch, resolved_commit_sha, items]
+                properties:
+                  repository: { type: string }
+                  default_branch: { type: string }
+                  resolved_commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  items:
+                    type: array
+                    maxItems: 1000
+                    items:
+                      type: object
+                      required: [name, kind, sha]
+                      properties:
+                        name: { type: string }
+                        kind: { type: string, enum: [branch, tag] }
+                        sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit; omitted uses the registered default branch. The response always returns an immutable commit SHA.
+        schema: { type: string }
+      - in: query
+        name: path
+        description: Repository-relative directory path; empty selects the repository root.
+        schema: { type: string, maxLength: 1024 }
+    get:
+      operationId: listRepositoryTree
+      summary: List a repository directory at an immutable Git commit
+      description: Requires active organization membership and a registered repository. Resolves ref once and returns entries pinned to the resulting full commit SHA. Directory results are bounded to 2000 entries.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit-pinned directory listing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, path, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, path, kind, mode, sha]
+                      properties:
+                        name: { type: string }
+                        path: { type: string }
+                        kind: { type: string }
+                        mode: { type: string }
+                        sha: { type: string }
+                        size: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit; resolved once to an immutable commit SHA.
+        schema: { type: string }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+    get:
+      operationId: listRepositoryHistory
+      summary: List commits reachable from a pinned repository revision
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [sha, parents, author, authored_at, subject]
+                      properties:
+                        sha: { type: string }
+                        parents: { type: array, items: { type: string } }
+                        author: { type: string }
+                        authored_at: { type: string, format: date-time }
+                        subject: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/compare:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: base
+        required: true
+        description: Base branch, tag or commit, resolved to an immutable commit SHA.
+        schema: { type: string, minLength: 1, maxLength: 256 }
+      - in: query
+        name: head
+        required: true
+        description: Head branch, tag or commit, resolved to an immutable commit SHA.
+        schema: { type: string, minLength: 1, maxLength: 256 }
+    get:
+      operationId: compareRepositoryCommits
+      summary: Compare two immutable repository commits
+      description: Requires active organization membership and a registered repository. Both refs are resolved server-side before a bounded, non-renamed, non-external diff is generated. Output is limited to 1 MiB.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit comparison patch
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, base_sha, head_sha, patch]
+                properties:
+                  repository: { type: string }
+                  base_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  head_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  patch: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/file-history:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit resolved to an immutable SHA.
+        schema: { type: string }
+      - in: query
+        name: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 1024 }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+    get:
+      operationId: listRepositoryFileHistory
+      summary: List history for a file at a pinned commit
+      description: Requires active organization membership and repository registration. The ref is resolved server-side and Git history is bounded to 100 commits and 1 MiB output.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: File commit history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, path, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  items: { type: array, items: { $ref: "#/components/schemas/RepositoryCommit" } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blame:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit resolved to an immutable SHA.
+        schema: { type: string }
+      - in: query
+        name: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 1024 }
+      - in: query
+        name: start
+        schema: { type: integer, minimum: 1, default: 1 }
+      - in: query
+        name: end
+        schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+    get:
+      operationId: blameRepositoryFile
+      summary: Attribute file lines to immutable commits
+      description: Requires active organization membership and repository registration. At most 500 lines and 1 MiB of Git blame output are returned for the pinned commit.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: File blame lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, path, start, end, items]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  path: { type: string }
+                  start: { type: integer }
+                  end: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [line, commit_sha, author, authored_at, summary, content]
+                      properties:
+                        line: { type: integer }
+                        commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                        author: { type: string }
+                        authored_at: { type: string }
+                        summary: { type: string }
+                        content: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag or commit; omitted uses the registered default branch.
+        schema: { type: string }
+      - in: query
+        name: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 1024 }
+    get:
+      operationId: readRepositoryBlob
+      summary: Read a UTF-8 Git blob at an immutable commit
+      description: Requires active organization membership and a registered repository. Returns raw source text as JSON, never executes or renders repository HTML. Preview is limited to 1 MiB; binary and larger files are rejected.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Commit-pinned UTF-8 file content
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [repository, commit_sha, blob_sha, path, encoding, content]
+                properties:
+                  repository: { type: string }
+                  commit_sha: { type: string }
+                  blob_sha: { type: string }
+                  path: { type: string }
+                  encoding: { type: string, const: utf-8 }
+                  content: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "415": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets:
     parameters:
       - in: path
@@ -609,6 +1012,8 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
+    webhookSignature:
+      $ref: ./pipelines.yaml#/components/securitySchemes/webhookSignature
     sessionCookie:
       type: apiKey
       in: cookie
@@ -741,6 +1146,17 @@ components:
         created_by: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    RepositoryCommit:
+      type: object
+      required: [sha, parents, author, authored_at, subject]
+      properties:
+        sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        parents:
+          type: array
+          items: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+        author: { type: string }
+        authored_at: { type: string, format: date-time }
+        subject: { type: string }
     Health:
       type: object
       required: [status]

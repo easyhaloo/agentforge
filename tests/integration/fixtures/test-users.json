@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "email": "test@example.com",
+      "password": "TestPassword123!",
+      "display_name": "Test User"
+    },
+    {
+      "email": "existing@example.com",
+      "password": "ExistingPass456!",
+      "display_name": "Existing User"
+    },
+    {
+      "email": "admin@example.com",
+      "password": "AdminPass789!",
+      "display_name": "Admin User"
+    }
+  ]
+}

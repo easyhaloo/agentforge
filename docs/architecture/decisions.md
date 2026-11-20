@@ -210,3 +210,15 @@
   - First-party and organization-private extensions precede a curated registry. Open VSX or VS Code extension compatibility is a later, explicitly scoped project.
   - Preview applications use isolated origins, strict CSP, bounded egress and short-lived access; preview URLs are not public by default.
   - See [Repository Preview and WebIDE](repository-preview-and-webide.md).
+## ADR-010: Repository source viewer and WebIDE engines
+
+- Status: Accepted
+- Decision: Use Shiki tokenization for read-only repository source browsing and Monaco Editor for the WebIDE. Keep unified diff and secure Markdown rendering independent. Share language metadata, not editor instances or rendering lifecycles.
+- Context: The current repository viewer uses a small regex tokenizer and the WebIDE uses a shared textarea. Repository browsing needs fast progressive read-only rendering; WebIDE needs a complete editing surface and extension points.
+- Consequences:
+  - Shiki grammars are loaded on demand; tokens are rendered as escaped React text. Unknown/large files retain plain-text fallback.
+  - Monaco is lazy-loaded only on the WebIDE route and remains behind an AgentForge adapter.
+  - Existing Changeset-only write-back, commit/blob SHA concurrency, and dirty-buffer protections remain authoritative.
+  - Diff parsing and Markdown URL/image security remain independent.
+  - Tree-sitter structural navigation is deferred until measured requirements justify it.
+  - Details and phased acceptance criteria live in `docs/architecture/repository-code-viewer-and-webide.md`.

@@ -15,15 +15,79 @@
     "changesets": "Changesets",
     "changeset": "Changeset",
     "repositories": "Repositories",
+    "repository": "Repository",
     "trails": "Trails",
     "review": "Review",
     "eval": "Eval",
     "organization": "Organization",
     "uiComponents": "UI Components",
-    "notFound": "Page not found"
+    "notFound": "Page not found",
+    "webide": "WebIDE"
+  },
+  "groups": {
+    "WORKSPACE": "Workspace",
+    "COORDINATION": "Coordination",
+    "INTELLIGENCE": "Intelligence",
+    "DEVELOPER": "Developer",
+    "CONTROL PLANE": "Control plane"
+  },
+  "descriptions": {
+    "overview": "A live map of changes, verification and delivery across your engineering system.",
+    "projects": "Organize repositories, teams and delivery boundaries.",
+    "repositories": "Git-compatible repositories backed by a canonical object graph.",
+    "changesets": "Reviewable, revisioned units of change — distinct from Git commits.",
+    "workspaces": "Isolated environments for agents and human contributors.",
+    "trails": "Cross-repository delivery goals with traceable evidence.",
+    "stacks": "Compose dependent changesets into a navigable change graph.",
+    "review": "Human decisions grounded in revision-specific evidence.",
+    "eval": "Evaluate changes against quality, policy and product expectations.",
+    "selfHealing": "Bounded repair loops that produce new revisions and re-run validation.",
+    "memory": "Reusable engineering knowledge linked to sessions, code and decisions.",
+    "cicd": "Pipelines, checks and release orchestration.",
+    "uiComponents": "Explore the shared component system, interaction patterns and design tokens.",
+    "organization": "Manage organization members, invitations, roles and access history.",
+    "security": "Identity, secrets, supply-chain and runtime boundaries.",
+    "governance": "Policies, approvals and organization-wide controls.",
+    "usage": "Understand agent, model and compute consumption.",
+    "settings": "Configure your organization and developer experience.",
+    "webide": "Browse files at a pinned commit or edit them on a changeset branch."
+  },
+  "sidebar": {
+    "brand": "agentforge",
+    "tagline": "VERIFIED CHANGE PLATFORM",
+    "noOrganization": "No organization",
+    "signInToLoad": "Sign in to load organizations",
+    "workspace": "workspace",
+    "selectOrganization": "Select organization",
+    "monthlyUsage": "Monthly usage",
+    "usageNotConnected": "Usage data not connected",
+    "notSignedIn": "Not signed in",
+    "accountProfile": "Account profile",
+    "signOut": "Sign out"
+  },
+  "topbar": {
+    "workspace": "Workspace",
+    "searchPlaceholder": "Search anything...",
+    "searchAriaLabel": "Search anything (Command K)",
+    "notificationsAriaLabel": "Notifications",
+    "caughtUp": "You're all caught up."
+  },
+  "commandPalette": {
+    "title": "Jump to a page",
+    "searchAriaLabel": "Search pages",
+    "placeholder": "Jump to a page...",
+    "noResults": "No matching pages"
   },
   "breadcrumbs": {
     "home": "Home",
     "back": "Back to {{page}}"
+  },
+  "userMenu": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "organization": "Organization",
+    "signOut": "Sign out",
+    "notSignedIn": "Not signed in",
+    "userMenuLabel": "User menu"
   }
 }

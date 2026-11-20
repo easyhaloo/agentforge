@@ -1,0 +1,240 @@
+.focused-shell:has(.settings-layout) {
+  background: var(--af-color-surface);
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: clamp(200px, 21vw, 288px) minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  gap: 24px 40px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  background: var(--af-color-surface);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--color-text-primary);
+}
+
+.settings-context {
+  position: relative;
+  grid-column: 1 / -1;
+  justify-self: end;
+  max-width: 100%;
+}
+
+.settings-context > svg {
+  z-index: 1;
+  position: absolute;
+  inset: 50% auto auto 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.settings-context .af-select-trigger { padding-left: 34px; font-size: 14px; }
+
+.settings-sidebar {
+  background: var(--color-surface);
+}
+
+.settings-nav-section { padding: 0 8px; }
+
+.settings-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.5;
+}
+
+.settings-nav-item svg { flex: none; color: var(--color-text-secondary); }
+.settings-nav-item:hover, .settings-nav-item.active { background: var(--color-bg-hover); }
+.settings-nav-item.active { font-weight: 600; }
+.settings-nav-item.active::before {
+  content: "";
+  position: absolute;
+  inset: 4px auto 4px -8px;
+  width: 4px;
+  border-radius: 4px;
+  background: #1f6feb;
+}
+
+.settings-nav-group {
+  border-top: 1px solid var(--color-border);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.settings-nav-group-title {
+  margin: 0 16px 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-page-header {
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-page-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.settings-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(148px, 1fr);
+  gap: 32px;
+}
+
+.settings-profile-form {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  max-width: 440px;
+}
+
+.settings-profile-form .af-field { font-size: 14px; }
+.settings-profile-form :is(.af-field__hint, .af-field__error) { font-size: 12px; }
+.settings-profile-form .af-textarea { min-height: 76px; }
+.settings-profile-form .af-button--primary {
+  justify-self: start;
+  background: #1f883d;
+  border-color: #1b7836;
+}
+.settings-profile-form .af-button--primary:hover:enabled { background: #1a7f37; }
+
+.settings-profile-picture { margin: 0; }
+.settings-profile-picture figcaption { margin-bottom: 8px; font-weight: 600; }
+.settings-profile-picture :is(img, svg) { max-width: 100%; height: auto !important; aspect-ratio: 1; }
+.settings-profile-picture small { display: block; margin-top: 8px; color: var(--color-text-secondary); }
+
+[data-theme="light"] .settings-layout {
+  --af-color-surface-raised: #f6f8fa;
+  --af-color-primary: #0969da;
+  --color-bg-hover: #eff1f3;
+}
+
+.settings-page-description {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.settings-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background-color: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
+/* Read-only Field Styles */
+.settings-field-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-field-readonly-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.settings-field-readonly-value {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  padding: 10px 12px;
+  background-color: var(--color-bg-hover);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+/* Card Styles (for Sessions, SSH Keys) */
+.settings-card {
+  padding: 16px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+}
+
+.settings-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.settings-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .settings-layout { column-gap: 24px; }
+  .settings-profile-grid { column-gap: 16px; }
+}
+
+@media (max-width: 767px) {
+  .settings-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px; }
+  .settings-nav-section { display: grid; grid-template-columns: 1fr 1fr; }
+  .settings-profile-grid { grid-template-columns: minmax(0, 1fr); }
+  .settings-profile-picture { grid-row: 1; }
+  .settings-profile-picture :is(img, svg) { max-width: 96px; }
+}
+
+.focused-main .topbar { padding-inline: 16px; }
+[data-theme="light"] .focused-main .topbar { background: #f6f8fa; }
+.settings-topbar-title { display: flex; align-items: center; gap: 12px; color: var(--af-color-text); }
+.settings-topbar-title a {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--af-color-text);
+  color: var(--af-color-surface);
+}
+
+.settings-stack { display: grid; gap: 24px; }
+.settings-section-heading {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.settings-box { min-width: 0; border: 1px solid var(--color-border); border-radius: 6px; }
+.settings-box-row { min-width: 0; padding: 16px; }
+.settings-box-row + .settings-box-row { border-top: 1px solid var(--color-border); }
+.settings-note { color: var(--color-text-secondary); font-size: 13px; line-height: 1.5; }
+.settings-account-name { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.settings-account-name strong, .settings-account-details dd { overflow-wrap: anywhere; }
+.settings-action-link {
+  padding: 5px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 500;
+}
+.settings-action-link:hover { background: var(--color-bg-hover); }
+.settings-account-details { margin: 0; }
+.settings-account-details dt { font-weight: 600; }
+.settings-account-details dd { margin: 4px 0 0; }
+.settings-account-details small { display: block; margin-top: 4px; }

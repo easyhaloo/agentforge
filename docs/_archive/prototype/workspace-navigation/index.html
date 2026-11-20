@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentForge · 工作台</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --line: #d1d9e0;
+  --soft-line: #d8dee4;
+  --canvas: #f6f8fa;
+  --blue: #0969da;
+  --green: #1f7e36;
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #fff;
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+a { color: inherit; text-decoration: none; }
+summary, button { cursor: pointer; }
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+main:focus { outline: none; }
+h1, h2, h3, p, pre { margin: 0; }
+small, .muted { color: var(--muted); }
+.mono, code, pre { font-family: var(--mono); }
+.app-header { background: var(--canvas); border-bottom: 1px solid var(--line); }
+.topbar {
+  width: 100%;
+  margin: auto;
+  padding-inline: 28px;
+}
+.topbar, .header-left, .bar-actions, .brand, .org-picker summary, .menu a,
+.breadcrumbs, .context, .tags, .row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.topbar { min-height: 62px; justify-content: space-between; }
+.header-left { min-width: 0; gap: 13px; }
+.brand { font-size: 15px; font-weight: 650; }
+.brand:hover, .text-link:hover, .breadcrumbs a:hover { text-decoration: underline; }
+.logo, .avatar, .org-mark, .row-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.logo { width: 30px; height: 30px; border-radius: 8px; background: #26374e; color: #fff; font: 750 19px var(--mono); }
+.bar-actions { flex: none; gap: 12px; }
+.org-picker, .account { position: relative; }
+.org-picker { border-left: 1px solid var(--line); padding-left: 12px; }
+.org-picker summary { min-height: 32px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; background: #fff; }
+.org-picker summary:hover { background: #eef1f4; }
+.org-label { white-space: nowrap; font-size: 13px; }
+.org-mark { width: 20px; height: 20px; border-radius: 4px; background: #ddf4ff; color: #0550ae; font-size: 11px; font-weight: 650; }
+.org-mark.alt, .avatar.mint { background: #dafbe1; color: #116329; }
+.avatar { width: 31px; height: 31px; border: 1px solid #0001; border-radius: 50%; background: #e9e2f8; color: #6639a6; font-weight: 650; }
+.avatar.small { width: 23px; height: 23px; font-size: 11px; }
+.avatar.sand { background: #fff1e5; color: #953800; }
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 2;
+  min-width: 178px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 6px 16px #1f232826;
+}
+.account .menu { right: 0; }
+.menu a { padding: 6px 8px; border-radius: 4px; }
+.menu a:hover { background: var(--canvas); }
+.menu a[aria-current] { font-weight: 650; }
+.menu .separator { margin-top: 5px; border-top: 1px solid var(--soft-line); }
+.demo { color: #664d03; border: 1px solid #d4b45f; border-radius: 20px; padding: 1px 8px; font-size: 12px; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; }
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-bottom: 2px solid transparent;
+  flex: none;
+  white-space: nowrap;
+}
+.tab:hover { background: #afb8c133; }
+.tab:focus-visible { outline-offset: -3px; }
+.tab[aria-current] { border-color: #fd8c73; font-weight: 650; }
+.nav-icon, .row-arrow { color: var(--muted); }
+.nav-icon { font-size: 16px; }
+.nav-count { border-radius: 20px; background: #afb8c133; padding: 0 6px; min-width: 18px; text-align: center; font-size: 12px; }
+main { max-width: 1280px; margin: auto; padding: 26px 28px 45px; }
+.breadcrumbs { flex-wrap: wrap; color: var(--muted); margin-bottom: 16px; font-size: 13px; }
+.breadcrumbs a, .text-link { color: var(--blue); }
+.breadcrumbs strong { color: var(--ink); overflow-wrap: anywhere; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 19px; }
+h1 { font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.35px; overflow-wrap: anywhere; }
+h2 { font-size: 14px; font-weight: 650; line-height: 1.5; }
+.page-head p { margin-top: 7px; color: var(--muted); }
+.button {
+  display: inline-flex;
+  align-items: center;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 #1f23280a;
+}
+.button:hover { background: #eef1f4; }
+.button.primary { background: var(--green); color: #fff; border-color: #1f232826; }
+.button.primary:hover { background: #116329; }
+.repo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 258px); gap: 24px; }
+.stack { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.panel { border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.panel-head, .file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 6px 6px 0 0;
+  background: var(--canvas);
+}
+.panel-head a { font-size: 12px; }
+.list-row { display: flex; align-items: center; gap: 10px; min-height: 51px; padding: 8px 14px; }
+.list-row + .list-row { border-top: 1px solid var(--soft-line); }
+a.list-row:hover, .file-row:hover { background: var(--canvas); }
+a.list-row:hover .row-title, .file-label:hover { color: var(--blue); text-decoration: underline; }
+.row-content { flex: 1; min-width: 0; }
+.row-title { font-weight: 650; overflow-wrap: anywhere; }
+.row-meta { flex-wrap: wrap; gap: 5px; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.row-icon { align-self: start; width: 18px; height: 22px; color: var(--green); font-size: 16px; }
+.row-icon.neutral { color: var(--muted); }
+.row-icon.error { color: #cf222e; }
+.row-icon.running { color: #9a6700; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  padding: 0 7px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.pill.wait, .pill.running { color: #7d4e00; background: #fff8c5; border-color: #d4a72c; }
+.pill.ok { color: #116329; background: #dafbe1; border-color: #82cf9c; }
+.pill.error { color: #a40e26; background: #ffebe9; border-color: #ff8182; }
+.empty { padding: 27px 14px; color: var(--muted); }
+.context { margin-bottom: 10px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+.tabs { margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.file-bar .tags { flex-wrap: wrap; }
+.branch { background: #eaf5ff; color: #0550ae; padding: 1px 7px; border-radius: 5px; }
+.file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 78px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--soft-line);
+  min-height: 40px;
+}
+.file-row:last-child { border: 0; }
+.file-row small:last-child { text-align: right; }
+.file-label { font-weight: 550; overflow-wrap: anywhere; }
+.about { align-self: start; padding: 0 0 14px; border-bottom: 1px solid var(--soft-line); }
+.about h2 { margin-bottom: 9px; font-size: 16px; }
+.about p { margin-bottom: 12px; }
+.repo-doc p, .settings-body { padding: 14px; }
+.repo-doc pre { margin: 0 14px 14px; padding: 10px; border-radius: 6px; background: var(--canvas); }
+.source { overflow: auto; padding: 7px 0; font: 13px/1.7 var(--mono); border-radius: 0 0 6px 6px; tab-size: 2; }
+.source span { display: block; min-width: max-content; padding: 0 13px; }
+.source b { display: inline-block; text-align: right; width: 25px; margin-right: 16px; color: var(--muted); font-weight: 400; user-select: none; }
+.source .addition { background: #dafbe1; }
+.source .deletion { background: #ffebe9; }
+.ide-grid { display: grid; grid-template-columns: minmax(145px, 220px) minmax(0, 1fr); gap: 14px; }
+.ide-grid textarea { display: block; min-height: 320px; width: 100%; border: 0; padding: 14px; resize: vertical; font: 13px/1.7 var(--mono); color: var(--ink); border-radius: 0 0 6px 6px; }
+.ide-grid a[aria-current] { background: #ddf4ff; }
+.run-detail { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+.run-detail div { padding: 10px 14px; }
+.run-detail div + div { border-left: 1px solid var(--line); }
+.run-detail small { display: block; }
+.log { background: #242c39; color: #e6edf3; font: 13px/1.8 var(--mono); padding: 14px; overflow: auto; border-radius: 0 0 6px 6px; }
+@media (max-width: 900px) {
+  .repo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 190px); gap: 16px; }
+}
+@media (max-width: 660px) {
+  main, .topbar { padding-inline: 14px; }
+  .topbar, .bar-actions { gap: 7px; }
+  .topbar { min-height: 53px; }
+  .header-left { gap: 7px; }
+  .brand span:last-child { display: none; }
+  .org-picker { padding-left: 6px; }
+  .repo-grid, .ide-grid { grid-template-columns: 1fr; }
+  .file-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .file-row small:nth-child(2) { display: none; }
+}
+
+button { font: inherit; color: inherit; }
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.icon-button:hover { background: #eaeef2; color: var(--ink); }
+.menu-icon, .menu-icon::before, .menu-icon::after {
+  width: 13px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  display: block;
+}
+.menu-icon::before, .menu-icon::after { content: ''; }
+.menu-icon::before { transform: translateY(-4px); }
+.menu-icon::after { transform: translateY(2.5px); }
+.header-title { font-weight: 600; border-left: 1px solid var(--line); padding-left: 12px; white-space: nowrap; }
+.drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  margin: 0;
+  padding: 0;
+  width: min(288px, 86vw);
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0 12px 12px 0;
+  color: var(--ink);
+  box-shadow: 6px 0 24px #1f232826;
+}
+.drawer::backdrop { background: #1f23284a; }
+.drawer-body { display: flex; min-height: 100%; flex-direction: column; padding: 14px 14px 16px; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; }
+.drawer-title { display: flex; align-items: center; gap: 9px; font-weight: 650; }
+.drawer nav a, .drawer-foot, .rail-nav a, .shortcut {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  min-height: 35px;
+  border-radius: 6px;
+}
+.drawer .nav-icon, .rail-nav .nav-icon { width: 18px; text-align: center; }
+.drawer .nav-count, .rail-nav .nav-count { margin-left: auto; }
+.drawer a:hover, .rail-nav a:hover, .shortcut:hover { background: var(--canvas); }
+.drawer [aria-current], .rail-nav [aria-current] { background: #eaeef2; font-weight: 650; box-shadow: inset 3px 0 var(--blue); }
+.drawer-foot { margin-top: auto; border-top: 1px solid var(--soft-line); border-radius: 0; }
+main.workbench { padding: 0; max-width: 1600px; }
+.dashboard-grid { display: grid; grid-template-columns: 230px minmax(0, 1fr) 296px; gap: 28px; padding-right: 28px; }
+.dashboard-side { border-right: 1px solid var(--soft-line); min-height: calc(100vh - 63px); padding: 24px 15px 28px 20px; }
+.rail-org { display: flex; gap: 10px; align-items: center; margin: 0 3px 19px; }
+.rail-org .org-mark, .repo-mark { width: 31px; height: 31px; font-size: 14px; border-radius: 7px; }
+.rail-org strong, .rail-org small { display: block; }
+.rail-nav { display: grid; gap: 3px; }
+.shortcuts { border-top: 1px solid var(--soft-line); margin-top: 21px; padding-top: 14px; }
+.shortcuts h2 { padding: 0 8px 5px; color: var(--muted); }
+.shortcuts > .text-link { display: inline-block; padding: 6px 8px; font-size: 13px; }
+.shortcut { font-weight: 550; overflow-wrap: anywhere; }
+.repo-mark { display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 50%; background: #ddf4ff; color: #0550ae; font-size: 11px; font-weight: 650; }
+.shortcut:nth-of-type(2) .repo-mark { background: #dafbe1; color: #116329; }
+.shortcut:nth-of-type(3) .repo-mark { background: #fbefff; color: #6639a6; }
+.dashboard-center, .dashboard-right { padding-block: 26px; }
+.dashboard-center h1 { font-size: 28px; }
+.dashboard-center .page-head { margin-bottom: 4px; }
+.dashboard-center .panel-head { background: #fff; }
+.work-list-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 13px; border-bottom: 1px solid var(--soft-line); }
+.work-list-head .tabs { margin: 0; border: 0; }
+.work-list-head .tab { min-height: 36px; font-size: 13px; padding-inline: 8px; }
+.work-list-head .text-link { white-space: nowrap; font-size: 12px; }
+.dashboard-right .panel-head { background: #fff; }
+.timeline { margin: 12px 14px 14px 21px; border-left: 2px solid var(--soft-line); }
+.timeline .list-row { position: relative; align-items: flex-start; padding-left: 14px; padding-right: 5px; border: 0; min-height: 60px; }
+.timeline .row-icon { position: absolute; top: 8px; left: -9px; border-radius: 50%; height: 17px; width: 17px; background: #fff; font-size: 14px; }
+.timeline .row-arrow { display: none; }
+@media (max-width: 1140px) {
+  .dashboard-grid { grid-template-columns: 205px minmax(0, 1fr) 249px; gap: 16px; padding-right: 16px; }
+  .dashboard-side { padding-inline: 14px; }
+}
+@media (max-width: 940px) {
+  .dashboard-grid { grid-template-columns: 190px minmax(0, 1fr); }
+  .dashboard-side { grid-row: span 2; }
+  .dashboard-right { grid-column: 2; padding-top: 0; }
+}
+@media (max-width: 660px) {
+  .header-title { display: none; }
+  .header-left { gap: 6px; }
+  .topbar .logo { width: 28px; height: 28px; }
+  .topbar .org-picker { border-left: 0; padding-left: 0; }
+  .dashboard-grid { display: flex; flex-direction: column; gap: 14px; padding: 0 14px 22px; }
+  .dashboard-center { padding: 18px 0 0; }
+  .dashboard-right { padding: 0; }
+  .dashboard-side { order: 1; border: 0; min-height: 0; padding: 0; }
+  .dashboard-side .rail-org, .dashboard-side .rail-nav { display: none; }
+  .shortcuts { margin-top: 0; }
+}
+
+.drawer-group { margin: 12px 8px 3px; color: var(--muted); font-size: 12px; }
+.pipeline-list .list-row { min-height: 58px; }
+main.editor-page { max-width: none; }
+.editor-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 16px; }
+.canvas { min-height: 320px; padding: 24px 16px; background-color: var(--canvas); background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 16px 16px; }
+.steps { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; min-height: 250px; }
+.steps a { background: #fff; border: 1px solid var(--line); border-radius: 7px; min-width: 122px; padding: 11px; box-shadow: 0 1px 1px #1f232808; }
+.steps a[aria-current] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.steps small, .form-note { display: block; }
+.form-body { display: grid; gap: 12px; padding: 14px; }
+.form-body label { display: grid; gap: 5px; }
+.form-body input:not([type="checkbox"]), .form-body select { width: 100%; font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; color: inherit; }
+.form-body .checkbox { display: flex; align-items: center; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.form-note { color: var(--muted); }
+.modal { width: min(438px, 92vw); padding: 0; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); box-shadow: 0 14px 40px #1f232826; }
+.modal::backdrop { background: #1f23284d; }
+.run-grid { display: grid; grid-template-columns: 204px minmax(0, 1fr); gap: 17px; }
+.run-grid nav a { border-radius: 6px; }
+.run-grid nav a[aria-current] { background: var(--canvas); box-shadow: inset 3px 0 var(--blue); }
+@media (max-width: 740px) { .editor-grid, .run-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="app-header" id="header"></header>
+<dialog id="navigation" class="drawer" aria-label="全局导航"></dialog>
+<dialog id="pipeline-dialog" class="modal" aria-labelledby="pipeline-dialog-title"></dialog>
+<main id="page" tabindex="-1"></main>
+<script>
+'use strict';
+// ponytail: fixture-only UI and hash URLs keep the prototype runnable from disk. Production routes and persistence belong in the app.
+const orgs = {
+  studio: {
+    name:'星河研发', mark:'星', commit:'8fa2c1d',
+    repos:[['agentforge','开发工作台和交付工具','TypeScript','接入评审队列','12 分钟前'],['deploy-kit','公共构建与部署脚本','Shell','精简镜像构建步骤','今天 10:24'],['design-system','前端组件与交互规范','TypeScript','更新状态标签样式','昨天']],
+    changes:[['CS-2481','接入组织级评审队列','agentforge','陈','修订 3','12 分钟前',true],['CS-2479','优化流水线参数校验','deploy-kit','周','修订 2','38 分钟前',true],['CS-2476','统一构建状态显示','design-system','何','修订 2','今天 10:24',true],['CS-2474','更新分支切换交互','agentforge','陈','修订 1','今天 10:08',true],['CS-2472','补充仓库空状态提示','agentforge','林','修订 1','今天 09:46',false]],
+    runs:[['1042','主分支构建','agentforge','成功','8 分钟前','2m 18s'],['1041','预发部署','deploy-kit','运行中','16 分钟前',''],['1039','组件校验','design-system','失败','41 分钟前','1m 03s']]
+  },
+  lab: {
+    name:'北辰实验室', mark:'北', commit:'37be619',
+    repos:[['data-lab','实验数据与验证工具','TypeScript','更新数据校验入口','今天 10:06']],
+    changes:[['CS-0312','补充数据校验规则','data-lab','高','修订 1','今天 10:06',false]],
+    runs:[['203','数据校验','data-lab','成功','今天 10:09','48s']]
+  }
+};
+const nav = [['home','工作台','⌂'],['repos','代码仓库','▤'],['changes','变更集','◇'],['review','待我评审','✓'],['pipelines','流水线','▷']];
+const labels = Object.fromEntries(nav.map(([id,name]) => [id,name]));
+labels.settings = '组织设置';
+labels.profile = '个人设置';
+const files = ['README.md','src/index.ts','package.json'];
+const samplePipelines = Object.fromEntries(Object.entries(orgs).map(([key, data]) => [key,
+  data.runs.map(([id,title,repoName]) => ({id:`wf-${id}`, title, repoName, version: 1, value: '1.0.0', override: true}))
+]));
+const sampleRuns = { studio: [], lab: [] };
+const steps = ['检出代码', '执行脚本', '保存产物'];
+const statusClass = {'待我评审':'wait','已合并':'ok','成功':'ok','运行中':'running','失败':'error'};
+const escapeHTML = value => String(value).replace(/[&<>"']/g,char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
+const route = (...parts) => '#/' + parts.map(encodeURIComponent).join('/');
+const row = (url, title, meta, icon, trailing = '', iconClass = '', selected = false) => `
+  <a class="list-row" href="${url}" ${selected ? 'aria-current="page"' : ''}>
+    <span class="row-icon ${iconClass}" aria-hidden="true">${icon}</span>
+    <div class="row-content"><div class="row-title">${title}</div>${meta ? `<div class="row-meta">${meta}</div>` : ''}</div>
+    ${trailing}<span class="row-arrow" aria-hidden="true">›</span>
+  </a>`;
+const pill = text => `<span class="pill ${statusClass[text] || ''}">${text}</span>`;
+const panel = (title, body, link = '') => `<section class="panel"><div class="panel-head"><h2>${title}</h2>${link}</div>${body}</section>`;
+const textLink = (url,text) => `<a class="text-link" href="${url}">${text} →</a>`;
+const heading = (title,description='',action='') => `<div class="page-head"><div><h1>${title}</h1>${description ? `<p>${description}</p>` : ''}</div>${action}</div>`;
+const empty = text => `<p class="empty">${text}</p>`;
+const source = lines => `<pre class="source">${lines.map((line,i) => `<span class="${line.startsWith('+ ') ? 'addition' : line.startsWith('- ') ? 'deletion' : ''}"><b>${i+1}</b>${escapeHTML(line)}</span>`).join('')}</pre>`;
+
+function render() {
+  let path = [];
+  try { path = location.hash.slice(2).split('/').map(decodeURIComponent); } catch { /* malformed fragment */ }
+  const [requestedOrg, requestedSection, object, view, revision, file] = path;
+  const org = Object.hasOwn(orgs,requestedOrg) ? requestedOrg : 'studio';
+  const section = Object.hasOwn(labels,requestedSection) ? requestedSection : 'home';
+  const data = orgs[org];
+  const url = (...parts) => route(org,...parts);
+  const queue = data.changes.filter(([, , , , , , waiting]) => waiting);
+  const repo = data.repos.find(item => item[0] === object);
+  const change = data.changes.find(item => item[0] === object);
+  const runs = [...sampleRuns[org], ...data.runs];
+  const run = runs.find(item => item[0] === object);
+  const workflows = samplePipelines[org];
+  const workflow = workflows.find(item => item.id === object);
+  const isEditor = section==='pipelines' && workflow && view==='edit';
+  const isRun = section==='pipelines' && run;
+  const pipelineDialog = document.querySelector('#pipeline-dialog');
+  if (pipelineDialog.open) pipelineDialog.close();
+  const orgMark = (key, item) => `<span class="org-mark ${key==='lab' ? 'alt' : ''}" aria-hidden="true">${item.mark}</span>`;
+  const activeFile = section==='repos' && repo && ['file','ide'].includes(view)
+    && revision===data.commit && files.includes(file);
+  const orgMenu = `<details class="org-picker">
+    <summary aria-label="切换组织">${orgMark(org,data)}<span class="org-label">${data.name}</span><span class="muted" aria-hidden="true">⌄</span></summary>
+    <div class="menu">${Object.entries(orgs).map(([key,item]) => `<a href="${key===org ? url(section,...path.slice(2)) : route(key,section)}" ${key===org ? 'aria-current="true"' : ''}>${orgMark(key,item)}${item.name}</a>`).join('')}
+      <a class="separator" href="${url('settings')}">组织设置</a>
+    </div>
+  </details>`;
+  const navLink = ([id,name,icon]) => `<a ${section===id ? 'aria-current="page"' : ''} href="${url(id)}"><span class="nav-icon" aria-hidden="true">${icon}</span>${name}${id==='review' && queue.length ? `<span class="nav-count">${queue.length}</span>` : ''}</a>`;
+  document.querySelector('#header').innerHTML = `
+    <div class="topbar">
+      <div class="header-left">
+        <button class="icon-button" id="open-navigation" aria-label="打开导航菜单" aria-haspopup="dialog" aria-controls="navigation"><span class="menu-icon" aria-hidden="true"></span></button>
+        <a class="brand" href="${url('home')}" aria-label="AgentForge 工作台"><span class="logo" aria-hidden="true">A</span><span>AgentForge</span></a>
+        <span class="header-title">${labels[section]}</span>
+      </div>
+      <div class="bar-actions">${orgMenu}<span class="demo">示例数据</span>
+        <details class="account"><summary aria-label="账户菜单"><span class="avatar">林</span></summary><div class="menu"><a href="${url('profile')}">个人设置</a></div></details>
+      </div>
+    </div>`;
+  const drawer = document.querySelector('#navigation');
+  if (drawer.open) drawer.close();
+  drawer.innerHTML = `<div class="drawer-body">
+    <div class="drawer-head"><div class="drawer-title"><span class="logo" aria-hidden="true">A</span>AgentForge</div><button class="icon-button" id="close-navigation" aria-label="关闭导航菜单" autofocus>×</button></div>
+    <nav aria-label="主要模块">${navLink(nav[0])}
+      <div class="drawer-group">协作</div>${[nav[2],nav[3]].map(navLink).join('')}
+      <div class="drawer-group">代码与交付</div>${[nav[1],nav[4]].map(navLink).join('')}
+    </nav>
+    <a class="drawer-foot" href="${url('settings')}"><span class="nav-icon" aria-hidden="true">⚙</span>组织设置</a>
+  </div>`;
+  document.querySelector('#open-navigation').onclick = () => drawer.showModal();
+  document.querySelector('#close-navigation').onclick = () => drawer.close();
+
+  const crumbs = [`<a href="${url('home')}">${data.name}</a>`, `<a href="${url(section)}">${labels[section]}</a>`];
+  if (object) crumbs.push(repo && section==='repos' && view ? `<a href="${url('repos',repo[0])}">${repo[0]}</a>` : `<strong>${escapeHTML(object)}</strong>`);
+  if (isEditor || isRun) crumbs[2] = `<strong>${escapeHTML(isEditor ? workflow.title : '#'+run[0])}</strong>`;
+  if (section==='pipelines' && object==='runs') crumbs[2] = '<strong>运行记录</strong>';
+  if (section==='settings' && object) crumbs[2] = `<strong>${object==='invitations' ? '邀请' : object==='audit' ? '审计记录' : '成员'}</strong>`;
+  if (activeFile && view==='ide') crumbs.push(`<a href="${url('repos',repo[0],'file',revision,file)}">${escapeHTML(file)}</a>`, '<strong>WebIDE</strong>');
+  const breadcrumbs = object && section!=='home' ? `<nav class="breadcrumbs" aria-label="面包屑">${crumbs.join('<span aria-hidden="true">/</span>')}</nav>` : '';
+
+  const changeRow = ([id,title,repoName,author,rev,time,waiting],from='changes') => row(url(from,id,'review'), title,
+    `<span class="mono">${id}</span><span>·</span>${repoName}<span>·</span>${rev}`, '◇', from==='review' ? `<span title="${time}" class="avatar small ${author==='周' ? 'sand' : 'mint'}">${author}</span>` : pill(waiting ? '待我评审' : '已合并'));
+  const runRow = ([id,title,repoName,status,time]) => row(url('pipelines',id),title,`<span class="mono">#${id}</span><span>·</span>${time}<span>·</span>${repoName}`,{'成功':'✓','失败':'×','运行中':'◷'}[status],pill(status),statusClass[status]);
+  const reviewRows = queue.map(item=>changeRow(item,'review')).join('') || empty('当前组织没有待你处理的评审。');
+  const repoFiles = (repoName, showMeta) => files.map((name,i) => showMeta ?
+    `<a class="file-row" href="${url('repos',repoName,'file',data.commit,name)}"><span class="file-label">▤　${name}</span><small>${['补充使用说明','更新应用入口','同步项目元数据'][i]}</small><small>今天</small></a>` :
+    row(url('repos',repoName,'ide',data.commit,name),name,'','▤','','neutral',name===file)).join('');
+  let content;
+  if (section==='home') {
+    const shortcuts = data.repos.map(([name]) => `<a class="shortcut" href="${url('repos',name)}"><span class="repo-mark" aria-hidden="true">${name[0].toUpperCase()}</span>${name}</a>`).join('');
+    const authored = data.changes.filter(item => item[3]==='林');
+    const mine = object==='mine';
+    const workItems = mine ? authored.map(item=>changeRow(item)).join('') || empty('当前组织没有你发起的变更。') : reviewRows;
+    const workTabs = `<div class="work-list-head"><nav class="tabs" aria-label="待办筛选">
+      <a class="tab" href="${url('home')}" ${!mine ? 'aria-current="page"' : ''}>待我评审 <span class="nav-count">${queue.length}</span></a>
+      <a class="tab" href="${url('home','mine')}" ${mine ? 'aria-current="page"' : ''}>我发起的 <span class="nav-count">${authored.length}</span></a>
+      </nav>${textLink(url(mine ? 'changes' : 'review'),mine ? '全部变更集' : '查看全部')}</div>`;
+    const rail = `<aside class="dashboard-side">
+      <div class="rail-org">${orgMark(org,data)}<div><strong>${data.name}</strong><small>@${org}</small></div></div>
+      <nav class="rail-nav" aria-label="工作台快捷导航">${navLink(nav[0])}${navLink(nav[3])}</nav>
+      <div class="shortcuts"><h2>常用仓库</h2>${shortcuts}${textLink(url('repos'),'查看全部仓库')}</div>
+    </aside>`;
+    content = `<div class="dashboard-grid">${rail}
+      <div class="stack dashboard-center">
+        ${heading('工作台',`${data.name} · 欢迎回来，林`,`<a class="button primary" href="${url('review')}">查看评审待办 →</a>`)}
+        ${panel('我的待办',workTabs + workItems)}
+        ${panel('最近变更',data.changes.slice(0,3).map(item=>changeRow(item)).join(''),textLink(url('changes'),'全部变更集'))}
+      </div>
+      <aside class="dashboard-right">${panel('流水线动态',`<div class="timeline">${runs.map(runRow).join('')}</div>`,textLink(url('pipelines','runs'),'全部记录'))}</aside>
+    </div>`;
+  } else if ((section==='review'||section==='changes') && change) {
+    const [id,title,repoName,author,rev,time,waiting] = change;
+    content = `<div class="context"><a class="text-link" href="${url('repos',repoName)}">${repoName}</a><span>·</span><span class="mono">${id}</span>${pill(waiting ? '待我评审' : '已合并')}</div>`
+      + heading(title,`${author} · ${time} · 当前${rev}`)
+      + `<nav class="tabs" aria-label="变更详情"><a class="tab" href="${url(section,id,'overview')}" ${view==='overview' ? 'aria-current="page"' : ''}>概览</a><a class="tab" href="${url(section,id,'review')}" ${view!=='overview' ? 'aria-current="page"' : ''}>文件评审</a></nav>`
+      + (view==='overview' ? panel('变更说明',`<p class="empty">${title}。查看当前${rev}的文件差异。</p>`) : panel(`src/index.ts · ${rev}`,source(['  export const reviewQueue = {','-   scope: "repository",','+   scope: "organization",','  };']),textLink(url('repos',repoName,'file',data.commit,'src/index.ts'),'在仓库中查看')));
+  } else if (!object && section==='review') {
+    content = heading('待我评审','当前组织中分配给我的变更。') + panel(`待处理 · ${queue.length}`,reviewRows);
+  } else if (!object && section==='changes') {
+    content = heading('变更集','查看当前组织的变更及各自的修订。') + panel('全部变更',data.changes.map(item=>changeRow(item)).join(''));
+  } else if (!object && section==='repos') {
+    content = heading('代码仓库',`${data.name} · ${data.repos.length} 个仓库`) + panel('全部仓库',data.repos.map(([name,description,language,,time]) => row(url('repos',name),name,`${description}<span>·</span>${time}`,'▤',pill(language))).join(''));
+  } else if (section==='repos' && repo && (!view || ['changes','runs'].includes(view) || activeFile)) {
+    const [name,description,language,commitTitle] = repo;
+    const repoTabs = [['','代码'],['changes','变更集'],['runs','流水线']];
+    const repoNav = `<nav class="tabs" aria-label="仓库导航">${repoTabs.map(([key,label]) => `<a class="tab" ${key===(activeFile ? '' : view || '') ? 'aria-current="page"' : ''} href="${key ? url('repos',name,key) : url('repos',name)}">${label}</a>`).join('')}</nav>`;
+    const snippets = {'README.md':[`# ${name}`,'',description,'','## 本地启动','npm install','npm run dev'],'src/index.ts':['export const settings = {',`  repository: "${name}",`,'  branch: "main",','  reviewScope: "organization",','};'],'package.json':['{',`  "name": "${name}",`,'  "private": true','}']};
+    if (view==='ide') {
+      content = `<div class="context"><span class="mono">${name} @ ${revision}</span></div>`
+        + heading('WebIDE',`${file} · 示例编辑区，刷新后恢复`)
+        + `<div class="ide-grid">${panel('文件',repoFiles(name,false))}${panel(escapeHTML(file),`<textarea aria-label="${escapeHTML(file)}" spellcheck="false">${escapeHTML(snippets[file].join('\n'))}</textarea>`)}</div>`;
+    } else if (view==='file') {
+      content = heading(escapeHTML(file),'',`<a class="button" href="${url('repos',name,'ide',revision,file)}">在 WebIDE 中打开 →</a>`)
+        + repoNav + panel(`<span class="branch mono">main</span> <code>${revision}</code>`,source(snippets[file]),pill(`${snippets[file].length} 行`));
+    } else {
+      content = heading(name,'',pill('私有')) + repoNav;
+      if (view==='changes') {
+        const items = data.changes.filter(item => item[2]===name);
+        content += panel('仓库变更',items.map(item=>changeRow(item)).join('') || empty('此仓库暂无变更。'));
+      } else if (view==='runs') {
+        const items = runs.filter(item => item[2]===name);
+        content += panel('运行记录',items.map(runRow).join('') || empty('此仓库暂无运行记录。'));
+      } else {
+        const tree = `<section class="panel"><div class="file-bar"><div class="tags"><span class="branch mono">⑂ main</span><span>${commitTitle}</span></div><code>${data.commit}</code></div>${repoFiles(name,true)}</section>`;
+        const readme = panel('README.md',`<div class="repo-doc"><p>${description}</p><pre><code>npm install
+npm run dev</code></pre></div>`,textLink(url('repos',name,'file',data.commit,'README.md'),'打开文件'));
+        content += `<div class="repo-grid"><div class="stack">${tree}${readme}</div><aside class="about"><h2>关于</h2><p>${description}</p>${pill(language)}</aside></div>`;
+      }
+    }
+  } else if (isEditor) {
+    const node = ['0','1','2'].includes(revision) ? Number(revision) : 0;
+    const inspector = [source(['仓库: ' + workflow.repoName, '分支: main']), source(['npm ci', 'npm run build -- --version "$VERSION"']), source(['产物路径: dist/', '产物名称: build-$VERSION'])];
+    content = heading(escapeHTML(workflow.title),`${escapeHTML(workflow.repoName)} · 版本 ${workflow.version}`,`<div class="editor-tools"><a class="button" href="${url('pipelines')}">返回流水线</a><button class="button primary" id="run-pipeline" type="button">运行</button></div>`)
+      + `<div class="editor-grid">${panel('流水线画布',`<div class="canvas"><div class="steps">${steps.map((name,i) => `${i ? '<span aria-hidden="true">→</span>' : ''}<a href="${url('pipelines',workflow.id,'edit',String(i))}" ${i===node ? 'aria-current="step"' : ''}><small>阶段 ${i+1}</small><strong>${name}</strong></a>`).join('')}</div></div>`)}
+      <div class="stack">${panel(steps[node],inspector[node])}${panel('运行参数',`<form class="form-body" id="pipeline-parameters"><label>VERSION 默认值<input name="version" value="${escapeHTML(workflow.value)}" maxlength="50" required></label><label class="checkbox"><input name="override" type="checkbox" ${workflow.override ? 'checked' : ''}>运行时允许覆盖</label><div class="form-actions"><button class="button" type="submit">应用参数</button></div><small class="form-note" role="status" id="parameter-status"></small></form>`)}</div></div>`;
+  } else if (isRun) {
+    const [id,title,repoName,status,time,duration,version] = run;
+    const log = status==='成功' ? '✓ 示例构建完成' : status==='运行中' ? '… 示例构建仍在运行' : '✕ 示例校验失败';
+    const stage = ['0','1','2'].includes(view) ? Number(view) : 1;
+    const stageLog = ['✓ 示例代码检出',log,'示例产物目录：dist/'];
+    content = `<div class="context"><a class="text-link" href="${url('repos',repoName)}">${repoName}</a><span>·</span><span class="mono">#${id}</span>${pill(status)}</div>`
+      + heading(escapeHTML(title),`${time} · main · 示例运行`, `<a class="button" href="${url('pipelines','runs')}">返回运行记录</a>`)
+      + `<div class="run-grid"><nav class="rail-nav" aria-label="执行阶段">${steps.map((step,i) => `<a href="${url('pipelines',id,String(i))}" ${stage===i ? 'aria-current="step"' : ''}>${step}</a>`).join('')}</nav>`
+      + panel(steps[stage],`<div class="run-detail"><div><small>提交</small><code>${data.commit}</code></div><div><small>${version ? 'VERSION' : '触发方式'}</small>${version ? escapeHTML(version) : '手动运行'}</div><div><small>耗时</small>${duration||'运行中'}</div></div><pre class="log">${stageLog[stage]}</pre>`) + '</div>';
+  } else if (section==='pipelines' && (!object || object==='runs')) {
+    const history = object==='runs';
+    content = heading('流水线',data.name,history ? '' : '<button class="button primary" type="button" id="create-pipeline">＋ 创建流水线</button>')
+      + `<nav class="tabs" aria-label="流水线导航"><a class="tab" ${!history ? 'aria-current="page"' : ''} href="${url('pipelines')}">流水线列表</a><a class="tab" ${history ? 'aria-current="page"' : ''} href="${url('pipelines','runs')}">运行记录</a></nav>`
+      + (history ? panel('运行记录',runs.map(runRow).join('')) : `<div class="pipeline-list">${panel('名称 / 版本',workflows.map(item => row(url('pipelines',item.id,'edit'),escapeHTML(item.title),`${escapeHTML(item.repoName)}<span>·</span>版本 ${item.version}`,'▷',pill('可运行'))).join(''))}</div>`);
+  } else if (section==='settings') {
+    const tab = ['invitations','audit'].includes(object) ? object : '';
+    const admin = org==='studio';
+    const settingsTabs = [['','成员'],['invitations','邀请'],['audit','审计记录']];
+    content = heading('组织设置',data.name) + (admin ? `<nav class="tabs" aria-label="组织设置导航">${settingsTabs.map(([key,label]) => `<a class="tab" href="${key ? url('settings',key) : url('settings')}" ${key===tab ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`
+      + (tab ? panel(tab==='audit' ? '审计记录' : '邀请',empty(tab==='audit' ? '暂无成员权限变更记录。' : '暂无待处理邀请。')) : panel('组织成员',`<div class="list-row"><span class="avatar">林</span><div class="row-content"><div class="row-title">林 · 当前账户</div><small>${org}</small></div>${pill('管理员')}</div>`)) : panel('组织管理访问受限',empty('当前角色为成员。组织所有者和管理员可查看成员、邀请及审计记录。')));
+  } else if (section==='profile') {
+    content = heading('个人设置','林 · 当前账户') + panel('资料',`<div class="settings-body"><p>显示名称　林</p><p>界面语言　简体中文</p></div>`);
+  } else {
+    content = heading('未找到该记录',`${data.name}中没有此记录，或链接中的提交已不可用。`,`<a class="button" href="${url(section)}">返回${labels[section]}</a>`);
+  }
+  const page = document.querySelector('#page');
+  page.classList.toggle('workbench',section==='home');
+  page.innerHTML = breadcrumbs + content;
+  page.classList.toggle('editor-page',Boolean(isEditor));
+  document.title = `${document.querySelector('h1').textContent} · AgentForge`;
+
+  const openPipelineDialog = (title, fields, submitText, save) => {
+    pipelineDialog.innerHTML = `<div class="panel-head"><h2 id="pipeline-dialog-title">${title}</h2></div><form class="form-body">${fields}<div class="form-actions"><button type="button" class="button" data-cancel>取消</button><button class="button primary" type="submit">${submitText}</button></div></form>`;
+    pipelineDialog.querySelector('[data-cancel]').onclick = () => pipelineDialog.close();
+    pipelineDialog.querySelector('form').onsubmit = event => {
+      event.preventDefault();
+      save(new FormData(event.currentTarget));
+      pipelineDialog.close();
+    };
+    pipelineDialog.showModal();
+  };
+  const create = page.querySelector('#create-pipeline');
+  if (create) create.onclick = () => openPipelineDialog('创建流水线',`<label>名称<input name="name" required maxlength="64" pattern="[A-Za-z][A-Za-z0-9_\\-]{0,63}" placeholder="build-example"></label><label>代码仓库<select name="repo">${data.repos.map(([name]) => `<option>${name}</option>`).join('')}</select></label><small class="form-note">模板：检出代码 → 执行脚本 → 保存产物</small>`,'创建',form => {
+    const item = {id:`wf-new-${workflows.length}`,title:form.get('name'),repoName:form.get('repo'),version:1,value:'1.0.0',override:true};
+    workflows.push(item);
+    location.hash = url('pipelines',item.id,'edit');
+  });
+  if (isEditor) {
+    const parameters = page.querySelector('#pipeline-parameters');
+    const applyParameters = () => {
+      if (!parameters.reportValidity()) return false;
+      const form = new FormData(parameters);
+      workflow.value = form.get('version');
+      workflow.override = form.has('override');
+      page.querySelector('#parameter-status').textContent = '参数已应用到本次原型会话。';
+      return true;
+    };
+    parameters.onsubmit = event => { event.preventDefault(); applyParameters(); };
+    page.querySelector('#run-pipeline').onclick = () => {
+      if (!applyParameters()) return;
+      const versionField = workflow.override
+        ? `<label>VERSION<input name="version" value="${escapeHTML(workflow.value)}" maxlength="50" required></label>`
+        : `<p>VERSION　<code>${escapeHTML(workflow.value)}</code></p><small class="form-note">使用配置中的默认参数。</small>`;
+      openPipelineDialog('运行流水线',`<p>${escapeHTML(workflow.title)} · 版本 ${workflow.version}</p>${versionField}<small class="form-note">运行将生成一条示例记录。</small>`,'开始运行',form => {
+        const version = form.get('version') ?? workflow.value;
+        const id = `demo-${sampleRuns[org].length + 1}`;
+        sampleRuns[org].unshift([id,workflow.title,workflow.repoName,'成功','刚刚','12s',version]);
+        location.hash = url('pipelines',id);
+      });
+    };
+  }
+}
+
+const navigation = document.querySelector('#navigation');
+navigation.addEventListener('click', event => {
+  if (event.target===navigation || event.target.closest('a')) navigation.close();
+});
+
+// Close menus on outside clicks, link activation, or Escape.
+document.addEventListener('click', event => {
+  document.querySelectorAll('details[open]').forEach(menu => {
+    if (!menu.contains(event.target) || event.target.closest('a')) menu.open = false;
+  });
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('details[open]').forEach(menu => {
+    menu.open = false;
+    menu.querySelector('summary').focus();
+  });
+});
+window.addEventListener('hashchange', () => {
+  render();
+  window.scrollTo(0,0);
+  document.querySelector('#page').focus({preventScroll:true});
+});
+render();
+</script>
+</body>
+</html>

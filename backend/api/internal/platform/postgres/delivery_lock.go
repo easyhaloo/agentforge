@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
 )
 
 // changesetLockKey is the text hashed into the advisory lock key; lock and unlock share it.
@@ -35,20 +34,35 @@ func changesetLockKey(organizationID, changesetID string) string {
 var lockPoolMaxConns int32 = 16
 var lockWaitTimeout = 10 * time.Second
 
-func (s *Store) LockChangeset(ctx context.Context,organizationID,changesetID string)(func(),error) {
-	if organizationID==""||changesetID=="" {return nil,errors.New("organization and changeset identifiers are required")}
+func (s *Store) LockChangeset(ctx context.Context, organizationID, changesetID string) (func(), error) {
+	if organizationID == "" || changesetID == "" {
+		return nil, errors.New("organization and changeset identifiers are required")
+	}
 	// One deadline covers getting a lock connection and getting the lock. It is cancelled as soon as the
 	// lock is held, so it never limits how long the lock is held.
-	waitContext,cancel:=context.WithTimeout(ctx,lockWaitTimeout);defer cancel()
-	connection,err:=s.lockPool.Acquire(waitContext);if err!=nil{return nil,fmt.Errorf("acquire lock connection: %w",err)}
-	key:=changesetLockKey(organizationID,changesetID)
-	if _,err=connection.Exec(waitContext,"SELECT pg_advisory_lock(hashtextextended($1,0))",key);err!=nil{connection.Release();return nil,fmt.Errorf("wait for changeset lock: %w",err)}
-	release:=func(){
-		unlockContext,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
-		if _,unlockErr:=connection.Exec(unlockContext,"SELECT pg_advisory_unlock(hashtextextended($1,0))",key);unlockErr!=nil { _ = connection.Hijack().Close(context.Background()); return }
+	waitContext, cancel := context.WithTimeout(ctx, lockWaitTimeout)
+	defer cancel()
+	connection, err := s.lockPool.Acquire(waitContext)
+	if err != nil {
+		return nil, fmt.Errorf("acquire lock connection: %w", err)
+	}
+	key := changesetLockKey(organizationID, changesetID)
+	if _, err = connection.Exec(waitContext, "SELECT pg_advisory_lock(hashtextextended($1,0))", key); err != nil {
+		connection.Release()
+		return nil, fmt.Errorf("wait for changeset lock: %w", err)
+	}
+	release := func() {
+		unlockContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, unlockErr := connection.Exec(unlockContext, "SELECT pg_advisory_unlock(hashtextextended($1,0))", key); unlockErr != nil {
+			_ = connection.Hijack().Close(context.Background())
+			return
+		}
 		connection.Release()
 	}
-	return release,nil
+	return release, nil
 }
 
-var _ interface{LockChangeset(context.Context,string,string)(func(),error)}=(*Store)(nil)
+var _ interface {
+	LockChangeset(context.Context, string, string) (func(), error)
+} = (*Store)(nil)

@@ -5,6 +5,7 @@ import { routes } from "./app/routes";
 import { NotificationProvider, UIThemeProvider } from "./shared/ui";
 import "./locales";
 import "./styles/index.css";
+import "./styles/i18n-layout.css";
 import "./shared/ui/theme/theme.css";
 import "./shared/ui/components/components.css";
 

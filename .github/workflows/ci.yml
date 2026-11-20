@@ -46,6 +46,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Check translation resources
+        run: npm run check:i18n
       - run: npm test
       - run: npm run build
       - name: Install Playwright browser test runner
@@ -87,9 +89,16 @@ jobs:
           cache-dependency-path: backend/api/go.mod
       - run: go mod tidy
       - run: go test ./...
+        env:
+          TEST_PIPELINE_DOCKER: "1"
+          TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
       - run: go build ./cmd/server
       - name: Validate production container
         run: docker build --tag agentforge-api:ci .
+      - name: Verify Git tooling in the integration API image
+        run: |
+          docker build --target integration-api --tag agentforge-integration-api:ci .
+          docker run --rm --entrypoint sh agentforge-integration-api:ci -ec 'test "$(id -u)" != 0 && test -x "$(git --exec-path)/git-remote-https" && git --version'
 
   contracts:
     needs: changes

@@ -1,24 +1,42 @@
 import { useEffect } from "react";
 import { Link, useLocation, useOutletContext, useParams, useRouteError } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
 import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
 import { ChangesetsPage } from "../pages/changesets/ChangesetsPage";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
 import { OverviewPage } from "../pages/overview";
+import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
+import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
+import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { ResourceWorkspacePage } from "../pages/resources";
+import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
-import { useNotify } from "./useNotify";
+import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
+import { useNotify } from "./useNotify";
 import { LoginPage } from "../pages/login";
+import { RegisterPage } from "../pages/register/RegisterPage";
 
 // Thin adapters between the route table and the pages: they supply what a page needs from the
 // shell (notifications, the organization resolved by the gate) so the pages keep their props.
 
 export function LoginRoute() {
-  const { accountState } = useAppAccount();
-  return <LoginPage accountState={accountState} />;
+  return <LoginPage />;
+}
+
+export function RegisterRoute() {
+  return <RegisterPage />;
+}
+
+export function SettingsRoute() {
+  const notify = useNotify();
+  const { account, updateDisplayName } = useAppAccount();
+  if (!account) return null;
+  return <SettingsLayout organizations={account.organizations} notify={notify} updateDisplayName={updateDisplayName} />;
 }
 
 export function OverviewRoute() {
@@ -50,10 +68,39 @@ export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
   return <ChangesetDetailPage key={`${organization.id}:${id}:${tab}`} organization={organization} accountUserID={account.user_id} changesetID={id} tab={tab} onNotify={notify} />;
 }
 
+export function PipelinesRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  return <PipelinesPage key={organization.id} organization={organization} renderHeader={actions =>
+    <PageHeader label="CI / CD" descriptionKey="navigation:descriptions.cicd" {...actions} />} />;
+}
+
+export function PipelineEditorRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { id = "" } = useParams();
+  return <PipelineEditorPage key={`${organization.id}:${id}`} organization={organization} id={id} />;
+}
+
+export function PipelineRunRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { runId = "" } = useParams();
+  return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} runId={runId} />;
+}
+
 export function RepositoriesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+export function RepositoryDetailRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { repositorySlug = "" } = useParams();
+  return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
+}
+
+export function WebIDERoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  return <WebIDEPage key={organization.id} organization={organization} />;
 }
 
 export function OrganizationRoute() {
@@ -64,10 +111,11 @@ export function OrganizationRoute() {
 
 export function NotFound() {
   const { pathname } = useLocation();
+  const { t } = useTranslation("app");
   return (
     <section className="card org-auth-state">
-      <p>Nothing is served at {pathname}.</p>
-      <Link className="button primary" to={flatPaths.overview}>Go to Overview</Link>
+      <p>{t("app:notFound.title", { pathname })}</p>
+      <Link className="button primary" to={flatPaths.overview}>{t("app:notFound.goToOverview")}</Link>
     </section>
   );
 }
@@ -81,11 +129,12 @@ function useLogRouteError() {
 /** Replaces only the page area when a page fails, so the sidebar and topbar stay usable. */
 export function PageError() {
   useLogRouteError();
+  const { t } = useTranslation("app");
   return (
     <section className="card org-auth-state" role="alert">
-      <h2>Something went wrong</h2>
-      <p>This page could not be displayed. Try again later, or go back to the overview.</p>
-      <Link className="button primary" to={flatPaths.overview}>Go to Overview</Link>
+      <h2>{t("app:pageError.title")}</h2>
+      <p>{t("app:pageError.description")}</p>
+      <Link className="button primary" to={flatPaths.overview}>{t("app:pageError.goToOverview")}</Link>
     </section>
   );
 }
@@ -93,12 +142,13 @@ export function PageError() {
 /** Last resort for errors thrown by the root layout itself, when there is no shell to keep. */
 export function RootError() {
   useLogRouteError();
+  const { t } = useTranslation("app");
   return (
     <div className="content">
       <section className="card org-auth-state" role="alert">
-        <h2>Something went wrong</h2>
-        <p>AgentForge could not be displayed. Reload the page to try again.</p>
-        <a className="button primary" href="/">Reload AgentForge</a>
+        <h2>{t("app:rootError.title")}</h2>
+        <p>{t("app:rootError.description")}</p>
+        <a className="button primary" href="/">{t("app:rootError.reload")}</a>
       </section>
     </div>
   );
