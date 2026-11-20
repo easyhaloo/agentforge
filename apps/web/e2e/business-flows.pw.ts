@@ -20,7 +20,8 @@ test("Overview search, status filtering, selection and navigation work together"
 });
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
-  await page.getByRole("link", { name: "Stacks", exact: true }).click();
+  // The delivery flow page lives under /self-healing since the legacy /stacks page was removed.
+  await page.getByRole("link", { name: "Self-healing", exact: true }).click();
   await expect(page.locator(".flow-primary h3")).toContainText("CS-2481");
   await page.getByRole("button", { name: "New revision" }).click();
   await expect(page.getByText("r4", { exact: true })).toBeVisible();

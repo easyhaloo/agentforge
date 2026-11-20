@@ -16,7 +16,7 @@ import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, RepositoriesRoute, RepositoryDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, RepositoriesRoute, RepositoryDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -100,7 +100,6 @@ export const routes: RouteObject[] = [
           { index: true, handle: routeHandle("Overview"), element: <OverviewRoute /> },
           resource("projects", "Projects"),
           resource("workspaces", "Workspaces"),
-          delivery("stacks", "Stacks"),
           delivery("self-healing", "Self-healing"),
           resource("memory", "Memory"),
           {
@@ -134,10 +133,9 @@ export const routes: RouteObject[] = [
               changesetDetail("review"),
               changesetDetail("merge"),
               organizationPage("webide", "WebIDE", <WebIDERoute />),
-              // Aliases of the changeset workspace until Trails, Review and Eval get their own pages.
-              organizationPage("trails", "Trails", <ChangesetsRoute />),
-              organizationPage("review", "Review", <ChangesetsRoute />),
-              organizationPage("eval", "Eval", <ChangesetsRoute />),
+              organizationPage("trails", "Trails", <TrailsRoute />),
+              organizationPage("review", "Review", <ReviewRoute />),
+              organizationPage("eval", "Eval", <EvalRoute />),
             ],
           },
           {

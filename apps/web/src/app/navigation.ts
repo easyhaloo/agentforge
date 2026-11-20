@@ -22,7 +22,6 @@ export const navigationItems: readonly NavigationItem[] = [
   { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, descriptionKey: "navigation:descriptions.changesets", orgPath: inOrganization("changesets") },
   { group: "WORKSPACE", label: "Workspaces", icon: Terminal, descriptionKey: "navigation:descriptions.workspaces", path: flatPaths.workspaces },
   { group: "COORDINATION", label: "Trails", icon: Workflow, descriptionKey: "navigation:descriptions.trails", orgPath: inOrganization("trails") },
-  { group: "COORDINATION", label: "Stacks", icon: GitBranch, descriptionKey: "navigation:descriptions.stacks", path: flatPaths.stacks },
   { group: "COORDINATION", label: "Review", icon: GitPullRequest, descriptionKey: "navigation:descriptions.review", orgPath: inOrganization("review") },
   { group: "COORDINATION", label: "Eval", icon: CheckCircle2, descriptionKey: "navigation:descriptions.eval", orgPath: inOrganization("eval") },
   { group: "COORDINATION", label: "Self-healing", icon: Activity, descriptionKey: "navigation:descriptions.selfHealing", path: flatPaths.selfHealing },

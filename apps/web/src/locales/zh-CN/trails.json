@@ -1,0 +1,31 @@
+{
+  "page": {
+    "summary": "{{count}} 条审计事件",
+    "description": "变更集和组织活动的审计轨迹。",
+    "loadingMessage": "正在加载审计轨迹..."
+  },
+  "list": {
+    "title": "活动轨迹",
+    "description": "{{organizationName}} 中的变更集工作流和成员活动。",
+    "empty": "未找到审计事件。",
+    "footer": "显示 {{count}} 条审计事件"
+  },
+  "filters": {
+    "showMembership": "包含成员事件"
+  },
+  "columns": {
+    "timestamp": "时间",
+    "type": "类型",
+    "subject": "主题",
+    "actor": "操作者",
+    "operation": "操作",
+    "outcome": "结果"
+  },
+  "types": {
+    "changeset": "变更集",
+    "membership": "成员"
+  },
+  "errors": {
+    "loadFailed": "加载审计轨迹失败"
+  }
+}

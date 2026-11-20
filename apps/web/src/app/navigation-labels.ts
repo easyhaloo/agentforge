@@ -17,7 +17,6 @@ export const routeKeyByLabel: Record<string, string> = {
   "Changeset": "navigation:routes.changeset",
   "Workspaces": "navigation:routes.workspaces",
   "Trails": "navigation:routes.trails",
-  "Stacks": "navigation:routes.stacks",
   "Review": "navigation:routes.review",
   "Eval": "navigation:routes.eval",
   "Self-healing": "navigation:routes.selfHealing",

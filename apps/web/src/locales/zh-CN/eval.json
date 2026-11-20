@@ -1,0 +1,20 @@
+{
+  "page": {
+    "summary": "{{count}} 个变更集正在评估",
+    "description": "查看和管理处于评估状态的变更集。",
+    "loadingMessage": "正在加载评估..."
+  },
+  "list": {
+    "title": "评估工作区",
+    "description": "{{organizationName}} 中需要评估的变更集。",
+    "emptyDefault": "没有变更集处于评估状态。",
+    "emptyFiltered": "没有评估匹配所选过滤器。",
+    "filterByStatus": "按评估状态过滤",
+    "allEvalStatuses": "所有评估状态"
+  },
+  "stats": {
+    "pending": "{{count}} 个待处理",
+    "failed": "{{count}} 个失败",
+    "evidenceRequired": "{{count}} 个需要证据"
+  }
+}
