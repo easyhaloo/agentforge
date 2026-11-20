@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"time"
 )
 
 // Repository defines the persistence interface for issues
@@ -17,4 +18,7 @@ type Repository interface {
 
 	// Update updates an existing issue (title, body, state, etc.)
 	Update(ctx context.Context, organizationID string, issue *Issue) (*Issue, error)
+
+	// Close closes an issue with a specific reason
+	Close(ctx context.Context, organizationID string, issueID ID, reason StateReason, closedBy string, closedAt time.Time) (*Issue, error)
 }
