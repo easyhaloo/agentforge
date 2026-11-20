@@ -82,7 +82,6 @@ func (s *Store) Pool() *pgxpool.Pool {
 	return s.pool
 }
 
-
 func (s *Store) Migrate(ctx context.Context) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

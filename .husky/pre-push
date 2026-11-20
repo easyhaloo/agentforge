@@ -8,13 +8,12 @@
 # 3. Go unit/integration tests
 # 4. Frontend unit tests (Vitest)
 # 5. Frontend build check (TypeScript + Vite)
-# 6. E2E tests (Playwright) - optional via SKIP_E2E=1
+# 6. E2E tests (Playwright) - MANDATORY, no skip option
 #
 # If any check fails, the push is rejected.
 #
 # Managed by Husky (installed via: npm install)
 # Bypass all checks: git push --no-verify
-# Skip E2E only: SKIP_E2E=1 git push
 
 set -e
 
@@ -115,31 +114,25 @@ fi
 
 echo -e "${GREEN}✅ Frontend build successful${NC}"
 
-# E2E tests (optional via SKIP_E2E=1)
-if [ "${SKIP_E2E}" = "1" ]; then
-    echo ""
-    echo -e "${YELLOW}⚠️  E2E tests skipped (SKIP_E2E=1)${NC}"
-    echo "   Remember to run 'npm run test:e2e' before merging to main"
-else
-    echo ""
-    echo "🎭 Running E2E tests (Playwright)..."
-    echo "   (Skip with: SKIP_E2E=1 git push)"
+# E2E tests (MANDATORY)
+echo ""
+echo "🎭 Running E2E tests (Playwright)..."
+echo "   E2E tests are mandatory and cannot be skipped"
 
-    # Run E2E tests
-    if ! npm run test:e2e 2>&1; then
-        echo ""
-        echo -e "${RED}❌ E2E tests failed!${NC}"
-        echo ""
-        echo "Please fix the failing E2E tests before pushing."
-        echo "Run 'npm run test:e2e' to see detailed errors."
-        echo ""
-        echo "To skip E2E temporarily: SKIP_E2E=1 git push"
-        echo "To bypass all checks (not recommended): git push --no-verify"
-        exit 1
-    fi
-
-    echo -e "${GREEN}✅ All E2E tests passed${NC}"
+# Run E2E tests
+if ! npm run test:e2e 2>&1; then
+    echo ""
+    echo -e "${RED}❌ E2E tests failed!${NC}"
+    echo ""
+    echo "Please fix the failing E2E tests before pushing."
+    echo "Run 'npm run test:e2e' to see detailed errors."
+    echo ""
+    echo "E2E tests are mandatory for code quality."
+    echo "To bypass all checks (not recommended): git push --no-verify"
+    exit 1
 fi
+
+echo -e "${GREEN}✅ All E2E tests passed${NC}"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

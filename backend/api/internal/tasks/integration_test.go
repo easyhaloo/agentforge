@@ -251,5 +251,5 @@ func TestCancellation(t *testing.T) {
 func getTestDatabaseURL(t *testing.T) string {
 	// Use environment variable or default test database
 	// In CI, this would be set appropriately
-	return ""  // Set this to your test database URL for local testing
+	return "" // Set this to your test database URL for local testing
 }

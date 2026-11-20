@@ -104,7 +104,7 @@ type Worker struct {
 	leaseDuration time.Duration
 	workspaceRoot string
 
-	wg     sync.WaitGroup
+	wg        sync.WaitGroup
 	semaphore chan struct{}
 }
 
