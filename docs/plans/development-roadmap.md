@@ -6,12 +6,12 @@ Evolve the React prototype into an Agent-native Source Control & Verified Change
 
 ## Current baseline
 
-- Frontend: React 19 + TypeScript + Vite in the `apps/web` npm workspace.
+- Frontend: React 19 + TypeScript + Vite in the independent `apps/web` package (no npm workspaces).
 - Existing behavior: seeded fixtures and browser LocalStorage.
 - Backend: Go modular-monolith API with PostgreSQL migrations, tenant-scoped Changeset persistence, OIDC identity boundary, and operator bootstrap tooling.
 - API contract: versioned REST/OpenAPI contract at `contracts/openapi/openapi.yaml`.
 - Cloudflare project: Worker with a `workers.dev` route, not Pages.
-- Root `wrangler.jsonc` points Worker Static Assets to `apps/web/dist`; Cloudflare Workers Builds must retain repository root as build root.
+- `apps/web/wrangler.jsonc` points Worker Static Assets to `apps/web/dist`; Cloudflare Workers Builds must use `apps/web` as its build root.
 
 ## Delivery rules
 

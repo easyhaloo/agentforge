@@ -6,9 +6,13 @@ The current Cloudflare project is a **Cloudflare Worker** serving the React/Vite
 
 - Worker name: `agentforge`
 - Production URL: `https://agentforge.gangshusheng.workers.dev`
+- Root directory: `apps/web`
 - Build command: `npm run build`
-- Build output: `apps/web/dist/`
+- Build output: `dist/`
+- Worker configuration: `apps/web/wrangler.jsonc`
 - Production branch: `main`
+
+The frontend is an independent package, so the Cloudflare build root is `apps/web`, not the repository root. Cloudflare Workers Builds installs the `apps/web` dependencies from the committed `apps/web/package-lock.json`, runs `npm run build`, and then deploys with `npx wrangler deploy`; `apps/web/wrangler.jsonc` resolves `main: ./src/worker.ts` and `assets.directory: ./dist/` relative to that root directory. Pointing the build root at the repository root breaks the build, because the repository root has no `package.json` and no `wrangler.jsonc`.
 
 Cloudflare Workers Builds is the sole frontend deployment owner. Do not add a second GitHub Actions Wrangler deployment or use `wrangler pages deploy`.
 
