@@ -18,7 +18,8 @@ import { organizationHandle, orgPath } from "../../shared/routing";
 import { Alert, Button, ConfirmDialog, Empty, Loading, Select } from "../../shared/ui";
 import { detectCodeLanguage } from "../../shared/code/languages";
 import { changesetEditorModelKey } from "../../shared/code/editorModelKey";
-import { TextAreaEditorAdapter, type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
+import { type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
+import { MonacoEditorAdapter } from "../../shared/code/MonacoEditorAdapter";
 import { translateError } from "../../shared/api/errors";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
@@ -43,7 +44,7 @@ function lineDiff(before: string, after: string): DiffLine[] {
   ];
 }
 
-export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEditorAdapter }: { organization: OrganizationSummary; editorAdapter?: EditorAdapter }) {
+export function WebIDEPage({ organization, editorAdapter: Editor = MonacoEditorAdapter }: { organization: OrganizationSummary; editorAdapter?: EditorAdapter }) {
   const { t } = useTranslation("repositories");
   const initial = useMemo(() => new URLSearchParams(window.location.search), []);
   const [repositories, setRepositories] = useState<RepositoryMetadata[] | null>(null);
