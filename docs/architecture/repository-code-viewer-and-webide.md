@@ -42,6 +42,23 @@ Adopt Monaco Editor as the target WebIDE editor, loaded lazily on the WebIDE rou
 - The WebIDE page is now a React lazy-loaded route boundary (`React.lazy` + `Suspense`) so its dependency graph is not part of the eagerly loaded route-elements module. Monaco must remain behind this boundary and must not be imported by repository browsing routes.
 - The current TextArea implementation is transitional and preserves the existing controlled-buffer and save lifecycle. Monaco remains a follow-up adapter, not part of this dependency-free contract stage.
 
+### 2.1 Monaco integration implementation contract
+
+The first implementation should use the official `monaco-editor` ESM package directly and an AgentForge-owned React adapter. Do not add `@monaco-editor/react` as a runtime wrapper in the initial integration: the application is on React 19, the wrapper's published documentation has historically directed React 19 users to a release-candidate channel, and the adapter needs explicit control over model ownership and disposal. Confirm the stable Monaco package version and peer/type compatibility in the actual npm install before committing the lockfile; the currently researched stable package line is 0.57.x.
+
+- Keep every Monaco import in a dedicated WebIDE-only module below the lazy `WebIDERoute` boundary. Do not re-export the adapter from shared barrel files imported by repository browsing.
+- Use Vite's ESM worker imports (`?worker`) and `MonacoEnvironment.getWorker` for editor, JSON, CSS, HTML, and TypeScript workers. Do not use legacy `getWorkerUrl`, CDN loading, or AMD assets.
+- Instantiate one editor per mounted WebIDE surface. Maintain a URI-keyed model registry for open files; use stable repository + changeset + path URIs so language services and view state remain attached to the correct file.
+- Treat React's `value` as the authoritative buffer. On external value changes, update the Monaco model only when model content differs; on editor changes, call `onChange` without resetting selection or undo history.
+- Set Monaco's `readOnly` option from the adapter prop. Do not use `disabled` semantics or allow a readonly model to become editable through commands.
+- Implement `focusLine`, `revealLine`, `getPosition`, `setDiagnostics`, `executeCommand`, and `formatDocument` through the existing `EditorController`. Map AgentForge diagnostics to Monaco markers and clear markers when the owning model changes or is disposed.
+- Register only AgentForge-owned commands and keybindings. Save remains owned by `WebIDEPage`; Ctrl/Cmd+S must continue through the existing Changeset save path.
+- Dispose editor instances, model references owned by the adapter, marker state, and command/keybinding registrations on unmount. Do not dispose shared models still referenced by another open tab.
+- Do not add language servers or network-backed LSP in this slice. First enable Monaco's built-in TypeScript/JavaScript, JSON, CSS, and HTML services; additional language services require a separate measured scope.
+- Keep all writes routed through `changesetAPI.saveFile` with the current `base_commit_sha` and `base_blob_sha`. Monaco models are buffers, never a second persistence layer.
+
+Required validation before marking this phase complete: regenerate the workspace lockfile with npm, run `npm ci --ignore-scripts --no-audit --no-fund`, TypeScript/build/unit tests, and browser tests that prove repository routes do not load Monaco chunks; WebIDE mount/unmount releases resources; switching files preserves the correct model; readonly state is enforced; dirty buffers survive navigation prompts; save and stale-SHA conflict behavior remain unchanged.
+
 ### 3. Diff viewer: independent renderer
 
 Keep unified diff parsing and row rendering independent from Shiki and Monaco. Preserve old/new line numbers, hunk boundaries, and add/remove/context states. Shiki is an optional asynchronous token-decoration layer over each hunk's source lines; it must never participate in diff parsing, alter line mapping, or inject generated HTML. Unknown languages, oversized diffs, and highlighting failures remain readable as plain text.
