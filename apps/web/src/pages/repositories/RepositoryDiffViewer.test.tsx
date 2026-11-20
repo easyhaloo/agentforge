@@ -1,4 +1,5 @@
 import { render, waitFor } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
 
@@ -23,8 +24,7 @@ describe("RepositoryDiffViewer", () => {
       "-const value = 1;",
       "+const value = 2;",
     ].join("\n");
-    const { container } = render(<RepositoryDiffViewer patch={patch} />);
-    const html = container.innerHTML;
+    const html = renderToStaticMarkup(<RepositoryDiffViewer patch={patch} />);
 
     expect(html).toContain('data-highlight-engine="pending"');
     expect(html).toContain("repository-diff__line--remove");
