@@ -14,7 +14,6 @@
     "noMine": "近期没有你发起的变更集。",
     "noReviews": "当前没有待你评审的变更集。",
     "loadError": "无法加载此区域。",
-    "signIn": "登录后查看组织工作台",
     "loading": "正在加载工作台",
     "revisions_one": "{{count}} 个修订",
     "revisions_other": "{{count}} 个修订"

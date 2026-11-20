@@ -40,19 +40,6 @@ describe("OrganizationGate states keep the copy each page had before routing", (
     expect(render({ accountState: "loading" }, variant)).toBe(card(loadingCopy));
   });
 
-  it("signed out, organization variant: login link and a Retry button", () => {
-    const html = render({ account: null, accountState: "signed-out" }, "organization");
-    expect(html).toContain("<h2>Sign in to manage your organization</h2><p>Organization settings require an authenticated AgentForge session.</p>");
-    expect(html).toContain('<a class="button primary" href="/login?return=%2Forgs%2Fdemo%2Fpage">Sign in</a>');
-    expect(html).toContain(">Retry</button>");
-    expect(html).not.toContain("page content");
-  });
-
-  it("signed out, changesets variant: login link and no Retry button", () => {
-    const html = render({ account: null, accountState: "signed-out" }, "changesets");
-    expect(html).toBe(card('<h2>Sign in to view changesets</h2><p>Changesets are scoped to an authenticated organization.</p><a class="button primary" href="/login?return=%2Forgs%2Fdemo%2Fpage">Sign in</a>'));
-  });
-
   it("unavailable: names the service, shows the error and offers Retry", () => {
     const organization = render({ account: null, accountState: "unavailable", accountError: "Network down" }, "organization");
     expect(organization).toContain("<h2>Organization service unavailable</h2><p>Network down</p>");

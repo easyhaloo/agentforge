@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { AccountContext, OrganizationSummary } from "../shared/api/identity";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { Button } from "../shared/ui";
+import { LoginRedirect } from "./LoginRedirect";
 import { useAppAccount } from "./account-context";
 
 /** What the gate hands to the page routes below it (read with `useOutletContext`). */
@@ -16,32 +17,20 @@ export type OrganizationOutletContext = { organization: OrganizationSummary; acc
  */
 const copy = {
   organization: {
-    signedOutTitle: "app:organizationGate.organization.signedOutTitle",
-    signedOutBody: "app:organizationGate.organization.signedOutBody",
     unavailableTitle: "app:organizationGate.organization.unavailableTitle",
     noOrganization: "app:organizationGate.organization.noOrganization",
-    retryWhenSignedOut: true,
   },
   pipelines: {
-    signedOutTitle: "app:organizationGate.pipelines.signedOutTitle",
-    signedOutBody: "app:organizationGate.pipelines.signedOutBody",
     unavailableTitle: "app:organizationGate.pipelines.unavailableTitle",
     noOrganization: "app:organizationGate.pipelines.noOrganization",
-    retryWhenSignedOut: true,
   },
   changesets: {
-    signedOutTitle: "app:organizationGate.changesets.signedOutTitle",
-    signedOutBody: "app:organizationGate.changesets.signedOutBody",
     unavailableTitle: "app:organizationGate.changesets.unavailableTitle",
     noOrganization: "app:organizationGate.changesets.noOrganization",
-    retryWhenSignedOut: false,
   },
   repositories: {
-    signedOutTitle: "app:organizationGate.repositories.signedOutTitle",
-    signedOutBody: "app:organizationGate.repositories.signedOutBody",
     unavailableTitle: "app:organizationGate.repositories.unavailableTitle",
     noOrganization: "app:organizationGate.repositories.noOrganization",
-    retryWhenSignedOut: false,
   },
 } as const;
 
@@ -58,14 +47,7 @@ export function OrganizationGate({ variant }: { variant: keyof typeof copy }) {
   const text = copy[variant];
 
   if (accountState === "loading") return <section className="card org-auth-state">{t("app:organizationGate.loading")}</section>;
-  if (accountState === "signed-out") return (
-    <section className="card org-auth-state">
-      <h2>{t(text.signedOutTitle)}</h2>
-      <p>{t(text.signedOutBody)}</p>
-      <a className="button primary" href={`/login?return=${encodeURIComponent(location.pathname + location.search + location.hash)}`}>{t("login:signInButton")}</a>
-      {text.retryWhenSignedOut && <Button className="button secondary" onClick={() => void reload()}>{t("app:organizationGate.retry")}</Button>}
-    </section>
-  );
+  if (accountState === "signed-out") return <LoginRedirect />;
   if (accountState === "unavailable") return (
     <section className="card org-auth-state">
       <h2>{t(text.unavailableTitle)}</h2>

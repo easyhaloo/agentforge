@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Building2, Menu } from "lucide-react";
-import { Link, Navigate, Outlet, useLocation, useMatches, useParams } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
-import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, flatPaths, organizationHandle, orgPath, withOrganizationHandle } from "../shared/routing";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, orgPath, withOrganizationHandle } from "../shared/routing";
 import { Button, Select } from "../shared/ui";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
@@ -23,6 +23,7 @@ function App() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const notify = useNotify();
   const navigateTo = useNavigateTo();
+  const navigate = useNavigate();
   const { pathname, search, hash } = useLocation();
   const { org: urlHandle } = useParams();
   const matches = useMatches();
@@ -70,10 +71,7 @@ function App() {
   const signOut = async () => {
     try {
       await authAPI.logout();
-      setAccount(null);
-      setSelectedOrganizationID("");
-      setAccountState("signed-out");
-      navigateTo(flatPaths.overview);
+      navigate("/login", { replace: true });
       notify(t("app:notify.signedOut"));
     } catch (cause) {
       setAccountError(translateError(cause, t, "app:errors.signOutFailed"));
