@@ -133,5 +133,51 @@
       "fileFailed": "无法打开源码文件",
       "saveFailed": "无法保存文件"
     }
+  },
+  "workspace": {
+    "title": "工作区 WebIDE",
+    "description": "{{repository}} · 隔离的工作区编辑器",
+    "create": "创建工作区",
+    "save": "保存",
+    "createChangeset": "创建变更集",
+    "showDiff": "工作区差异",
+    "hideDiff": "隐藏差异",
+    "backToRepositories": "代码仓库",
+    "changesHeading": "工作区变更",
+    "noChanges": "没有已保存的工作区变更。",
+    "searchLabel": "搜索文件",
+    "filterPlaceholder": "过滤文件",
+    "emptyDirectory": "该目录下没有文件。",
+    "emptyWorkspace": "创建工作区后即可浏览文件。",
+    "selectFile": "选择一个文件",
+    "unsaved": "未保存的更改",
+    "readOnly": "选择文件前为只读",
+    "editorLabel": "源码编辑器",
+    "loading": "正在加载工作区…",
+    "notice": "已保存的工作区覆盖文件可以在现有的变更集流程中交接为不可变的 Git 修订。未保存的编辑器内容必须先保存。在隔离 worker 实现之前，终端、构建、测试和预览执行仍不可用。",
+    "summary": "工作区 {{id}} · 基础提交 {{base}} · 到期时间 {{expires}}",
+    "created": "隔离工作区已创建。",
+    "changesetCreated": "已从工作区创建变更集 {{id}}。",
+    "saved": "工作区文件已保存。",
+    "status": {
+      "notStarted": "尚未开始",
+      "active": "使用中",
+      "expired": "已过期",
+      "closed": "已关闭"
+    },
+    "source": {
+      "base": "基础提交",
+      "workspace": "工作区"
+    },
+    "diffStatus": {
+      "added": "新增",
+      "modified": "已修改"
+    },
+    "errors": {
+      "createFailed": "无法创建工作区",
+      "readFailed": "无法读取文件",
+      "changesetFailed": "无法创建变更集",
+      "saveFailed": "保存失败，请重新加载文件后再试。"
+    }
   }
 }

@@ -133,5 +133,51 @@
       "fileFailed": "Unable to open source file",
       "saveFailed": "Unable to save file"
     }
+  },
+  "workspace": {
+    "title": "Workspace WebIDE",
+    "description": "{{repository}} · isolated workspace editor",
+    "create": "Create workspace",
+    "save": "Save",
+    "createChangeset": "Create changeset",
+    "showDiff": "Workspace diff",
+    "hideDiff": "Hide diff",
+    "backToRepositories": "Repositories",
+    "changesHeading": "Workspace changes",
+    "noChanges": "No saved workspace changes.",
+    "searchLabel": "Search files",
+    "filterPlaceholder": "Filter files",
+    "emptyDirectory": "No files in this directory.",
+    "emptyWorkspace": "Create a workspace to browse files.",
+    "selectFile": "Select a file",
+    "unsaved": "Unsaved changes",
+    "readOnly": "Read-only until a file is selected",
+    "editorLabel": "Source editor",
+    "loading": "Loading workspace…",
+    "notice": "Saved workspace overlays can be handed off as immutable Git revisions in the existing Changeset lifecycle. Unsaved editor content must be saved first. Terminal, build, test and preview execution remain unavailable until isolated workers are implemented.",
+    "summary": "Workspace {{id}} · base {{base}} · expires {{expires}}",
+    "created": "Isolated workspace created.",
+    "changesetCreated": "Changeset {{id}} created from workspace.",
+    "saved": "Workspace file saved.",
+    "status": {
+      "notStarted": "not started",
+      "active": "active",
+      "expired": "expired",
+      "closed": "closed"
+    },
+    "source": {
+      "base": "base",
+      "workspace": "workspace"
+    },
+    "diffStatus": {
+      "added": "added",
+      "modified": "modified"
+    },
+    "errors": {
+      "createFailed": "Unable to create workspace",
+      "readFailed": "Unable to read file",
+      "changesetFailed": "Unable to create changeset",
+      "saveFailed": "Save failed. Reload the file before retrying."
+    }
   }
 }

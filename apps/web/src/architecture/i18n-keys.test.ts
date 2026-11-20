@@ -7,6 +7,7 @@ import { errorKeyByStatus } from "../shared/api/errors";
 import { capabilities } from "../pages/pipelines/WorkflowEditor";
 import { changesetAuditOperations, changesetAuditOutcomes } from "../pages/changesets/changeset-status";
 import { pipelineStateKey, pipelineStates } from "../pages/pipelines/pipeline-states";
+import { workspaceTranslationKeys } from "../pages/webide/workspace-keys";
 import { settingsNavGroups, settingsNavItems } from "../pages/settings/settings-nav";
 import {
   collectKeyReferences,
@@ -191,6 +192,12 @@ describe("dynamic translation keys", () => {
   it("translates every pipeline capability label", () => {
     for (const capability of capabilities) {
       expect(resolvesEverywhere(`pipelines:${capability.label}`), `pipeline capability "${capability.label}"`).toBe(true);
+    }
+  });
+
+  it("translates every workspace state, file source and diff classification", () => {
+    for (const key of workspaceTranslationKeys) {
+      expect(resolvesEverywhere(`repositories:${key}`), `workspace key "${key}"`).toBe(true);
     }
   });
 
