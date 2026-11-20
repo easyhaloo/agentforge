@@ -35,7 +35,8 @@ describe("KeyedResourceRegistry", () => {
   it("makes release idempotent and allows reacquisition after disposal", () => {
     const registry = new KeyedResourceRegistry<number>();
     const dispose = vi.fn();
-    const create = vi.fn(() => ({ value: create.mock.calls.length, dispose }));
+    let sequence = 0;
+    const create = vi.fn(() => ({ value: ++sequence, dispose }));
     const lease = registry.acquire("model-a", create);
 
     lease.release();
