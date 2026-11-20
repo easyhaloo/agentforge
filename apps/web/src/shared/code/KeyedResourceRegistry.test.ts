@@ -111,6 +111,24 @@ describe("KeyedResourceRegistry", () => {
     expect(registry.size).toBe(0);
   });
 
+  it("rethrows even a non-Error value after attempting every disposal", () => {
+    const registry = new KeyedResourceRegistry<string>();
+    const laterDispose = vi.fn();
+    registry.acquire("a", () => ({ value: "a", dispose: () => { throw undefined; } }));
+    registry.acquire("b", () => ({ value: "b", dispose: laterDispose }));
+
+    let didThrow = false;
+    try {
+      registry.disposeAll();
+    } catch (error) {
+      didThrow = true;
+      expect(error).toBeUndefined();
+    }
+    expect(didThrow).toBe(true);
+    expect(laterDispose).toHaveBeenCalledTimes(1);
+    expect(registry.size).toBe(0);
+  });
+
   it("rejects empty keys before creating resources", () => {
     const registry = new KeyedResourceRegistry<string>();
     const create = vi.fn(() => ({ value: "x", dispose: () => undefined }));
