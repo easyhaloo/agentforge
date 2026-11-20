@@ -280,7 +280,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
           </div>
           {!selectedChangeset && <p className="webide-hint">{t("repositories:webide.hintSelectChangeset")}</p>}{selectedChangeset && !canEdit && <p className="webide-hint">{t("repositories:webide.hintNeedsRevision")}</p>}
           {dirty && <p className="webide-hint">{t("repositories:webide.hintUnsaved")}</p>}
-          <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine} onReady={handleEditorReady}/>
+          <Editor path={file.path} modelKey={`changeset://${organization.id}/${selectedRepository}/${selectedChangesetID}/${file.path}`} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine} onReady={handleEditorReady}/>
           {dirty && <details className="webide-diff"><summary>{t("repositories:webide.reviewChanges", { count: draft.split("\n").length })}</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}
           {conflict && <div className="webide-conflict"><AlertCircle size={15}/> {t("repositories:webide.conflictNotice")}</div>}
         </> : <div className="webide-empty"><Code2 size={28}/><strong>{t("repositories:webide.emptyTitle")}</strong><span>{t("repositories:webide.emptyDescription")}</span></div>}
