@@ -8,7 +8,7 @@ import { ReviewPage } from "../pages/review";
 import { EvalPage } from "../pages/eval";
 import { TrailsPage } from "../pages/trails";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
-import { OverviewPage } from "../pages/overview";
+import { OverviewPage, OverviewUnavailable } from "../pages/overview";
 import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
@@ -17,6 +17,7 @@ import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
+import { Button, Loading } from "../shared/ui";
 import { flatPaths, type ChangesetTab } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { PageHeader } from "./components/PageHeader";
@@ -44,8 +45,18 @@ export function SettingsRoute() {
 }
 
 export function OverviewRoute() {
-  const notify = useNotify();
-  return <OverviewPage onNotify={notify} created={[]} />;
+  const { account, accountState, selectedOrganization, reload } = useAppAccount();
+  const { t } = useTranslation("overview");
+  if (accountState === "loading") return <OverviewUnavailable title={t("workbench.loading")}><Loading /></OverviewUnavailable>;
+  if (accountState === "signed-out") return <OverviewUnavailable title={t("workbench.signIn")}>
+    <Link className="button primary" to="/login">{t("login:signInButton")}</Link>
+  </OverviewUnavailable>;
+  if (accountState === "unavailable") return <OverviewUnavailable title={t("app:errors.accountLoadFailed")}>
+    <Button onClick={() => void reload()}>{t("app:organizationGate.retry")}</Button>
+  </OverviewUnavailable>;
+  if (!selectedOrganization || !account) return <OverviewUnavailable title={t("app:organizationGate.noOrganization")} />;
+  return <OverviewPage key={selectedOrganization.id} organization={selectedOrganization}
+    userId={account.user_id} displayName={account.display_name || account.email || ""} />;
 }
 
 export function ResourceRoute({ label }: { label: string }) {

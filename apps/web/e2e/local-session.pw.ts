@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 const origin = process.env.AGENTFORGE_TEST_ORIGIN;
 test.skip(!origin, "Requires a running local API and PostgreSQL");
 
-test("local session returns to its repository, reads organization data and signs out", async ({ page }) => {
+test("local session returns to its repository, reads organization data and signs out", async ({ page }, testInfo) => {
   const base = new URL(origin!);
   expect(["localhost", "127.0.0.1", "[::1]"]).toContain(base.hostname);
   const email = `${randomUUID()}@example.test`;
@@ -34,6 +34,27 @@ test("local session returns to its repository, reads organization data and signs
   expect(await status(`organizations/${org}/changesets`)).toBe(200);
   expect(await status(`organizations/${randomUUID()}/repositories`)).toBe(401);
   expect(await status("auth/logout", "POST")).toBe(403);
+  const workbenchRequests = [
+    "/api/v1/me",
+    `/api/v1/organizations/${org}/repositories`,
+    `/api/v1/organizations/${org}/changesets?status=in_review&reviewer=me&limit=5&offset=0`,
+    `/api/v1/organizations/${org}/pipelines`,
+  ].map(endpoint => page.waitForResponse(response => response.url().endsWith(endpoint)));
+  await page.goto(base.origin);
+  for (const response of await Promise.all(workbenchRequests)) expect(response.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await page.getByRole("region", { name: "Pipelines" }).getByRole("link", { name: "All pipelines" }).click();
+  await page.locator(".heading-actions").getByRole("button", { name: "Create", exact: true }).click();
+  const created = page.waitForResponse(response => response.url().endsWith(`/organizations/${org}/pipelines`) && response.request().method() === "POST");
+  await page.getByRole("dialog", { name: "Create pipeline" }).getByRole("button", { name: "Create", exact: true }).click();
+  const pipelineResponse = await created;
+  expect(pipelineResponse.status()).toBe(201);
+  const pipeline = await pipelineResponse.json();
+  await expect(page).toHaveURL(new RegExp(`/pipelines/${pipeline.id}/edit$`));
+  await page.goto(base.origin);
+  await expect(page.getByRole("region", { name: "Pipelines" }).getByRole("link", { name: pipeline.name })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("workbench-real-api.png"), animations: "disabled" });
+
   const oldSession = await page.context().storageState();
   await page.getByRole('button', { name: /Session QA/ }).click();
   const logout = page.waitForResponse(r => r.url().endsWith('/api/v1/auth/logout'));

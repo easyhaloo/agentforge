@@ -29,6 +29,12 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - 'wrangler.jsonc'
+              - 'backend/api/**'
+              - 'playwright.config.ts'
+              - 'compose.yaml'
+              - 'Makefile'
+              - 'scripts/dev-stack.sh'
+              - '.github/workflows/ci.yml'
             api:
               - 'backend/api/**'
             contracts:
@@ -45,17 +51,25 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: backend/api/go.sum
       - run: npm ci --no-audit --no-fund
       - name: Check translation resources
         run: npm run check:i18n
       - run: npm test
       - run: npm run build
-      - name: Install Playwright browser test runner
-        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.56.1
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run application and shared UI browser tests
+      - name: Run browser tests, including real API flows
+        env:
+          AGENTFORGE_TEST_ORIGIN: http://127.0.0.1:4173
+          RUN_DIR: ${{ runner.temp }}/agentforge-web-e2e
         run: npm run test:e2e
+      - name: Show test stack logs on failure
+        if: failure()
+        run: tail -n 80 "${{ runner.temp }}/agentforge-web-e2e/"*.log 2>/dev/null || true
 
   api:
     needs: changes

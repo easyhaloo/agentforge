@@ -45,7 +45,6 @@ test("settings and shell render the saved palette, and Auto follows the system",
   const search = page.getByRole("textbox", { name: "Search pages" });
   await search.fill("changes");
   release();
-  await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".topbar")).toHaveCSS("background-color", "rgb(246, 248, 250)");
   await expect(search).toHaveValue("changes");
   await page.keyboard.press("Escape");

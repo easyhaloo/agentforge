@@ -52,6 +52,10 @@
     "webide": "Browse files at a pinned commit or edit them on a changeset branch."
   },
   "sidebar": {
+    "productName": "AgentForge",
+    "openNavigation": "Open navigation",
+    "navigation": "Global navigation",
+    "organizationSettings": "Organization settings",
     "brand": "agentforge",
     "tagline": "VERIFIED CHANGE PLATFORM",
     "noOrganization": "No organization",

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { navigationToggle } from "./support/navigation";
 import { installApiMocks } from "./support/api-mocks";
 
 // These tests use e2e-error-harness.html: the real route table plus a route that throws while rendering.
@@ -18,7 +19,7 @@ test("a page that fails to render leaves the shell in place with a friendly mess
   const logged = errorLog(page);
   await page.goto(harness("page"));
 
-  await expect(page.locator(".sidebar")).toBeVisible();
+  await expect(navigationToggle(page)).toBeVisible();
   await expect(page.locator(".topbar")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toBeVisible();
   const text = await visibleText(page);
@@ -37,7 +38,7 @@ test("an error thrown by the root layout itself falls back to a minimal page wit
   await page.goto(harness("app"));
 
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toBeVisible();
-  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(navigationToggle(page)).toHaveCount(0);
   const text = await visibleText(page);
   expect(text).not.toContain("KABOOM");
   expect(text).not.toContain("Explode");
