@@ -78,6 +78,39 @@ describe("KeyedResourceRegistry", () => {
     expect(registry.size).toBe(0);
   });
 
+  it("invalidates outstanding leases when all resources are disposed", () => {
+    const registry = new KeyedResourceRegistry<number>();
+    const dispose = vi.fn();
+    const oldLease = registry.acquire("model-a", () => ({ value: 1, dispose }));
+
+    registry.disposeAll();
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(registry.size).toBe(0);
+
+    const replacementDispose = vi.fn();
+    const replacement = registry.acquire("model-a", () => ({ value: 2, dispose: replacementDispose }));
+    oldLease.release();
+    expect(registry.getReferenceCount("model-a")).toBe(1);
+    expect(replacementDispose).not.toHaveBeenCalled();
+
+    replacement.release();
+    expect(replacementDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("attempts every disposal when one disposer throws", () => {
+    const registry = new KeyedResourceRegistry<string>();
+    const failure = new Error("dispose failed");
+    const throwingDispose = vi.fn(() => { throw failure; });
+    const laterDispose = vi.fn();
+    registry.acquire("a", () => ({ value: "a", dispose: throwingDispose }));
+    registry.acquire("b", () => ({ value: "b", dispose: laterDispose }));
+
+    expect(() => registry.disposeAll()).toThrow(failure);
+    expect(throwingDispose).toHaveBeenCalledTimes(1);
+    expect(laterDispose).toHaveBeenCalledTimes(1);
+    expect(registry.size).toBe(0);
+  });
+
   it("rejects empty keys before creating resources", () => {
     const registry = new KeyedResourceRegistry<string>();
     const create = vi.fn(() => ({ value: "x", dispose: () => undefined }));

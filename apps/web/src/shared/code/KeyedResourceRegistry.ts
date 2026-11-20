@@ -66,6 +66,16 @@ export class KeyedResourceRegistry<T> {
   disposeAll(): void {
     const entries = [...this.entries.values()];
     this.entries.clear();
-    for (const entry of entries) entry.dispose();
+
+    // Attempt every disposal even if one resource has a faulty disposer.
+    let firstError: unknown;
+    for (const entry of entries) {
+      try {
+        entry.dispose();
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (firstError !== undefined) throw firstError;
   }
 }
