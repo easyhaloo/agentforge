@@ -47,7 +47,7 @@ describe("RepositoryDiffViewer", () => {
     await waitFor(() => expect(container.querySelector('[data-highlight-engine="shiki"]')).not.toBeNull());
     expect(container.querySelectorAll(".repository-diff__line--remove")).toHaveLength(1);
     expect(container.querySelectorAll(".repository-diff__line--add")).toHaveLength(1);
-    expect(container.querySelector('.repository-diff__line--add .repository-code__shiki-token')).toHaveStyle({ color: "rgb(255, 0, 0)" });
+    expect(container.querySelector(".repository-diff__line--add .repository-code__shiki-token")?.getAttribute("style")).toContain("color: rgb(255, 0, 0)");
   });
 
   it("renders source payload as escaped text", () => {
