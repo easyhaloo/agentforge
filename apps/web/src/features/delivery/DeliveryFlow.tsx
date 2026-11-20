@@ -10,7 +10,7 @@ type Props = { page: string; onNotify: (message: string) => void };
 
 export function DeliveryFlow({ page, onNotify }: Props) {
   const workflow = useDeliveryWorkflow(onNotify);
-  const stageIndex = page === "Self-healing" ? 1 : page === "Stacks" ? 0 : Math.max(0, stages.findIndex((stage) => stage.id === page));
+  const stageIndex = page === "Self-healing" ? 1 : Math.max(0, stages.findIndex((stage) => stage.id === page));
 
   return <div className="delivery-flow">
     <DeliveryFlowBanner />

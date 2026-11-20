@@ -7,7 +7,6 @@ describe("flat (mock page) paths", () => {
       overview: "/",
       projects: "/projects",
       workspaces: "/workspaces",
-      stacks: "/stacks",
       selfHealing: "/self-healing",
       memory: "/memory",
       security: "/security",
