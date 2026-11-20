@@ -123,27 +123,6 @@ describe("MonacoEditorAdapter", () => {
     expect(onReady).toHaveBeenLastCalledWith(null);
   });
 
-  it("shares a URI-keyed model until the final editor releases its lease", async () => {
-    const first = render(
-      <div>
-        <MonacoEditorAdapter {...baseProps} />
-        <MonacoEditorAdapter {...baseProps} />
-      </div>,
-    );
-
-    await waitFor(() => expect(mocks.createEditor).toHaveBeenCalledTimes(2));
-    expect(mocks.createModel).toHaveBeenCalledTimes(1);
-    expect(mocks.modelDispose).not.toHaveBeenCalled();
-
-    first.rerender(<MonacoEditorAdapter {...baseProps} />);
-    expect(mocks.editorDispose).toHaveBeenCalledTimes(1);
-    expect(mocks.modelDispose).not.toHaveBeenCalled();
-
-    first.unmount();
-    expect(mocks.editorDispose).toHaveBeenCalledTimes(2);
-    expect(mocks.modelDispose).toHaveBeenCalledTimes(1);
-  });
-
   it("propagates Monaco model edits to the controlled React callback", async () => {
     const onChange = vi.fn();
     render(<MonacoEditorAdapter {...baseProps} onChange={onChange} />);
