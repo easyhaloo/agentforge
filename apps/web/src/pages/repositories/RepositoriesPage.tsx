@@ -171,19 +171,19 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
     <aside className="collection-sidebar repo-catalog-sidebar">
       <div id="repository-views" hidden={collapsed}>
         <nav aria-label={t("repositories:catalog.views")}>
-          <Button variant="ghost" aria-current={!mine && !adminAccess ? "page" : undefined} onClick={() => setScope("")}>
+          <Button variant="ghost" className="af-action-row" aria-current={!mine && !adminAccess ? "page" : undefined} onClick={() => setScope("")}>
             <Book size={16} aria-hidden="true"/>{t("repositories:catalog.all")}
           </Button>
-          <Button variant="ghost" aria-disabled="true" title={t("repositories:catalog.contributionsUnavailable")}>
+          <Button variant="ghost" className="af-action-row" aria-disabled="true" title={t("repositories:catalog.contributionsUnavailable")}>
             <UsersRound size={16} aria-hidden="true"/>{t("repositories:catalog.contributions")}
           </Button>
-          <Button variant="ghost" aria-current={mine ? "page" : undefined} onClick={() => setScope(ownRepositories)}>
+          <Button variant="ghost" className="af-action-row" aria-current={mine ? "page" : undefined} onClick={() => setScope(ownRepositories)}>
             <UserRound size={16} aria-hidden="true"/>{t("repositories:catalog.mine")}
           </Button>
-          <Button variant="ghost" aria-disabled="true" title={t("repositories:catalog.forksUnavailable")}>
+          <Button variant="ghost" className="af-action-row" aria-disabled="true" title={t("repositories:catalog.forksUnavailable")}>
             <GitFork size={16} aria-hidden="true"/>{t("repositories:catalog.forks")}
           </Button>
-          <Button variant="ghost" aria-current={adminAccess && !mine ? "page" : undefined} onClick={() => setScope(managedRepositories)}>
+          <Button variant="ghost" className="af-action-row" aria-current={adminAccess && !mine ? "page" : undefined} onClick={() => setScope(managedRepositories)}>
             <Settings size={16} aria-hidden="true"/>{t("repositories:catalog.adminAccess")}
           </Button>
         </nav>
