@@ -53,6 +53,15 @@ describe("route table", () => {
     expect(leafOf("/orgs/current/changesets")?.params.org).toBe("current");
   });
 
+  it("serves the repository directory and repository sections under the organization", () => {
+    expect(leafOf("/orgs/demo/repositories")?.route.handle).toEqual({ label: "Repositories" });
+    for (const suffix of ["", "/branches", "/actions", "/settings"]) {
+      const leaf = leafOf(`/orgs/demo/repositories/team/repo${suffix}`);
+      expect(leaf?.params, suffix).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
+      expect(leaf?.route.handle, suffix).toEqual({ label: "Repository" });
+    }
+  });
+
   it("serves the changeset detail page under the organization", () => {
     const leaf = leafOf("/orgs/demo/changesets/CS-1");
     expect(leaf?.params).toMatchObject({ org: "demo", id: "CS-1" });

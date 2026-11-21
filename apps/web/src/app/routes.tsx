@@ -11,7 +11,7 @@ import {
   SessionsSettingsPage,
   AgentSettingsPage,
 } from "../pages/settings";
-import type { ChangesetTab } from "../shared/routing";
+import { repositorySections, type ChangesetTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
@@ -106,6 +106,8 @@ export const routes: RouteObject[] = [
             element: <OrganizationGate variant="repositories" />,
             children: [
               organizationPage("repositories", "Repositories", <RepositoriesRoute />),
+              organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
+              ...repositorySections.map(section => organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
               {
                 path: "orgs/:org/repositories/:repositorySlug",
                 handle: routeHandle("Repository"),

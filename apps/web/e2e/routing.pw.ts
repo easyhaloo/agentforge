@@ -32,7 +32,7 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await sidebarLink(page, "Repositories").click();
   await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
-  await expect(page.getByRole("cell").getByText("easyhaloo/agentforge")).toBeVisible();
+  await expect(page.getByRole("link", { name: "easyhaloo/agentforge", exact: true })).toBeVisible();
   await openNavigation(page);
   await sidebarLink(page, "Memory").click();
   await expect(page).toHaveURL(/\/memory$/);

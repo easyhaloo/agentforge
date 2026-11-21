@@ -28,6 +28,18 @@ export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
+export const repositorySections = ["branches", "actions", "settings"] as const;
+export type RepositorySection = typeof repositorySections[number];
+
+export function repositoryPath(handle: string, slug: string, section?: RepositorySection): string {
+  const base = `${orgPath(handle, "repositories")}/${slug.split("/").map(encodeURIComponent).join("/")}`;
+  return section ? `${base}/${section}` : base;
+}
+
+export function repositoryChangesetsPath(handle: string, repository: string, options: { source?: string; create?: string } = {}): string {
+  return `${orgPath(handle, "changesets")}?${new URLSearchParams({ repository, scope: "repository", ...options })}`;
+}
+
 /** The parts of a changeset. Each one is a route, so every step of the lifecycle is linkable. */
 export const changesetTabs = ["overview", "revisions", "evaluation", "review", "merge"] as const;
 export type ChangesetTab = typeof changesetTabs[number];
