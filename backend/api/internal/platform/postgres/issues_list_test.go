@@ -29,6 +29,8 @@ func TestIssueRepository_List(t *testing.T) {
 	repo := NewIssueRepository(store)
 
 	orgID := "test-org-002"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/test-repo"
 
 	// Create test issues
