@@ -164,6 +164,23 @@ test("drawer backdrop fades in and out with animation", async ({ page }) => {
   await expect(backdrop).toBeHidden();
 });
 
+test("a closing drawer stops taking clicks on the page behind it", async ({ page }) => {
+  const opener = page.getByRole("button", { name: "Open drawer" });
+  await opener.click();
+  await expect(page.getByRole("dialog", { name: "Browser test drawer" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+
+  // The drawer stays on screen while it fades out, but it must not swallow the clicks of the page behind it.
+  const backdrop = page.locator(".af-drawer-backdrop");
+  await expect(backdrop).toHaveAttribute("inert", "");
+  await expect(backdrop).toHaveCSS("pointer-events", "none");
+
+  // The click lands on the page behind while the drawer is still mounted.
+  await page.getByTestId("outside-focus-target").click();
+  await expect(page.locator(".af-drawer")).toHaveCount(1);
+});
+
 test("drawer respects prefers-reduced-motion", async ({ page }) => {
   // Set reduced motion preference using Playwright's emulateMedia
   await page.emulateMedia({ reducedMotion: 'reduce' });

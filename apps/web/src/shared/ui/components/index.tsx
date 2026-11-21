@@ -861,11 +861,14 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
 
   if (!mounted) return null;
 
-  const backdropClasses = `af-drawer-backdrop${visible ? ' af-drawer-backdrop--visible' : ''}`;
+  // A drawer that is closing must stop behaving like an open one: it stays mounted while it animates out, and
+  // until it is gone it would swallow clicks on the page behind it and keep its links focusable.
+  const closing = !open;
+  const backdropClasses = `af-drawer-backdrop${visible ? ' af-drawer-backdrop--visible' : ''}${closing ? ' af-drawer-backdrop--closing' : ''}`;
   const drawerClasses = `af-drawer af-drawer--${placement}${visible ? ' af-drawer--visible' : ''}`;
 
   return (
-    <div className={backdropClasses} onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
+    <div className={backdropClasses} inert={closing || undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
       <aside ref={drawerRef} tabIndex={-1} className={drawerClasses} role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
         <header className="af-drawer__header"><h2 id={titleId}>{title}</h2><button type="button" aria-label={t("common:components.closeDrawer")} onClick={() => onCloseRef.current()}>×</button></header>
         <div className="af-drawer__body">{children}</div>
