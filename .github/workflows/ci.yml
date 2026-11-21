@@ -142,19 +142,3 @@ jobs:
         with:
           node-version: 22
       - run: npx --yes @redocly/cli lint contracts/openapi/openapi.yaml
-
-  # Stable required check for GitHub branch protection. Module jobs may be
-  # skipped when their paths do not change; skipped jobs are accepted here.
-  ci-gate:
-    name: ci-gate
-    needs: [changes, web, api, contracts]
-    if: >-
-      always() &&
-      needs.changes.result == 'success' &&
-      (needs.web.result == 'success' || needs.web.result == 'skipped') &&
-      (needs.api.result == 'success' || needs.api.result == 'skipped') &&
-      (needs.contracts.result == 'success' || needs.contracts.result == 'skipped')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Report CI result
-        run: echo "All applicable CI checks passed."

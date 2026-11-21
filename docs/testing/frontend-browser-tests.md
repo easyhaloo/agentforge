@@ -44,6 +44,6 @@ The application tests intercept `/api/v1/**` requests in Playwright (`apps/web/e
 
 ## CI
 
-The frontend CI job installs dependencies with `npm ci` from the committed `apps/web/package-lock.json`, installs Chromium, and runs `npm run test:e2e` (GitHub Actions sets `CI` itself). The pinned Playwright runner is a committed dev dependency of `apps/web`, so the browser tooling stays version-locked with the rest of the frontend dependencies. The test suite is part of the existing web CI job and `ci-gate`; no separate deployment workflow is introduced.
+The frontend CI job installs dependencies with `npm ci` from the committed `apps/web/package-lock.json`, installs Chromium, and runs `npm run test:e2e` (GitHub Actions sets `CI` itself). The pinned Playwright runner is a committed dev dependency of `apps/web`, so the browser tooling stays version-locked with the rest of the frontend dependencies. The test suite is part of the existing `web` CI job; no separate deployment workflow is introduced.
 
 Cloudflare production deployment validation is intentionally excluded.
