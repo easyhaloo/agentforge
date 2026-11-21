@@ -95,9 +95,9 @@ export function RepositoryIssues({ organization, repository, userId, displayName
           {filters.map(item => {
             const Icon = item === "open" ? AlertCircle : item === "closed" ? CheckCircle2 : User;
             const count = item === "open" ? open : item === "closed" ? closed : undefined;
-            return <Button key={item} onClick={() => { setFilter(item); setOffset(0); }}
+            return <Button key={item} variant="ghost" onClick={() => { setFilter(item); setOffset(0); }}
               disabled={!userId && (item === "assigned" || item === "created")}
-              aria-pressed={filter === item} className={`issues-nav-item ${filter === item ? "active" : ""}`}>
+              aria-pressed={filter === item} className="af-action-row issues-nav-item">
               <Icon size={14} aria-hidden="true"/><span>{t(`issues.${item}`)}</span>
               {count !== undefined && <span className="issue-count">{count}</span>}
             </Button>;

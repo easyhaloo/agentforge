@@ -420,6 +420,14 @@ If either cannot be run, state explicitly and explain what remains unverified.
 - Avoid one-off inline styles when reusable class or design token is appropriate
 - Do not add decorative UI that obscures primary task or makes page look more complete than underlying behavior
 
+### GitHub-style list hover
+
+Use `af-action-row` for compact sidebar and action-list entries. The neutral hover fill uses `--af-color-row-hover` so it works over the current surface in either theme. The row uses a 32 px minimum height, 8 px inline padding, and the medium radius token. Hover changes the fill without shifting layout or changing the label and icon colors.
+
+- For a single action, apply the class to the ghost button. For separate primary and trailing actions, apply it to the list item and use sibling ghost buttons with accessible names. The fill covers both actions and each has its own keyboard focus ring.
+- Enable the hover fill on hover-capable pointers. Disabled standalone rows skip it. Keep selection recognizable through the existing active label or indicator when hovered.
+- Use this pattern for flat action rows.
+
 ## Change Workflow
 
 For every task:
