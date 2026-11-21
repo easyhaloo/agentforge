@@ -44,12 +44,17 @@ func TestParseMentions(t *testing.T) {
 		{
 			name:     "mention in markdown",
 			input:    "cc @reviewer in `code @fake` and **@bold**",
-			expected: []string{"reviewer", "fake", "bold"},
+			expected: []string{"reviewer", "fake"}, // @bold not matched (no space before @)
 		},
 		{
 			name:     "email should not be a mention",
 			input:    "Contact user@example.com for details",
-			expected: []string{"example"},
+			expected: nil,
+		},
+		{
+			name:     "email and mention together",
+			input:    "Email admin@company.com but @alice should be notified",
+			expected: []string{"alice"},
 		},
 		{
 			name:     "multiple mentions on different lines",

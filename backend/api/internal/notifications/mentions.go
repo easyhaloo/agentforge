@@ -2,11 +2,13 @@ package notifications
 
 import (
 	"regexp"
+	"strings"
 )
 
 // mentionPattern matches @username patterns
 // Usernames can contain letters, numbers, hyphens, and underscores
-var mentionPattern = regexp.MustCompile(`@([a-zA-Z0-9_-]+)`)
+// Requires whitespace or start-of-line before @ to avoid matching email addresses
+var mentionPattern = regexp.MustCompile(`(?:^|\s)@([a-zA-Z0-9_-]+)`)
 
 // ParseMentions extracts all @username mentions from text
 func ParseMentions(text string) []string {
@@ -23,7 +25,7 @@ func ParseMentions(text string) []string {
 		if len(match) < 2 {
 			continue
 		}
-		username := match[1]
+		username := strings.TrimSpace(match[1])
 		if !seen[username] {
 			seen[username] = true
 			mentions = append(mentions, username)
