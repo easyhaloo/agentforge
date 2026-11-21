@@ -24,15 +24,36 @@ func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.R
 		writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "Repository catalog, Git provider and read-only preview capability are required")
 		return Principal{}, delivery.RepositoryMetadata{}, "", false
 	}
-	slug := strings.TrimSpace(r.PathValue("owner")) + "/" + strings.TrimSpace(r.PathValue("repo"))
-	if strings.Contains(slug, "..") || strings.ContainsAny(slug, "\x00\\\\") || strings.TrimSpace(r.PathValue("owner")) == "" || strings.TrimSpace(r.PathValue("repo")) == "" {
-		writeProblem(w, http.StatusBadRequest, "Invalid repository", "A valid owner/repository path is required")
+	registered, ok := d.registeredRepository(w, r, principal)
+	if !ok {
 		return Principal{}, delivery.RepositoryMetadata{}, "", false
+	}
+	ref := strings.TrimSpace(r.URL.Query().Get("ref"))
+	if ref == "" {
+		ref = registered.DefaultBranch
+	}
+	revision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, registered.Slug, ref)
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "Git ref not found", "The requested branch, tag or commit could not be resolved")
+		return Principal{}, delivery.RepositoryMetadata{}, "", false
+	}
+	return principal, registered, revision.CommitSHA, true
+}
+
+func (d DeliveryDependencies) registeredRepository(w http.ResponseWriter, r *http.Request, principal Principal) (delivery.RepositoryMetadata, bool) {
+	if d.Catalog == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository catalog unavailable", "Repository metadata storage is not configured")
+		return delivery.RepositoryMetadata{}, false
+	}
+	slug := strings.TrimSpace(r.PathValue("owner")) + "/" + strings.TrimSpace(r.PathValue("repo"))
+	if strings.Count(slug, "/") != 1 || strings.Contains(slug, "..") || strings.ContainsAny(slug, "\x00\\\\") || strings.TrimSpace(r.PathValue("owner")) == "" || strings.TrimSpace(r.PathValue("repo")) == "" {
+		writeProblem(w, http.StatusBadRequest, "Invalid repository", "A valid owner/repository path is required")
+		return delivery.RepositoryMetadata{}, false
 	}
 	repositories, err := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
 	if err != nil {
 		writeProblem(w, http.StatusServiceUnavailable, "Repository catalog unavailable", "The registered repository could not be verified")
-		return Principal{}, delivery.RepositoryMetadata{}, "", false
+		return delivery.RepositoryMetadata{}, false
 	}
 	var registered *delivery.RepositoryMetadata
 	for i := range repositories {
@@ -43,18 +64,9 @@ func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.R
 	}
 	if registered == nil {
 		writeProblem(w, http.StatusNotFound, "Repository not found", "The repository is not registered in the selected organization")
-		return Principal{}, delivery.RepositoryMetadata{}, "", false
+		return delivery.RepositoryMetadata{}, false
 	}
-	ref := strings.TrimSpace(r.URL.Query().Get("ref"))
-	if ref == "" {
-		ref = registered.DefaultBranch
-	}
-	revision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, slug, ref)
-	if err != nil {
-		writeProblem(w, http.StatusNotFound, "Git ref not found", "The requested branch, tag or commit could not be resolved")
-		return Principal{}, delivery.RepositoryMetadata{}, "", false
-	}
-	return principal, *registered, revision.CommitSHA, true
+	return *registered, true
 }
 
 func (d DeliveryDependencies) listRepositoryTree(w http.ResponseWriter, r *http.Request) {
@@ -156,8 +168,13 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 	}
 	baseRef := strings.TrimSpace(r.URL.Query().Get("base"))
 	headRef := strings.TrimSpace(r.URL.Query().Get("head"))
+	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
 	if baseRef == "" || headRef == "" || len(baseRef) > 256 || len(headRef) > 256 {
 		writeProblem(w, http.StatusBadRequest, "Invalid compare refs", "Both base and head refs are required and must be at most 256 bytes")
+		return
+	}
+	if mode != "" && mode != "merge-base" {
+		writeProblem(w, http.StatusBadRequest, "Invalid compare mode", "Mode must be empty or 'merge-base'")
 		return
 	}
 	base, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repository.Slug, baseRef)
@@ -170,7 +187,12 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusNotFound, "Head revision not found", "The head ref could not be resolved")
 		return
 	}
-	patch, err := reader.Compare(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
+	var patch string
+	if mode == "merge-base" {
+		patch, err = reader.CompareWithMergeBase(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
+	} else {
+		patch, err = reader.Compare(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
+	}
 	if errors.Is(err, delivery.ErrPreviewTooLarge) {
 		writeProblem(w, http.StatusRequestEntityTooLarge, "Compare too large", "The diff exceeds the 1 MiB preview output limit")
 		return

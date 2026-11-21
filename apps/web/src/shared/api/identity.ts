@@ -186,11 +186,29 @@ export const repositoryPreviewAPI = {
     return request<RepositoryPreviewBlob>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blob?${query.toString()}`);
   },
 };
-export const repositoryAPI = {
-  list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`),
-  register: (organizationID: string, slug: string, defaultBranch: string) =>
-    request<RepositoryMetadata>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`, {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch})}),
+export type RepositorySummary = RepositoryMetadata & {
+  git?: { branch_count: number; last_commit_at?: string; language?: string };
+  activity?: { changeset_count: number; action_count: number };
 };
+export type RepositoryAction = { id: string; pipeline: string; status: string; version: number; created_at: string };
+
+export const repositoryAPI = {
+  list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(repositoryBase(organizationID)),
+  summaries: (organizationID: string) => request<{items: RepositorySummary[]}>(`${repositoryBase(organizationID)}?details=1`),
+  register: (organizationID: string, slug: string, defaultBranch: string) =>
+    request<RepositoryMetadata>(repositoryBase(organizationID), {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch})}),
+  actions: (organizationID: string, repository: string, offset: number) =>
+    request<{items: RepositoryAction[]; has_more: boolean}>(`${repositoryBase(organizationID, repository)}/actions?offset=${offset}`),
+  updateDefaultBranch: (organizationID: string, repository: string, defaultBranch: string, previousBranch: string) =>
+    request<void>(`${repositoryBase(organizationID, repository)}/settings`, {
+      method: "PATCH", body: JSON.stringify({ default_branch: defaultBranch, previous_branch: previousBranch }),
+    }),
+};
+
+function repositoryBase(organizationID: string, repository?: string) {
+  const base = `/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories`;
+  return repository ? `${base}/${repository.split("/").map(encodeURIComponent).join("/")}` : base;
+}
 export type WorkspaceStatus = "active" | "expired" | "closed";
 export type Workspace = {
   id: string;

@@ -179,17 +179,31 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       repositories = [...repositories, added];
       return json(added, 201);
     }
-    if (path.endsWith("/repositories/easyhaloo/agentforge/tree") && method === "GET") {
-      return json({ repository: "team/repo", commit_sha: "a".repeat(40), path: "", items: [{ name: "README.md", path: "README.md", kind: "file", mode: "100644", sha: "b".repeat(40), size: 12 }] });
-    }
-    if (path.endsWith("/repositories/easyhaloo/agentforge/history") && method === "GET") {
-      return json({ repository: "team/repo", commit_sha: "a".repeat(40), items: [{ sha: "a".repeat(40), parents: ["b".repeat(40)], author: "Test Author", authored_at: now, subject: "Latest commit" }, { sha: "b".repeat(40), parents: [], author: "Test Author", authored_at: now, subject: "Initial commit" }] });
-    }
-    if (path.endsWith("/repositories/easyhaloo/agentforge/compare") && method === "GET") {
-      return json({ repository: "team/repo", base_sha: "b".repeat(40), head_sha: "a".repeat(40), patch: "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-before\n+after\n" });
-    }
-    if (path.endsWith("/repositories/easyhaloo/agentforge/blob") && method === "GET") {
-      return json({ repository: "team/repo", commit_sha: "a".repeat(40), blob_sha: "b".repeat(40), path: "README.md", encoding: "utf-8", content: "# Hello\n" });
+    if (path.startsWith("/api/v1/organizations/org-demo/repositories/easyhaloo/agentforge/") && method === "GET") {
+      const repository = "easyhaloo/agentforge";
+      const main = "a".repeat(40);
+      const previous = "b".repeat(40);
+      const ref = url.searchParams.get("ref");
+      const commit_sha = ["refs/heads/release", "refs/tags/v0.1.0", previous].includes(ref ?? "") ? previous : main;
+      if (path.endsWith("/refs")) return json({ repository, default_branch: "main", resolved_commit_sha: main, items: [
+        { kind: "branch", name: "main", sha: main }, { kind: "branch", name: "release", sha: previous }, { kind: "tag", name: "v0.1.0", sha: previous },
+      ] });
+      if (path.endsWith("/tree")) return json({ repository, commit_sha, path: "", items: [{ name: "README.md", path: "README.md", kind: "file", mode: "100644", sha: previous, size: 12 }] });
+      if (path.endsWith("/history")) {
+        const latest = { sha: main, parents: [previous], author: "Test Author", authored_at: "2026-11-20T12:00:00Z", subject: "Latest commit" };
+        const initial = { sha: previous, parents: [], author: "Initial Author", authored_at: "2026-11-17T12:00:00Z", subject: "Initial commit" };
+        const items = commit_sha === previous ? [initial] : [latest, initial];
+        return json({ repository, commit_sha, items: items.slice(0, Number(url.searchParams.get("limit") ?? 100)) });
+      }
+      if (path.endsWith("/compare")) {
+        const base_sha = url.searchParams.get("base") ?? "";
+        const head_sha = url.searchParams.get("head");
+        const patch = base_sha
+          ? "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-before\n+after\n"
+          : "diff --git a/README.md b/README.md\n--- /dev/null\n+++ b/README.md\n@@ -0,0 +1 @@\n+before\n";
+        return json({ repository, base_sha, head_sha, patch });
+      }
+      if (path.endsWith("/blob")) return json({ repository, commit_sha, blob_sha: previous, path: "README.md", encoding: "utf-8", content: "# Hello\n" });
     }
     if (path.endsWith("/members") && method === "GET") {
       return json({ items: members, limit: 100, offset: 0 });

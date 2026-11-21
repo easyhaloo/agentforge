@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useLocation, useOutletContext, useParams, useRouteError } from "react-router-dom";
+import { Link, Navigate, useLocation, useOutletContext, useParams, useRouteError, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
 import { ChangesetDetailPage } from "../pages/changesets/ChangesetDetailPage";
@@ -12,13 +12,15 @@ import { OverviewPage, OverviewUnavailable } from "../pages/overview";
 import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { RepositoryBrowserPage } from "../pages/repositories/RepositoryBrowserPage";
+import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
-import { flatPaths, type ChangesetTab } from "../shared/routing";
+import { flatPaths, organizationHandle, repositoryPath, type ChangesetTab, type RepositorySection } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
@@ -101,15 +103,29 @@ export function PipelineRunRoute() {
 }
 
 export function RepositoriesRoute() {
-  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const [search] = useSearchParams();
+  const { hash } = useLocation();
   const notify = useNotify();
-  return <RepositoriesPage key={organization.id} organization={organization} onNotify={notify} />;
+  const repository = search.get("repository");
+  if (repository && /^[^/]+\/[^/]+$/.test(repository)) {
+    const params = new URLSearchParams(search);
+    params.delete("repository");
+    return <Navigate replace to={{ pathname: repositoryPath(organizationHandle(organization), repository), search: params.toString(), hash }} />;
+  }
+  return <RepositoriesPage key={organization.id} organization={organization} userID={account.user_id} onNotify={notify} />;
 }
 
-export function RepositoryDetailRoute() {
+export function RepositoryDetailRoute({ section }: { section?: RepositorySection }) {
   const { organization } = useOutletContext<OrganizationOutletContext>();
-  const { repositorySlug = "" } = useParams();
-  return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
+  const { owner, repo, repositorySlug } = useParams();
+  const notify = useNotify();
+  if (repositorySlug) {
+    return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
+  }
+  const repository = `${owner}/${repo}`;
+  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section}/>;
+  return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
 }
 
 export function WebIDERoute() {

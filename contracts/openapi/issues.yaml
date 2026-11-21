@@ -1,90 +1,134 @@
 openapi: 3.1.0
 info:
-  title: Issue Tracking API
+  title: AgentForge Issues API
   version: 1.0.0
-  description: GitHub-compatible issue tracking with labels, milestones, comments, reactions, events, and notifications
+  description: GitHub-compatible Issue tracking, Comments, Labels, and Milestones
 
 paths:
+  # ==================== Issues ====================
   /api/v1/organizations/{organizationID}/issues:
     get:
       operationId: listIssues
-      summary: List issues
+      summary: List issues with filtering and pagination
+      security: [{ sessionCookie: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: repository
           in: query
+          description: Filter by repository slug (e.g., "owner/repo")
           schema: { type: string }
         - name: state
           in: query
-          schema: { type: string, enum: [open, closed] }
-        - name: created_by
+          description: Filter by state
+          schema: { type: string, enum: [open, closed, all], default: open }
+        - name: creator
           in: query
+          description: Filter by creator user ID
           schema: { type: string }
+        - name: assignee
+          in: query
+          description: Filter by assignee. Use "none" for unassigned, "*" for any assignee.
+          schema: { type: string }
+        - name: labels
+          in: query
+          description: Comma-separated label names (AND logic)
+          schema: { type: string }
+        - name: milestone
+          in: query
+          description: Milestone ID, "none" for no milestone, "*" for any milestone
+          schema: { type: string }
+        - name: since
+          in: query
+          description: Filter by updated_at >= timestamp
+          schema: { type: string, format: date-time }
         - name: q
           in: query
-          description: Search query
+          description: Full-text search in title and body
           schema: { type: string }
-        - name: limit
+        - name: sort
           in: query
-          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
-        - name: offset
+          description: Sort field
+          schema: { type: string, enum: [created, updated, comments], default: updated }
+        - name: direction
           in: query
-          schema: { type: integer, minimum: 0, default: 0 }
+          description: Sort direction
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          description: Results per page
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
       responses:
-        '200':
-          description: Issue list
+        "200":
+          description: List of issues
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/IssueListResponse' }
-        '400': { $ref: '#/components/responses/Problem' }
-        '503': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/IssuePage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createIssue
       summary: Create a new issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateIssueRequest' }
+            schema: { $ref: "#/components/schemas/IssueCreate" }
       responses:
-        '201':
-          description: Issue created
+        "201":
+          description: Issue created successfully
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '400': { $ref: '#/components/responses/Problem' }
-        '503': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Issue" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/issues/{number}:
     get:
       operationId: getIssue
-      summary: Get issue by number
+      summary: Get issue by repository and number
+      security: [{ sessionCookie: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          description: Issue number within repository
+          schema: { type: integer, minimum: 1 }
         - name: repository
           in: query
           required: true
+          description: Repository slug (e.g., "owner/repo")
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Issue details
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '404': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Issue" }
+        "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateIssue
-      summary: Update issue
+      summary: Update issue title, body, or milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
@@ -93,23 +137,30 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpdateIssueRequest' }
+            schema: { $ref: "#/components/schemas/IssueUpdate" }
       responses:
-        '200':
+        "200":
           description: Issue updated
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '404': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Issue" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/issues/{number}/close:
     post:
       operationId: closeIssue
-      summary: Close an issue
+      summary: Close an issue with a reason
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
@@ -120,339 +171,127 @@ paths:
           application/json:
             schema:
               type: object
-              required: [reason]
+              required: [state_reason]
               properties:
-                reason:
+                state_reason:
                   type: string
                   enum: [completed, not_planned, duplicate]
+                  description: Reason for closing the issue
       responses:
-        '200':
+        "200":
           description: Issue closed
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '404': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Issue" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/issues/{number}/reopen:
     post:
       operationId: reopenIssue
       summary: Reopen a closed issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Issue reopened
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '404': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Issue" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/issues/{number}/lock:
     post:
       operationId: lockIssue
-      summary: Lock an issue
+      summary: Lock an issue to prevent further modifications
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
           schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reason]
-              properties:
-                reason:
-                  type: string
-                  enum: [off-topic, too heated, resolved, spam]
       responses:
-        '200':
+        "204":
           description: Issue locked
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '404': { $ref: '#/components/responses/Problem' }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: unlockIssue
       summary: Unlock an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Issue unlocked
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Issue' }
-        '404': { $ref: '#/components/responses/Problem' }
-
-  /api/v1/organizations/{organizationID}/issues/{number}/assignees:
-    post:
-      operationId: addAssignees
-      summary: Add assignees to an issue
-      tags: [Issues]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [assignees]
-              properties:
-                assignees:
-                  type: array
-                  items: { type: string }
-      responses:
-        '200':
-          description: Assignees added
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  assignees:
-                    type: array
-                    items: { type: string }
-    delete:
-      operationId: removeAssignees
-      summary: Remove assignees from an issue
-      tags: [Issues]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [assignees]
-              properties:
-                assignees:
-                  type: array
-                  items: { type: string }
-      responses:
-        '200':
-          description: Assignees removed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  assignees:
-                    type: array
-                    items: { type: string }
-
-  /api/v1/organizations/{organizationID}/issues/{number}/labels:
-    post:
-      operationId: addLabelsToIssue
-      summary: Add labels to an issue
-      tags: [Issues]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [labels]
-              properties:
-                labels:
-                  type: array
-                  items: { type: string }
-      responses:
-        '200':
-          description: Labels added
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  labels:
-                    type: array
-                    items: { $ref: '#/components/schemas/Label' }
-
-  /api/v1/organizations/{organizationID}/issues/{number}/labels/{labelName}:
-    delete:
-      operationId: removeLabelFromIssue
-      summary: Remove a label from an issue
-      tags: [Issues]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: labelName
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
           in: path
           required: true
-          schema: { type: string }
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
           schema: { type: string }
       responses:
-        '200':
-          description: Label removed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  labels:
-                    type: array
-                    items: { $ref: '#/components/schemas/Label' }
+        "204":
+          description: Issue unlocked
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 
-  /api/v1/organizations/{organizationID}/issues/{number}/timeline:
-    get:
-      operationId: getIssueTimeline
-      summary: Get issue timeline events
-      tags: [Issues, Events]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Timeline events
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  events:
-                    type: array
-                    items: { $ref: '#/components/schemas/Event' }
-        '404': { $ref: '#/components/responses/Problem' }
-
-  /api/v1/organizations/{organizationID}/issues/{number}/subscription:
-    get:
-      operationId: getIssueSubscription
-      summary: Check if user is subscribed to issue
-      tags: [Notifications]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Subscription status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  subscribed: { type: boolean }
-        '404': { $ref: '#/components/responses/Problem' }
-    post:
-      operationId: subscribeToIssue
-      summary: Subscribe to issue notifications
-      tags: [Notifications]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Subscribed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  subscribed: { type: boolean }
-        '404': { $ref: '#/components/responses/Problem' }
-    delete:
-      operationId: unsubscribeFromIssue
-      summary: Unsubscribe from issue notifications
-      tags: [Notifications]
-      parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
-        - name: repository
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Unsubscribed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  subscribed: { type: boolean }
-        '404': { $ref: '#/components/responses/Problem' }
-
+  # ==================== Comments ====================
   /api/v1/organizations/{organizationID}/issues/{number}/comments:
     get:
       operationId: listIssueComments
-      summary: List comments on an issue
+      summary: List comments for an issue
+      security: [{ sessionCookie: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
           schema: { type: string }
       responses:
-        '200':
-          description: Comments list
+        "200":
+          description: List of comments (chronological order)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  comments:
-                    type: array
-                    items: { $ref: '#/components/schemas/Comment' }
+                type: array
+                items: { $ref: "#/components/schemas/Comment" }
+        "404": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createIssueComment
       summary: Create a comment on an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - $ref: '#/components/parameters/issueNumber'
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
         - name: repository
           in: query
           required: true
@@ -461,43 +300,43 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [body]
-              properties:
-                body: { type: string, minLength: 1, maxLength: 65536 }
+            schema: { $ref: "#/components/schemas/CommentCreate" }
       responses:
-        '201':
+        "201":
           description: Comment created
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Comment' }
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 
-  /api/v1/organizations/{organizationID}/comments/{commentID}:
+  /api/v1/organizations/{organizationID}/comments/{id}:
     get:
       operationId: getComment
-      summary: Get a comment by ID
+      summary: Get a single comment
+      security: [{ sessionCookie: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Comment details
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Comment' }
-        '404': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Comment" }
+        "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateComment
       summary: Update a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
@@ -509,35 +348,45 @@ paths:
               type: object
               required: [body]
               properties:
-                body: { type: string, minLength: 1, maxLength: 65536 }
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 65536
       responses:
-        '200':
+        "200":
           description: Comment updated
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Comment' }
+              schema: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteComment
       summary: Delete a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
       responses:
-        '204':
+        "204":
           description: Comment deleted
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 
-  /api/v1/organizations/{organizationID}/comments/{commentID}/minimize:
+  /api/v1/organizations/{organizationID}/comments/{id}/minimize:
     post:
       operationId: minimizeComment
-      summary: Minimize a comment
+      summary: Minimize (collapse) a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
@@ -553,57 +402,62 @@ paths:
                   type: string
                   enum: [spam, off-topic, outdated, resolved]
       responses:
-        '200':
+        "200":
           description: Comment minimized
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Comment' }
+              schema: { $ref: "#/components/schemas/Comment" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: unminimizeComment
       summary: Unminimize a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Comment unminimized
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Comment' }
+              schema: { $ref: "#/components/schemas/Comment" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 
-  /api/v1/organizations/{organizationID}/comments/{commentID}/reactions:
+  # ==================== Reactions ====================
+  /api/v1/organizations/{organizationID}/comments/{id}/reactions:
     get:
       operationId: listCommentReactions
-      summary: List reactions on a comment
+      summary: List reactions for a comment
+      security: [{ sessionCookie: [] }]
       tags: [Reactions]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
       responses:
-        '200':
-          description: Reactions list
+        "200":
+          description: List of reactions
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  reactions:
-                    type: array
-                    items: { $ref: '#/components/schemas/Reaction' }
+                type: array
+                items: { $ref: "#/components/schemas/Reaction" }
     post:
       operationId: addCommentReaction
       summary: Add a reaction to a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Reactions]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
@@ -617,40 +471,46 @@ paths:
               properties:
                 content:
                   type: string
-                  enum: ['+1', '-1', laugh, confused, heart, hooray, rocket, eyes]
+                  enum: ["+1", "-1", laugh, confused, heart, hooray, rocket, eyes]
       responses:
-        '201':
+        "201":
           description: Reaction added
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Reaction' }
+              schema: { $ref: "#/components/schemas/Reaction" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 
-  /api/v1/organizations/{organizationID}/comments/{commentID}/reactions/{reactionID}:
+  /api/v1/organizations/{organizationID}/comments/{id}/reactions/{reactionId}:
     delete:
       operationId: removeCommentReaction
       summary: Remove a reaction from a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Reactions]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
-        - name: commentID
+        - $ref: "#/components/parameters/organizationID"
+        - name: id
           in: path
           required: true
           schema: { type: string }
-        - name: reactionID
+        - name: reactionId
           in: path
           required: true
           schema: { type: string }
       responses:
-        '204':
+        "204":
           description: Reaction removed
+        "404": { $ref: "#/components/responses/Problem" }
 
+  # ==================== Labels ====================
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels:
     get:
       operationId: listLabels
-      summary: List labels in a repository
+      summary: List all labels for a repository
+      security: [{ sessionCookie: [] }]
       tags: [Labels]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -660,22 +520,20 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
-          description: Labels list
+        "200":
+          description: List of labels
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  labels:
-                    type: array
-                    items: { $ref: '#/components/schemas/Label' }
+                type: array
+                items: { $ref: "#/components/schemas/Label" }
     post:
       operationId: createLabel
       summary: Create a new label
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -688,21 +546,24 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateLabelRequest' }
+            schema: { $ref: "#/components/schemas/LabelCreate" }
       responses:
-        '201':
+        "201":
           description: Label created
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Label' }
+              schema: { $ref: "#/components/schemas/Label" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels/{name}:
     patch:
       operationId: updateLabel
       summary: Update a label
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -722,21 +583,22 @@ paths:
             schema:
               type: object
               properties:
-                name: { type: string, maxLength: 100 }
                 description: { type: string }
-                color: { type: string, pattern: '^[0-9a-fA-F]{6}$' }
+                color: { type: string, pattern: "^[0-9a-fA-F]{6}$" }
       responses:
-        '200':
+        "200":
           description: Label updated
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Label' }
+              schema: { $ref: "#/components/schemas/Label" }
+        "404": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteLabel
       summary: Delete a label
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -750,16 +612,150 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '204':
+        "204":
           description: Label deleted
+        "404": { $ref: "#/components/responses/Problem" }
 
+  /api/v1/organizations/{organizationID}/issues/{number}/labels:
+    post:
+      operationId: addLabelsToIssue
+      summary: Add labels to an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      tags: [Labels]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [labels]
+              properties:
+                labels:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+      responses:
+        "200":
+          description: Labels added
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Label" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/labels/{name}:
+    delete:
+      operationId: removeLabelFromIssue
+      summary: Remove a label from an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      tags: [Labels]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Label removed
+        "404": { $ref: "#/components/responses/Problem" }
+
+  # ==================== Assignees ====================
+  /api/v1/organizations/{organizationID}/issues/{number}/assignees:
+    post:
+      operationId: addAssignees
+      summary: Add assignees to an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      tags: [Assignees]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignees]
+              properties:
+                assignees:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  description: Array of user IDs
+      responses:
+        "200":
+          description: Assignees added
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+    delete:
+      operationId: removeAssignees
+      summary: Remove assignees from an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      tags: [Assignees]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignees]
+              properties:
+                assignees:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Assignees removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+
+  # ==================== Milestones ====================
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones:
     get:
       operationId: listMilestones
-      summary: List milestones in a repository
+      summary: List milestones for a repository
+      security: [{ sessionCookie: [] }]
       tags: [Milestones]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -770,24 +766,22 @@ paths:
           schema: { type: string }
         - name: state
           in: query
-          schema: { type: string, enum: [open, closed] }
+          schema: { type: string, enum: [open, closed, all], default: open }
       responses:
-        '200':
-          description: Milestones list
+        "200":
+          description: List of milestones
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  milestones:
-                    type: array
-                    items: { $ref: '#/components/schemas/Milestone' }
+                type: array
+                items: { $ref: "#/components/schemas/Milestone" }
     post:
       operationId: createMilestone
       summary: Create a new milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Milestones]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -800,21 +794,22 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateMilestoneRequest' }
+            schema: { $ref: "#/components/schemas/MilestoneCreate" }
       responses:
-        '201':
+        "201":
           description: Milestone created
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Milestone' }
+              schema: { $ref: "#/components/schemas/Milestone" }
 
-  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{milestoneID}:
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{id}:
     get:
       operationId: getMilestone
-      summary: Get a milestone by ID
+      summary: Get a milestone
+      security: [{ sessionCookie: [] }]
       tags: [Milestones]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -823,23 +818,24 @@ paths:
           in: path
           required: true
           schema: { type: string }
-        - name: milestoneID
+        - name: id
           in: path
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Milestone details
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Milestone' }
-        '404': { $ref: '#/components/responses/Problem' }
+              schema: { $ref: "#/components/schemas/Milestone" }
+        "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateMilestone
       summary: Update a milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Milestones]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -848,7 +844,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
-        - name: milestoneID
+        - name: id
           in: path
           required: true
           schema: { type: string }
@@ -864,17 +860,18 @@ paths:
                 due_on: { type: string, format: date-time }
                 state: { type: string, enum: [open, closed] }
       responses:
-        '200':
+        "200":
           description: Milestone updated
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Milestone' }
+              schema: { $ref: "#/components/schemas/Milestone" }
     delete:
       operationId: deleteMilestone
       summary: Delete a milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Milestones]
       parameters:
-        - $ref: '#/components/parameters/organizationID'
+        - $ref: "#/components/parameters/organizationID"
         - name: owner
           in: path
           required: true
@@ -883,90 +880,58 @@ paths:
           in: path
           required: true
           schema: { type: string }
-        - name: milestoneID
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        '204':
-          description: Milestone deleted
-
-  /api/v1/notifications:
-    get:
-      operationId: listNotifications
-      summary: List user's notifications
-      tags: [Notifications]
-      parameters:
-        - name: unread
-          in: query
-          schema: { type: boolean }
-          description: Filter to only unread notifications
-        - name: limit
-          in: query
-          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
-        - name: offset
-          in: query
-          schema: { type: integer, minimum: 0, default: 0 }
-      responses:
-        '200':
-          description: Notifications list
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/NotificationListResponse' }
-        '503': { $ref: '#/components/responses/Problem' }
-
-  /api/v1/notifications/{id}/read:
-    patch:
-      operationId: markNotificationAsRead
-      summary: Mark a notification as read
-      tags: [Notifications]
-      parameters:
         - name: id
           in: path
           required: true
           schema: { type: string }
       responses:
-        '200':
-          description: Notification marked as read
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-        '404': { $ref: '#/components/responses/Problem' }
+        "204":
+          description: Milestone deleted
+        "404": { $ref: "#/components/responses/Problem" }
 
-  /api/v1/notifications/read-all:
-    post:
-      operationId: markAllNotificationsAsRead
-      summary: Mark all notifications as read
-      tags: [Notifications]
+  # ==================== Timeline ====================
+  /api/v1/organizations/{organizationID}/issues/{number}/timeline:
+    get:
+      operationId: getIssueTimeline
+      summary: Get timeline events for an issue
+      security: [{ sessionCookie: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          description: Maximum events to return
+          schema: { type: integer, minimum: 1, maximum: 300, default: 100 }
       responses:
-        '200':
-          description: All notifications marked as read
+        "200":
+          description: Timeline events
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
+                type: array
+                items: { $ref: "#/components/schemas/IssueEvent" }
 
+# ==================== Components ====================
 components:
   parameters:
     organizationID:
       name: organizationID
       in: path
       required: true
+      description: Organization slug or ID
       schema: { type: string }
-    issueNumber:
-      name: number
-      in: path
-      required: true
-      schema: { type: integer, minimum: 1 }
 
   responses:
     Problem:
-      description: RFC 7807 Problem Details
+      description: RFC 9457 Problem response
       content:
         application/json:
           schema:
@@ -979,102 +944,207 @@ components:
               detail: { type: string }
 
   schemas:
+    # ==================== Issue Schemas ====================
     Issue:
       type: object
-      required: [id, repository, number, title, body, state, created_by, created_at, updated_at]
+      required: [id, number, repository, title, body, state, created_by, created_at, updated_at, comments]
       properties:
         id: { type: string }
-        repository: { type: string }
-        number: { type: integer }
-        title: { type: string, maxLength: 500 }
-        body: { type: string }
-        state: { type: string, enum: [open, closed] }
-        state_reason: { type: string, enum: [completed, not_planned, duplicate], nullable: true }
-        milestone_id: { type: string, nullable: true }
-        locked: { type: boolean }
-        lock_reason: { type: string, enum: [off-topic, too heated, resolved, spam], nullable: true }
-        comments_count: { type: integer }
+        number:
+          type: integer
+          minimum: 1
+          description: Sequential number within repository (#1, #2, #3, ...)
+        repository:
+          type: string
+          description: Repository slug (e.g., "owner/repo")
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+        body:
+          type: string
+          maxLength: 65536
+          description: Markdown content
+        state:
+          type: string
+          enum: [open, closed]
+        state_reason:
+          type: string
+          enum: [completed, not_planned, duplicate]
+          description: Reason for closure (only when state=closed)
+        milestone_id:
+          type: string
+          description: Associated milestone ID
+        locked:
+          type: boolean
+          description: Whether the issue is locked
+        comments:
+          type: integer
+          minimum: 0
+          description: Number of comments
+        labels:
+          type: array
+          items: { $ref: "#/components/schemas/Label" }
+        assignees:
+          type: array
+          items:
+            type: object
+            required: [user_id]
+            properties:
+              user_id: { type: string }
         created_by: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-        closed_at: { type: string, format: date-time, nullable: true }
-        closed_by: { type: string, nullable: true }
+        closed_at: { type: string, format: date-time }
+        closed_by: { type: string }
 
-    CreateIssueRequest:
+    IssueCreate:
       type: object
-      required: [repository, title]
+      required: [repository, title, body]
       properties:
-        repository: { type: string }
-        title: { type: string, maxLength: 500 }
-        body: { type: string }
+        repository:
+          type: string
+          description: Repository slug (e.g., "owner/repo")
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+        body:
+          type: string
+          maxLength: 65536
+        assignees:
+          type: array
+          items: { type: string }
+          description: User IDs to assign
+        labels:
+          type: array
+          items: { type: string }
+          description: Label names to add
 
-    UpdateIssueRequest:
+    IssueUpdate:
       type: object
       properties:
-        title: { type: string, maxLength: 500 }
-        body: { type: string }
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+        body:
+          type: string
+          maxLength: 65536
+        milestone_id:
+          type: string
+          description: Set to empty string to clear milestone
 
-    IssueListResponse:
+    IssuePage:
       type: object
       required: [items, total, limit, offset]
       properties:
         items:
           type: array
-          items: { $ref: '#/components/schemas/Issue' }
-        total: { type: integer }
+          items: { $ref: "#/components/schemas/Issue" }
+        total:
+          type: integer
+          minimum: 0
+          description: Total matching issues
         limit: { type: integer }
         offset: { type: integer }
 
+    # ==================== Comment Schemas ====================
     Comment:
       type: object
       required: [id, resource_type, resource_id, body, author_id, created_at, updated_at]
       properties:
         id: { type: string }
-        resource_type: { type: string, enum: [issue, changeset] }
+        resource_type:
+          type: string
+          enum: [issue, changeset]
         resource_id: { type: string }
-        body: { type: string, maxLength: 65536 }
+        body:
+          type: string
+          minLength: 1
+          maxLength: 65536
         author_id: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-        edited_at: { type: string, format: date-time, nullable: true }
+        edited_at: { type: string, format: date-time }
         minimized: { type: boolean }
-        minimized_reason: { type: string, enum: [spam, off-topic, outdated, resolved], nullable: true }
+        minimized_reason:
+          type: string
+          enum: [spam, off-topic, outdated, resolved]
+        reactions:
+          type: array
+          items: { $ref: "#/components/schemas/Reaction" }
 
-    Label:
+    CommentCreate:
       type: object
-      required: [id, repository, name, description, color, created_at, updated_at]
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 65536
+
+    # ==================== Reaction Schema ====================
+    Reaction:
+      type: object
+      required: [id, content, user_id, created_at]
       properties:
         id: { type: string }
-        repository: { type: string }
-        name: { type: string, maxLength: 100 }
+        content:
+          type: string
+          enum: ["+1", "-1", laugh, confused, heart, hooray, rocket, eyes]
+          description: GitHub-compatible emoji
+        user_id: { type: string }
+        created_at: { type: string, format: date-time }
+
+    # ==================== Label Schema ====================
+    Label:
+      type: object
+      required: [id, name, description, color, created_at]
+      properties:
+        id: { type: string }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
         description: { type: string }
-        color: { type: string, pattern: '^[0-9a-fA-F]{6}$' }
+        color:
+          type: string
+          pattern: "^[0-9a-fA-F]{6}$"
+          description: Hex color without # (e.g., "d73a4a")
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
-    CreateLabelRequest:
+    LabelCreate:
       type: object
       required: [name, color]
       properties:
-        name: { type: string, maxLength: 100 }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
         description: { type: string }
-        color: { type: string, pattern: '^[0-9a-fA-F]{6}$' }
+        color:
+          type: string
+          pattern: "^[0-9a-fA-F]{6}$"
 
+    # ==================== Milestone Schema ====================
     Milestone:
       type: object
-      required: [id, repository, title, description, state, created_at, updated_at]
+      required: [id, title, description, state, created_at, updated_at]
       properties:
         id: { type: string }
-        repository: { type: string }
         title: { type: string }
         description: { type: string }
-        due_on: { type: string, format: date-time, nullable: true }
+        due_on: { type: string, format: date-time }
         state: { type: string, enum: [open, closed] }
+        open_issues: { type: integer, minimum: 0 }
+        closed_issues: { type: integer, minimum: 0 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-        closed_at: { type: string, format: date-time, nullable: true }
+        closed_at: { type: string, format: date-time }
 
-    CreateMilestoneRequest:
+    MilestoneCreate:
       type: object
       required: [title]
       properties:
@@ -1082,73 +1152,15 @@ components:
         description: { type: string }
         due_on: { type: string, format: date-time }
 
-    Reaction:
+    # ==================== Event Schema ====================
+    IssueEvent:
       type: object
-      required: [id, reactable_type, reactable_id, user_id, content, created_at]
+      required: [id, event_type, created_at]
       properties:
         id: { type: string }
-        reactable_type: { type: string, enum: [issue, comment] }
-        reactable_id: { type: string }
-        user_id: { type: string }
-        content: { type: string, enum: ['+1', '-1', laugh, confused, heart, hooray, rocket, eyes] }
-        created_at: { type: string, format: date-time }
-
-    Event:
-      type: object
-      required: [id, issue_id, event_type, created_at]
-      properties:
-        id: { type: string }
-        issue_id: { type: string }
         event_type:
           type: string
-          enum:
-            - created
-            - closed
-            - reopened
-            - labeled
-            - unlabeled
-            - assigned
-            - unassigned
-            - milestoned
-            - demilestoned
-            - renamed
-            - edited
-            - locked
-            - unlocked
-            - linked_changeset
-            - unlinked_changeset
-            - commented
-            - mentioned
-            - referenced
-        actor_id: { type: string, nullable: true }
+          enum: [created, closed, reopened, labeled, unlabeled, assigned, unassigned, milestoned, demilestoned, renamed, edited, locked, unlocked, linked_changeset, unlinked_changeset, commented, mentioned, referenced]
+        actor_id: { type: string }
         metadata: { type: object }
         created_at: { type: string, format: date-time }
-
-    Notification:
-      type: object
-      required: [id, user_id, type, reason, issue_id, repository, issue_number, issue_title, unread, created_at]
-      properties:
-        id: { type: string }
-        user_id: { type: string }
-        type: { type: string, enum: [comment, mention, state_change, assigned] }
-        reason: { type: string, enum: [subscribed, mentioned, author, assigned, comment] }
-        issue_id: { type: string }
-        repository: { type: string }
-        issue_number: { type: integer }
-        issue_title: { type: string }
-        comment_id: { type: string, nullable: true }
-        actor_id: { type: string, nullable: true }
-        unread: { type: boolean }
-        created_at: { type: string, format: date-time }
-        read_at: { type: string, format: date-time, nullable: true }
-
-    NotificationListResponse:
-      type: object
-      required: [items, total, limit, offset]
-      properties:
-        items:
-          type: array
-          items: { $ref: '#/components/schemas/Notification' }
-        total: { type: integer }
-        limit: { type: integer }
-        offset: { type: integer }

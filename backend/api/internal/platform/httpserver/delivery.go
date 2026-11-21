@@ -176,8 +176,9 @@ type changesetListResponse struct {
 }
 
 type createChangesetRequest struct {
-	Repository string `json:"repository"`
-	Title      string `json:"title"`
+	Repository   string  `json:"repository"`
+	Title        string  `json:"title"`
+	SourceBranch *string `json:"source_branch,omitempty"`
 }
 
 type problemResponse struct {
@@ -297,6 +298,11 @@ func (d DeliveryDependencies) listRepositories(w http.ResponseWriter, r *http.Re
 	items, err := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
 	if err != nil {
 		writeProblem(w, 500, "Unable to list repositories", "The repository catalog query failed")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	if r.URL.Query().Get("details") == "1" {
+		writeJSON(w, 200, map[string]any{"items": d.repositorySummaries(r.Context(), principal.OrganizationID, items)})
 		return
 	}
 	writeJSON(w, 200, map[string]any{"items": items})
@@ -434,6 +440,30 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 		writeProblem(w, http.StatusBadRequest, "Invalid changeset", err.Error())
 		return
 	}
+
+	// When source_branch is provided, atomically save the initial revision
+	if input.SourceBranch != nil && strings.TrimSpace(*input.SourceBranch) != "" {
+		if d.Git == nil {
+			writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted Git provider before creating changesets with source branches")
+			return
+		}
+		sourceBranch := strings.TrimSpace(*input.SourceBranch)
+		revision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, changeset.Repository, sourceBranch)
+		if err != nil {
+			writeProblem(w, http.StatusUnprocessableEntity, "Source branch unavailable", "The source branch could not be resolved in the configured repository")
+			return
+		}
+		revisionID, err := newID()
+		if err != nil {
+			writeProblem(w, http.StatusInternalServerError, "Unable to create revision", "An identifier could not be generated")
+			return
+		}
+		if err = changeset.AddGitRevision(delivery.ID(revisionID), revision.Ref, revision.CommitSHA, revision.ParentSHA, principal.UserID, time.Now().UTC()); err != nil {
+			writeDeliveryError(w, err)
+			return
+		}
+	}
+
 	stored, err := d.Repository.Create(r.Context(), principal.OrganizationID, changeset)
 	if errors.Is(err, delivery.ErrVersionConflict) {
 		writeProblem(w, http.StatusConflict, "Changeset conflict", "A changeset with this identifier already exists in this organization")
