@@ -45,6 +45,9 @@ func TestStorageConfiguration(t *testing.T) {
 func TestMinIOPipelineObjects(t *testing.T) {
 	bin := os.Getenv("TEST_MINIO_BINARY")
 	if bin == "" {
+		if os.Getenv("CI") == "true" {
+			t.Fatal("TEST_MINIO_BINARY is required in CI")
+		}
 		t.Skip("set TEST_MINIO_BINARY to a MinIO server executable")
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)

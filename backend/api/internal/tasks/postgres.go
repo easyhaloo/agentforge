@@ -86,7 +86,7 @@ func (s *PostgresStore) GetExecution(ctx context.Context, organizationID, execut
 	return exec, nil
 }
 
-// CancelExecution marks an execution and its pending tasks as cancelled.
+// CancelExecution marks an execution and its active tasks as cancelled.
 func (s *PostgresStore) CancelExecution(ctx context.Context, organizationID, executionID, actor string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -94,7 +94,17 @@ func (s *PostgresStore) CancelExecution(ctx context.Context, organizationID, exe
 	}
 	defer tx.Rollback(ctx)
 
-	// Update execution status
+	// Lock tasks before the execution, as claim and completion do. If the
+	// execution cannot be cancelled, the transaction rolls back these updates.
+	_, err = tx.Exec(ctx, `
+		UPDATE tasks
+		SET status = 'cancelled', completed_at = now(), worker_id = NULL, lease_until = NULL
+		WHERE organization_id = $1 AND execution_id = $2 AND status IN ('queued', 'leased', 'running')
+	`, organizationID, executionID)
+	if err != nil {
+		return fmt.Errorf("cancel tasks: %w", err)
+	}
+
 	tag, err := tx.Exec(ctx, `
 		UPDATE executions
 		SET status = 'cancelled', completed_at = now(), version = version + 1
@@ -103,19 +113,8 @@ func (s *PostgresStore) CancelExecution(ctx context.Context, organizationID, exe
 	if err != nil {
 		return fmt.Errorf("cancel execution: %w", err)
 	}
-
 	if tag.RowsAffected() == 0 {
 		return ErrExecutionNotFound
-	}
-
-	// Cancel all pending tasks
-	_, err = tx.Exec(ctx, `
-		UPDATE tasks
-		SET status = 'cancelled', completed_at = now()
-		WHERE execution_id = $1 AND status IN ('queued', 'leased')
-	`, executionID)
-	if err != nil {
-		return fmt.Errorf("cancel tasks: %w", err)
 	}
 
 	// Record cancellation event
@@ -341,7 +340,7 @@ func (s *PostgresStore) RenewLease(ctx context.Context, taskID, workerID string,
 		SET lease_until = $1
 		WHERE id = $2
 		  AND worker_id = $3
-		  AND status = 'leased'
+		  AND status IN ('leased', 'running')
 		  AND lease_until > now()
 	`, newLeaseUntil, taskID, workerID)
 	if err != nil {
@@ -363,20 +362,6 @@ func (s *PostgresStore) UpdateTaskStatus(ctx context.Context, taskID, workerID s
 	}
 	defer tx.Rollback(ctx)
 
-	// Verify the worker owns the lease (for non-cancelled updates)
-	if status != TaskCancelled {
-		var currentWorker *string
-		err = tx.QueryRow(ctx, `
-			SELECT worker_id FROM tasks WHERE id = $1 FOR UPDATE
-		`, taskID).Scan(&currentWorker)
-		if err != nil {
-			return fmt.Errorf("lock task: %w", err)
-		}
-		if currentWorker == nil || *currentWorker != workerID {
-			return ErrLeaseExpired
-		}
-	}
-
 	// Update task status
 	query := `
 		UPDATE tasks
@@ -386,8 +371,11 @@ func (s *PostgresStore) UpdateTaskStatus(ctx context.Context, taskID, workerID s
 		    completed_at = CASE WHEN $1 IN ('completed', 'failed', 'cancelled', 'timed_out')
 		                        THEN now() ELSE completed_at END,
 		    started_at = CASE WHEN $1 = 'running' AND started_at IS NULL
-		                      THEN now() ELSE started_at END
-		WHERE id = $4
+		                      THEN now() ELSE started_at END,
+		    worker_id = CASE WHEN $1 IN ('leased', 'running') THEN worker_id END,
+		    lease_until = CASE WHEN $1 IN ('leased', 'running') THEN lease_until END
+		WHERE id = $4 AND worker_id = $5 AND lease_until > now()
+		  AND status IN ('leased', 'running')
 	`
 
 	var resultVal, errorVal interface{}
@@ -398,9 +386,13 @@ func (s *PostgresStore) UpdateTaskStatus(ctx context.Context, taskID, workerID s
 		errorVal = errorMsg
 	}
 
-	_, err = tx.Exec(ctx, query, status, resultVal, errorVal, taskID)
+	tag, err := tx.Exec(ctx, query, status, resultVal, errorVal, taskID, workerID)
 	if err != nil {
 		return fmt.Errorf("update task status: %w", err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return ErrLeaseExpired
 	}
 
 	// If task completed or failed, check if execution should be updated
@@ -434,13 +426,17 @@ func (s *PostgresStore) UpdateTaskStatus(ctx context.Context, taskID, workerID s
 				execStatus = string(ExecutionCompleted)
 			}
 
-			_, err = tx.Exec(ctx, `
+			tag, err := tx.Exec(ctx, `
 				UPDATE executions
 				SET status = $1, completed_at = now(), version = version + 1
-				WHERE id = $2
+				WHERE id = $2 AND status = 'running'
 			`, execStatus, executionID)
 			if err != nil {
 				return fmt.Errorf("update execution status: %w", err)
+			}
+
+			if tag.RowsAffected() == 0 {
+				return tx.Commit(ctx)
 			}
 
 			// Record completion event
@@ -565,7 +561,7 @@ func (s *PostgresStore) ReclaimExpiredLeases(ctx context.Context) (int, error) {
 		SET status = 'queued',
 		    worker_id = NULL,
 		    lease_until = NULL
-		WHERE status = 'leased'
+		WHERE status IN ('leased', 'running')
 		  AND lease_until <= now()
 		  AND attempt < max_attempts
 	`)

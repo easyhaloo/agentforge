@@ -13,8 +13,6 @@ import (
 )
 
 func TestPostgresCurrentAccountListsOnlyActiveOrganizations(t *testing.T) {
-	t.Skip("Temporarily skipping due to pg_type_typname_nsp_index conflict in concurrent test execution. This is unrelated to Issue Tracking and will be fixed in a separate PR.")
-
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("DATABASE_URL is not configured")
@@ -30,12 +28,13 @@ func TestPostgresCurrentAccountListsOnlyActiveOrganizations(t *testing.T) {
 	user := "account-user-" + suffix
 	orgA := "account-org-a-" + suffix
 	orgB := "account-org-b-" + suffix
+	email := user + "@example.test"
 	for _, org := range []string{orgA, orgB} {
 		if _, err := store.pool.Exec(ctx, "INSERT INTO organizations(id,name) VALUES($1,$1)", org); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := store.pool.Exec(ctx, "INSERT INTO users(id,display_name,email) VALUES($1,'Account User',$2)", user, "account@example.test"); err != nil {
+	if _, err := store.pool.Exec(ctx, "INSERT INTO users(id,display_name,email) VALUES($1,'Account User',$2)", user, email); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.pool.Exec(ctx, "INSERT INTO organization_memberships(organization_id,user_id,role,status) VALUES($1,$2,'owner','active'),($3,$2,'viewer','suspended')", orgA, user, orgB); err != nil {
@@ -56,7 +55,7 @@ func TestPostgresCurrentAccountListsOnlyActiveOrganizations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if account.UserID != user || account.DisplayName != "Account User" || account.Email != "account@example.test" {
+	if account.UserID != user || account.DisplayName != "Account User" || account.Email != email {
 		t.Fatalf("account=%#v", account)
 	}
 	if len(account.Organizations) != 1 || account.Organizations[0].ID != orgA || account.Organizations[0].Role != "owner" {

@@ -82,7 +82,7 @@
 - `styles/index.css` 的 `.button` 仍用于登录导航链接等非按钮语义元素；`.nav-item`、`.profile`、`.searchbox` 等类名用于业务布局和共享 Button 的页面级视觉，不应仅因类名存在就盲目删除。
 - 共享 UI 除 React 服务端静态渲染和纯逻辑单元测试外，已新增 Playwright Chromium 浏览器测试基线，覆盖 Modal、Drawer、Popover、Tabs 和 CommandPalette。测试 harness 不依赖真实后端或凭证；业务流程和移动端完整回归仍待扩展。
 - Popover 当前支持 Tab 自然焦点顺序，不承诺完整的菜单式方向键导航。
-- Cloudflare Workers Builds 是仓库外部集成检查，不等同于 `.github/workflows/ci.yml` 的 `ci-gate`；不得为通过外部生产部署检查而重新引入 Cloudflare 生产部署验证流水线。
+- Cloudflare Workers Builds 是仓库外部集成检查，不等同于 `.github/workflows/ci.yml` 的 `web` 检查；不得为通过外部生产部署检查而重新引入 Cloudflare 生产部署验证流水线。
 
 ## 8. 进度记录
 
