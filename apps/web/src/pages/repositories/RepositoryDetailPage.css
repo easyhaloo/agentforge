@@ -115,7 +115,6 @@
  * The nav items of this page are shared buttons: the box of the shared button is neutralized
  * here, so the items keep the look of the page.
  */
-.repository-detail-page .af-button.issues-nav-item,
 .repository-detail-page .af-button.members-filter-item,
 .repository-detail-page .af-button.filter-option,
 .repository-detail-page .af-button.wiki-nav-item {
@@ -259,28 +258,13 @@
   gap: 4px;
 }
 
-.issues-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--color-fg-default, #1f2328);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.15s;
-  text-align: left;
-  width: 100%;
+.issues-nav .issues-nav-item {
+  justify-content: flex-start;
 }
 
-.issues-nav-item:hover {
-  background: var(--color-canvas-subtle, #f6f8fa);
-}
-
-.issues-nav-item.active {
-  background: var(--color-accent-subtle, #ddf4ff);
+.issues-nav .issues-nav-item[aria-pressed="true"] {
+  background: var(--af-color-primary-subtle);
+  color: var(--af-color-primary);
   font-weight: 600;
 }
 

@@ -87,8 +87,11 @@
 .repo-catalog-views strong, .repo-catalog-views p { color: var(--af-color-text-secondary); font-size: 13px; }
 .repo-catalog-views p { margin: 6px 12px; }
 .repo-catalog-views ul { list-style: none; margin: 0; padding: 0; }
-.repo-catalog-views li { gap: 0; }
-.repo-catalog-views li .af-button:first-child { flex: 1; min-width: 0; justify-content: flex-start; overflow-wrap: anywhere; }
+.repo-catalog-views li { gap: 0; align-items: stretch; }
+.repo-catalog-views li .af-button,
+.repo-catalog-views li .af-button:hover { border: 0; padding: 4px 8px; background: transparent; }
+.repo-catalog-views li .af-button:first-child { flex: 1; min-width: 0; justify-content: flex-start; color: var(--af-color-text); overflow-wrap: anywhere; }
+.repo-catalog-views li .af-button:last-child { min-width: 32px; color: var(--af-color-text-secondary); }
 .repo-catalog-views li .af-button[aria-pressed="true"] { color: var(--af-color-primary); }
 .repo-catalog { gap: 16px; }
 .repo-catalog .collection-heading { padding: 0; border: 0; }
