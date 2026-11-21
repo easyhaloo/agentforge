@@ -25,6 +25,7 @@ func TestLabelRepository_Create(t *testing.T) {
 
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-001"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/test-repo"
 
 	label := &labels.Label{
@@ -70,6 +71,7 @@ func TestLabelRepository_CreateValidatesColor(t *testing.T) {
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-002"
 
+	ensureIssueTestFixtures(t, store, orgID)
 	tests := []struct {
 		name      string
 		color     string
@@ -123,6 +125,7 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-003"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoA := "owner/repo-a"
 	repoB := "owner/repo-b"
 
@@ -186,6 +189,7 @@ func TestLabelRepository_Get(t *testing.T) {
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-004"
 
+	ensureIssueTestFixtures(t, store, orgID)
 	label := &labels.Label{
 		ID:          labels.ID("label-get-001"),
 		Repository:  "owner/get-test",
@@ -236,6 +240,7 @@ func TestLabelRepository_List(t *testing.T) {
 
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-005"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/list-test"
 
 	// Create multiple labels
@@ -282,6 +287,7 @@ func TestLabelRepository_Update(t *testing.T) {
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-006"
 
+	ensureIssueTestFixtures(t, store, orgID)
 	label := &labels.Label{
 		ID:          labels.ID("label-update-001"),
 		Repository:  "owner/update-test",
@@ -336,6 +342,7 @@ func TestLabelRepository_Delete(t *testing.T) {
 	repo := NewLabelRepository(store)
 	orgID := "test-org-labels-007"
 
+	ensureIssueTestFixtures(t, store, orgID)
 	label := &labels.Label{
 		ID:         labels.ID("label-delete-001"),
 		Repository: "owner/delete-test",
@@ -378,6 +385,7 @@ func TestLabelRepository_AddLabelToIssue(t *testing.T) {
 
 	labelRepo := NewLabelRepository(store)
 	orgID := "test-org-labels-008"
+	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-label-001"
 
 	label := &labels.Label{
@@ -430,6 +438,7 @@ func TestLabelRepository_AddMultipleLabelsToIssue(t *testing.T) {
 
 	labelRepo := NewLabelRepository(store)
 	orgID := "test-org-labels-009"
+	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-multi-label-001"
 
 	// Create multiple labels
@@ -479,6 +488,7 @@ func TestLabelRepository_RemoveLabelFromIssue(t *testing.T) {
 
 	labelRepo := NewLabelRepository(store)
 	orgID := "test-org-labels-010"
+	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-remove-label-001"
 
 	label := &labels.Label{
