@@ -7,6 +7,7 @@ import { translateError } from "../../shared/api/errors";
 import { formatDateTime } from "../../shared/i18n/format";
 import { organizationHandle, pipelineRunPath, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Button, Select } from "../../shared/ui";
+import { RepositoryIssues } from "./RepositoryIssues";
 import "./repositories.css";
 
 export function canManageRepository(organization: OrganizationSummary) {
@@ -15,19 +16,21 @@ export function canManageRepository(organization: OrganizationSummary) {
 
 type Props = { organization: OrganizationSummary; repository: string; section: RepositorySection };
 
-export function RepositorySectionPage({ organization, repository, section }: Props) {
+export function RepositorySectionPage({ organization, repository, section, userId, displayName }: Props & { userId: string; displayName: string }) {
   const { t } = useTranslation("repositories");
   const props = { organization, repository, section };
   return <section className="repo-layout repo-browser">
     <header className="repo-masthead">
-      <div className="repo-browser-heading"><h1>{repository}</h1></div>
+      <div className="repo-browser-heading"><h1>{repository}</h1>
+        {section === "issues" && <Link className="repo-back" to={repositoryPath(organizationHandle(organization), repository)}>{t("issues.code")}</Link>}
+      </div>
     </header>
-    <div className="repo-panel repo-section-content">
+    {section === "issues" ? <RepositoryIssues organization={organization} repository={repository} userId={userId} displayName={displayName}/>: <div className="repo-panel repo-section-content">
       <h2>{t(`sections.${section}`)}</h2>
       {section === "actions" ? <RepositoryActions {...props}/>
         : section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
         : <RepositoryBranches {...props}/>}
-    </div>
+    </div>}
   </section>;
 }
 

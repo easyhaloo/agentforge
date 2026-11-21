@@ -117,14 +117,14 @@ export function RepositoriesRoute() {
 }
 
 export function RepositoryDetailRoute({ section }: { section?: RepositorySection }) {
-  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const { owner, repo, repositorySlug } = useParams();
   const notify = useNotify();
   if (repositorySlug) {
-    return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
+    return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} userId={account.user_id} displayName={account.display_name} />;
   }
   const repository = `${owner}/${repo}`;
-  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section}/>;
+  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} userId={account.user_id} displayName={account.display_name}/>;
   return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
 }
 

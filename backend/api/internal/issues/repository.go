@@ -14,13 +14,19 @@ type Repository interface {
 	Get(ctx context.Context, organizationID, repository string, number int) (*Issue, error)
 
 	// List retrieves issues with filtering, pagination, and sorting
-	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]*Issue, int, error)
+	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]*Issue, ListCounts, error)
 
-	// Update updates an existing issue (title, body, state, etc.)
+	// FilterOptions lists the distinct filter values used by issues in a repository.
+	FilterOptions(ctx context.Context, organizationID, repository string) (FilterOptions, error)
+
+	// Update updates an existing issue title and body.
 	Update(ctx context.Context, organizationID string, issue *Issue) (*Issue, error)
 
 	// Close closes an issue with a specific reason
 	Close(ctx context.Context, organizationID string, issueID ID, reason StateReason, closedBy string, closedAt time.Time) (*Issue, error)
+
+	// Reopen clears the closure metadata and returns the open issue.
+	Reopen(ctx context.Context, organizationID string, issueID ID, updatedAt time.Time) (*Issue, error)
 
 	// AddAssignee assigns a user to an issue (idempotent)
 	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error

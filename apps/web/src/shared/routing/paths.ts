@@ -28,7 +28,7 @@ export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
-export const repositorySections = ["branches", "actions", "settings"] as const;
+export const repositorySections = ["branches", "issues", "actions", "settings"] as const;
 export type RepositorySection = typeof repositorySections[number];
 
 export function repositoryPath(handle: string, slug: string, section?: RepositorySection): string {

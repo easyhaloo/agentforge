@@ -4,6 +4,7 @@ import { userEvent } from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import type { OrganizationSummary, RepositoryPreviewTree, RepositoryPreviewBlob } from "../../shared/api/identity";
 import { repositoryPreviewAPI } from "../../shared/api/identity";
+import { issuesAPI, type Issue } from "../../shared/api/issues";
 import { RepositoryDetailPage } from "./RepositoryDetailPage";
 import i18n from "../../locales";
 
@@ -17,6 +18,8 @@ vi.mock("../../shared/api/identity", async () => {
     },
   };
 });
+
+vi.mock("../../shared/api/issues", () => ({ issuesAPI: { list: vi.fn() } }));
 
 const mockOrganization: OrganizationSummary = {
   id: "org-test",
@@ -323,6 +326,27 @@ describe("RepositoryDetailPage - Wiki Tab", () => {
 });
 
 describe("RepositoryDetailPage - Issues Tab", () => {
+  const date = "2024-01-15T10:30:00Z";
+  const fixtureIssue = (number: number, title: string, fields: Partial<Issue> = {}): Issue => ({
+    id: `issue-${number}`, number, title, repository: "testorg/testrepo", body: "", state: "open",
+    locked: false, comments: 0, labels: [], assignees: [], created_by: "alice", created_at: date, updated_at: date, ...fields,
+  });
+  const openIssues = [
+    fixtureIssue(1, "Add support for custom authentication providers"),
+    fixtureIssue(2, "Fix memory leak in agent executor", { created_by: "bob" }),
+    fixtureIssue(3, "Add dark mode support to UI"),
+    fixtureIssue(4, "Rate limiting not working for API endpoints", { created_by: "bob" }),
+    fixtureIssue(5, "Implement webhook retry mechanism"),
+  ];
+  const closedIssues = [
+    fixtureIssue(6, "Improve documentation for pipeline API", { state: "closed" }),
+    fixtureIssue(7, "Update dependencies", { state: "closed" }),
+    fixtureIssue(8, "Fix database migration", { state: "closed" }),
+  ];
+  const page = (items: Issue[], total = items.length, offset = 0) => ({
+    items, total, open_total: 5, closed_total: 3, limit: 20, offset,
+    filter_options: { authors: ["alice", "bob"], labels: ["bug"], assignees: ["alice"], milestones: [] },
+  });
   beforeAll(async () => {
     await i18n.changeLanguage("en-US");
   });
@@ -330,11 +354,19 @@ describe("RepositoryDetailPage - Issues Tab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(repositoryPreviewAPI.tree).mockResolvedValue(mockTreeResponse);
+    vi.mocked(issuesAPI.list).mockReset().mockImplementation(async (_, params) => {
+      if (params?.state === "closed") return page(closedIssues);
+      if (params?.assignee === "alice" || params?.q === "memory leak") return page([openIssues[1]]);
+      if (params?.created_by === "alice") return page([openIssues[0], openIssues[2]]);
+      if (params?.created_by === "bob" || params?.labels === "bug") return page([openIssues[1], openIssues[3]]);
+      if (params?.sort === "created" && params.direction === "desc") return page([openIssues[1], openIssues[0]]);
+      return page(openIssues);
+    });
   });
 
   it("switches to Issues tab when clicked", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     await waitFor(() => {
       expect(screen.getByText("Files")).toBeInTheDocument();
@@ -352,7 +384,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("displays issue list with correct columns", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -372,7 +404,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("filters issues by status when sidebar filter is clicked", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -392,7 +424,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("filters issues assigned to current user", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -405,13 +437,15 @@ describe("RepositoryDetailPage - Issues Tab", () => {
     await user.click(assignedButton!);
 
     await waitFor(() => {
+      expect(issuesAPI.list).toHaveBeenLastCalledWith("org-test", expect.objectContaining({ assignee: "alice" }), expect.any(AbortSignal));
       expect(screen.getByText("Fix memory leak in agent executor")).toBeInTheDocument();
+      expect(screen.queryByText("Add support for custom authentication providers")).not.toBeInTheDocument();
     });
   });
 
   it("filters issues created by current user", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -425,13 +459,15 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Add support for custom authentication providers")).toBeInTheDocument();
+      expect(issuesAPI.list).toHaveBeenLastCalledWith("org-test", expect.objectContaining({ created_by: "alice" }), expect.any(AbortSignal));
       expect(screen.getByText("Add dark mode support to UI")).toBeInTheDocument();
+      expect(screen.queryByText("Fix memory leak in agent executor")).not.toBeInTheDocument();
     });
   });
 
   it("searches issues by title", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -451,7 +487,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("filters issues by author", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -474,7 +510,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("filters issues by label", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -497,7 +533,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("displays issue counts in sidebar", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -513,7 +549,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("displays total and filtered issue counts in footer", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -532,7 +568,7 @@ describe("RepositoryDetailPage - Issues Tab", () => {
 
   it("sorts issues by newest", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);
@@ -553,9 +589,26 @@ describe("RepositoryDetailPage - Issues Tab", () => {
     });
   });
 
+  it("retries a failed request and resets the page when filters change", async () => {
+    const user = userEvent.setup();
+    vi.mocked(issuesAPI.list)
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValueOnce(page(openIssues, 21))
+      .mockResolvedValueOnce(page([openIssues[4]], 21, 20));
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
+    await user.click(screen.getByRole("tab", { name: "Issues" }));
+    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    await user.click(await screen.findByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("button", { name: "Previous" })).toBeEnabled();
+    expect(issuesAPI.list).toHaveBeenLastCalledWith("org-test", expect.objectContaining({ offset: 20 }), expect.any(AbortSignal));
+    await user.click(screen.getByRole("button", { name: /Closed issues/ }));
+    expect(await screen.findByText("Improve documentation for pipeline API")).toBeVisible();
+    expect(issuesAPI.list).toHaveBeenLastCalledWith("org-test", expect.objectContaining({ offset: 0, state: "closed" }), expect.any(AbortSignal));
+  });
+
   it("shows 'New issue' button", async () => {
     const user = userEvent.setup();
-    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" userId="alice" />);
 
     const issuesTab = screen.getByRole("tab", { name: /Issues/i });
     await user.click(issuesTab);

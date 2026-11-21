@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, ChevronRight, ChevronDown, File, Folder, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
 import type { OrganizationSummary, RepositoryPreviewEntry, RepositoryPreviewBlob } from "../../shared/api/identity";
@@ -6,17 +6,20 @@ import { repositoryPreviewAPI } from "../../shared/api/identity";
 import { Button, SearchInput, Select, DataTable, Tabs } from "../../shared/ui";
 import type { DataTableColumn } from "../../shared/ui";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
+import { RepositoryIssues } from "./RepositoryIssues";
 import { RepositoryReadme } from "./RepositoryReadme";
 import "./RepositoryDetailPage.css";
 
 interface RepositoryDetailPageProps {
   organization: OrganizationSummary;
   repositorySlug: string;
+  userId?: string;
+  displayName?: string;
 }
 
 type TabType = "code" | "issues" | "pulls" | "actions" | "packages" | "wiki" | "settings" | "members";
 
-export function RepositoryDetailPage({ organization, repositorySlug }: RepositoryDetailPageProps) {
+export function RepositoryDetailPage({ organization, repositorySlug, userId = "", displayName }: RepositoryDetailPageProps) {
   const { t } = useTranslation("repositories");
   const [activeTab, setActiveTab] = useState<TabType>("code");
 
@@ -25,7 +28,7 @@ export function RepositoryDetailPage({ organization, repositorySlug }: Repositor
 
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: "code", label: "Code", icon: <Code2 size={16} /> },
-    { id: "issues", label: "Issues", icon: <AlertCircle size={16} /> },
+    { id: "issues", label: t("issues.tab"), icon: <AlertCircle size={16} /> },
     { id: "pulls", label: "Pull Requests", icon: <GitPullRequest size={16} /> },
     { id: "actions", label: "Actions", icon: <PlayCircle size={16} /> },
     { id: "packages", label: "Packages", icon: <Package size={16} /> },
@@ -76,7 +79,7 @@ export function RepositoryDetailPage({ organization, repositorySlug }: Repositor
       {/* Tab Content */}
       <div className="repository-content">
         {activeTab === "code" && <CodeTabContent organization={organization} repositorySlug={repositorySlug} />}
-        {activeTab === "issues" && <IssuesTabContent />}
+        {activeTab === "issues" && <RepositoryIssues organization={organization} repository={repositorySlug.includes("/") ? repositorySlug : `${organization.slug}/${repositorySlug}`} userId={userId} displayName={displayName}/>}
         {activeTab === "pulls" && <PullRequestsTabContent />}
         {activeTab === "actions" && <ActionsTabContent />}
         {activeTab === "packages" && <PackagesTabContent />}
@@ -887,432 +890,6 @@ function WikiTabContent() {
           </div>
           <div className="wiki-body">
             <RepositoryReadme content={currentPage.content} sourcePath={`wiki/${currentPage.id}.md`} />
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-}
-
-interface Issue {
-  id: string;
-  number: number;
-  title: string;
-  status: "open" | "closed";
-  author: string;
-  assignee: string | null;
-  labels: string[];
-  project: string | null;
-  milestone: string | null;
-  createdAt: string;
-  updatedAt: string;
-  comments: number;
-}
-
-type IssueFilterType = "open" | "closed" | "assigned" | "created";
-
-const mockIssues: Issue[] = [
-  {
-    id: "issue-1",
-    number: 42,
-    title: "Add support for custom authentication providers",
-    status: "open",
-    author: "alice",
-    assignee: "bob",
-    labels: ["enhancement", "security"],
-    project: "Q1 2024",
-    milestone: "v2.0",
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-20T14:22:00Z",
-    comments: 5,
-  },
-  {
-    id: "issue-2",
-    number: 41,
-    title: "Fix memory leak in agent executor",
-    status: "open",
-    author: "bob",
-    assignee: "alice",
-    labels: ["bug", "critical"],
-    project: "Q1 2024",
-    milestone: "v1.5.1",
-    createdAt: "2024-01-18T09:15:00Z",
-    updatedAt: "2024-01-22T11:45:00Z",
-    comments: 12,
-  },
-  {
-    id: "issue-3",
-    number: 40,
-    title: "Improve documentation for pipeline API",
-    status: "closed",
-    author: "charlie",
-    assignee: "charlie",
-    labels: ["documentation"],
-    project: null,
-    milestone: "v1.5",
-    createdAt: "2024-01-10T16:20:00Z",
-    updatedAt: "2024-01-19T13:30:00Z",
-    comments: 3,
-  },
-  {
-    id: "issue-4",
-    number: 39,
-    title: "Add dark mode support to UI",
-    status: "open",
-    author: "alice",
-    assignee: null,
-    labels: ["enhancement", "frontend"],
-    project: "Q2 2024",
-    milestone: null,
-    createdAt: "2024-01-12T11:00:00Z",
-    updatedAt: "2024-01-12T11:00:00Z",
-    comments: 8,
-  },
-  {
-    id: "issue-5",
-    number: 38,
-    title: "Rate limiting not working for API endpoints",
-    status: "open",
-    author: "bob",
-    assignee: "bob",
-    labels: ["bug", "backend"],
-    project: "Q1 2024",
-    milestone: "v1.5.1",
-    createdAt: "2024-01-14T08:45:00Z",
-    updatedAt: "2024-01-21T16:10:00Z",
-    comments: 7,
-  },
-  {
-    id: "issue-6",
-    number: 37,
-    title: "Update dependencies to latest versions",
-    status: "closed",
-    author: "charlie",
-    assignee: "alice",
-    labels: ["maintenance"],
-    project: null,
-    milestone: "v1.5",
-    createdAt: "2024-01-08T14:30:00Z",
-    updatedAt: "2024-01-16T09:20:00Z",
-    comments: 2,
-  },
-  {
-    id: "issue-7",
-    number: 36,
-    title: "Implement webhook retry mechanism",
-    status: "open",
-    author: "alice",
-    assignee: "charlie",
-    labels: ["enhancement", "backend"],
-    project: "Q1 2024",
-    milestone: "v2.0",
-    createdAt: "2024-01-11T13:15:00Z",
-    updatedAt: "2024-01-18T10:30:00Z",
-    comments: 4,
-  },
-  {
-    id: "issue-8",
-    number: 35,
-    title: "Database migration fails on PostgreSQL 15",
-    status: "closed",
-    author: "bob",
-    assignee: "bob",
-    labels: ["bug", "database"],
-    project: null,
-    milestone: "v1.5",
-    createdAt: "2024-01-09T15:40:00Z",
-    updatedAt: "2024-01-15T12:00:00Z",
-    comments: 6,
-  },
-];
-
-function IssuesTabContent() {
-  const currentUser = "alice";
-  const [activeFilter, setActiveFilter] = useState<IssueFilterType>("open");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [authorFilter, setAuthorFilter] = useState("");
-  const [labelFilter, setLabelFilter] = useState("");
-  const [projectFilter, setProjectFilter] = useState("");
-  const [milestoneFilter, setMilestoneFilter] = useState("");
-  const [assigneeFilter, setAssigneeFilter] = useState("");
-  const [sortBy, setSortBy] = useState("updated");
-
-  const allAuthors = Array.from(new Set(mockIssues.map((issue) => issue.author))).sort();
-  const allLabels = Array.from(new Set(mockIssues.flatMap((issue) => issue.labels))).sort();
-  const allProjects = Array.from(new Set(mockIssues.map((issue) => issue.project).filter((p): p is string => p !== null))).sort();
-  const allMilestones = Array.from(new Set(mockIssues.map((issue) => issue.milestone).filter((m): m is string => m !== null))).sort();
-  const allAssignees = Array.from(new Set(mockIssues.map((issue) => issue.assignee).filter((a): a is string => a !== null))).sort();
-
-  const filteredIssues = useMemo(() => {
-    let filtered = mockIssues;
-
-    switch (activeFilter) {
-      case "open":
-        filtered = filtered.filter((issue) => issue.status === "open");
-        break;
-      case "closed":
-        filtered = filtered.filter((issue) => issue.status === "closed");
-        break;
-      case "assigned":
-        filtered = filtered.filter((issue) => issue.assignee === currentUser);
-        break;
-      case "created":
-        filtered = filtered.filter((issue) => issue.author === currentUser);
-        break;
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((issue) =>
-        issue.title.toLowerCase().includes(query) ||
-        issue.number.toString().includes(query)
-      );
-    }
-
-    if (authorFilter) {
-      filtered = filtered.filter((issue) => issue.author === authorFilter);
-    }
-
-    if (labelFilter) {
-      filtered = filtered.filter((issue) => issue.labels.includes(labelFilter));
-    }
-
-    if (projectFilter) {
-      filtered = filtered.filter((issue) => issue.project === projectFilter);
-    }
-
-    if (milestoneFilter) {
-      filtered = filtered.filter((issue) => issue.milestone === milestoneFilter);
-    }
-
-    if (assigneeFilter) {
-      filtered = filtered.filter((issue) => issue.assignee === assigneeFilter);
-    }
-
-    filtered = [...filtered].sort((a, b) => {
-      if (sortBy === "newest") {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      } else if (sortBy === "oldest") {
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      } else if (sortBy === "updated") {
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      } else if (sortBy === "comments") {
-        return b.comments - a.comments;
-      }
-      return 0;
-    });
-
-    return filtered;
-  }, [mockIssues, activeFilter, searchQuery, authorFilter, labelFilter, projectFilter, milestoneFilter, assigneeFilter, sortBy, currentUser]);
-
-  const openCount = mockIssues.filter((issue) => issue.status === "open").length;
-  const closedCount = mockIssues.filter((issue) => issue.status === "closed").length;
-
-  const columns: DataTableColumn<Issue>[] = [
-    {
-      key: "title",
-      title: "Issue",
-      render: (_value, row) => (
-        <div className="issue-title-cell">
-          <div className="issue-title-row">
-            {row.status === "open" ? (
-              <AlertCircle size={16} className="issue-icon-open" />
-            ) : (
-              <CheckCircle2 size={16} className="issue-icon-closed" />
-            )}
-            <strong>{row.title}</strong>
-          </div>
-          <div className="issue-meta-row">
-            <span className="issue-number">#{row.number}</span>
-            {row.labels.length > 0 && (
-              <div className="issue-labels">
-                {row.labels.map((label) => (
-                  <span key={label} className="issue-label">
-                    {label}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "author",
-      title: "Author",
-      render: (value) => (
-        <div className="issue-author">
-          <User size={14} />
-          <span>{String(value)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "assignee",
-      title: "Assignee",
-      render: (value) => (
-        <div className="issue-assignee">
-          {value ? (
-            <>
-              <User size={14} />
-              <span>{String(value)}</span>
-            </>
-          ) : (
-            <span className="issue-unassigned">Unassigned</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "comments",
-      title: "Comments",
-      render: (value) => (
-        <div className="issue-comments">
-          <MessageSquare size={14} />
-          <span>{String(value)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "updatedAt",
-      title: "Updated",
-      render: (value) => {
-        const date = new Date(String(value));
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        let timeAgo = "";
-        if (diffMins < 1) {
-          timeAgo = "just now";
-        } else if (diffMins < 60) {
-          timeAgo = `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
-        } else if (diffHours < 24) {
-          timeAgo = `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-        } else if (diffDays < 30) {
-          timeAgo = `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-        } else {
-          timeAgo = date.toLocaleDateString();
-        }
-
-        return <span className="issue-date">{timeAgo}</span>;
-      },
-    },
-  ];
-
-  return (
-    <div className="issues-tab-content">
-      <div className="issues-tab-layout">
-        <aside className="issues-sidebar">
-          <h3>Filters</h3>
-          <nav className="issues-nav">
-            <Button
-              onClick={() => setActiveFilter("open")}
-              className={`issues-nav-item ${activeFilter === "open" ? "active" : ""}`}
-            >
-              <AlertCircle size={14} />
-              <span>Open issues</span>
-              <span className="issue-count">{openCount}</span>
-            </Button>
-            <Button
-              onClick={() => setActiveFilter("closed")}
-              className={`issues-nav-item ${activeFilter === "closed" ? "active" : ""}`}
-            >
-              <CheckCircle2 size={14} />
-              <span>Closed issues</span>
-              <span className="issue-count">{closedCount}</span>
-            </Button>
-            <Button
-              onClick={() => setActiveFilter("assigned")}
-              className={`issues-nav-item ${activeFilter === "assigned" ? "active" : ""}`}
-            >
-              <User size={14} />
-              <span>Assigned to me</span>
-            </Button>
-            <Button
-              onClick={() => setActiveFilter("created")}
-              className={`issues-nav-item ${activeFilter === "created" ? "active" : ""}`}
-            >
-              <User size={14} />
-              <span>Created by me</span>
-            </Button>
-          </nav>
-        </aside>
-        <main className="issues-main">
-          <div className="issues-header">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSearch={setSearchQuery}
-              placeholder="Search issues..."
-              className="issues-search"
-            />
-            <Button variant="primary" size="small">
-              <Plus size={14} />
-              New issue
-            </Button>
-          </div>
-          <div className="issues-filters">
-            <Select
-              aria-label="Filter by author"
-              placeholder="Author"
-              value={authorFilter}
-              onChange={(event) => setAuthorFilter(event.target.value)}
-              options={allAuthors.map((author) => ({ label: author, value: author }))}
-            />
-            <Select
-              aria-label="Filter by label"
-              placeholder="Label"
-              value={labelFilter}
-              onChange={(event) => setLabelFilter(event.target.value)}
-              options={allLabels.map((label) => ({ label, value: label }))}
-            />
-            <Select
-              aria-label="Filter by project"
-              placeholder="Project"
-              value={projectFilter}
-              onChange={(event) => setProjectFilter(event.target.value)}
-              options={allProjects.map((project) => ({ label: project, value: project }))}
-            />
-            <Select
-              aria-label="Filter by milestone"
-              placeholder="Milestone"
-              value={milestoneFilter}
-              onChange={(event) => setMilestoneFilter(event.target.value)}
-              options={allMilestones.map((milestone) => ({ label: milestone, value: milestone }))}
-            />
-            <Select
-              aria-label="Filter by assignee"
-              placeholder="Assignee"
-              value={assigneeFilter}
-              onChange={(event) => setAssigneeFilter(event.target.value)}
-              options={allAssignees.map((assignee) => ({ label: assignee, value: assignee }))}
-            />
-            <Select
-              aria-label="Sort by"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
-              options={[
-                { label: "Recently updated", value: "updated" },
-                { label: "Newest", value: "newest" },
-                { label: "Oldest", value: "oldest" },
-                { label: "Most commented", value: "comments" },
-              ]}
-            />
-          </div>
-          <div className="issues-table-wrap">
-            <DataTable
-              columns={columns}
-              data={filteredIssues}
-              rowKey="id"
-              showColumnVisibility={false}
-              emptyText="No issues found matching your filters."
-            />
-          </div>
-          <div className="issues-footer">
-            <span>Showing {filteredIssues.length} of {mockIssues.length} issues</span>
           </div>
         </main>
       </div>
