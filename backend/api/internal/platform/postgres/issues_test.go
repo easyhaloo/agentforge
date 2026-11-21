@@ -32,6 +32,8 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 	repo := NewIssueRepository(store)
 
 	orgID := "test-org-001"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repoA := "owner/repo-a"
 	repoB := "owner/repo-b"
 
@@ -124,6 +126,7 @@ func TestIssueRepository_LockAndUnlock(t *testing.T) {
 
 	repo := NewIssueRepository(store)
 	orgID := "test-org-lock"
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a test issue
