@@ -25,6 +25,7 @@ func TestNotificationRepository_SubscribeAndList(t *testing.T) {
 
 	repo := NewNotificationRepository(store)
 	orgID := "test-org-notif"
+	ensureIssueTestFixtures(t, store, orgID)
 	userID := "user-001"
 	issueID := "issue-001"
 
@@ -197,6 +198,7 @@ func TestNotificationRepository_Pagination(t *testing.T) {
 
 	repo := NewNotificationRepository(store)
 	orgID := "test-org-pagination"
+	ensureIssueTestFixtures(t, store, orgID)
 	userID := "user-page"
 	issueID := "issue-page"
 
