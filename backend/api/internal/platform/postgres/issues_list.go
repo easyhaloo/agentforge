@@ -67,7 +67,7 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 
 	// Query issues with pagination
 	query := fmt.Sprintf(`
-		SELECT id, repository, number, title, body, state, created_by, created_at, updated_at
+		SELECT id, repository, number, title, body, state, locked, created_by, created_at, updated_at
 		FROM issues
 		WHERE %s
 		ORDER BY updated_at DESC, number DESC
@@ -89,7 +89,7 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 
 		if err := rows.Scan(
 			&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-			&stateStr, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
+			&stateStr, &issue.Locked, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan issue: %w", err)
 		}

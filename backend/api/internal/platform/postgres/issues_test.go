@@ -106,3 +106,113 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 		t.Errorf("expected title %q, got %q", issue1.Title, retrieved.Title)
 	}
 }
+
+func TestIssueRepository_LockAndUnlock(t *testing.T) {
+	// Test that locking and unlocking issues works correctly
+	ctx := context.Background()
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+
+	store, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("failed to open store: %v", err)
+	}
+	defer store.Close()
+
+	repo := NewIssueRepository(store)
+	orgID := "test-org-lock"
+	repository := "owner/test-repo"
+
+	// Create a test issue
+	issue := &issues.Issue{
+		ID:         "issue-lock-test",
+		Repository: repository,
+		Title:      "Test locking",
+		Body:       "This issue will be locked",
+		State:      issues.StateOpen,
+		CreatedBy:  "user-001",
+	}
+
+	created, err := repo.Create(ctx, orgID, issue)
+	if err != nil {
+		t.Fatalf("failed to create issue: %v", err)
+	}
+
+	// Verify issue starts unlocked
+	if created.Locked {
+		t.Errorf("new issue should not be locked")
+	}
+
+	// Test 1: Lock the issue
+	lockReason := issues.LockReasonTooHeated
+	lockedBy := "admin-001"
+	lockedAt := created.CreatedAt.Add(3600)
+
+	locked, err := repo.Lock(ctx, orgID, created.ID, lockReason, lockedBy, lockedAt)
+	if err != nil {
+		t.Fatalf("failed to lock issue: %v", err)
+	}
+
+	if !locked.Locked {
+		t.Errorf("issue should be locked")
+	}
+	if locked.LockReason != lockReason {
+		t.Errorf("expected lock reason %q, got %q", lockReason, locked.LockReason)
+	}
+	if locked.LockedBy != lockedBy {
+		t.Errorf("expected locked by %q, got %q", lockedBy, locked.LockedBy)
+	}
+	if locked.LockedAt == nil {
+		t.Errorf("locked_at should not be nil")
+	} else if !locked.LockedAt.Equal(lockedAt) {
+		t.Errorf("expected locked_at %v, got %v", lockedAt, *locked.LockedAt)
+	}
+
+	// Test 2: Retrieve locked issue and verify lock fields persist
+	retrieved, err := repo.Get(ctx, orgID, repository, created.Number)
+	if err != nil {
+		t.Fatalf("failed to retrieve locked issue: %v", err)
+	}
+
+	if !retrieved.Locked {
+		t.Errorf("retrieved issue should be locked")
+	}
+	if retrieved.LockReason != lockReason {
+		t.Errorf("retrieved issue lock reason mismatch")
+	}
+	if retrieved.LockedBy != lockedBy {
+		t.Errorf("retrieved issue locked_by mismatch")
+	}
+
+	// Test 3: Unlock the issue
+	unlocked, err := repo.Unlock(ctx, orgID, created.ID)
+	if err != nil {
+		t.Fatalf("failed to unlock issue: %v", err)
+	}
+
+	if unlocked.Locked {
+		t.Errorf("issue should be unlocked")
+	}
+	if unlocked.LockReason != "" {
+		t.Errorf("lock reason should be empty after unlock, got %q", unlocked.LockReason)
+	}
+	if unlocked.LockedBy != "" {
+		t.Errorf("locked_by should be empty after unlock, got %q", unlocked.LockedBy)
+	}
+	if unlocked.LockedAt != nil {
+		t.Errorf("locked_at should be nil after unlock, got %v", *unlocked.LockedAt)
+	}
+
+	// Test 4: Verify unlocked state persists
+	retrievedUnlocked, err := repo.Get(ctx, orgID, repository, created.Number)
+	if err != nil {
+		t.Fatalf("failed to retrieve unlocked issue: %v", err)
+	}
+
+	if retrievedUnlocked.Locked {
+		t.Errorf("retrieved issue should be unlocked")
+	}
+}

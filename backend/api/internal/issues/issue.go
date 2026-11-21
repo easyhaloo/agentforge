@@ -24,6 +24,16 @@ const (
 	ReasonDuplicate  StateReason = "duplicate"
 )
 
+// LockReason represents why an issue was locked
+type LockReason string
+
+const (
+	LockReasonOffTopic  LockReason = "off-topic"
+	LockReasonTooHeated LockReason = "too heated"
+	LockReasonResolved  LockReason = "resolved"
+	LockReasonSpam      LockReason = "spam"
+)
+
 // Issue represents a trackable unit of work or discussion
 type Issue struct {
 	ID            ID
@@ -34,6 +44,10 @@ type Issue struct {
 	State         State
 	StateReason   StateReason
 	CommentsCount int
+	Locked        bool
+	LockReason    LockReason
+	LockedAt      *time.Time
+	LockedBy      string
 	CreatedBy     string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

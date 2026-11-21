@@ -30,4 +30,10 @@ type Repository interface {
 
 	// GetAssignees retrieves all assignees for an issue
 	GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error)
+
+	// Lock locks an issue to prevent new comments
+	Lock(ctx context.Context, organizationID string, issueID ID, reason LockReason, lockedBy string, lockedAt time.Time) (*Issue, error)
+
+	// Unlock unlocks an issue to allow new comments
+	Unlock(ctx context.Context, organizationID string, issueID ID) (*Issue, error)
 }

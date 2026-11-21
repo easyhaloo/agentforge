@@ -24,6 +24,10 @@ type closeIssueRequest struct {
 	Reason string `json:"reason"`
 }
 
+type lockIssueRequest struct {
+	Reason string `json:"reason"`
+}
+
 type assigneesRequest struct {
 	Assignees []string `json:"assignees"`
 }
@@ -384,9 +388,59 @@ func (d DeliveryDependencies) lockIssue(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Lock/unlock functionality requires additional fields in the Issue model
-	// For now, return not implemented
-	writeProblem(w, http.StatusNotImplemented, "Not implemented", "Issue locking is not yet implemented")
+	if d.IssueRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Issue tracking unavailable", "The issue repository is not configured")
+		return
+	}
+
+	repository := r.URL.Query().Get("repository")
+	if repository == "" {
+		writeProblem(w, http.StatusBadRequest, "Repository required", "repository query parameter is required")
+		return
+	}
+
+	numberStr := r.PathValue("number")
+	number, err := strconv.Atoi(numberStr)
+	if err != nil || number < 1 {
+		writeProblem(w, http.StatusBadRequest, "Invalid issue number", "number must be a positive integer")
+		return
+	}
+
+	// Parse lock reason from request body
+	var req lockIssueRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	// Validate lock reason
+	lockReason := issues.LockReason(req.Reason)
+	if lockReason != issues.LockReasonOffTopic && lockReason != issues.LockReasonTooHeated &&
+		lockReason != issues.LockReasonResolved && lockReason != issues.LockReasonSpam {
+		writeProblem(w, http.StatusBadRequest, "Invalid lock reason", "reason must be 'off-topic', 'too heated', 'resolved', or 'spam'")
+		return
+	}
+
+	// Get existing issue
+	issue, err := d.IssueRepo.Get(r.Context(), principal.OrganizationID, repository, number)
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "Issue not found", "No issue exists with this number in the repository")
+		return
+	}
+
+	// Check if already locked
+	if issue.Locked {
+		writeProblem(w, http.StatusConflict, "Issue already locked", "This issue is already locked")
+		return
+	}
+
+	// Lock the issue
+	locked, err := d.IssueRepo.Lock(r.Context(), principal.OrganizationID, issue.ID, lockReason, principal.UserID, time.Now().UTC())
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to lock issue", "The issue could not be locked")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, locked)
 }
 
 // unlockIssue handles DELETE /api/v1/organizations/{organizationID}/issues/{number}/lock
@@ -402,9 +456,45 @@ func (d DeliveryDependencies) unlockIssue(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Lock/unlock functionality requires additional fields in the Issue model
-	// For now, return not implemented
-	writeProblem(w, http.StatusNotImplemented, "Not implemented", "Issue unlocking is not yet implemented")
+	if d.IssueRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Issue tracking unavailable", "The issue repository is not configured")
+		return
+	}
+
+	repository := r.URL.Query().Get("repository")
+	if repository == "" {
+		writeProblem(w, http.StatusBadRequest, "Repository required", "repository query parameter is required")
+		return
+	}
+
+	numberStr := r.PathValue("number")
+	number, err := strconv.Atoi(numberStr)
+	if err != nil || number < 1 {
+		writeProblem(w, http.StatusBadRequest, "Invalid issue number", "number must be a positive integer")
+		return
+	}
+
+	// Get existing issue
+	issue, err := d.IssueRepo.Get(r.Context(), principal.OrganizationID, repository, number)
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "Issue not found", "No issue exists with this number in the repository")
+		return
+	}
+
+	// Check if already unlocked
+	if !issue.Locked {
+		writeProblem(w, http.StatusConflict, "Issue already unlocked", "This issue is already unlocked")
+		return
+	}
+
+	// Unlock the issue
+	unlocked, err := d.IssueRepo.Unlock(r.Context(), principal.OrganizationID, issue.ID)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to unlock issue", "The issue could not be unlocked")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, unlocked)
 }
 
 // addAssignees handles POST /api/v1/organizations/{organizationID}/issues/{number}/assignees

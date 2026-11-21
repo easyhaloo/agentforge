@@ -64,6 +64,8 @@ type IssueRepository interface {
 	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
 	RemoveAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
 	GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error)
+	Lock(ctx context.Context, organizationID string, issueID issues.ID, reason issues.LockReason, lockedBy string, lockedAt time.Time) (*issues.Issue, error)
+	Unlock(ctx context.Context, organizationID string, issueID issues.ID) (*issues.Issue, error)
 }
 
 type CommentRepository interface {
