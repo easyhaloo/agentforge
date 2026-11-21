@@ -29,6 +29,15 @@ func TestNotificationRepository_SubscribeAndList(t *testing.T) {
 	userID := "user-001"
 	issueID := "issue-001"
 
+	// Create test issue (required by foreign key constraint)
+	_, err = store.pool.Exec(ctx, `
+		INSERT INTO issues (organization_id, id, repository, number, title, created_by)
+		VALUES ($1, $2, 'test-repo', 42, 'Test issue', 'user-001')
+	`, orgID, issueID)
+	if err != nil {
+		t.Fatalf("failed to create test issue: %v", err)
+	}
+
 	// Test 1: Subscribe to issue
 	if err := repo.Subscribe(ctx, orgID, userID, issueID); err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
@@ -202,10 +211,13 @@ func TestNotificationRepository_Pagination(t *testing.T) {
 	userID := "user-page"
 	issueID := "issue-page"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	// Create test issue (required by foreign key constraint)
+	_, err = store.pool.Exec(ctx, `
+		INSERT INTO issues (organization_id, id, repository, number, title, created_by)
+		VALUES ($1, $2, 'test-repo', 1, 'Test', 'user-001')
+	`, orgID, issueID)
 	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
+		t.Fatalf("failed to create test issue: %v", err)
 	}
 
 	// Create 5 notifications

@@ -29,10 +29,13 @@ func TestEventRepository_RecordAndList(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-123"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	// Create test issue (required by foreign key constraint)
+	_, err = store.pool.Exec(ctx, `
+		INSERT INTO issues (organization_id, id, repository, number, title, created_by)
+		VALUES ($1, $2, 'test-repo', 1, 'Test issue', 'user-001')
+	`, orgID, issueID)
 	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
+		t.Fatalf("failed to create test issue: %v", err)
 	}
 
 	// Record multiple events

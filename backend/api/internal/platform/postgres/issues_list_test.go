@@ -33,14 +33,9 @@ func TestIssueRepository_List(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/test-repo"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Create test issues
 	now := time.Now().UTC()
+	closedAt := now.Add(2 * time.Minute)
 	testIssues := []*issues.Issue{
 		{
 			ID:         "issue-list-001",
@@ -63,14 +58,17 @@ func TestIssueRepository_List(t *testing.T) {
 			UpdatedAt:  now.Add(1 * time.Minute),
 		},
 		{
-			ID:         "issue-list-003",
-			Repository: repo1,
-			Title:      "Third issue",
-			Body:       "Body 3",
-			State:      issues.StateClosed,
-			CreatedBy:  "user-001",
-			CreatedAt:  now.Add(2 * time.Minute),
-			UpdatedAt:  now.Add(2 * time.Minute),
+			ID:          "issue-list-003",
+			Repository:  repo1,
+			Title:       "Third issue",
+			Body:        "Body 3",
+			State:       issues.StateClosed,
+			StateReason: "completed",
+			CreatedBy:   "user-001",
+			ClosedBy:    "user-001",
+			CreatedAt:   closedAt,
+			UpdatedAt:   closedAt,
+			ClosedAt:    closedAt,
 		},
 	}
 

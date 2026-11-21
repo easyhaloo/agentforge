@@ -388,6 +388,15 @@ func TestLabelRepository_AddLabelToIssue(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-label-001"
 
+	// Create test issue (required by foreign key constraint)
+	_, err = store.pool.Exec(ctx, `
+		INSERT INTO issues (organization_id, id, repository, number, title, created_by)
+		VALUES ($1, $2, 'owner/assoc-test', 1, 'Test issue', 'user-001')
+	`, orgID, issueID)
+	if err != nil {
+		t.Fatalf("failed to create test issue: %v", err)
+	}
+
 	label := &labels.Label{
 		ID:         labels.ID("label-assoc-001"),
 		Repository: "owner/assoc-test",
@@ -441,6 +450,15 @@ func TestLabelRepository_AddMultipleLabelsToIssue(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-multi-label-001"
 
+	// Create test issue (required by foreign key constraint)
+	_, err = store.pool.Exec(ctx, `
+		INSERT INTO issues (organization_id, id, repository, number, title, created_by)
+		VALUES ($1, $2, 'owner/multi-test', 1, 'Test issue', 'user-001')
+	`, orgID, issueID)
+	if err != nil {
+		t.Fatalf("failed to create test issue: %v", err)
+	}
+
 	// Create multiple labels
 	testLabels := []labels.Label{
 		{ID: labels.ID("label-multi-001"), Repository: "owner/multi-test", Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
@@ -490,6 +508,15 @@ func TestLabelRepository_RemoveLabelFromIssue(t *testing.T) {
 	orgID := "test-org-labels-010"
 	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-remove-label-001"
+
+	// Create test issue (required by foreign key constraint)
+	_, err = store.pool.Exec(ctx, `
+		INSERT INTO issues (organization_id, id, repository, number, title, created_by)
+		VALUES ($1, $2, 'owner/remove-test', 1, 'Test issue', 'user-001')
+	`, orgID, issueID)
+	if err != nil {
+		t.Fatalf("failed to create test issue: %v", err)
+	}
 
 	label := &labels.Label{
 		ID:         labels.ID("label-remove-001"),

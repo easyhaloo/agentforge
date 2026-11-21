@@ -37,12 +37,6 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 	repoA := "owner/repo-a"
 	repoB := "owner/repo-b"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Test 1: First issue in repo-a should be #1
 	issue1 := &issues.Issue{
 		ID:         "issue-001",
@@ -135,12 +129,6 @@ func TestIssueRepository_LockAndUnlock(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Create a test issue
 	issue := &issues.Issue{
 		ID:         "issue-lock-test",
@@ -164,7 +152,8 @@ func TestIssueRepository_LockAndUnlock(t *testing.T) {
 	// Test 1: Lock the issue
 	lockReason := issues.LockReasonTooHeated
 	lockedBy := "admin-001"
-	lockedAt := created.CreatedAt.Add(3600)
+	// Use microsecond precision since PostgreSQL timestamptz truncates to microseconds
+	lockedAt := created.CreatedAt.Add(3600 * time.Microsecond)
 
 	locked, err := repo.Lock(ctx, orgID, created.ID, lockReason, lockedBy, lockedAt)
 	if err != nil {

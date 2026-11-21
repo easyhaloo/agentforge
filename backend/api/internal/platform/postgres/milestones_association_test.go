@@ -114,12 +114,6 @@ func TestMilestoneRepository_GetProgress(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Create a milestone
 	milestone := &milestones.Milestone{
 		ID:         "milestone-progress-001",
@@ -135,32 +129,16 @@ func TestMilestoneRepository_GetProgress(t *testing.T) {
 
 	// Create 3 open issues and 2 closed issues associated with the milestone
 	for i := 1; i <= 5; i++ {
-		state := issues.StateOpen
-		var closedAt *time.Time
-		var closedBy string
-		var stateReason issues.StateReason
-
-		if i > 3 {
-			// Close issues 4 and 5
-			state = issues.StateClosed
-			now := time.Now()
-			closedAt = &now
-			closedBy = "user-001"
-			stateReason = issues.ReasonCompleted
-		}
-
+		// Create all issues as open initially
 		issue := &issues.Issue{
-			ID:          issues.ID(fmt.Sprintf("issue-progress-%03d", i)),
-			Repository:  repository,
-			Title:       fmt.Sprintf("Issue %d", i),
-			Body:        "Test body",
-			State:       state,
-			StateReason: stateReason,
-			CreatedBy:   "user-001",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
-			ClosedAt:    closedAt,
-			ClosedBy:    closedBy,
+			ID:         issues.ID(fmt.Sprintf("issue-progress-%03d", i)),
+			Repository: repository,
+			Title:      fmt.Sprintf("Issue %d", i),
+			Body:       "Test body",
+			State:      issues.StateOpen,
+			CreatedBy:  "user-001",
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
 		}
 
 		created, err := issueRepo.Create(ctx, orgID, issue)
@@ -174,9 +152,10 @@ func TestMilestoneRepository_GetProgress(t *testing.T) {
 			t.Fatalf("failed to set milestone on issue %d: %v", i, err)
 		}
 
-		// If closed, close the issue properly
-		if state == issues.StateClosed {
-			_, err = issueRepo.Close(ctx, orgID, created.ID, stateReason, closedBy, *closedAt)
+		// Close issues 4 and 5
+		if i > 3 {
+			now := time.Now()
+			_, err = issueRepo.Close(ctx, orgID, created.ID, issues.ReasonCompleted, "user-001", now)
 			if err != nil {
 				t.Fatalf("failed to close issue %d: %v", i, err)
 			}
