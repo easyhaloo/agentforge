@@ -32,6 +32,8 @@ func TestMilestoneRepository_SetAndClearMilestone(t *testing.T) {
 	issueRepo := NewIssueRepository(store)
 
 	orgID := "test-org-milestone-assoc-001"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
@@ -102,6 +104,8 @@ func TestMilestoneRepository_GetProgress(t *testing.T) {
 	issueRepo := NewIssueRepository(store)
 
 	orgID := "test-org-milestone-progress-001"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
@@ -213,6 +217,8 @@ func TestMilestoneRepository_CloseWithTimestamp(t *testing.T) {
 	repo := NewMilestoneRepository(store)
 
 	orgID := "test-org-milestone-close-001"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
@@ -295,6 +301,8 @@ func TestMilestoneRepository_ProgressWithNoIssues(t *testing.T) {
 	repo := NewMilestoneRepository(store)
 
 	orgID := "test-org-milestone-empty-001"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone with no issues
