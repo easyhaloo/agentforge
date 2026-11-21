@@ -1,0 +1,53 @@
+package notifications
+
+import (
+	"time"
+)
+
+// ID is a unique identifier for a notification
+type ID string
+
+// Type represents the type of notification
+type Type string
+
+const (
+	// TypeComment indicates a new comment on a subscribed issue
+	TypeComment Type = "comment"
+
+	// TypeMention indicates the user was mentioned in an issue or comment
+	TypeMention Type = "mention"
+
+	// TypeStateChange indicates a state change on a subscribed issue
+	TypeStateChange Type = "state_change"
+
+	// TypeAssigned indicates the user was assigned to an issue
+	TypeAssigned Type = "assigned"
+)
+
+// Reason describes why a notification was generated
+type Reason string
+
+const (
+	ReasonSubscribed Reason = "subscribed" // User is subscribed to the issue
+	ReasonMentioned  Reason = "mentioned"  // User was mentioned
+	ReasonAuthor     Reason = "author"     // User is the issue author
+	ReasonAssigned   Reason = "assigned"   // User is assigned to the issue
+	ReasonComment    Reason = "comment"    // User commented on the issue
+)
+
+// Notification represents a notification for a user
+type Notification struct {
+	ID           ID
+	UserID       string
+	Type         Type
+	Reason       Reason
+	IssueID      string
+	Repository   string
+	IssueNumber  int
+	IssueTitle   string
+	CommentID    string // Optional: set if notification is about a specific comment
+	ActorID      string // User who triggered the notification
+	Unread       bool
+	CreatedAt    time.Time
+	ReadAt       *time.Time
+}

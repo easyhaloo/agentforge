@@ -23,6 +23,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 	"github.com/easyhaloo/agentforge/backend/api/internal/labels"
 	"github.com/easyhaloo/agentforge/backend/api/internal/milestones"
+	"github.com/easyhaloo/agentforge/backend/api/internal/notifications"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/easyhaloo/agentforge/backend/api/internal/reactions"
 	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
@@ -114,6 +115,18 @@ type EventRepository interface {
 	ListByType(ctx context.Context, organizationID string, issueID string, eventType events.EventType) ([]*events.Event, error)
 }
 
+type NotificationRepository interface {
+	Create(ctx context.Context, organizationID string, notification *notifications.Notification) error
+	List(ctx context.Context, organizationID string, userID string, unreadOnly bool, limit, offset int) ([]*notifications.Notification, int, error)
+	MarkAsRead(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
+	MarkAllAsRead(ctx context.Context, organizationID string, userID string) error
+	Delete(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
+	Subscribe(ctx context.Context, organizationID string, userID string, issueID string) error
+	Unsubscribe(ctx context.Context, organizationID string, userID string, issueID string) error
+	IsSubscribed(ctx context.Context, organizationID string, userID string, issueID string) (bool, error)
+	GetSubscribers(ctx context.Context, organizationID string, issueID string) ([]string, error)
+}
+
 type DeliveryDependencies struct {
 	Repository       delivery.Repository
 	Identity         identity.PrincipalResolver
@@ -144,6 +157,7 @@ type DeliveryDependencies struct {
 	MilestoneRepo    MilestoneRepository
 	ReactionRepo     ReactionRepository
 	EventRepo        EventRepository
+	NotificationRepo NotificationRepository
 }
 
 type storedChangesetResponse struct {
@@ -227,6 +241,14 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/labels", deps.addLabelsToIssue)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/labels/{labelName}", deps.removeLabelFromIssue)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/timeline", deps.getIssueTimeline)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.getIssueSubscription)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.subscribeToIssue)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.unsubscribeFromIssue)
+
+	// Notification routes
+	mux.HandleFunc("GET /api/v1/notifications", deps.listNotifications)
+	mux.HandleFunc("PATCH /api/v1/notifications/{id}/read", deps.markNotificationAsRead)
+	mux.HandleFunc("POST /api/v1/notifications/read-all", deps.markAllNotificationsAsRead)
 
 	// Comment routes
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/comments", deps.listComments)
