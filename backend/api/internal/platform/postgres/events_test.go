@@ -26,6 +26,7 @@ func TestEventRepository_RecordAndList(t *testing.T) {
 
 	repo := NewEventRepository(store)
 	orgID := "test-org-events"
+	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-123"
 
 	// Record multiple events
