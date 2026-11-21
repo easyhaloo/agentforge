@@ -1,340 +1,307 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Code2, FileText, Folder, GitCommit, GitCompare, Plus, RefreshCw, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
-  repositoryAPI,
-  repositoryPreviewAPI,
-  type OrganizationSummary,
-  type RepositoryMetadata,
-  type RepositoryCommit,
-  type RepositoryPreviewBlob,
-  type RepositoryPreviewEntry,
-  type RepositoryPreviewRef,
-  type RepositoryPreviewTree,
-} from "../../shared/api/identity";
+  ArrowDownWideNarrow, Book, Bookmark, CaseSensitive, CircleX, GitBranch, GitFork, GitPullRequest,
+  History, Lightbulb, Menu, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Rows2, Search,
+  Settings, Star, UserRound, UsersRound, Workflow, X,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { repositoryAPI, type OrganizationSummary, type RepositorySummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
-import { Button, DataTable, Input, Select } from "../../shared/ui";
-import { RepositorySourceViewer } from "./RepositorySourceViewer";
-import { RepositoryReadme } from "./RepositoryReadme";
-import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
-import { formatRepositoryFileSize } from "./repositoryFileUtils";
+import { formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
+import { organizationHandle, repositoryChangesetsPath, repositoryPath } from "../../shared/routing";
+import { Button, Input, Modal, Select } from "../../shared/ui";
+import { canManageRepository } from "./RepositorySectionPage";
+import "./repositories.css";
 
-type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
-type EntrySort = "name" | "size";
+const languageColors: Record<string, string> = {
+  Go: "#00add8", TypeScript: "#3178c6", JavaScript: "#f1e05a", Python: "#3572a5", Rust: "#dea584",
+  Java: "#b07219", Kotlin: "#a97bff", Shell: "#89e051", Ruby: "#701516", CSS: "#663399", HTML: "#e34c26",
+  Swift: "#f05138", Vue: "#41b883", C: "#555555", "C++": "#f34b7d", "C#": "#178600",
+};
+const latestActivity = (item: RepositorySummary) => item.git?.last_commit_at || item.updated_at;
+const ownRepositories = "created-by:@me";
+const managedRepositories = "access:admin";
 
+type Props = {
+  organization: OrganizationSummary;
+  onNotify: (message: string) => void;
+  userID: string;
+};
 
-/** Registered repositories and a zero-clone, read-only source browser. */
-export function RepositoriesPage({ organization, onNotify }: Props) {
+type SavedView = { name: string; filters: string };
+
+function readViews(key: string): SavedView[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+    return Array.isArray(saved) ? saved.filter(view => typeof view?.name === "string" && typeof view?.filters === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function RepositoriesPage({ organization, onNotify, userID }: Props) {
   const { t } = useTranslation("repositories");
-  const navigate = useNavigate();
-  const [items, setItems] = useState<RepositoryMetadata[]>([]);
+  const [items, setItems] = useState<RepositorySummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [search, setSearch] = useSearchParams();
+  const registrationOpen = search.get("register") === "1";
+  const sortParam = search.get("sort");
+  const sort = sortParam === "name" || sortParam === "last-commit" ? sortParam : "relevance";
+  const legacyScope = search.get("view") === "mine" ? `${ownRepositories} ` : "";
+  const query = legacyScope + (search.get("q") ?? "");
+  const terms = useMemo(() => query.trim().toLowerCase().split(/\s+/).filter(Boolean), [query]);
+  const mine = terms.includes(ownRepositories);
+  const adminAccess = terms.includes(managedRepositories);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const compact = search.get("layout") === "compact";
+  const filters = new URLSearchParams();
+  if (query.trim()) filters.set("q", query.trim());
+  if (sort !== "relevance") filters.set("sort", sort);
+  if (compact) filters.set("layout", "compact");
+  const storageKey = `agentforge:repository-views:${userID}:${organization.id}`;
+  const [views, setViews] = useState(() => readViews(storageKey));
+  const [viewName, setViewName] = useState("");
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const updateViews = (next: SavedView[]) => {
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep the views available in this page. */ }
+    setViews(next);
+  };
+  const setOption = (key: string, value: string) => {
+    const next = new URLSearchParams(search);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearch(next, { replace: key === "register" && !value });
+  };
+  const setQuery = (value: string, replace = true) => {
+    const next = new URLSearchParams(search);
+    next.delete("view");
+    if (value) next.set("q", value);
+    else next.delete("q");
+    if (next.toString() !== search.toString()) setSearch(next, { replace });
+  };
+  const setScope = (scope: string) => {
+    const rest = query.trim().split(/\s+/).filter(term => ![ownRepositories, managedRepositories].includes(term.toLowerCase()));
+    setQuery([scope, ...rest].filter(Boolean).join(" "), false);
+  };
+  const [registrationError, setRegistrationError] = useState("");
   const [slug, setSlug] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
-  const [selectedRepository, setSelectedRepository] = useState(() => new URLSearchParams(window.location.search).get("repository") ?? "");
-  const [directory, setDirectory] = useState("");
-  const [tree, setTree] = useState<RepositoryPreviewTree | null>(null);
-  const [previewCommit, setPreviewCommit] = useState(() => new URLSearchParams(window.location.search).get("commit") ?? "");
-  const initialPermalinkPath = useRef(new URLSearchParams(window.location.search).get("path") ?? "");
-  const [selectedFile, setSelectedFile] = useState<RepositoryPreviewBlob | null>(null);
-  const [history, setHistory] = useState<RepositoryCommit[]>([]);
-  const [historyError, setHistoryError] = useState("");
-  const [fileHistory, setFileHistory] = useState<RepositoryCommit[]>([]);
-  const [blameLines, setBlameLines] = useState<import("../../shared/api/identity").RepositoryBlameLine[]>([]);
-  const [fileInspectionError, setFileInspectionError] = useState("");
-  const [fileInspectionLoading, setFileInspectionLoading] = useState(false);
-  const [comparePatch, setComparePatch] = useState("");
-  const [compareBase, setCompareBase] = useState("");
-  const [compareError, setCompareError] = useState("");
-  const [compareLoading, setCompareLoading] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState("");
-  const [repositoryRefs, setRepositoryRefs] = useState<RepositoryPreviewRef[]>([]);
-  const [selectedRef, setSelectedRef] = useState("");
-  const [defaultBranchName, setDefaultBranchName] = useState("");
-  const [rootReadme, setRootReadme] = useState<RepositoryPreviewBlob | null>(null);
-  const [readmeError, setReadmeError] = useState("");
-  const [entryQuery, setEntryQuery] = useState("");
-  const [entrySort, setEntrySort] = useState<EntrySort>("name");
-  const canRegister = organization.role === "owner" || organization.role === "admin";
-  const visibleEntries = useMemo(() => {
-    const query = entryQuery.trim().toLocaleLowerCase();
-    return [...(tree?.items ?? [])]
-      .filter(entry => !query || entry.name.toLocaleLowerCase().includes(query) || entry.path.toLocaleLowerCase().includes(query))
-      .sort((left, right) => {
-        if (left.kind === "tree" && right.kind !== "tree") return -1;
-        if (right.kind === "tree" && left.kind !== "tree") return 1;
-        if (entrySort === "size" && left.size !== undefined && right.size !== undefined && left.size !== right.size) return right.size - left.size;
-        return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" });
-      });
-  }, [tree, entryQuery, entrySort]);
-
+  const canRegister = canManageRepository(organization);
+  const handle = organizationHandle(organization);
+  const filtered = useMemo(() => {
+    const matching = items.flatMap(item => {
+      const slug = item.slug.toLowerCase();
+      const name = slug.slice(slug.indexOf("/") + 1);
+      let relevance = 0;
+      for (const term of terms) {
+        if (term === ownRepositories) {
+          if (item.created_by !== userID) return [];
+        } else if (term === managedRepositories) {
+          if (!canRegister) return [];
+        } else if (term.startsWith("branch:")) {
+          if (item.default_branch.toLowerCase() !== term.slice(7)) return [];
+        } else if (term.startsWith("language:")) {
+          if (item.git?.language?.toLowerCase() !== term.slice(9)) return [];
+        } else if (term.startsWith("repo:")) {
+          if (slug !== term.slice(5) && name !== term.slice(5)) return [];
+        } else {
+          if (!slug.includes(term)) return [];
+          // ponytail: rank exact and prefix matches in the loaded catalog; move search to the API if the catalog is paginated.
+          relevance += slug === term || name === term ? 3 : slug.startsWith(term) || name.startsWith(term) ? 2 : 1;
+        }
+      }
+      return [{ item, relevance }];
+    });
+    const time = (value?: string) => Date.parse(value ?? "") || 0;
+    return matching.sort((a, b) => {
+      const byName = a.item.slug.localeCompare(b.item.slug);
+      if (sort === "name") return byName;
+      if (sort === "last-commit") return time(b.item.git?.last_commit_at) - time(a.item.git?.last_commit_at) || byName;
+      return b.relevance - a.relevance || time(latestActivity(b.item)) - time(latestActivity(a.item)) || byName;
+    }).map(({ item }) => item);
+  }, [canRegister, items, sort, terms, userID]);
   useEffect(() => {
-    if (!selectedRepository) { setRepositoryRefs([]); setSelectedRef(""); setDefaultBranchName(""); return; }
-    let active = true;
-    void repositoryPreviewAPI.refs(organization.id, selectedRepository).then(result => { if (active) { setRepositoryRefs(result.items); setDefaultBranchName(result.default_branch); } }).catch(() => { if (active) setRepositoryRefs([]); });
-    return () => { active = false; };
-  }, [organization.id, selectedRepository]);
-
-  useEffect(() => {
-    if (!selectedRepository) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("repository"); url.searchParams.delete("commit"); url.searchParams.delete("path");
-      window.history.replaceState(window.history.state, "", url);
-      return;
-    }
-    if (!previewCommit) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("repository", selectedRepository);
-    url.searchParams.set("commit", previewCommit);
-    const path = selectedFile?.path || directory;
-    if (path) url.searchParams.set("path", path); else url.searchParams.delete("path");
-    window.history.replaceState(window.history.state, "", url);
-  }, [selectedRepository, previewCommit, selectedFile?.path, directory]);
-
-  useEffect(() => {
-    if (!tree || !selectedRepository || !previewCommit || !initialPermalinkPath.current || selectedFile) return;
-    const path = initialPermalinkPath.current;
-    initialPermalinkPath.current = "";
-    void repositoryPreviewAPI.blob(organization.id, selectedRepository, path, previewCommit)
-      .then(setSelectedFile)
-      .catch(cause => setPreviewError(translateError(cause, t, "repositories:feedback.permalinkFailed")));
-  }, [organization.id, selectedRepository, previewCommit, tree, selectedFile, t]);
-
-  const copyPermalink = async () => {
-    if (!selectedRepository || !previewCommit) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("repository", selectedRepository);
-    url.searchParams.set("commit", previewCommit);
-    const path = selectedFile?.path || directory;
-    if (path) url.searchParams.set("path", path); else url.searchParams.delete("path");
-    await navigator.clipboard.writeText(url.toString());
-    onNotify(t("repositories:feedback.permalinkCopied"));
-  };
+    if (!registrationOpen) return;
+    setSlug("");
+    setDefaultBranch("main");
+    setRegistrationError("");
+  }, [registrationOpen]);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
     try {
-      setItems((await repositoryAPI.list(organization.id)).items);
+      setItems((await repositoryAPI.summaries(organization.id)).items);
     } catch (cause) {
       setError(translateError(cause, t, "repositories:feedback.loadFailed"));
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, [organization.id, t]);
   useEffect(() => { void load(); }, [load]);
 
-  const loadTree = useCallback(async () => {
-    if (!selectedRepository) return;
-    setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
-    try {
-      const result = await repositoryPreviewAPI.tree(organization.id, selectedRepository, directory, previewCommit || selectedRef);
-      setTree(result);
-      if (!previewCommit) setPreviewCommit(result.commit_sha);
-    } catch (cause) {
-      setTree(null);
-      setPreviewError(translateError(cause, t, "repositories:feedback.treeFailed"));
-    } finally { setPreviewLoading(false); }
-  }, [organization.id, selectedRepository, directory, previewCommit, selectedRef, t]);
-  useEffect(() => { void loadTree(); }, [loadTree]);
-
-  useEffect(() => {
-    if (!selectedRepository || !previewCommit) { setHistory([]); return; }
-    let active = true;
-    setHistoryError("");
-    void repositoryPreviewAPI.history(organization.id, selectedRepository, previewCommit)
-      .then(result => { if (active) setHistory(result.items); })
-      .catch(cause => { if (active) setHistoryError(translateError(cause, t, "repositories:feedback.historyFailed")); });
-    return () => { active = false; };
-  }, [organization.id, selectedRepository, previewCommit, t]);
-
-  useEffect(() => {
-    if (!tree || tree.path || selectedFile) { setRootReadme(null); setReadmeError(""); return; }
-    const readme = tree.items.find(entry => entry.kind === "file" && /^readme(?:\.md|\.markdown)?$/i.test(entry.name));
-    if (!readme) { setRootReadme(null); return; }
-    let active = true;
-    void repositoryPreviewAPI.blob(organization.id, selectedRepository, readme.path, previewCommit)
-      .then(result => { if (active) setRootReadme(result); })
-      .catch(cause => { if (active) setReadmeError(translateError(cause, t, "repositories:feedback.readmeFailed")); });
-    return () => { active = false; };
-  }, [organization.id, selectedRepository, previewCommit, tree, selectedFile, t]);
-
-  const inspectFile = async (kind: "history" | "blame") => {
-    if (!selectedRepository || !selectedFile) return;
-    setFileInspectionLoading(true); setFileInspectionError("");
-    try {
-      if (kind === "history") {
-        const result = await repositoryPreviewAPI.fileHistory(organization.id, selectedRepository, selectedFile.path, previewCommit);
-        setFileHistory(result.items);
-        setBlameLines([]);
-      } else {
-        const result = await repositoryPreviewAPI.blame(organization.id, selectedRepository, selectedFile.path, previewCommit);
-        setBlameLines(result.items);
-        setFileHistory([]);
-      }
-    } catch (cause) {
-      setFileInspectionError(translateError(cause, t, "repositories:feedback.inspectionFailed"));
-    } finally { setFileInspectionLoading(false); }
-  };
-
-  const compareToCurrent = async (baseCommit: string) => {
-    if (!selectedRepository || !previewCommit || baseCommit === previewCommit) return;
-    setCompareLoading(true); setCompareError(""); setComparePatch(""); setCompareBase(baseCommit);
-    try {
-      const result = await repositoryPreviewAPI.compare(organization.id, selectedRepository, baseCommit, previewCommit);
-      setComparePatch(result.patch);
-    } catch (cause) {
-      setCompareError(translateError(cause, t, "repositories:feedback.compareFailed"));
-    } finally { setCompareLoading(false); }
-  };
-
-  const register = async (event: FormEvent) => {
-    event.preventDefault(); setBusy(true); setError("");
+  const register = async () => {
+    setRegistrationError("");
     try {
       const added = await repositoryAPI.register(organization.id, slug.trim(), defaultBranch.trim());
-      setItems(current => [...current, added]);
-      setSlug("");
+      setItems(current => [...current.filter(item => item.slug !== added.slug), added]);
+      const next = new URLSearchParams(search);
+      next.delete("q");
+      next.delete("view");
+      next.delete("register");
+      setSearch(next, { replace: true });
       onNotify(t("repositories:feedback.registered"));
+      void load();
     } catch (cause) {
-      setError(translateError(cause, t, "repositories:feedback.registrationFailed"));
-    } finally { setBusy(false); }
-  };
-
-  const openMarkdownPath = async (path: string) => {
-    if (!selectedRepository) return;
-    setFileHistory([]); setBlameLines([]); setFileInspectionError("");
-    setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
-    try {
-      setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, path, previewCommit));
-    } catch (cause) {
-      setPreviewError(cause instanceof Error ? cause.message : "Unable to open linked repository file");
-    } finally { setPreviewLoading(false); }
-  };
-
-  const openEntry = async (entry: RepositoryPreviewEntry) => {
-    if (entry.kind === "tree") {
-      setDirectory(entry.path);
-      return;
+      setRegistrationError(translateError(cause, t, "repositories:feedback.registrationFailed"));
     }
-    if (entry.kind !== "file") return;
-    setFileHistory([]); setBlameLines([]); setFileInspectionError("");
-    setPreviewLoading(true); setPreviewError(""); setSelectedFile(null);
-    try {
-      setSelectedFile(await repositoryPreviewAPI.blob(organization.id, selectedRepository, entry.path, previewCommit));
-    } catch (cause) {
-      setPreviewError(translateError(cause, t, "repositories:feedback.sourceFailed"));
-    } finally { setPreviewLoading(false); }
   };
 
-  return <section className="org-admin">
-    <div className="org-admin-summary card">
-      <div className="org-admin-summary__icon"><Code2 size={19}/></div>
-      <div><h2>{t("repositories:page.title")}</h2><p>{t("repositories:page.description")}</p></div>
-      <span className="org-role">{organization.role}</span>
-      <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> {t("common:actions.refresh")}</Button>
-    </div>
-    {error && <div className="org-error" role="alert">{error}</div>}
-    {canRegister && <form className="org-invite-form" onSubmit={register}>
-      <Input label={t("repositories:form.slugLabel")} required pattern="[^/]+/[^/]+" value={slug} onChange={event => setSlug(event.target.value)} placeholder={t("repositories:form.slugPlaceholder")}/>
-      <Input label={t("repositories:form.branchLabel")} required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder={t("repositories:form.branchPlaceholder")}/>
-      <Button className="button primary" type="submit" disabled={busy}><Plus size={14}/> {t("repositories:form.registerButton")}</Button>
-    </form>}
-    {!canRegister && <p className="changeset-hint">{t("repositories:page.restrictedNotice")}</p>}
-    <DataTable
-      className="org-table"
-      columns={[
-        { key: "slug", title: t("repositories:columns.repository"), render: (_value, item) => <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><Button className="button link" onClick={() => { initialPermalinkPath.current = ""; setSelectedRepository(item.slug); setSelectedRef(item.default_branch); setDirectory(""); setSelectedFile(null); setPreviewCommit(""); }}><Code2 size={14}/>{item.slug}</Button><Button className="button secondary" onClick={() => { const [owner, name] = item.slug.split("/"); navigate(`/orgs/${encodeURIComponent(organization.slug)}/webide/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`); }}>{t("repositories:page.openWebide")}</Button></span> },
-        { key: "default_branch", title: t("repositories:columns.branch") },
-        { key: "created_by", title: t("repositories:columns.registeredBy") },
-        { key: "created_at", title: t("repositories:columns.registered") },
-      ]}
-      data={items}
-      rowKey="slug"
-      loading={loading}
-      emptyText={t("repositories:empty")}
-      showColumnVisibility={false}
-    />
-    {selectedRepository && <section className="card" aria-label={t("repositories:preview.ariaLabel")} style={{ marginTop: 16, padding: 16 }}>
-      <header style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
-        <div><h2 style={{ margin: 0 }}>{t("repositories:preview.title")}</h2><p style={{ margin: "4px 0 0" }}>{t("repositories:preview.readOnly", { repository: selectedRepository })}</p></div>
-        <Select label={t("repositories:preview.refLabel")} aria-label={t("repositories:preview.refAriaLabel")} controlSize="small" value={selectedRef || defaultBranchName} onChange={event => { setSelectedRef(event.target.value); setPreviewCommit(""); setDirectory(""); setSelectedFile(null); setComparePatch(""); }} options={[...repositoryRefs.filter(ref => ref.kind === "branch").map(ref => ({ value: ref.name, label: t("repositories:preview.branchOption", { name: ref.name }) })), ...repositoryRefs.filter(ref => ref.kind === "tag").map(ref => ({ value: ref.name, label: t("repositories:preview.tagOption", { name: ref.name }) }))]} />
-        <Button className="button secondary" onClick={() => void copyPermalink()} disabled={!previewCommit}>{t("repositories:preview.copyPermalink")}</Button>
-        <Button className="button secondary" onClick={() => { setSelectedRepository(""); setTree(null); setSelectedFile(null); setPreviewCommit(""); }}><X size={14}/> {t("repositories:preview.close")}</Button>
-      </header>
-      {tree && <p className="changeset-hint">{t("repositories:preview.pinnedCommit", { commit: tree.commit_sha })}</p>}
-      {previewError && <div className="org-error" role="alert">{previewError}</div>}
-      {historyError && <div className="org-error" role="alert">{historyError}</div>}
-      {history.length > 0 && <div style={{ marginTop: 12, padding: 12, border: "1px solid var(--border-subtle, #ddd)", borderRadius: 6 }}>
-        <h3 style={{ margin: "0 0 8px" }}>{t("repositories:history.title")}</h3>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
-          {history.map(commit => <li key={commit.sha} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <GitCommit size={15} style={{ marginTop: 3, flexShrink: 0 }}/>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); setComparePatch(""); }}>{commit.subject || t("repositories:history.noSubject")}</Button>
-                {commit.sha !== previewCommit && <Button className="button secondary" onClick={() => void compareToCurrent(commit.sha)} disabled={compareLoading}><GitCompare size={13}/> {t("repositories:history.compareToCurrent")}</Button>}
-              </div>
-              <div className="changeset-hint">{commit.author} · {formatDateTime(commit.authored_at)} · <code>{commit.sha.slice(0, 12)}</code></div>
-            </div>
-          </li>)}
-        </ul>
-      </div>}
+  const sidebarLabel = t(collapsed ? "repositories:catalog.expandSidebar" : "repositories:catalog.collapseSidebar");
+  const sidebarToggle = <Button variant="ghost" className="repo-catalog-toggle" aria-expanded={!collapsed}
+    aria-controls="repository-views" aria-label={sidebarLabel} title={sidebarLabel} onClick={() => setCollapsed(!collapsed)}>
+    {collapsed ? <PanelLeftOpen size={16} aria-hidden="true"/> : <PanelLeftClose size={16} aria-hidden="true"/>}
+    {!collapsed && sidebarLabel}
+  </Button>;
 
-      {compareError && <div className="org-error" role="alert">{compareError}</div>}
-      {compareLoading && <p role="status">{t("repositories:compare.comparing")}</p>}
-      {comparePatch !== "" && <section aria-label={t("repositories:compare.ariaLabel")} style={{ marginTop: 12 }}>
-        <h3>{t("repositories:compare.title")}</h3>
-        <p className="changeset-hint">{t("repositories:compare.range", { base: compareBase.slice(0, 12), head: previewCommit.slice(0, 12) })}</p>
-        <RepositoryDiffViewer patch={comparePatch}/>
-      </section>}
-      {previewLoading && <p role="status">{t("repositories:preview.loading")}</p>}
-      {!previewLoading && tree && !selectedFile && <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0" }}>
-          <Button className="button secondary" disabled={!directory} onClick={() => setDirectory(directory.split("/").slice(0, -1).join("/"))}><ChevronLeft size={14}/> {t("repositories:preview.parent")}</Button>
-          <nav className="repository-breadcrumb" aria-label={t("repositories:preview.pathAriaLabel")}><Button className="button link" onClick={() => { setDirectory(""); setSelectedFile(null); }}>{t("repositories:preview.root")}</Button>{tree.path.split("/").filter(Boolean).map((part, index, parts) => <span key={`${part}-${index}`}> / <Button className="button link" onClick={() => { setDirectory(parts.slice(0, index + 1).join("/")); setSelectedFile(null); }}>{part}</Button></span>)}</nav>
+  return <div className={`collection-shell repo-catalog-shell${collapsed ? " is-collapsed" : ""}`}>
+    <aside className="collection-sidebar repo-catalog-sidebar">
+      <div id="repository-views" hidden={collapsed}>
+        <nav aria-label={t("repositories:catalog.views")}>
+          <Button variant="ghost" aria-current={!mine && !adminAccess ? "page" : undefined} onClick={() => setScope("")}>
+            <Book size={16} aria-hidden="true"/>{t("repositories:catalog.all")}
+          </Button>
+          <Button variant="ghost" aria-disabled="true" title={t("repositories:catalog.contributionsUnavailable")}>
+            <UsersRound size={16} aria-hidden="true"/>{t("repositories:catalog.contributions")}
+          </Button>
+          <Button variant="ghost" aria-current={mine ? "page" : undefined} onClick={() => setScope(ownRepositories)}>
+            <UserRound size={16} aria-hidden="true"/>{t("repositories:catalog.mine")}
+          </Button>
+          <Button variant="ghost" aria-disabled="true" title={t("repositories:catalog.forksUnavailable")}>
+            <GitFork size={16} aria-hidden="true"/>{t("repositories:catalog.forks")}
+          </Button>
+          <Button variant="ghost" aria-current={adminAccess && !mine ? "page" : undefined} onClick={() => setScope(managedRepositories)}>
+            <Settings size={16} aria-hidden="true"/>{t("repositories:catalog.adminAccess")}
+          </Button>
+        </nav>
+        <section className="repo-catalog-views" aria-labelledby="saved-repository-views">
+          <div>
+            <strong id="saved-repository-views"><Bookmark size={16} aria-hidden="true"/>{t("repositories:catalog.savedViews")}</strong>
+            <Button variant="ghost" size="small" aria-label={t("repositories:catalog.saveView")} title={t("repositories:catalog.saveView")}
+              onClick={() => { setViewName(""); setSaveOpen(true); }}><Plus size={16} aria-hidden="true"/></Button>
+          </div>
+          {views.length ? <ul>{views.map(view => <li key={view.name}>
+            <Button variant="ghost" aria-pressed={view.filters === filters.toString()} onClick={() => setSearch(view.filters)}>{view.name}</Button>
+            <Button variant="ghost" size="small" aria-label={t("repositories:catalog.removeView", { name: view.name })}
+              title={t("repositories:catalog.removeView", { name: view.name })}
+              onClick={() => updateViews(views.filter(item => item.name !== view.name))}><X size={14} aria-hidden="true"/></Button>
+          </li>)}</ul> : <p>{t("repositories:catalog.noViews")}</p>}
+        </section>
+      </div>
+      {sidebarToggle}
+    </aside>
+    <section className="collection-content repo-catalog" aria-labelledby="repo-catalog-heading">
+      <header className="collection-heading page-heading">
+        <h1 id="repo-catalog-heading">{t(mine ? "repositories:catalog.mine" : adminAccess ? "repositories:catalog.adminAccess" : "navigation:routes.repositories")}</h1>
+        {canRegister && <Button variant="primary" onClick={() => setOption("register", "1")}>{t("repositories:catalog.register")}</Button>}
+      </header>
+      <form className="repo-catalog-filter" role="search" aria-label={t("repositories:catalog.search")}
+        onSubmit={event => { event.preventDefault(); setQuery(query.trim()); }}>
+        <div className="repo-catalog-filter__field">
+          <Input ref={searchInput} type="text" aria-label={t("repositories:catalog.filter")} placeholder={t("repositories:catalog.filter")}
+            value={query} onChange={event => setQuery(event.target.value)} autoComplete="off" spellCheck={false}/>
+          {query && <Button variant="ghost" aria-label={t("common:actions.clear")} title={t("common:actions.clear")}
+            onClick={() => { setQuery(""); searchInput.current?.focus(); }}><CircleX size={16} aria-hidden="true"/></Button>}
         </div>
-        <div className="repository-tree-tools">
-          <Input aria-label="Filter repository files" placeholder="Filter files in this directory…" value={entryQuery} onChange={event => setEntryQuery(event.target.value)} />
-          <Select aria-label="Sort repository files" controlSize="small" value={entrySort} onChange={event => setEntrySort(event.target.value as EntrySort)} options={[{ value: "name", label: "Name" }, { value: "size", label: "Largest first" }]} />
-          <span className="changeset-hint">{visibleEntries.length} / {tree.items.length} items</span>
+        <Button type="submit" aria-label={t("repositories:catalog.search")} title={t("repositories:catalog.search")}>
+          <Search size={16} aria-hidden="true"/>
+        </Button>
+      </form>
+      {error && <p className="org-error" role="alert">{error}</p>}
+      <div className={`repo-catalog-list${compact ? " is-compact" : ""}`}>
+        <div className="repo-catalog-list__head">
+          <strong aria-live="polite">{loading || error ? t("repositories:page.title") : t("repositories:catalog.count", { count: filtered.length })}</strong>
+          <div className="repo-catalog-controls">
+            <div className="repo-catalog-sort">
+              <ArrowDownWideNarrow size={16} aria-hidden="true"/>
+              <Select controlSize="small" aria-label={t("repositories:catalog.sort")} menuTitle={t("repositories:catalog.sortBy")} value={sort}
+                onChange={event => setOption("sort", event.target.value === "relevance" ? "" : event.target.value)}
+                options={[
+                  { value: "relevance", label: t("repositories:catalog.relevance"), icon: UserRound },
+                  { value: "last-commit", label: t("repositories:catalog.lastCommit"), icon: History },
+                  { value: "name", label: t("repositories:catalog.name"), icon: CaseSensitive },
+                  { value: "stars", label: t("repositories:catalog.stars"), icon: Star, disabled: true, title: t("repositories:catalog.starsUnavailable") },
+                ]}/>
+            </div>
+            <div className="repo-catalog-density" role="group" aria-label={t("repositories:catalog.layout")}>
+              <Button size="small" variant="ghost" aria-label={t("repositories:catalog.detailed")} title={t("repositories:catalog.detailed")}
+                aria-pressed={!compact} onClick={() => setOption("layout", "")}><Rows2 size={16} aria-hidden="true"/></Button>
+              <Button size="small" variant="ghost" aria-label={t("repositories:catalog.compact")} title={t("repositories:catalog.compact")}
+                aria-pressed={compact} onClick={() => setOption("layout", "compact")}><Menu size={16} aria-hidden="true"/></Button>
+            </div>
+          </div>
         </div>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {visibleEntries.map(entry => <li key={entry.path} style={{ borderTop: "1px solid var(--border-subtle, #ddd)", padding: "8px 4px" }}>
-            <Button className="button link" disabled={entry.kind !== "tree" && entry.kind !== "file"} onClick={() => void openEntry(entry)}>
-              {entry.kind === "tree" ? <Folder size={15}/> : <FileText size={15}/>}
-              {entry.name}
-            </Button>
-            <span className="repository-tree-entry-meta">{entry.kind === "tree" ? t("repositories:preview.kindTree") : entry.kind === "symlink" ? t("repositories:preview.kindSymlink") : entry.kind === "blob" ? t("repositories:preview.kindBlob") : t("repositories:preview.kindFile")} · {formatRepositoryFileSize(entry.size)}</span>
-          </li>)}
-          {tree.items.length === 0 && <li className="changeset-hint">{t("repositories:preview.emptyDirectory")}</li>}
-          {tree.items.length > 0 && visibleEntries.length === 0 && <li className="changeset-hint">{t("repositories:preview.noMatch", { query: entryQuery })}</li>}
-        </ul>
-        {!tree.path && rootReadme && <section className="repository-landing-readme" aria-label={t("repositories:preview.readmeAriaLabel")}><div className="repository-landing-readme__heading"><h3>README</h3><span>{t("repositories:preview.projectOverview")}</span></div><RepositoryReadme content={rootReadme.content} sourcePath={rootReadme.path} onOpenPath={openMarkdownPath} onOpenImage={path => repositoryPreviewAPI.imageURL(organization.id, selectedRepository, path, previewCommit)}/></section>}
-        {readmeError && !tree.path && <p className="changeset-hint" role="status">{readmeError}</p>}
-      </div>}
-      {selectedFile && <div style={{ marginTop: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Button className="button secondary" onClick={() => setSelectedFile(null)}><ChevronLeft size={14}/> {t("repositories:file.backToFiles")}</Button>
-          <strong>{selectedFile.path}</strong>
+        {loading ? <p className="repo-catalog-empty" role="status">{t("common:components.loading")}</p> : error ? (
+          <div className="repo-catalog-empty"><Button onClick={() => void load()}><RefreshCw size={16} aria-hidden="true"/>{t("common:actions.refresh")}</Button></div>
+        ) : filtered.length ? (
+          <ul aria-label={t("repositories:page.title")}>
+            {filtered.map(item => {
+              const separator = item.slug.indexOf("/");
+              const language = item.git?.language;
+              const branchCount = item.git?.branch_count;
+              const pullRequests = item.activity?.changeset_count;
+              const actions = item.activity?.action_count;
+              const updatedAt = latestActivity(item);
+              const settingsLabel = t("sections.settingsFor", { repository: item.slug });
+              return <li key={item.slug}>
+                <span className="repo-catalog-glyph" aria-hidden="true"><Book size={17}/></span>
+                <div className="repo-catalog-entry">
+                  <Link className="repo-link repo-catalog-name" to={repositoryPath(handle, item.slug)} aria-label={item.slug}>
+                    {separator >= 0 ? <><span>{item.slug.slice(0, separator + 1)}</span>{item.slug.slice(separator + 1)}</> : item.slug}
+                  </Link>
+                  <div className="repo-catalog-meta">
+                    {language && <span className="repo-language"><i style={{ backgroundColor: languageColors[language] }} aria-hidden="true"/>{language}</span>}
+                    <Link to={repositoryPath(handle, item.slug, "branches")} title={t("sections.branchLabel", { branch: item.default_branch, count: branchCount })}
+                      aria-label={t("sections.branchLabel", { branch: item.default_branch, count: branchCount })}>
+                      <GitBranch size={16} aria-hidden="true"/><code>{item.default_branch}</code>{branchCount !== undefined && <span>{branchCount}</span>}
+                    </Link>
+                    <Link to={repositoryChangesetsPath(handle, item.slug)} title={t("sections.pullRequestLabel", { count: pullRequests })}
+                      aria-label={t("sections.pullRequestLabel", { count: pullRequests })}>
+                      <GitPullRequest size={16} aria-hidden="true"/>{pullRequests ?? "—"}
+                    </Link>
+                    <Link to={repositoryPath(handle, item.slug, "actions")} title={t("sections.actionLabel", { count: actions })}
+                      aria-label={t("sections.actionLabel", { count: actions })}>
+                      <Workflow size={16} aria-hidden="true"/>{actions ?? "—"}
+                    </Link>
+                    <time dateTime={updatedAt} title={formatDateTime(updatedAt)}>{t(item.git?.last_commit_at ? "catalog.updated" : "catalog.catalogUpdated", { time: formatRelativeTime(updatedAt) })}</time>
+                    {canRegister && <Link to={repositoryPath(handle, item.slug, "settings")} title={settingsLabel} aria-label={settingsLabel}>
+                      <Settings size={16} aria-hidden="true"/>
+                    </Link>}
+                  </div>
+                </div>
+              </li>;
+            })}
+          </ul>
+        ) : <p className="repo-catalog-empty">{t(query.trim() || mine ? "repositories:catalog.noMatch" : "repositories:empty")}</p>}
+      </div>
+      <p className="repo-catalog-tip"><Lightbulb size={16} aria-hidden="true"/>{t("repositories:catalog.filterTip")}</p>
+      <Modal open={saveOpen} title={t("repositories:catalog.saveView")} onCancel={() => setSaveOpen(false)}
+        okText={t("common:actions.save")} okDisabled={!viewName.trim() || views.some(view => view.name === viewName.trim())}
+        onOk={() => { updateViews([...views, { name: viewName.trim(), filters: filters.toString() }]); setSaveOpen(false); }}>
+        <Input label={t("repositories:catalog.viewName")} value={viewName} maxLength={60} onChange={event => setViewName(event.target.value)}/>
+      </Modal>
+      {canRegister && <Modal open={registrationOpen} title={t("repositories:catalog.register")} onCancel={() => setOption("register", "")}
+        onOk={register} okText={t("repositories:form.registerButton")} okDisabled={!/^[^/\s]+\/[^/\s]+$/.test(slug.trim()) || !defaultBranch.trim()}>
+        <div className="repo-register-fields">
+          <p className="repo-meta">{t("repositories:catalog.registerHelp")}</p>
+          <Input label={t("repositories:form.slugLabel")} required value={slug} onChange={event => setSlug(event.target.value)} placeholder={t("repositories:form.slugPlaceholder")}/>
+          <Input label={t("repositories:form.branchLabel")} required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder={t("repositories:form.branchPlaceholder")}/>
+          {registrationError && <p className="org-error" role="alert">{registrationError}</p>}
         </div>
-        <p className="changeset-hint">{t("repositories:file.blobAndCommit", { blob: selectedFile.blob_sha, commit: selectedFile.commit_sha })}</p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0" }}>
-          <Button className="button secondary" onClick={() => navigate(`/orgs/${encodeURIComponent(organization.slug || organization.id)}/webide?${new URLSearchParams({ repository: selectedRepository, commit: previewCommit, path: selectedFile.path }).toString()}`)}>{t("repositories:file.openInWebIDE")}</Button>
-          <Button className="button secondary" onClick={() => void inspectFile("history")} disabled={fileInspectionLoading}>{t("repositories:file.historyButton")}</Button>
-          <Button className="button secondary" onClick={() => void inspectFile("blame")} disabled={fileInspectionLoading}>{t("repositories:file.blameButton")}</Button>
-        </div>
-        {fileInspectionLoading && <p role="status">{t("repositories:file.loadingInspection")}</p>}
-        {fileInspectionError && <div className="org-error" role="alert">{fileInspectionError}</div>}
-        {fileHistory.length > 0 && <section aria-label={t("repositories:file.historyAriaLabel")}><h3>{t("repositories:file.historyTitle")}</h3><ul>{fileHistory.map(commit => <li key={commit.sha}>
-          <Button className="button link" onClick={() => { setPreviewCommit(commit.sha); setDirectory(""); setSelectedFile(null); setFileHistory([]); }}>{commit.subject || t("repositories:history.noSubject")}</Button> <code>{commit.sha.slice(0, 12)}</code>
-        </li>)}</ul></section>}
-        {blameLines.length > 0 && <section aria-label={t("repositories:file.blameAriaLabel")}><h3>{t("repositories:file.blameTitle")}</h3><div style={{ overflow: "auto", maxHeight: 360, display: "grid", gap: 4 }}>{blameLines.map(line => <div key={line.line} style={{ display: "grid", gridTemplateColumns: "42px 88px minmax(100px, 180px) 1fr", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border-subtle, #ddd)" }}>
-          <code>{line.line}</code><code>{line.commit_sha.slice(0, 8)}</code><span>{line.author}</span><code style={{ overflowWrap: "anywhere" }}>{line.content}</code>
-        </div>)}</div></section>}
-        {(selectedFile.path.toLowerCase().endsWith(".md") || selectedFile.path.toLowerCase().endsWith(".markdown")) ? <RepositoryReadme content={selectedFile.content} sourcePath={selectedFile.path} onOpenPath={openMarkdownPath} onOpenImage={path => repositoryPreviewAPI.imageURL(organization.id, selectedRepository, path, previewCommit)}/> : <RepositorySourceViewer path={selectedFile.path} content={selectedFile.content}/>}
-      </div>}
-    </section>}
-  </section>;
+      </Modal>}
+    </section>
+  </div>;
 }

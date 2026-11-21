@@ -100,6 +100,8 @@ function App() {
 
   const label = routeLabel(matches.at(-1)?.handle);
   const item = navigationItemFor(label);
+  const isRepositoryCatalog = label === "Repositories" && accountState === "ready" && Boolean(urlOrganization);
+  const isRepositoryDetail = label === "Repository" && Boolean(matches.at(-1)?.params.owner) && accountState === "ready" && Boolean(urlOrganization);
   const isOverview = label === "Overview";
   // Organization pages are backed by the account API; the mock pages only simulate a refresh.
   const refresh = () => {
@@ -124,8 +126,8 @@ function App() {
           </div>} />
         <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
         <main className="main">
-          <div className="content">
-            {!isOverview && (label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
+          <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
+            {!isOverview && !isRepositoryCatalog && !isRepositoryDetail && (label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
               <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}

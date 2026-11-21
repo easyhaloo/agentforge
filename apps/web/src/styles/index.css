@@ -431,3 +431,31 @@
   .workspace-brand > a strong { display: none; }
   .workspace-organization .af-select { max-width: min(150px, 32vw); }
 }
+
+.shell .content.content--collection { max-width: none; padding: 0; }
+.collection-shell { display: grid; grid-template-columns: minmax(196px, 232px) minmax(0, 1fr); min-height: calc(100dvh - 100px); background: var(--af-color-background); }
+.collection-sidebar { padding: 22px 12px; border-inline-end: 1px solid var(--af-color-border); background: var(--af-color-surface); }
+.collection-sidebar nav { display: flex; flex-direction: column; gap: 3px; }
+.collection-sidebar .af-button {
+  justify-content: flex-start;
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--af-radius-sm);
+  background: transparent;
+  padding: 8px 10px;
+  text-align: start;
+  color: var(--af-color-text-secondary);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.collection-sidebar .af-button:hover { background: var(--af-color-surface-raised); color: var(--af-color-text); }
+.collection-sidebar .af-button[aria-current="page"] { border-inline-start-color: var(--af-color-primary); background: var(--af-color-primary-subtle); color: var(--af-color-text); font-weight: 600; }
+.collection-content { display: grid; align-content: start; gap: 14px; min-width: 0; width: 100%; padding: clamp(16px, 2.2vw, 32px); }
+.collection-content .collection-heading { display: flex; flex-flow: row wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0; }
+.collection-heading__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.collection-heading h1 { margin: 0; font-size: clamp(19px, 2vw, 23px); line-height: 1.3; }
+@media (max-width: 760px) {
+  .collection-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .collection-sidebar { padding: 8px 12px; border-inline-end: 0; border-bottom: 1px solid var(--af-color-border); }
+  .collection-sidebar nav { flex-direction: row; flex-wrap: wrap; }
+  .collection-sidebar .af-button { border-inline-start: 0; }
+}
