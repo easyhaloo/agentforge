@@ -193,7 +193,7 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
             <Button variant="ghost" size="small" aria-label={t("repositories:catalog.saveView")} title={t("repositories:catalog.saveView")}
               onClick={() => { setViewName(""); setSaveOpen(true); }}><Plus size={16} aria-hidden="true"/></Button>
           </div>
-          {views.length ? <ul>{views.map(view => <li key={view.name}>
+          {views.length ? <ul>{views.map(view => <li className="af-action-row" key={view.name}>
             <Button variant="ghost" aria-pressed={view.filters === filters.toString()} onClick={() => setSearch(view.filters)}>{view.name}</Button>
             <Button variant="ghost" size="small" aria-label={t("repositories:catalog.removeView", { name: view.name })}
               title={t("repositories:catalog.removeView", { name: view.name })}
