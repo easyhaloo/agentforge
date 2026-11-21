@@ -31,6 +31,8 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 	commentRepo := NewCommentRepository(store)
 
 	orgID := "test-org-005"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/comment-test"
 
 	// Create a test issue first
