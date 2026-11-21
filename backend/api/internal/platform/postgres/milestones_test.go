@@ -32,6 +32,8 @@ func TestMilestoneRepository_CreateAndGet(t *testing.T) {
 	repo := NewMilestoneRepository(store)
 
 	orgID := "test-org-milestone-001"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 	dueDate := time.Now().Add(30 * 24 * time.Hour)
 
@@ -113,6 +115,8 @@ func TestMilestoneRepository_List(t *testing.T) {
 	repo := NewMilestoneRepository(store)
 
 	orgID := "test-org-milestone-002"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create two open milestones
@@ -199,6 +203,8 @@ func TestMilestoneRepository_Update(t *testing.T) {
 	repo := NewMilestoneRepository(store)
 
 	orgID := "test-org-milestone-003"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
@@ -274,6 +280,8 @@ func TestMilestoneRepository_Delete(t *testing.T) {
 	repo := NewMilestoneRepository(store)
 
 	orgID := "test-org-milestone-004"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
