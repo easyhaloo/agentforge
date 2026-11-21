@@ -384,12 +384,21 @@ paths:
               properties:
                 slug: { type: string, pattern: "^[^/]+/[^/]+$" }
                 default_branch: { type: string, minLength: 1 }
+                visibility:
+                  type: string
+                  enum: ["", public, private]
+                  description: Display-only visibility. An omitted or empty value means unknown.
+                fork:
+                  type: boolean
+                  default: false
+                  description: Display-only fork indicator.
       responses:
         "201":
           description: Registered repository
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+        "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
@@ -1470,11 +1479,18 @@ components:
           items: { $ref: "#/components/schemas/OrganizationSummary" }
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, created_by, created_at, updated_at]
       properties:
         organization_id: { type: string }
         slug: { type: string }
         default_branch: { type: string }
+        visibility:
+          type: string
+          enum: [public, private]
+          description: Display-only visibility. Omitted when unknown.
+        fork:
+          type: boolean
+          description: Display-only fork indicator.
         created_by: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }

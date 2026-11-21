@@ -76,7 +76,8 @@ func TestMinIOPipelineObjects(t *testing.T) {
 	defer func() { cancel(); cmd.Wait() }()
 	client := &http.Client{Timeout: time.Second}
 	for {
-		resp, err := client.Get(endpoint + "/minio/health/ready")
+		// Wait for write readiness before creating the bucket.
+		resp, err := client.Get(endpoint + "/minio/health/cluster")
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {

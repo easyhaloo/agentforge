@@ -16,6 +16,8 @@
     "changeset": "Changeset",
     "repositories": "Repositories",
     "repository": "Repository",
+    "issues": "Issues",
+    "issue": "Issue",
     "trails": "Trails",
     "review": "Review",
     "eval": "Eval",
@@ -32,6 +34,7 @@
     "CONTROL PLANE": "Control plane"
   },
   "descriptions": {
+    "issues": "View issues across the organization.",
     "overview": "A live map of changes, verification and delivery across your engineering system.",
     "projects": "Organize repositories, teams and delivery boundaries.",
     "repositories": "Git-compatible repositories backed by a canonical object graph.",
@@ -70,8 +73,13 @@
   },
   "topbar": {
     "workspace": "Workspace",
-    "searchPlaceholder": "Search anything...",
-    "searchAriaLabel": "Search anything (Command K)",
+    "searchPages": "Search pages",
+    "allIssues": "All issues",
+    "allPullRequests": "All pull requests",
+    "allRepositories": "All repositories",
+    "switchRepository": "Switch repository",
+    "searchRepositories": "Search repositories",
+    "noMatchingRepositories": "No matching repositories",
     "notificationsAriaLabel": "Notifications",
     "caughtUp": "You're all caught up."
   },

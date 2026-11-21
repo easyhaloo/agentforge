@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AlertCircle, Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
+import { Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { formatDate, formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
-import { organizationHandle, orgPath, repositoryPath, webIDEPath } from "../../shared/routing";
+import { organizationHandle, webIDEPath } from "../../shared/routing";
 import { Button, Input, Select } from "../../shared/ui";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
+import { RepositoryMasthead } from "./RepositoryMasthead";
 import { RepositoryReadme } from "./RepositoryReadme";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { formatRepositoryFileSize } from "./repositoryFileUtils";
@@ -31,7 +32,6 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   const directory = search.get("dir") || (file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "");
   const refName = snapshot || selectedRef;
   const handle = organizationHandle(organization);
-  const [owner, name] = repository.split("/");
   const author = search.get("author") || "";
   const day = search.get("day") || "";
 
@@ -78,18 +78,9 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
     {snapshot && <Link className="repo-back" to={makeQuery({ commit: "", view: isHistory ? "commits" : "" })}>{t("repositories:browser.backToBranch")}</Link>}
   </div>;
   return <section className="repo-layout repo-browser" aria-label={t("repositories:preview.ariaLabel")}>
-    <header className="repo-masthead">
-      <div className="repo-browser-heading">
-        <div>
-          <Link className="repo-back" to={orgPath(handle, "repositories")}>{t("repositories:browser.backToRepositories")}</Link>
-          <h1 aria-label={repository}><span><span className="repo-owner">{owner} / </span>{name}</span></h1>
-        </div>
-        <div className="repo-toolbar">
-          <Link className="af-button af-button--secondary af-button--middle" to={repositoryPath(handle, repository, "issues")}><AlertCircle size={16} aria-hidden="true"/>{t("repositories:issues.tab")}</Link>
-          <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
-        </div>
-      </div>
-    </header>
+    <RepositoryMasthead organization={organization} repository={repository} actions={
+      <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
+    }/>
     {refError && <p className="org-error" role="alert">{refError}</p>}
     {copyError && <p className="org-error" role="alert">{copyError}</p>}
     {change ? <CommitDetails key={`${change}:${compareBase}`} {...browse} change={change} base={compareBase} onCopy={anchor => void copyPermalink(change, anchor)}

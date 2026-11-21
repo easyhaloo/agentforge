@@ -4,12 +4,13 @@ import { Link, Navigate, Outlet, useLocation, useMatches, useNavigate, useParams
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
-import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, orgPath, withOrganizationHandle } from "../shared/routing";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, orgPath, repositorySections, withOrganizationHandle } from "../shared/routing";
 import { Button, Select } from "../shared/ui";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
 import { AccountTheme } from "../features/appearance/AccountTheme";
 import { Topbar } from "./components/Topbar";
+import { RepositorySwitcher } from "./components/RepositorySwitcher";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
 import { navigationItemFor, routeLabel } from "./navigation";
@@ -81,50 +82,57 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      const command = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
+      const quickSearch = event.key === "/" && !event.altKey && !event.metaKey && !event.ctrlKey && !event.isComposing &&
+        event.target instanceof HTMLElement && !event.target.closest('input, textarea, select, [contenteditable], [role="textbox"], [role=dialog], [aria-expanded="true"]');
+      if (!event.defaultPrevented && !commandOpen && (command || (quickSearch && !navigationOpen))) {
         event.preventDefault();
         setNavigationOpen(false);
         setCommandOpen(true);
       }
-      if (event.key === "Escape") {
-        setCommandOpen(false);
-      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [commandOpen, navigationOpen]);
 
   // The router serves /projects/ like /projects, but the sidebar highlights only the exact path (NavLink `end`), so
   // trailing slashes are removed (history `replace`, query and hash kept) before a page is shown.
   const trailingSlash = pathname.length > 1 && pathname.endsWith("/");
 
-  const label = routeLabel(matches.at(-1)?.handle);
+  const match = matches.at(-1);
+  const label = routeLabel(match?.handle);
   const item = navigationItemFor(label);
   const isRepositoryCatalog = label === "Repositories" && accountState === "ready" && Boolean(urlOrganization);
-  const isRepositoryDetail = label === "Repository" && Boolean(matches.at(-1)?.params.owner) && accountState === "ready" && Boolean(urlOrganization);
+  const { owner, repo } = match?.params ?? {};
+  const isRepositoryDetail = (label === "Repository" || label === "Issue") && Boolean(owner && repo) && accountState === "ready" && Boolean(urlOrganization);
+  const repositorySection = repositorySections.find(section => section === match?.pathname.split("/")[6]);
   const isOverview = label === "Overview";
   // Organization pages are backed by the account API; the mock pages only simulate a refresh.
   const refresh = () => {
     if (urlHandle) void loadAccount();
     else notify("Demo data refreshed.");
   };
+  const organizationSelect = <Select aria-label={t("navigation:sidebar.selectOrganization")} value={selectedOrganization?.id ?? ""}
+    placeholder={t("navigation:sidebar.noOrganization")} disabled={!account?.organizations.length}
+    onChange={event => { selectOrganization(event.target.value); setNavigationOpen(false); }}
+    options={(account?.organizations ?? []).map(org => ({ label: org.name, value: org.id }))} />;
 
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
       {account && <AccountTheme key={account.user_id} />}
       <div className="shell">
         <Topbar label={label} onSearch={() => setCommandOpen(true)} onSignOut={() => void signOut()}
+          context={isRepositoryDetail && urlOrganization && owner && repo ? <RepositorySwitcher key={`${urlOrganization.id}:${owner}/${repo}`}
+            organizationId={urlOrganization.id} handle={linkHandle} owner={owner} repo={repo} section={repositorySection} /> : undefined}
           navigation={<Button variant="ghost" className="workspace-icon" aria-label={t("navigation:sidebar.openNavigation")}
             aria-haspopup="dialog" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}><Menu size={17} aria-hidden="true" /></Button>}
-          organization={<div className="workspace-organization">
-            <Select aria-label={t("navigation:sidebar.selectOrganization")} value={selectedOrganization?.id ?? ""}
-              placeholder={t("navigation:sidebar.noOrganization")} disabled={!account?.organizations.length}
-              onChange={event => selectOrganization(event.target.value)}
-              options={(account?.organizations ?? []).map(org => ({ label: org.name, value: org.id }))} />
-            {selectedOrganization && <Link className="workspace-icon" to={orgPath(linkHandle, "settings")}
-              aria-label={t("navigation:sidebar.organizationSettings")} title={t("navigation:sidebar.organizationSettings")}><Building2 size={16} /></Link>}
-          </div>} />
-        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
+          organizationHandle={selectedOrganization ? linkHandle : undefined}
+          organization={<div className="workspace-organization">{organizationSelect}</div>} />
+        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} controls={<>
+          <div className="workspace-navigation__compact">{organizationSelect}</div>
+          {selectedOrganization && <Link className="af-button af-button--ghost af-button--middle nav-item" to={orgPath(linkHandle, "settings")}
+            onClick={() => setNavigationOpen(false)}><Building2 size={16} aria-hidden="true" />{t("navigation:sidebar.organizationSettings")}</Link>}
+        </>} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && !isRepositoryCatalog && !isRepositoryDetail && (label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
