@@ -15,6 +15,7 @@ import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryBrowserPage } from "../pages/repositories/RepositoryBrowserPage";
 import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
+import { IssueDetailPage } from "../pages/repositories/IssueDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
@@ -124,8 +125,17 @@ export function RepositoryDetailRoute({ section }: { section?: RepositorySection
     return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
   }
   const repository = `${owner}/${repo}`;
-  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section}/>;
+  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} onNotify={notify}/>;
   return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
+}
+
+export function IssueDetailRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { owner, repo, number } = useParams();
+  const notify = useNotify();
+  const repository = `${owner}/${repo}`;
+  const issueNumber = Number(number);
+  return <IssueDetailPage key={`${organization.id}:${repository}:${issueNumber}`} organization={organization} repository={repository} issueNumber={issueNumber} onNotify={notify} />;
 }
 
 export function WebIDERoute() {
