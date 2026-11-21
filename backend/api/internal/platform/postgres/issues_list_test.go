@@ -63,7 +63,7 @@ func TestIssueRepository_List(t *testing.T) {
 			Title:       "Third issue",
 			Body:        "Body 3",
 			State:       issues.StateClosed,
-			StateReason: "completed",
+			StateReason: issues.ReasonCompleted,
 			CreatedBy:   "user-001",
 			ClosedBy:    "user-001",
 			CreatedAt:   closedAt,

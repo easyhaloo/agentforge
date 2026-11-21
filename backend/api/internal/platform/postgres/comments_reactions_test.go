@@ -39,12 +39,6 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 	repo1 := "owner/reaction-test"
 	now := time.Now().UTC()
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Create a test issue
 	issue := &issues.Issue{
 		ID:         "issue-reaction-001",
@@ -245,12 +239,6 @@ func TestReactionRepository_AddToIssue(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/issue-reaction-test"
 	now := time.Now().UTC()
-
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
 
 	// Create a test issue
 	issue := &issues.Issue{

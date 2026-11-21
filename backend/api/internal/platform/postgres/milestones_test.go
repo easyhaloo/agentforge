@@ -37,12 +37,6 @@ func TestMilestoneRepository_CreateAndGet(t *testing.T) {
 	repository := "owner/test-repo"
 	dueDate := time.Now().Add(30 * 24 * time.Hour)
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Test: Create a milestone
 	milestone := &milestones.Milestone{
 		ID:          "milestone-001",
@@ -124,12 +118,6 @@ func TestMilestoneRepository_List(t *testing.T) {
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
-
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
 
 	// Create two open milestones
 	m1 := &milestones.Milestone{
@@ -219,12 +207,6 @@ func TestMilestoneRepository_Update(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
-
 	// Create a milestone
 	original := &milestones.Milestone{
 		ID:          "milestone-update-001",
@@ -301,12 +283,6 @@ func TestMilestoneRepository_Delete(t *testing.T) {
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
-
-	// Create organization
-	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
-	if err != nil {
-		t.Fatalf("failed to create organization: %v", err)
-	}
 
 	// Create a milestone
 	milestone := &milestones.Milestone{
