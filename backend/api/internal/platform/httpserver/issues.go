@@ -625,6 +625,51 @@ func (d DeliveryDependencies) removeAssignees(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, map[string]interface{}{"assignees": assignees})
 }
 
+// getIssueTimeline handles GET /api/v1/organizations/{organizationID}/issues/{number}/timeline
+func (d DeliveryDependencies) getIssueTimeline(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	if d.IssueRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Issue tracking unavailable", "The issue repository is not configured")
+		return
+	}
+	if d.EventRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Event tracking unavailable", "The event repository is not configured")
+		return
+	}
+
+	repository := r.URL.Query().Get("repository")
+	if repository == "" {
+		writeProblem(w, http.StatusBadRequest, "Repository required", "repository query parameter is required")
+		return
+	}
+
+	numberStr := r.PathValue("number")
+	number, err := strconv.Atoi(numberStr)
+	if err != nil || number < 1 {
+		writeProblem(w, http.StatusBadRequest, "Invalid issue number", "number must be a positive integer")
+		return
+	}
+
+	// Verify issue exists
+	issue, err := d.IssueRepo.Get(r.Context(), principal.OrganizationID, repository, number)
+	if err != nil {
+		writeProblem(w, http.StatusNotFound, "Issue not found", "No issue exists with this number in the repository")
+		return
+	}
+
+	// Get timeline events
+	events, err := d.EventRepo.List(r.Context(), principal.OrganizationID, string(issue.ID))
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to retrieve timeline", "The timeline could not be retrieved")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"events": events})
+}
+
 // canModifyIssue checks if the principal can modify the given issue
 func (d DeliveryDependencies) canModifyIssue(principal Principal, issue *issues.Issue) bool {
 	// Admin and owner have full access

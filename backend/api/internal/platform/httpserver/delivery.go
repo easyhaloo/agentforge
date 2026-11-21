@@ -17,6 +17,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/comments"
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/events"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
@@ -107,6 +108,12 @@ type ReactionRepository interface {
 	Remove(ctx context.Context, organizationID string, reactionID reactions.ID) error
 }
 
+type EventRepository interface {
+	Record(ctx context.Context, organizationID string, event *events.Event) error
+	List(ctx context.Context, organizationID string, issueID string) ([]*events.Event, error)
+	ListByType(ctx context.Context, organizationID string, issueID string, eventType events.EventType) ([]*events.Event, error)
+}
+
 type DeliveryDependencies struct {
 	Repository       delivery.Repository
 	Identity         identity.PrincipalResolver
@@ -136,6 +143,7 @@ type DeliveryDependencies struct {
 	LabelRepo        LabelRepository
 	MilestoneRepo    MilestoneRepository
 	ReactionRepo     ReactionRepository
+	EventRepo        EventRepository
 }
 
 type storedChangesetResponse struct {
@@ -218,6 +226,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/assignees", deps.removeAssignees)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/labels", deps.addLabelsToIssue)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/labels/{labelName}", deps.removeLabelFromIssue)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/timeline", deps.getIssueTimeline)
 
 	// Comment routes
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/comments", deps.listComments)
