@@ -25,6 +25,7 @@ func TestIssueRepository_AddAssignee(t *testing.T) {
 
 	issueRepo := NewIssueRepository(store)
 	orgID := "test-org-assignees-001"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/assignee-test"
 
 	// Create an issue first
@@ -82,6 +83,7 @@ func TestIssueRepository_AddMultipleAssignees(t *testing.T) {
 
 	issueRepo := NewIssueRepository(store)
 	orgID := "test-org-assignees-002"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/multi-assignee-test"
 
 	// Create an issue
@@ -149,6 +151,7 @@ func TestIssueRepository_AddAssigneeIdempotent(t *testing.T) {
 
 	issueRepo := NewIssueRepository(store)
 	orgID := "test-org-assignees-003"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/idempotent-test"
 
 	// Create an issue
@@ -209,6 +212,7 @@ func TestIssueRepository_RemoveAssignee(t *testing.T) {
 
 	issueRepo := NewIssueRepository(store)
 	orgID := "test-org-assignees-004"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/remove-assignee-test"
 
 	// Create an issue
@@ -269,6 +273,7 @@ func TestIssueRepository_RemoveOneOfMultipleAssignees(t *testing.T) {
 
 	issueRepo := NewIssueRepository(store)
 	orgID := "test-org-assignees-005"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/remove-one-test"
 
 	// Create an issue
@@ -337,6 +342,7 @@ func TestIssueRepository_GetAssigneesForEmptyIssue(t *testing.T) {
 
 	issueRepo := NewIssueRepository(store)
 	orgID := "test-org-assignees-006"
+	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/empty-assignee-test"
 
 	// Create an issue
