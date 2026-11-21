@@ -29,6 +29,8 @@ func TestIssueRepository_Close(t *testing.T) {
 	repo := NewIssueRepository(store)
 
 	orgID := "test-org-004"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/close-test"
 
 	// Create test issue
