@@ -35,7 +35,13 @@ test("filters, sorts, and restores a saved repository view on desktop and mobile
   await page.getByRole("button", { name: "Registered by me" }).click();
   await expect(filter).toHaveValue("created-by:@me");
   await expect(names).toHaveCount(2);
-  await page.getByRole("button", { name: "Admin access" }).click();
+  const adminAccess = page.getByRole("button", { name: "Admin access" });
+  await expect(page.getByRole("navigation").filter({ has: adminAccess })).toHaveCSS("row-gap", "0px");
+  await adminAccess.hover();
+  await expect(adminAccess).toHaveCSS("cursor", "pointer");
+  await expect(adminAccess).toHaveCSS("height", "32px");
+  await expect(adminAccess).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await adminAccess.click();
   await expect(filter).toHaveValue("access:admin");
   await expect(names).toHaveCount(3);
   await expect(page.getByRole("button", { name: "My forks" })).toBeDisabled();

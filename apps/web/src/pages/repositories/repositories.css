@@ -67,25 +67,37 @@
   top: 60px;
   gap: 16px;
   min-height: calc(100dvh - 60px);
-  padding: 24px 14px 12px;
+  padding: 16px;
   background: var(--af-color-surface-raised);
 }
 .repo-catalog-sidebar .af-button { gap: 8px; }
 .repo-catalog-sidebar .af-button svg { flex: none; }
-.repo-catalog-sidebar .af-button:hover { background: var(--af-color-surface); }
-.collection-sidebar.repo-catalog-sidebar .af-button[aria-current="page"] {
+.repo-catalog-sidebar .af-button:hover:where(:not(.af-action-row)) { background: var(--af-color-surface); }
+.repo-catalog-sidebar > div > nav { gap: 0; }
+.repo-catalog-sidebar nav .af-action-row { justify-content: flex-start; }
+.repo-catalog-sidebar nav .af-action-row[aria-current="page"] {
+  position: relative;
   color: var(--af-color-merged);
   background: color-mix(in srgb, var(--af-color-merged) 12%, var(--af-color-surface));
-  border-inline-start-color: var(--af-color-merged);
+}
+.repo-catalog-sidebar nav .af-action-row[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: -7px;
+  width: 3px;
+  border-radius: var(--af-radius-sm);
+  background: currentColor;
 }
 .collection-sidebar.repo-catalog-sidebar .repo-catalog-toggle { margin-top: auto; border-top: 1px solid var(--af-color-border); border-radius: 0; }
 .repo-catalog-shell.is-collapsed .repo-catalog-sidebar { padding-inline: 10px; }
 .repo-catalog-shell.is-collapsed .repo-catalog-sidebar .repo-catalog-toggle { margin-top: 0; padding: 8px; justify-content: center; border: 0; }
-.repo-catalog-views { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--af-color-border); }
+.repo-catalog-views { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--af-color-border); }
 .repo-catalog-views > div, .repo-catalog-views strong, .repo-catalog-views li { display: flex; align-items: center; gap: 8px; }
-.repo-catalog-views > div { justify-content: space-between; padding-left: 12px; }
+.repo-catalog-views > div { justify-content: space-between; padding-inline-start: 8px; }
+.repo-catalog-views > div > .af-button { justify-content: center; width: 32px; min-height: 32px; padding: 0; border: 0; }
 .repo-catalog-views strong, .repo-catalog-views p { color: var(--af-color-text-secondary); font-size: 13px; }
-.repo-catalog-views p { margin: 6px 12px; }
+.repo-catalog-views p { margin: 2px 0 0; }
 .repo-catalog-views ul { list-style: none; margin: 0; padding: 0; }
 .repo-catalog-views li { gap: 0; align-items: stretch; }
 .repo-catalog-views li .af-button,
@@ -102,7 +114,7 @@
 .repo-catalog-filter__field .af-input { height: 34px; padding-inline: 12px 40px; border-start-end-radius: 0; border-end-end-radius: 0; }
 .repo-catalog-filter__field > button { position: absolute; inset-inline-end: 4px; inset-block: 3px; min-height: 0; padding: 0 6px; }
 .repo-catalog-filter > button { flex: none; width: 36px; min-height: 34px; margin-inline-start: -1px; padding: 0; border-start-start-radius: 0; border-end-start-radius: 0; }
-.repo-catalog-sidebar [aria-disabled="true"] { color: var(--af-color-text-muted); opacity: .75; cursor: not-allowed; }
+.repo-catalog-sidebar .af-button[aria-disabled="true"] { color: var(--af-color-text-muted); opacity: .75; cursor: not-allowed; }
 .repo-catalog-sidebar [aria-disabled="true"]:hover { background: transparent; }
 .repo-catalog-list { border: 1px solid var(--af-color-border); border-radius: var(--af-radius-lg); background: var(--af-color-surface); }
 .repo-catalog-list__head, .repo-catalog-list li, .repo-catalog-empty { padding: 12px 16px; }
@@ -197,7 +209,9 @@
   .collection-shell.repo-catalog-shell, .repo-catalog-shell.is-collapsed { grid-template-columns: minmax(0, 1fr); }
   .collection-sidebar.repo-catalog-sidebar { position: static; min-height: 0; gap: 4px; padding: 10px 12px; }
   .collection-sidebar.repo-catalog-sidebar .repo-catalog-toggle { align-self: flex-start; border: 0; }
-  .repo-catalog-views { margin-top: 8px; padding-top: 4px; }
+  .repo-catalog-sidebar > div > nav { gap: 2px; }
+  .repo-catalog-sidebar nav .af-action-row[aria-current="page"]::before { display: none; }
+  .repo-catalog-views { padding-top: 4px; }
   .repo-catalog-list__head, .repo-catalog-list li { padding-inline: 10px; }
   .repo-catalog-shell.is-collapsed .repo-catalog-sidebar .repo-catalog-toggle { padding-block: 4px; }
 }
