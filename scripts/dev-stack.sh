@@ -141,6 +141,17 @@ check_port_free() {
   fi
 }
 
+cleanup_postgres() {
+  step "Cleaning up any existing PostgreSQL containers"
+  # Stop and remove the compose-managed postgres container (keeps the volume)
+  docker compose down postgres 2>/dev/null || true
+  # Remove orphan agentforge postgres containers to avoid warnings
+  docker ps -a --filter "name=agentforge.*postgres" --format "{{.Names}}" 2>/dev/null | \
+    grep -E '^agentforge-(postgres-test|postgres-1)$' | \
+    xargs -r docker rm -f 2>/dev/null || true
+  note "old containers cleaned up, data volumes preserved"
+}
+
 start_postgres() {
   step "Starting PostgreSQL (compose.yaml, service 'postgres')"
   if ! docker compose up -d postgres; then
@@ -286,17 +297,18 @@ on_signal() {
 cmd_up() {
   mkdir -p "$RUN_DIR"
   if stack_running; then
-    printf 'The local stack is already running.\n'
-    print_urls
-    printf 'Stop it with "make stop" first if you want a fresh start.\n'
-    exit 0
+    step "Local stack is already running; restarting it"
+    stop_process web
+    stop_process api
+  else
+    stop_process web
+    stop_process api
   fi
-  stop_process web
-  stop_process api
   check_port_free api "$PORT"
   check_port_free web "$WEB_PORT"
   trap on_signal INT TERM
   trap cleanup EXIT
+  cleanup_postgres
   start_postgres
   build_api
   start_api
