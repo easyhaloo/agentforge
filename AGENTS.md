@@ -7,10 +7,11 @@ Do not invoke the `fe-loop` workflow or its delegated skills in this repository.
 ## Reading Order for AI Agents
 
 1. **This file (AGENTS.md)** ← MANDATORY first read: Core principles, domain rules, workflow
-2. **[CLAUDE.md](CLAUDE.md)** ← Claude Code-specific configuration (if using Claude Code)
-3. **[docs/development/frontend.md](docs/development/frontend.md)** ← When working on apps/web (React/TypeScript)
-4. **[docs/development/backend.md](docs/development/backend.md)** ← When working on backend/api (Go)
-5. **[Testing Guide](docs/testing/setup.md)** ← Test environment setup (required for backend tests)
+2. **[Agent Collaboration](docs/development/agent-collaboration.md)** ← Required for Codex-led development and Claude Code implementation
+3. **[CLAUDE.md](CLAUDE.md)** ← Claude Code-specific configuration (if using Claude Code)
+4. **[docs/development/frontend.md](docs/development/frontend.md)** ← When working on apps/web (React/TypeScript)
+5. **[docs/development/backend.md](docs/development/backend.md)** ← When working on backend/api (Go)
+6. **[Testing Guide](docs/testing/setup.md)** ← Test environment setup (required for backend tests)
 
 ## Document Roles
 
@@ -157,7 +158,7 @@ backend/api/README.md                # API operations (deployment, config)
 - **i18n mandatory**: All user-facing text must be in translation files (en-US and zh-CN)
 - **No hardcoded strings**: Use `useTranslation()` and `t()` for all UI text
 - **Routing rules**: Update `app/routes.tsx`, `app/navigation.ts`, route tests, and ADR-008 together
-- **Feature-Sliced**: Follow the architecture in agent.md
+- **Feature-Sliced**: Follow the [frontend architecture](docs/development/frontend.md#frontend-architecture)
 
 ### Go / Backend
 
@@ -381,7 +382,7 @@ return tx.Commit()
 
 ### For All AI Agents
 
-1. **Read agent.md first** — It contains mandatory product constraints
+1. **Read this guide first** — It contains mandatory product constraints and the collaboration entry point
 2. **Check Testing Guide** — Backend tests require DATABASE_URL (see docs/testing/setup.md)
 3. **Follow domain rules** — Changeset/Revision/Evidence invariants are critical
 4. **Verify changes** — Run tests and build before presenting results
@@ -394,7 +395,7 @@ return tx.Commit()
 
 ### For Cursor, Copilot, Continue, etc.
 - This file (AGENTS.md) is your primary configuration
-- agent.md contains product-specific constraints
+- The product constraints above apply to all agents
 - Follow the same verification and documentation rules
 
 ## Change Completion Checklist

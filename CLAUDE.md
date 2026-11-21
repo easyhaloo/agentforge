@@ -4,9 +4,10 @@
 
 **Mandatory reading order:**
 1. **[AGENTS.md](AGENTS.md)** — Universal AI development standards, product context, domain rules (MUST read first)
-2. **[Frontend Development](docs/development/frontend.md)** — When working on apps/web (React/TypeScript)
-3. **[Backend Development](docs/development/backend.md)** — When working on backend/api (Go)
-4. **This file** — Claude Code-specific configuration and constraints
+2. **[Agent Collaboration](docs/development/agent-collaboration.md)** — Required for delegated implementation, handoff, and Codex review
+3. **[Frontend Development](docs/development/frontend.md)** — When working on apps/web (React/TypeScript)
+4. **[Backend Development](docs/development/backend.md)** — When working on backend/api (Go)
+5. **This file** — Claude Code-specific configuration and constraints
 
 ## Related Projects
 
@@ -200,33 +201,12 @@ When adding new development standards:
 1. **Determine category** using the decision tree above
 2. **Check for existing docs** in that category
 3. **Update or create** the appropriate file
-4. **Add reference** in `agent.md` or root `README.md` if it's essential reading
+4. **Add reference** in `AGENTS.md` or root `README.md` if it's essential reading
 5. **Update this file** if the new doc establishes a pattern others should follow
 
 ## Agent Roles and Task Delegation
 
-### Main Agent (Orchestrator) Responsibilities
-- Manage task progress and track status
-- Coordinate sub-tasks and resolve dependencies
-- Report completion and blockers to user
-- **Does NOT**: Dive into implementation details, perform git surgery, or manual fixes
-
-### Sub-Agent (Implementer) Responsibilities
-- Read requirements and implement solutions
-- Write code, tests, and documentation
-- Verify results (run tests, build)
-- Report back with deliverables
-- **Does NOT**: Re-delegate tasks or wait for the main agent to check their work
-
-### When to Delegate
-- **Parallel independent work**: Multiple features, multiple files, research + implementation
-- **Broad investigation**: Searching across many files, deep codebase research
-- **Side quests**: Tasks that shouldn't block the main thread
-
-### When NOT to Delegate
-- **Simple lookups**: Reading a specific file or function
-- **A handful of tool calls**: Direct implementation is faster
-- **Already delegated**: Don't duplicate work
+Follow the task brief from Codex for business logic, UI implementation, tests, and handoff. Return the work and verification results to Codex for review and integration. See [Agent Collaboration](docs/development/agent-collaboration.md).
 
 ## CI/CD Responsibilities
 
@@ -318,7 +298,7 @@ Before finishing any task:
 
 ## Further Reading
 
-- **[agent.md](agent.md)** — Mandatory AI entry guide
+- **[AGENTS.md](AGENTS.md)** — Mandatory AI entry guide
 - **[README.md](README.md)** — Project overview and quick start
 - **[Testing Guide](docs/testing/setup.md)** — Test environment setup
 - **[docs/development/](docs/development/)** — Development guides (frontend, backend, git-workflow)
