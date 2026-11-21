@@ -10,6 +10,7 @@ paths:
     get:
       operationId: listIssues
       summary: List issues with filtering and pagination
+      security: [{ sessionCookie: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -73,6 +74,7 @@ paths:
     post:
       operationId: createIssue
       summary: Create a new issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -95,6 +97,7 @@ paths:
     get:
       operationId: getIssue
       summary: Get issue by repository and number
+      security: [{ sessionCookie: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -118,6 +121,7 @@ paths:
     patch:
       operationId: updateIssue
       summary: Update issue title, body, or milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -149,6 +153,7 @@ paths:
     post:
       operationId: closeIssue
       summary: Close an issue with a reason
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -186,6 +191,7 @@ paths:
     post:
       operationId: reopenIssue
       summary: Reopen a closed issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -211,6 +217,7 @@ paths:
     post:
       operationId: lockIssue
       summary: Lock an issue to prevent further modifications
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -230,6 +237,7 @@ paths:
     delete:
       operationId: unlockIssue
       summary: Unlock an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -252,6 +260,7 @@ paths:
     get:
       operationId: listIssueComments
       summary: List comments for an issue
+      security: [{ sessionCookie: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -275,6 +284,7 @@ paths:
     post:
       operationId: createIssueComment
       summary: Create a comment on an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -304,6 +314,7 @@ paths:
     get:
       operationId: getComment
       summary: Get a single comment
+      security: [{ sessionCookie: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -321,6 +332,7 @@ paths:
     patch:
       operationId: updateComment
       summary: Update a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -352,6 +364,7 @@ paths:
     delete:
       operationId: deleteComment
       summary: Delete a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -369,6 +382,7 @@ paths:
     post:
       operationId: minimizeComment
       summary: Minimize (collapse) a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -398,6 +412,7 @@ paths:
     delete:
       operationId: unminimizeComment
       summary: Unminimize a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Comments]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -419,6 +434,7 @@ paths:
     get:
       operationId: listCommentReactions
       summary: List reactions for a comment
+      security: [{ sessionCookie: [] }]
       tags: [Reactions]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -437,6 +453,7 @@ paths:
     post:
       operationId: addCommentReaction
       summary: Add a reaction to a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Reactions]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -468,6 +485,7 @@ paths:
     delete:
       operationId: removeCommentReaction
       summary: Remove a reaction from a comment
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Reactions]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -489,6 +507,7 @@ paths:
     get:
       operationId: listLabels
       summary: List all labels for a repository
+      security: [{ sessionCookie: [] }]
       tags: [Labels]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -511,6 +530,7 @@ paths:
     post:
       operationId: createLabel
       summary: Create a new label
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -540,6 +560,7 @@ paths:
     patch:
       operationId: updateLabel
       summary: Update a label
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -574,6 +595,7 @@ paths:
     delete:
       operationId: deleteLabel
       summary: Delete a label
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -598,6 +620,7 @@ paths:
     post:
       operationId: addLabelsToIssue
       summary: Add labels to an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -634,6 +657,7 @@ paths:
     delete:
       operationId: removeLabelFromIssue
       summary: Remove a label from an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Labels]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -659,6 +683,7 @@ paths:
     post:
       operationId: addAssignees
       summary: Add assignees to an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Assignees]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -692,6 +717,7 @@ paths:
     delete:
       operationId: removeAssignees
       summary: Remove assignees from an issue
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Assignees]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -726,6 +752,7 @@ paths:
     get:
       operationId: listMilestones
       summary: List milestones for a repository
+      security: [{ sessionCookie: [] }]
       tags: [Milestones]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -751,6 +778,7 @@ paths:
     post:
       operationId: createMilestone
       summary: Create a new milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Milestones]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -778,6 +806,7 @@ paths:
     get:
       operationId: getMilestone
       summary: Get a milestone
+      security: [{ sessionCookie: [] }]
       tags: [Milestones]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -803,6 +832,7 @@ paths:
     patch:
       operationId: updateMilestone
       summary: Update a milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Milestones]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -838,6 +868,7 @@ paths:
     delete:
       operationId: deleteMilestone
       summary: Delete a milestone
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Milestones]
       parameters:
         - $ref: "#/components/parameters/organizationID"
@@ -863,6 +894,7 @@ paths:
     get:
       operationId: getIssueTimeline
       summary: Get timeline events for an issue
+      security: [{ sessionCookie: [] }]
       tags: [Issues]
       parameters:
         - $ref: "#/components/parameters/organizationID"
