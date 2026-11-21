@@ -34,6 +34,8 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 	reactionRepo := NewReactionRepository(store)
 
 	orgID := "test-org-006"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/reaction-test"
 	now := time.Now().UTC()
 
@@ -233,6 +235,8 @@ func TestReactionRepository_AddToIssue(t *testing.T) {
 	reactionRepo := NewReactionRepository(store)
 
 	orgID := "test-org-007"
+
+	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/issue-reaction-test"
 	now := time.Now().UTC()
 
