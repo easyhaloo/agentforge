@@ -58,17 +58,14 @@ func TestIssueRepository_List(t *testing.T) {
 			UpdatedAt:  now.Add(1 * time.Minute),
 		},
 		{
-			ID:          "issue-list-003",
-			Repository:  repo1,
-			Title:       "Third issue",
-			Body:        "Body 3",
-			State:       issues.StateClosed,
-			StateReason: issues.ReasonCompleted,
-			CreatedBy:   "user-001",
-			ClosedBy:    "user-001",
-			CreatedAt:   now,
-			UpdatedAt:   closedAt,
-			ClosedAt:    &closedAt,
+			ID:         "issue-list-003",
+			Repository: repo1,
+			Title:      "Third issue",
+			Body:       "Body 3",
+			State:      issues.StateOpen,
+			CreatedBy:  "user-001",
+			CreatedAt:  now,
+			UpdatedAt:  now,
 		},
 	}
 
@@ -77,6 +74,12 @@ func TestIssueRepository_List(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create test issue: %v", err)
 		}
+	}
+
+	// Close the third issue
+	_, err = repo.Close(ctx, orgID, "issue-list-003", issues.ReasonCompleted, "user-001", closedAt)
+	if err != nil {
+		t.Fatalf("failed to close issue: %v", err)
 	}
 
 	// Test 1: List all issues (no filter)
