@@ -448,6 +448,15 @@ The repository catalog pairs a 248 px desktop sidebar (58 px when collapsed) wit
 
 Review changes in light and dark themes, on desktop and narrow screens, and with both hover and keyboard focus. Check that rows stay aligned and keep their size across interaction states. Browser coverage includes desktop row height and spacing, hover and cursor, and saved view interactions. [Repository browser tests](../../apps/web/e2e/repositories.pw.ts)
 
+### Browser-based visual alignment
+
+1. Open the reference page in a browser at a known viewport, zoom, and theme. Use DevTools or read-only DOM inspection to record font size, weight, line height, control bounds, gaps, and alignment. Record which page and state each measurement came from. If a surface requires sign-in, use the user-provided reference screenshots and identify those values as screenshot-based estimates.
+2. Review the full component in its normal, selected, focus, disabled, and error states. Check overlay anchoring, keyboard navigation, focus restoration, and how the layout wraps on a narrow screen.
+3. Apply the reference's layout and interaction patterns with AgentForge's components, theme, copy, and domain rules. Keep page-specific adjustments scoped to their page. Reuse measurements as shared tokens only when they apply across surfaces.
+4. Capture local desktop and narrow-screen screenshots for review. Add targeted Playwright checks for the key geometry and interactions with local fixtures or the local API. Keep GitHub out of the test runtime.
+
+For the new-repository form, check that steps 1 and 2 share the rail's centerline and align vertically with their section headings. Use 20 px for the page title, 16 px for section headings, 14 px for labels and control text, and 12 px for helper text. The Owner picker and repository-name field are both 32 px high. Verify that the form and its menus fit at 320 px.
+
 ## Change Workflow
 
 For every task:

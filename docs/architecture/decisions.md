@@ -78,6 +78,7 @@
 | Overview | `/` | Overview (mock) |
 | Projects | `/projects` | Resource workspace (mock) |
 | Repositories | `/orgs/:org/repositories` | Repository directory (live API) |
+| Repositories | `/orgs/:org/repositories/new` | Repository create form (live API, label reused, no duplicate sidebar item) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |
 | | `/orgs/:org/repositories/:owner/:repo/{branches,actions,settings}` | Repository sections |
 | | `/orgs/:org/repositories/:owner/:repo/issues` | Repository Issues (live API) |

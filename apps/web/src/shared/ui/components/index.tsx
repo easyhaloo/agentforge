@@ -63,7 +63,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
   hint?: string;
-  error?: string;
+  error?: ReactNode;
   controlSize?: "small" | "middle" | "large";
 }
 

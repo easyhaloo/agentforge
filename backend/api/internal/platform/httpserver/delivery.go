@@ -271,6 +271,12 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 type repositoryRegistrationRequest struct {
 	Slug          string `json:"slug"`
 	DefaultBranch string `json:"default_branch"`
+	Description   string `json:"description"`
+	Initialize    *struct {
+		Readme    bool   `json:"readme"`
+		Gitignore string `json:"gitignore"`
+		License   string `json:"license"`
+	} `json:"initialize"`
 }
 
 func (d DeliveryDependencies) listRepositories(w http.ResponseWriter, r *http.Request) {
@@ -313,11 +319,20 @@ func (d DeliveryDependencies) registerRepository(w http.ResponseWriter, r *http.
 	}
 	input.Slug = strings.TrimSpace(input.Slug)
 	input.DefaultBranch = strings.TrimSpace(input.DefaultBranch)
+	input.Description = strings.TrimSpace(input.Description)
+	if utf8.RuneCountInString(input.Description) > 350 || strings.ContainsRune(input.Description, 0) {
+		writeProblem(w, 422, "Invalid description", "Repository descriptions must be at most 350 characters")
+		return
+	}
+	if input.Initialize != nil {
+		d.initializeRepository(w, r, principal, input)
+		return
+	}
 	if _, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, input.Slug, input.DefaultBranch); err != nil {
 		writeProblem(w, 422, "Repository not available", "The repository must exist under the configured organization Git root and its default branch must resolve")
 		return
 	}
-	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: input.Slug, DefaultBranch: input.DefaultBranch, CreatedBy: principal.UserID})
+	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: input.Slug, DefaultBranch: input.DefaultBranch, CreatedBy: principal.UserID, Description: input.Description})
 	if errors.Is(err, delivery.ErrVersionConflict) {
 		writeProblem(w, 409, "Repository already registered", "This repository is already registered for the organization")
 		return

@@ -16,7 +16,7 @@ import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, RepositoriesRoute, RepositoryDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -106,6 +106,7 @@ export const routes: RouteObject[] = [
             element: <OrganizationGate variant="repositories" />,
             children: [
               organizationPage("repositories", "Repositories", <RepositoriesRoute />),
+              organizationPage("repositories/new", "Repositories", <RepositoryCreateRoute />),
               organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
               ...repositorySections.map(section => organizationPage(`repositories/:owner/:repo/${section}`, section === "issues" ? "Issues" : "Repository", <RepositoryDetailRoute section={section} />)),
               {

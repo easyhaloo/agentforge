@@ -36,6 +36,10 @@ export function repositoryPath(handle: string, slug: string, section?: Repositor
   return section ? `${base}/${section}` : base;
 }
 
+export function repositoryNewPath(handle: string): string {
+  return `${orgPath(handle, "repositories")}/new`;
+}
+
 export function repositoryChangesetsPath(handle: string, repository: string, options: { source?: string; create?: string } = {}): string {
   return `${orgPath(handle, "changesets")}?${new URLSearchParams({ repository, scope: "repository", ...options })}`;
 }

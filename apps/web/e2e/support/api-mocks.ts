@@ -52,7 +52,7 @@ const reviewedChangeset = (id: string, title: string, status: string, reviewStat
 
 type MockOptions = {
   /** Organizations returned by /api/v1/me. Defaults to the demo organization only. */
-  organizations?: Array<typeof demoOrganization>;
+  organizations?: Array<typeof demoOrganization & { personal?: boolean }>;
   /** Answer /api/v1/me with 401, like an anonymous visitor. */
   signedOut?: boolean;
 };
@@ -168,12 +168,12 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return route.fulfill({ status: 204 });
     }
     if (path.endsWith("/repositories") && method === "GET") {
-      return json({ items: repositories });
+      return json({ items: repositories.filter(repo => path === `/api/v1/organizations/${repo.organization_id}/repositories`) });
     }
     if (path.endsWith("/repositories") && method === "POST") {
       const body = request.postDataJSON() as { slug: string; default_branch: string };
       const added = {
-        id: `repo-${repositories.length + 1}`, organization_id: "org-demo", slug: body.slug, default_branch: body.default_branch,
+        id: `repo-${repositories.length + 1}`, organization_id: path.split("/")[4], slug: body.slug, default_branch: body.default_branch,
         created_by: "user-owner", created_at: now, updated_at: now,
       };
       repositories = [...repositories, added];
