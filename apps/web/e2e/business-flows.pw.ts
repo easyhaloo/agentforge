@@ -69,7 +69,7 @@ test("Changesets loads organization records, searches and persists a new changes
 });
 
 test("Organization role changes are sent to the API and reflected in the member table", async ({ page }) => {
-  await page.getByRole("link", { name: "Organization settings", exact: true }).click();
+  await (await openNavigation(page)).getByRole("link", { name: "Organization settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
   const role = page.getByRole("combobox", { name: "Role for Alex Developer" });
   await selectOption(page, role, "Viewer");
@@ -77,7 +77,7 @@ test("Organization role changes are sent to the API and reflected in the member 
 });
 
 test("Organization invitations can be created and displayed", async ({ page }) => {
-  await page.getByRole("link", { name: "Organization settings", exact: true }).click();
+  await (await openNavigation(page)).getByRole("link", { name: "Organization settings", exact: true }).click();
   await page.getByRole("tab", { name: /Invitations/ }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("new-member@example.test");
   await selectOption(page, page.getByRole("combobox", { name: "Role" }), "Member");

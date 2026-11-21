@@ -16,6 +16,8 @@
     "changeset": "变更集",
     "repositories": "代码仓库",
     "repository": "仓库",
+    "issues": "议题",
+    "issue": "议题",
     "trails": "轨迹",
     "review": "代码审查",
     "eval": "评估",
@@ -32,6 +34,7 @@
     "CONTROL PLANE": "管控"
   },
   "descriptions": {
+    "issues": "查看组织内所有仓库的议题。",
     "overview": "跨工程系统的变更、验证和交付实时视图。",
     "projects": "组织代码仓库、团队和交付边界。",
     "repositories": "由规范对象图支持的 Git 兼容代码仓库。",
@@ -70,8 +73,13 @@
   },
   "topbar": {
     "workspace": "工作空间",
-    "searchPlaceholder": "搜索任何内容...",
-    "searchAriaLabel": "搜索任何内容（Command K）",
+    "searchPages": "搜索页面",
+    "allIssues": "全部议题",
+    "allPullRequests": "全部拉取请求",
+    "allRepositories": "全部仓库",
+    "switchRepository": "切换仓库",
+    "searchRepositories": "搜索仓库",
+    "noMatchingRepositories": "没有匹配的仓库",
     "notificationsAriaLabel": "通知",
     "caughtUp": "您已查看全部内容。"
   },

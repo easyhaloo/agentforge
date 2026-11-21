@@ -1,6 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "i18next";
 import { useOutletContext } from "react-router-dom";
 import { Button, Select } from "../../shared/ui/components";
 import { Radio } from "../../shared/ui/components/form-controls";
@@ -52,13 +51,9 @@ export function AppearanceSettingsPage() {
   const error = saveError ?? (loadError ? translateError(loadError, t, "settings:errors.loadPreferencesFailed") : null);
 
   useLayoutEffect(() => {
-    preview(draft?.theme ?? null);
+    preview(draft);
     return () => preview(null);
-  }, [draft?.theme, preview]);
-
-  useEffect(() => {
-    if (saved && i18n.language !== saved.language) void i18n.changeLanguage(saved.language);
-  }, [saved]);
+  }, [draft, preview]);
 
   const handleThemeChange = (theme: UserPreferences["theme"]) => {
     if (!preferences) return;
@@ -71,9 +66,6 @@ export function AppearanceSettingsPage() {
 
     const language = e.target.value as UserPreferences["language"];
     setDraft({ ...preferences, language });
-
-    // Apply language immediately
-    i18n.changeLanguage(language);
   };
 
   const handleTimezoneChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

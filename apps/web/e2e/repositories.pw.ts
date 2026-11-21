@@ -144,11 +144,14 @@ test("an owner registers a repository on that page", async ({ page }) => {
   await page.getByRole("button", { name: "Register repository" }).click();
   const dialog = page.getByRole("dialog", { name: "Register repository" });
   await dialog.getByLabel("Repository slug").fill("team/new-repository");
+  await dialog.getByRole("combobox", { name: "Visibility" }).click();
+  await dialog.getByRole("option", { name: "Private repository" }).click();
+  await dialog.getByRole("checkbox", { name: "Forked repository" }).check();
   const sent = page.waitForRequest((request) => request.url().endsWith("/api/v1/organizations/org-demo/repositories") && request.method() === "POST");
 
   await dialog.getByRole("button", { name: "Register", exact: true }).click();
 
-  expect((await sent).postDataJSON()).toEqual({ slug: "team/new-repository", default_branch: "main" });
+  expect((await sent).postDataJSON()).toEqual({ slug: "team/new-repository", default_branch: "main", visibility: "private", fork: true });
   await expect(page.getByRole("link", { exact: true, name: "team/new-repository" })).toBeVisible();
 });
 

@@ -13,8 +13,11 @@ import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryBrowserPage } from "../pages/repositories/RepositoryBrowserPage";
+import { RepositoryMasthead } from "../pages/repositories/RepositoryMasthead";
 import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
+import { RepositoryIssues } from "../pages/repositories/RepositoryIssues";
+import { IssueDetailPage } from "../pages/repositories/IssueDetailPage";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
@@ -102,6 +105,13 @@ export function PipelineRunRoute() {
   return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} runId={runId} />;
 }
 
+export function OrganizationIssuesRoute() {
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <RepositoryIssues key={organization.id} organization={organization}
+    organizationHandle={organizationHandle(organization)} currentUser={account.user_id} onNotify={notify} />;
+}
+
 export function RepositoriesRoute() {
   const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const [search] = useSearchParams();
@@ -121,11 +131,23 @@ export function RepositoryDetailRoute({ section }: { section?: RepositorySection
   const { owner, repo, repositorySlug } = useParams();
   const notify = useNotify();
   if (repositorySlug) {
-    return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} userId={account.user_id} displayName={account.display_name} />;
+    return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
   }
   const repository = `${owner}/${repo}`;
-  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} userId={account.user_id} displayName={account.display_name}/>;
+  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} currentUser={account.user_id} onNotify={notify}/>;
   return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
+}
+
+export function IssueDetailRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { owner, repo, number } = useParams();
+  const notify = useNotify();
+  const repository = `${owner}/${repo}`;
+  const issueNumber = Number(number);
+  return <section className="repo-layout repo-browser">
+    <RepositoryMasthead organization={organization} repository={repository} />
+    <IssueDetailPage key={`${organization.id}:${repository}:${issueNumber}`} organization={organization} repository={repository} issueNumber={issueNumber} onNotify={notify} />
+  </section>;
 }
 
 export function WebIDERoute() {
