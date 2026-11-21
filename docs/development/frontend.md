@@ -420,13 +420,33 @@ If either cannot be run, state explicitly and explain what remains unverified.
 - Avoid one-off inline styles when reusable class or design token is appropriate
 - Do not add decorative UI that obscures primary task or makes page look more complete than underlying behavior
 
-### GitHub-style list hover
+### Compact sidebar and action rows
 
-Use `af-action-row` for compact sidebar and action-list entries. The neutral hover fill uses `--af-color-row-hover` so it works over the current surface in either theme. The row uses a 32 px minimum height, 8 px inline padding, and the medium radius token. Hover changes the fill without shifting layout or changing the label and icon colors.
+Use the shared `af-action-row` pattern for flat sidebar navigation and action lists. [Shared component styles](../../apps/web/src/shared/ui/components/components.css)
 
-- For a single action, apply the class to the ghost button. For separate primary and trailing actions, apply it to the list item and use sibling ghost buttons with accessible names. The fill covers both actions and each has its own keyboard focus ring.
-- Enable the hover fill on hover-capable pointers. Enabled row buttons use the hand cursor. Disabled standalone rows skip the fill and use the unavailable cursor. Keep selection recognizable through the existing active label or indicator when hovered.
-- Use this pattern for flat action rows.
+| Property | Standard |
+| --- | --- |
+| Alignment | Start-align labels and vertically center icons and text. Keep the leading icon and label aligned across rows. |
+| Size and spacing | Use a 32 px minimum height, 4 px block padding, and 8 px inline padding. Use a 16 px leading icon and an 8 px icon-to-label gap. Allow long labels to wrap and the row to grow. |
+| Typography | Inherit the app's `system-ui, -apple-system, sans-serif` stack. Use 14 px labels at weight 400 with normal line height. Use weight 600 for the current navigation item where the navigation style supports it. |
+| Shape and color | Use `--af-radius-md` (7 px), `--af-color-text` for resting labels, and `--af-color-row-hover` for the full-row hover fill in both themes. |
+
+- Apply `af-action-row` to a single ghost button, or to the list item when the primary and trailing actions are separate. Use sibling ghost buttons with independent accessible names and visible keyboard focus. Align the trailing action to the end and reserve at least 32 px of width for it.
+- Apply the hover fill only on hover-capable devices. Hover keeps row dimensions, text, and icon colors stable. Enabled actions use the hand cursor. Disabled standalone rows use the unavailable cursor and skip the hover fill. Keep the current item distinguishable during hover and keyboard focus.
+
+#### Repository catalog reference
+
+The repository catalog pairs a 248 px desktop sidebar (58 px when collapsed) with a flexible content column. The sidebar uses `--af-color-surface-raised`, 16 px padding, and a 0 px gap between navigation rows. The saved views group has a divider, with 8 px before it and 8 px after it. At 760 px and below, stack the sidebar above the content and let the navigation controls wrap with a 2 px gap. [Repository catalog styles](../../apps/web/src/pages/repositories/repositories.css)
+
+| Text role | Repository catalog size |
+| --- | --- |
+| Page heading | `clamp(21px, 2.25vw, 27px)`, weight 650, line height 1.3 |
+| Navigation and saved view labels | 14 px, weight 400. Current navigation label uses weight 600. |
+| Group heading | 13 px, bold |
+| Repository name | 16 px in detailed lists, 14 px in compact lists |
+| Metadata and empty-state text | 13 px, `--af-color-text-secondary` |
+
+Review changes in light and dark themes, on desktop and narrow screens, and with both hover and keyboard focus. Check that rows stay aligned and keep their size across interaction states. Browser coverage includes desktop row height and spacing, hover and cursor, and saved view interactions. [Repository browser tests](../../apps/web/e2e/repositories.pw.ts)
 
 ## Change Workflow
 
