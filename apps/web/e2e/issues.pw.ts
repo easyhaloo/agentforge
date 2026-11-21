@@ -35,10 +35,9 @@ test("navigates to Issues section in repository", async ({ page }) => {
 
   // Verify Issues section content is displayed
   await expect(page.getByRole("heading", { name: /Issues/i })).toBeVisible();
-  // Note: Filter buttons may have different casing/formatting in actual UI
-  // Use .first() to avoid matching navigation buttons that also contain "Open"
-  await expect(page.getByRole("button", { name: /Open/i }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /New issue/i })).toBeVisible();
+  // Verify filter buttons are present (confirming the Issues UI loaded)
+  await expect(page.getByRole("button", { name: /Open Issues/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Closed Issues/i })).toBeVisible();
 });
 
 test("displays issue list with open issues by default", async ({ page }) => {
@@ -51,9 +50,9 @@ test("displays issue list with open issues by default", async ({ page }) => {
   // Wait for loading to complete
   await page.waitForLoadState("networkidle");
 
-  // Verify issues are displayed - DataTable renders table cells, not links
+  // Verify issues are displayed - DataTable renders issues as links in a list
   // Mock data has open issues like "Add user authentication", "Fix login redirect bug"
-  await expect(page.getByRole("cell").getByText("Add user authentication")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("link", { name: /#1 Add user authentication/i })).toBeVisible({ timeout: 10000 });
 });
 
 test("filters issues by state - closed", async ({ page }) => {
@@ -291,9 +290,9 @@ test("shows author and assignee information", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   // Check that issues are displayed with author/assignee info
-  // DataTable renders table cells with issue data
+  // DataTable renders issues as links in a list
   // Mock data includes issue "Fix login redirect bug" by "user-member"
-  await expect(page.getByRole("cell").getByText("Fix login redirect bug")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("link", { name: /#2 Fix login redirect bug/i })).toBeVisible({ timeout: 10000 });
 });
 
 test("displays comment count", async ({ page }) => {
@@ -301,9 +300,9 @@ test("displays comment count", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   // Verify that issues are displayed (they should show comment counts)
-  // DataTable renders table cells with issue data
+  // DataTable renders issues as links in a list
   // Mock data includes issue "Improve performance" with 8 comments
-  await expect(page.getByRole("cell").getByText("Improve performance")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("link", { name: /#4 Improve performance/i })).toBeVisible({ timeout: 10000 });
 });
 
 test("shows empty state when no issues exist", async ({ page }) => {
