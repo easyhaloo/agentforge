@@ -6,7 +6,7 @@ import { Button, Modal, Select } from "../../shared/ui";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { issuesAPI, type Issue, type IssueStateReason, type IssueUpdate } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, repositoryPath } from "../../shared/routing";
 import { RepositoryReadme } from "./RepositoryReadme";
 import { IssueForm } from "./IssueForm";
@@ -21,6 +21,7 @@ interface IssueDetailPageProps {
 
 export function IssueDetailPage({ organization, repository, issueNumber, onNotify }: IssueDetailPageProps) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime } = useDateFormatting();
   const handle = organizationHandle(organization);
 
   const [issue, setIssue] = useState<Issue | null>(null);

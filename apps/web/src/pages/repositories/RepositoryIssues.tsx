@@ -6,7 +6,7 @@ import { Button, SearchInput, Select, Modal } from "../../shared/ui";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { issuesAPI, type IssueListParams, type IssuePage } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { issueDetailPath } from "../../shared/routing";
 import { IssueForm } from "./IssueForm";
 import "./repositories.css";
@@ -23,6 +23,7 @@ interface RepositoryIssuesProps {
 
 export function RepositoryIssues({ organization, repository, organizationHandle, currentUser, onNotify }: RepositoryIssuesProps) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime, formatRelativeTime } = useDateFormatting();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = searchParams.get("state");

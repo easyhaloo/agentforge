@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Identity } from "../../shared/api/identities";
-import { formatDate } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { Button, ConfirmDialog } from "../../shared/ui/components";
 
 export interface IdentityCardProps {
@@ -13,6 +13,7 @@ export interface IdentityCardProps {
 
 export function IdentityCard({ identity, onChangePassword, onUnlink, isOnly }: IdentityCardProps) {
   const { t } = useTranslation("settings");
+  const { formatDate } = useDateFormatting();
   const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
 
   const isPlatformPassword = identity.issuer === "platform:internal";

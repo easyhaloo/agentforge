@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryPreviewAPI, type OrganizationSummary, type RepositoryPreviewRefs } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, pipelineRunPath, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Button, Select } from "../../shared/ui";
 import { RepositoryMasthead, canManageRepository } from "./RepositoryMasthead";
@@ -85,6 +85,7 @@ function RepositoryBranches({ organization, repository, section, onNotify }: Pro
 
 function RepositoryActions({ organization, repository, onNotify }: Props) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime } = useDateFormatting();
   const [search, setSearch] = useSearchParams();
   const offset = Number(search.get("offset")) || 0;
   const [result, setResult] = useState<Awaited<ReturnType<typeof repositoryAPI.actions>>>();

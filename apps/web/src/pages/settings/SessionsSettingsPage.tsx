@@ -5,7 +5,7 @@ import { Monitor, Smartphone, Tablet } from "lucide-react";
 import { ConfirmDialog, Button } from "../../shared/ui/components";
 import { settingsAPI, type Session } from "../../shared/api/settings";
 import { translateError } from "../../shared/api/errors";
-import { formatDate, formatRelativeTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { useSettingsList } from "./useSettingsList";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
@@ -20,6 +20,7 @@ const devices = {
 
 function SessionRow({ session, children }: { session: Session; children?: React.ReactNode }) {
   const { t } = useTranslation("settings");
+  const { formatDate, formatRelativeTime } = useDateFormatting();
   const [Icon, deviceLabel] = devices[session.device_type] ?? devices.unknown;
   return (
     <li className="settings-box-row access-row">
