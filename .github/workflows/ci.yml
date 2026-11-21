@@ -33,6 +33,7 @@ jobs:
               - '.github/workflows/ci.yml'
             api:
               - 'backend/api/**'
+              - '.github/workflows/ci.yml'
             contracts:
               - 'contracts/openapi/**'
 
@@ -108,8 +109,19 @@ jobs:
           cache: true
           cache-dependency-path: backend/api/go.mod
       - run: go mod tidy
-      - run: go test ./...
+      - name: Install MinIO test server
+        working-directory: ${{ runner.temp }}
         env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release=RELEASE.2025-09-07T16-13-09Z
+          gh release download "$release" --repo minio/minio --pattern "minio.linux-amd64.$release" --output minio
+          echo "7c5bd8512c6e966455b1d198209358b2d191c77a83ab377c4073281065fb855f  minio" | sha256sum --check
+          chmod +x minio
+      - name: Run backend tests with PostgreSQL and MinIO
+        run: go test -count=1 -v ./...
+        env:
+          TEST_MINIO_BINARY: ${{ runner.temp }}/minio
           TEST_PIPELINE_DOCKER: "1"
           TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
       - run: go build ./cmd/server

@@ -34,6 +34,17 @@ cd backend/api
 go test ./...
 ```
 
+### Run the task and object-storage integration tests
+
+The PostgreSQL user needs `CREATEDB` because the task tests create and remove a scratch database per test. Set `TEST_MINIO_BINARY` to the absolute path of a MinIO server executable. The test starts and stops its own local MinIO instance.
+
+```bash
+# From backend/api, with DATABASE_URL and TEST_MINIO_BINARY set.
+CI=true go test -count=1 -v ./internal/tasks ./internal/artifact
+```
+
+GitHub Actions provisions both dependencies and fails these tests if either is missing.
+
 ## Alternative: Local PostgreSQL
 
 If you prefer to use a local PostgreSQL installation:
