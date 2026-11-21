@@ -89,14 +89,17 @@ func (s *Store) Migrate(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
+	// Acquire advisory lock BEFORE creating the table to serialize concurrent migration initialization.
+	// This prevents pg_type_typname_nsp_index conflicts when PostgreSQL creates the implicit composite type.
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(731904221)); err != nil {
+		return fmt.Errorf("lock schema migrations: %w", err)
+	}
+
 	if _, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version TEXT PRIMARY KEY,
 		applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	)`); err != nil {
 		return fmt.Errorf("create migration ledger: %w", err)
-	}
-	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(731904221)); err != nil {
-		return fmt.Errorf("lock schema migrations: %w", err)
 	}
 
 	entries, err := fs.ReadDir(migrations, "migrations")

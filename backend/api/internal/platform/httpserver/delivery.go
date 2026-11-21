@@ -15,10 +15,17 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/comments"
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/events"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
+	"github.com/easyhaloo/agentforge/backend/api/internal/labels"
+	"github.com/easyhaloo/agentforge/backend/api/internal/milestones"
+	"github.com/easyhaloo/agentforge/backend/api/internal/notifications"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
+	"github.com/easyhaloo/agentforge/backend/api/internal/reactions"
 	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
 	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
 )
@@ -50,6 +57,76 @@ type LocalAuthHandler interface {
 	Register(http.ResponseWriter, *http.Request)
 }
 
+type IssueRepository interface {
+	Create(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error)
+	Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error)
+	List(ctx context.Context, organizationID string, filter issues.ListFilter, limit, offset int) ([]*issues.Issue, int, error)
+	Update(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error)
+	Close(ctx context.Context, organizationID string, issueID issues.ID, reason issues.StateReason, closedBy string, closedAt time.Time) (*issues.Issue, error)
+	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
+	RemoveAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
+	GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error)
+	Lock(ctx context.Context, organizationID string, issueID issues.ID, reason issues.LockReason, lockedBy string, lockedAt time.Time) (*issues.Issue, error)
+	Unlock(ctx context.Context, organizationID string, issueID issues.ID) (*issues.Issue, error)
+}
+
+type CommentRepository interface {
+	Create(ctx context.Context, organizationID string, comment *comments.Comment) (*comments.Comment, error)
+	List(ctx context.Context, organizationID string, resourceType comments.ResourceType, resourceID comments.ID) ([]*comments.Comment, error)
+	Get(ctx context.Context, organizationID string, commentID comments.ID) (*comments.Comment, error)
+	Update(ctx context.Context, organizationID string, comment *comments.Comment) (*comments.Comment, error)
+	Delete(ctx context.Context, organizationID string, commentID comments.ID) error
+	Minimize(ctx context.Context, organizationID string, commentID comments.ID, reason comments.MinimizedReason) (*comments.Comment, error)
+	Unminimize(ctx context.Context, organizationID string, commentID comments.ID) (*comments.Comment, error)
+}
+
+type LabelRepository interface {
+	Create(ctx context.Context, organizationID string, label *labels.Label) (*labels.Label, error)
+	Get(ctx context.Context, organizationID string, labelID labels.ID) (*labels.Label, error)
+	List(ctx context.Context, organizationID string, filter labels.ListFilter) ([]*labels.Label, error)
+	Update(ctx context.Context, organizationID string, label *labels.Label) (*labels.Label, error)
+	Delete(ctx context.Context, organizationID string, labelID labels.ID) error
+	AddLabelToIssue(ctx context.Context, organizationID string, issueID string, labelID labels.ID) error
+	RemoveLabelFromIssue(ctx context.Context, organizationID string, issueID string, labelID labels.ID) error
+	GetLabelsForIssue(ctx context.Context, organizationID string, issueID string) ([]*labels.Label, error)
+}
+
+type MilestoneRepository interface {
+	Create(ctx context.Context, organizationID string, milestone *milestones.Milestone) (*milestones.Milestone, error)
+	Get(ctx context.Context, organizationID string, milestoneID milestones.ID) (*milestones.Milestone, error)
+	List(ctx context.Context, organizationID, repository string, state milestones.State) ([]*milestones.Milestone, error)
+	Update(ctx context.Context, organizationID string, milestone *milestones.Milestone) (*milestones.Milestone, error)
+	Delete(ctx context.Context, organizationID string, milestoneID milestones.ID) error
+	Close(ctx context.Context, organizationID string, milestoneID milestones.ID, closedAt time.Time) (*milestones.Milestone, error)
+	SetMilestone(ctx context.Context, organizationID, issueID, milestoneID string) error
+	ClearMilestone(ctx context.Context, organizationID, issueID string) error
+	GetProgress(ctx context.Context, organizationID string, milestoneID milestones.ID) (*milestones.Progress, error)
+}
+
+type ReactionRepository interface {
+	Add(ctx context.Context, organizationID string, reaction *reactions.Reaction) (*reactions.Reaction, error)
+	List(ctx context.Context, organizationID string, reactableType reactions.ReactableType, reactableID reactions.ID) ([]*reactions.Reaction, error)
+	Remove(ctx context.Context, organizationID string, reactionID reactions.ID) error
+}
+
+type EventRepository interface {
+	Record(ctx context.Context, organizationID string, event *events.Event) error
+	List(ctx context.Context, organizationID string, issueID string) ([]*events.Event, error)
+	ListByType(ctx context.Context, organizationID string, issueID string, eventType events.EventType) ([]*events.Event, error)
+}
+
+type NotificationRepository interface {
+	Create(ctx context.Context, organizationID string, notification *notifications.Notification) error
+	List(ctx context.Context, organizationID string, userID string, unreadOnly bool, limit, offset int) ([]*notifications.Notification, int, error)
+	MarkAsRead(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
+	MarkAllAsRead(ctx context.Context, organizationID string, userID string) error
+	Delete(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
+	Subscribe(ctx context.Context, organizationID string, userID string, issueID string) error
+	Unsubscribe(ctx context.Context, organizationID string, userID string, issueID string) error
+	IsSubscribed(ctx context.Context, organizationID string, userID string, issueID string) (bool, error)
+	GetSubscribers(ctx context.Context, organizationID string, issueID string) ([]string, error)
+}
+
 type DeliveryDependencies struct {
 	Repository       delivery.Repository
 	Identity         identity.PrincipalResolver
@@ -74,6 +151,13 @@ type DeliveryDependencies struct {
 	Locker           delivery.ChangesetLocker
 	Workspaces       workspace.Repository
 	Tasks            *tasks.PostgresStore
+	IssueRepo        IssueRepository
+	CommentRepo      CommentRepository
+	LabelRepo        LabelRepository
+	MilestoneRepo    MilestoneRepository
+	ReactionRepo     ReactionRepository
+	EventRepo        EventRepository
+	NotificationRepo NotificationRepository
 }
 
 type storedChangesetResponse struct {
@@ -143,6 +227,57 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
+
+	// Issue tracking routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues", deps.listIssues)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues", deps.createIssue)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}", deps.getIssue)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/issues/{number}", deps.updateIssue)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/close", deps.closeIssue)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/reopen", deps.reopenIssue)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/lock", deps.lockIssue)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/lock", deps.unlockIssue)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/assignees", deps.addAssignees)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/assignees", deps.removeAssignees)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/labels", deps.addLabelsToIssue)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/labels/{labelName}", deps.removeLabelFromIssue)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/timeline", deps.getIssueTimeline)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.getIssueSubscription)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.subscribeToIssue)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.unsubscribeFromIssue)
+
+	// Notification routes
+	mux.HandleFunc("GET /api/v1/notifications", deps.listNotifications)
+	mux.HandleFunc("PATCH /api/v1/notifications/{id}/read", deps.markNotificationAsRead)
+	mux.HandleFunc("POST /api/v1/notifications/read-all", deps.markAllNotificationsAsRead)
+
+	// Comment routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/comments", deps.listComments)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/comments", deps.createComment)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/comments/{commentID}", deps.getComment)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/comments/{commentID}", deps.updateComment)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/comments/{commentID}", deps.deleteComment)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/comments/{commentID}/minimize", deps.minimizeComment)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/comments/{commentID}/minimize", deps.unminimizeComment)
+
+	// Reaction routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/comments/{commentID}/reactions", deps.listReactions)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/comments/{commentID}/reactions", deps.addReaction)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/comments/{commentID}/reactions/{reactionID}", deps.removeReaction)
+
+	// Label routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels", deps.listLabels)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels", deps.createLabel)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels/{name}", deps.updateLabel)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/labels/{name}", deps.deleteLabel)
+
+	// Milestone routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones", deps.listMilestones)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones", deps.createMilestone)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{milestoneID}", deps.getMilestone)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{milestoneID}", deps.updateMilestone)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{milestoneID}", deps.deleteMilestone)
+
 	return mux
 }
 
