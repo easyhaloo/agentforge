@@ -37,6 +37,12 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 	repoA := "owner/repo-a"
 	repoB := "owner/repo-b"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Test 1: First issue in repo-a should be #1
 	issue1 := &issues.Issue{
 		ID:         "issue-001",
@@ -128,6 +134,12 @@ func TestIssueRepository_LockAndUnlock(t *testing.T) {
 	orgID := "test-org-lock"
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
+
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
 
 	// Create a test issue
 	issue := &issues.Issue{

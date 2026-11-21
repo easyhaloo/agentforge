@@ -33,6 +33,12 @@ func TestIssueRepository_Update(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/update-test"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Create test issue
 	now := time.Now().UTC()
 	issue := &issues.Issue{

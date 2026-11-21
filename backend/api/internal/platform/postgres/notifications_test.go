@@ -29,6 +29,12 @@ func TestNotificationRepository_SubscribeAndList(t *testing.T) {
 	userID := "user-001"
 	issueID := "issue-001"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Test 1: Subscribe to issue
 	if err := repo.Subscribe(ctx, orgID, userID, issueID); err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
@@ -201,6 +207,12 @@ func TestNotificationRepository_Pagination(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	userID := "user-page"
 	issueID := "issue-page"
+
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
 
 	// Create 5 notifications
 	for i := 0; i < 5; i++ {

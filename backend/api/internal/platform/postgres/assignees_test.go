@@ -28,6 +28,12 @@ func TestIssueRepository_AddAssignee(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/assignee-test"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Create an issue first
 	issue := &issues.Issue{
 		ID:         "issue-assignee-001",
@@ -85,6 +91,12 @@ func TestIssueRepository_AddMultipleAssignees(t *testing.T) {
 	orgID := "test-org-assignees-002"
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/multi-assignee-test"
+
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
 
 	// Create an issue
 	issue := &issues.Issue{
@@ -154,6 +166,12 @@ func TestIssueRepository_AddAssigneeIdempotent(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/idempotent-test"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Create an issue
 	issue := &issues.Issue{
 		ID:         "issue-idempotent-001",
@@ -215,6 +233,12 @@ func TestIssueRepository_RemoveAssignee(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/remove-assignee-test"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Create an issue
 	issue := &issues.Issue{
 		ID:         "issue-remove-assignee-001",
@@ -275,6 +299,12 @@ func TestIssueRepository_RemoveOneOfMultipleAssignees(t *testing.T) {
 	orgID := "test-org-assignees-005"
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/remove-one-test"
+
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
 
 	// Create an issue
 	issue := &issues.Issue{
@@ -344,6 +374,12 @@ func TestIssueRepository_GetAssigneesForEmptyIssue(t *testing.T) {
 	orgID := "test-org-assignees-006"
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/empty-assignee-test"
+
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
 
 	// Create an issue
 	issue := &issues.Issue{

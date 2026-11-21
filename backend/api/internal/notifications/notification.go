@@ -37,17 +37,17 @@ const (
 
 // Notification represents a notification for a user
 type Notification struct {
-	ID           ID
-	UserID       string
-	Type         Type
-	Reason       Reason
-	IssueID      string
-	Repository   string
-	IssueNumber  int
-	IssueTitle   string
-	CommentID    string // Optional: set if notification is about a specific comment
-	ActorID      string // User who triggered the notification
-	Unread       bool
-	CreatedAt    time.Time
-	ReadAt       *time.Time
+	ID          ID
+	UserID      string
+	Type        Type
+	Reason      Reason
+	IssueID     string
+	Repository  string
+	IssueNumber int
+	IssueTitle  string
+	CommentID   string // Optional: set if notification is about a specific comment
+	ActorID     string // User who triggered the notification
+	Unread      bool
+	CreatedAt   time.Time
+	ReadAt      *time.Time
 }

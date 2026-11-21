@@ -29,6 +29,12 @@ func TestEventRepository_RecordAndList(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	issueID := "issue-123"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Record multiple events
 	event1 := &events.Event{
 		ID:        "event-001",

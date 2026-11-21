@@ -12,9 +12,9 @@ type EventType string
 
 const (
 	// Issue lifecycle events
-	EventCreated   EventType = "created"
-	EventClosed    EventType = "closed"
-	EventReopened  EventType = "reopened"
+	EventCreated  EventType = "created"
+	EventClosed   EventType = "closed"
+	EventReopened EventType = "reopened"
 
 	// Label events
 	EventLabeled   EventType = "labeled"
@@ -51,7 +51,7 @@ type Event struct {
 	ID        ID
 	IssueID   string
 	EventType EventType
-	ActorID   string // User who performed the action (may be empty for system events)
+	ActorID   string                 // User who performed the action (may be empty for system events)
 	Metadata  map[string]interface{} // Additional event-specific data
 	CreatedAt time.Time
 }

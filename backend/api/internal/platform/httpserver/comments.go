@@ -253,7 +253,7 @@ func (d DeliveryDependencies) minimizeComment(w http.ResponseWriter, r *http.Req
 	// Validate reason
 	reason := comments.MinimizedReason(req.Reason)
 	if reason != comments.ReasonSpam && reason != comments.ReasonOffTopic &&
-	   reason != comments.ReasonOutdated && reason != comments.ReasonResolved {
+		reason != comments.ReasonOutdated && reason != comments.ReasonResolved {
 		writeProblem(w, http.StatusBadRequest, "Invalid reason", "reason must be 'spam', 'off-topic', 'outdated', or 'resolved'")
 		return
 	}

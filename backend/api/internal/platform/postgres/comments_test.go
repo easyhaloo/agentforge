@@ -35,6 +35,12 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/comment-test"
 
+	// Create organization
+	_, err = store.pool.Exec(ctx, "INSERT INTO organizations (id, name) VALUES ($1, $2)", orgID, orgID)
+	if err != nil {
+		t.Fatalf("failed to create organization: %v", err)
+	}
+
 	// Create a test issue first
 	now := time.Now().UTC()
 	issue := &issues.Issue{
