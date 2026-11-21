@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
+import { AlertCircle, Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { formatDate, formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
-import { organizationHandle, orgPath, webIDEPath } from "../../shared/routing";
+import { organizationHandle, orgPath, repositoryPath, webIDEPath } from "../../shared/routing";
 import { Button, Input, Select } from "../../shared/ui";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
@@ -84,7 +84,10 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
           <Link className="repo-back" to={orgPath(handle, "repositories")}>{t("repositories:browser.backToRepositories")}</Link>
           <h1 aria-label={repository}><span><span className="repo-owner">{owner} / </span>{name}</span></h1>
         </div>
-        <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
+        <div className="repo-toolbar">
+          <Link className="af-button af-button--secondary af-button--middle" to={repositoryPath(handle, repository, "issues")}><AlertCircle size={16} aria-hidden="true"/>{t("repositories:issues.tab")}</Link>
+          <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
+        </div>
       </div>
     </header>
     {refError && <p className="org-error" role="alert">{refError}</p>}

@@ -1,5 +1,7 @@
 # AI Agents Development Guide for AgentForge
 
+Do not invoke the `fe-loop` workflow or its delegated skills in this repository.
+
 **This document is for ALL AI agents and coding assistants working on this repository**, not just Claude Code.
 
 ## Reading Order for AI Agents

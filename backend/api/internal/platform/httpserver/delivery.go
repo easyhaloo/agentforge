@@ -57,19 +57,6 @@ type LocalAuthHandler interface {
 	Register(http.ResponseWriter, *http.Request)
 }
 
-type IssueRepository interface {
-	Create(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error)
-	Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error)
-	List(ctx context.Context, organizationID string, filter issues.ListFilter, limit, offset int) ([]*issues.Issue, int, error)
-	Update(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error)
-	Close(ctx context.Context, organizationID string, issueID issues.ID, reason issues.StateReason, closedBy string, closedAt time.Time) (*issues.Issue, error)
-	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
-	RemoveAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
-	GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error)
-	Lock(ctx context.Context, organizationID string, issueID issues.ID, reason issues.LockReason, lockedBy string, lockedAt time.Time) (*issues.Issue, error)
-	Unlock(ctx context.Context, organizationID string, issueID issues.ID) (*issues.Issue, error)
-}
-
 type CommentRepository interface {
 	Create(ctx context.Context, organizationID string, comment *comments.Comment) (*comments.Comment, error)
 	List(ctx context.Context, organizationID string, resourceType comments.ResourceType, resourceID comments.ID) ([]*comments.Comment, error)
@@ -151,7 +138,7 @@ type DeliveryDependencies struct {
 	Locker           delivery.ChangesetLocker
 	Workspaces       workspace.Repository
 	Tasks            *tasks.PostgresStore
-	IssueRepo        IssueRepository
+	IssueRepo        issues.Repository
 	CommentRepo      CommentRepository
 	LabelRepo        LabelRepository
 	MilestoneRepo    MilestoneRepository

@@ -3,104 +3,124 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 )
 
-// List retrieves issues with filtering, pagination, and sorting
-func (r *IssueRepository) List(ctx context.Context, organizationID string, filter issues.ListFilter, limit, offset int) ([]*issues.Issue, int, error) {
-	// Build WHERE clause dynamically
-	var conditions []string
-	var args []interface{}
-	argIdx := 1
+// List retrieves a page of issues and counts for each state before pagination.
+func (r *IssueRepository) List(ctx context.Context, organizationID string, filter issues.ListFilter, limit, offset int) ([]*issues.Issue, issues.ListCounts, error) {
+	var counts issues.ListCounts
+	conditions := []string{"organization_id = $1"}
+	args := []any{organizationID}
+	bind := func(value any) string {
+		args = append(args, value)
+		return "$" + strconv.Itoa(len(args))
+	}
 
-	// Always filter by organization
-	conditions = append(conditions, fmt.Sprintf("organization_id = $%d", argIdx))
-	args = append(args, organizationID)
-	argIdx++
-
-	// Filter by repository if specified
 	if filter.Repository != "" {
-		conditions = append(conditions, fmt.Sprintf("repository = $%d", argIdx))
-		args = append(args, filter.Repository)
-		argIdx++
+		conditions = append(conditions, "repository = "+bind(filter.Repository))
 	}
-
-	// Filter by state if specified
-	if filter.State != "" {
-		conditions = append(conditions, fmt.Sprintf("state = $%d", argIdx))
-		args = append(args, filter.State)
-		argIdx++
-	}
-
-	// Filter by creator if specified
 	if filter.CreatedBy != "" {
-		conditions = append(conditions, fmt.Sprintf("created_by = $%d", argIdx))
-		args = append(args, filter.CreatedBy)
-		argIdx++
+		conditions = append(conditions, "created_by = "+bind(filter.CreatedBy))
 	}
-
-	// Filter by updated_at >= since
 	if filter.Since != nil {
-		conditions = append(conditions, fmt.Sprintf("updated_at >= $%d", argIdx))
-		args = append(args, *filter.Since)
-		argIdx++
+		conditions = append(conditions, "updated_at >= "+bind(*filter.Since))
 	}
-
-	// Full-text search in title and body
+	if filter.Milestone != "" {
+		conditions = append(conditions, "milestone_id = "+bind(filter.Milestone))
+	}
+	if filter.Assignee != "" {
+		conditions = append(conditions, `EXISTS (SELECT 1 FROM issue_assignees a
+			WHERE a.organization_id = issues.organization_id AND a.issue_id = issues.id AND a.user_id = `+bind(filter.Assignee)+`)`)
+	}
+	if filter.Label != "" {
+		conditions = append(conditions, `EXISTS (SELECT 1 FROM issue_labels il
+			JOIN labels l ON l.organization_id = il.organization_id AND l.id = il.label_id
+			WHERE il.organization_id = issues.organization_id AND il.issue_id = issues.id
+			  AND l.repository = issues.repository AND l.name = `+bind(filter.Label)+`)`)
+	}
 	if filter.Query != "" {
-		conditions = append(conditions, fmt.Sprintf("(title ILIKE $%d OR body ILIKE $%d)", argIdx, argIdx+1))
-		pattern := "%" + filter.Query + "%"
-		args = append(args, pattern, pattern)
-		argIdx += 2
+		number, err := strconv.ParseInt(strings.TrimPrefix(filter.Query, "#"), 10, 32)
+		if strings.HasPrefix(filter.Query, "#") && err == nil && number > 0 {
+			conditions = append(conditions, "number = "+bind(number))
+		} else {
+			pattern := bind("%" + filter.Query + "%")
+			conditions = append(conditions, "(title ILIKE "+pattern+" OR body ILIKE "+pattern+")")
+		}
 	}
 
-	whereClause := strings.Join(conditions, " AND ")
-
-	// Count total matching issues
-	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM issues WHERE %s", whereClause)
-	if err := r.store.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count issues: %w", err)
+	where := strings.Join(conditions, " AND ")
+	if err := r.store.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FILTER (WHERE state = 'open'), COUNT(*) FILTER (WHERE state = 'closed')
+		FROM issues WHERE `+where, args...).Scan(&counts.OpenTotal, &counts.ClosedTotal); err != nil {
+		return nil, counts, fmt.Errorf("count issues: %w", err)
+	}
+	counts.Total = counts.OpenTotal + counts.ClosedTotal
+	if filter.State != "" {
+		where += " AND state = " + bind(filter.State)
+		switch filter.State {
+		case issues.StateOpen:
+			counts.Total = counts.OpenTotal
+		case issues.StateClosed:
+			counts.Total = counts.ClosedTotal
+		}
 	}
 
-	// Query issues with pagination
-	query := fmt.Sprintf(`
-		SELECT id, repository, number, title, body, state, locked, created_by, created_at, updated_at
-		FROM issues
-		WHERE %s
-		ORDER BY updated_at DESC, number DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argIdx, argIdx+1)
-
-	args = append(args, limit, offset)
-
+	sort := "updated_at"
+	switch filter.Sort {
+	case "created":
+		sort = "created_at"
+	case "comments":
+		sort = "comments_count"
+	}
+	direction := "DESC"
+	if filter.Direction == "asc" {
+		direction = "ASC"
+	}
+	query := `SELECT ` + issueColumns + ` FROM issues WHERE ` + where + `
+		ORDER BY ` + sort + ` ` + direction + `, number ` + direction + `, id
+		LIMIT ` + bind(limit) + ` OFFSET ` + bind(offset)
 	rows, err := r.store.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("query issues: %w", err)
+		return nil, counts, fmt.Errorf("query issues: %w", err)
 	}
 	defer rows.Close()
 
-	var result []*issues.Issue
+	result := make([]*issues.Issue, 0)
 	for rows.Next() {
-		var issue issues.Issue
-		var stateStr string
-
-		if err := rows.Scan(
-			&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-			&stateStr, &issue.Locked, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
-		); err != nil {
-			return nil, 0, fmt.Errorf("scan issue: %w", err)
+		issue, err := scanIssue(rows)
+		if err != nil {
+			return nil, counts, err
 		}
-
-		issue.State = issues.State(stateStr)
-		result = append(result, &issue)
+		result = append(result, issue)
 	}
-
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("rows error: %w", err)
+		return nil, counts, fmt.Errorf("iterate issues: %w", err)
 	}
+	return result, counts, nil
+}
 
-	return result, total, nil
+// FilterOptions returns the distinct values used by issues across a repository.
+func (r *IssueRepository) FilterOptions(ctx context.Context, organizationID, repository string) (issues.FilterOptions, error) {
+	var options issues.FilterOptions
+	err := r.store.pool.QueryRow(ctx, `
+		WITH scoped AS (
+			SELECT organization_id, id, created_by, milestone_id FROM issues WHERE organization_id = $1 AND repository = $2
+		)
+		SELECT ARRAY(SELECT DISTINCT created_by FROM scoped ORDER BY created_by),
+		       ARRAY(SELECT DISTINCT l.name FROM scoped s
+		             JOIN issue_labels il ON il.organization_id = s.organization_id AND il.issue_id = s.id
+		             JOIN labels l ON l.organization_id = il.organization_id AND l.id = il.label_id
+		             WHERE l.repository = $2 ORDER BY l.name),
+		       ARRAY(SELECT DISTINCT a.user_id FROM scoped s
+		             JOIN issue_assignees a ON a.organization_id = s.organization_id AND a.issue_id = s.id
+		             ORDER BY a.user_id),
+		       ARRAY(SELECT DISTINCT milestone_id FROM scoped WHERE milestone_id IS NOT NULL ORDER BY milestone_id)
+	`, organizationID, repository).Scan(&options.Authors, &options.Labels, &options.Assignees, &options.Milestones)
+	if err != nil {
+		return options, fmt.Errorf("list issue filter options: %w", err)
+	}
+	return options, nil
 }

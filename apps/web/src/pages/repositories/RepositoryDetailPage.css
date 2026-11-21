@@ -343,6 +343,23 @@
   gap: 8px;
 }
 
+.issue-title-row .issue-title-button.af-button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: start;
+  white-space: normal;
+}
+
+.issue-title-row .issue-title-button.af-button:hover {
+  background: none;
+  text-decoration: underline;
+}
+
 .issue-icon-open {
   color: #1a7f37;
   flex-shrink: 0;
@@ -1698,3 +1715,8 @@
   padding-top: 2px;
 }
 
+
+.issue-description-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

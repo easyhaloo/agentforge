@@ -107,7 +107,7 @@ export const routes: RouteObject[] = [
             children: [
               organizationPage("repositories", "Repositories", <RepositoriesRoute />),
               organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
-              ...repositorySections.map(section => organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
+              ...repositorySections.map(section => organizationPage(`repositories/:owner/:repo/${section}`, section === "issues" ? "Issues" : "Repository", <RepositoryDetailRoute section={section} />)),
               {
                 path: "orgs/:org/repositories/:repositorySlug",
                 handle: routeHandle("Repository"),

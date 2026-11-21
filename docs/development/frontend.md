@@ -387,6 +387,10 @@ This repository currently contains a frontend prototype with seeded data and bro
 - Do not add fake API endpoints or pretend backend integrations exist
 - If task adds real integration, document endpoint contract, error states, loading states, permissions, and configuration requirements
 
+### Repository Issues
+
+The repository Issues page and the legacy Issues tab use the same authenticated client. The [Issues API contract](../../contracts/openapi/issues.yaml) defines the repository-scoped list, search, filters, pagination, and issue mutations. The list shows loading and retry states, and the issue dialog displays failed saves without discarding input. Viewers can read issues. Authors and organization admins or owners can edit, close, and reopen issues, subject to API authorization. The Project filter stays disabled until the issue model supports a project association.
+
 ## Testing
 
 Test behavior and invariants, not implementation details.

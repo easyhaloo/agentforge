@@ -55,10 +55,10 @@ describe("route table", () => {
 
   it("serves the repository directory and repository sections under the organization", () => {
     expect(leafOf("/orgs/demo/repositories")?.route.handle).toEqual({ label: "Repositories" });
-    for (const suffix of ["", "/branches", "/actions", "/settings"]) {
+    for (const suffix of ["", "/branches", "/actions", "/settings", "/issues"]) {
       const leaf = leafOf(`/orgs/demo/repositories/team/repo${suffix}`);
       expect(leaf?.params, suffix).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
-      expect(leaf?.route.handle, suffix).toEqual({ label: "Repository" });
+      expect(leaf?.route.handle, suffix).toEqual({ label: suffix === "/issues" ? "Issues" : "Repository" });
     }
   });
 
