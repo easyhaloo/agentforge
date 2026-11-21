@@ -68,7 +68,7 @@ func TestIssueRepository_List(t *testing.T) {
 			ClosedBy:    "user-001",
 			CreatedAt:   closedAt,
 			UpdatedAt:   closedAt,
-			ClosedAt:    closedAt,
+			ClosedAt:    &closedAt,
 		},
 	}
 
