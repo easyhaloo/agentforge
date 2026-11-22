@@ -65,6 +65,10 @@
   "detail": {
     "loading": "Loading pull request...",
     "loadFailed": "Unable to load pull request",
+    "editTitle": "Edit title",
+    "titleTooLong": "Use {{max}} characters or fewer.",
+    "titleConflict": "The pull request changed while you were editing. Reload to get the latest version before saving.",
+    "titleSaveFailed": "Unable to save the pull request title.",
     "backToList": "Back to pull requests",
     "openedBy": "{{author}} proposes merging {{source}} into {{base}}",
     "draft": "Draft",

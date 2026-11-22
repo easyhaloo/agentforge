@@ -3,7 +3,9 @@ package delivery
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type ID string
@@ -421,6 +423,22 @@ func (c *Changeset) ValidateMerge() error {
 	}
 	if !c.hasApprovedReview(revisionID) {
 		return ErrReviewRequired
+	}
+	return nil
+}
+
+// SetPullRequestTitle updates metadata without affecting revision-bound delivery state.
+func (c *Changeset) SetPullRequestTitle(title, actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil || actor == "" {
+		return ErrInvalidInput
+	}
+	title = strings.TrimSpace(title)
+	if title == "" || utf8.RuneCountInString(title) > 200 || strings.ContainsRune(title, 0) {
+		return fmt.Errorf("%w: title must contain 1 to 200 characters after trimming and cannot contain NUL", ErrInvalidInput)
+	}
+	if c.Title != title {
+		c.Title = title
+		c.record(actor, "pull_request.title_changed", c.ID, "succeeded", now)
 	}
 	return nil
 }

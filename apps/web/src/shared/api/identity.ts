@@ -318,6 +318,10 @@ export const changesetAPI = {
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
       method: "POST", body: JSON.stringify({ repository, title, base_branch: baseBranch, source_branch: sourceBranch, expected_head_sha: expectedHeadSHA, description, draft }),
     }),
+  updatePullRequestTitle: (organizationID: string, id: string, title: string, version: number) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/title`, {
+      method: "PATCH", body: JSON.stringify({ title, version }),
+    }),
   updatePullRequestState: (organizationID: string, id: string, action: "ready" | "draft" | "close" | "reopen") =>
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/state`, {
       method: "POST", body: JSON.stringify({ action }),

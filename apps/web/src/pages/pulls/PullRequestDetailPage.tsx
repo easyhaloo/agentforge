@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CircleCheck, ClipboardCheck, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, Check, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
-import { translateError } from "../../shared/api/errors";
+import { APIError, translateError } from "../../shared/api/errors";
 import { changesetPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
-import { Button, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
+import { Button, Input, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
 import { PullRequestCommitsTab } from "./PullRequestCommitsTab";
@@ -39,6 +39,9 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [lifecycleError, setLifecycleError] = useState("");
+  const [titleDraft, setTitleDraft] = useState<{ value: string; version: number }>();
+  const [titleError, setTitleError] = useState("");
+  const restoreTitleFocus = useRef(false);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [reviewerID, setReviewerID] = useState("");
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
@@ -96,18 +99,26 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     action: () => Promise<StoredChangeset>,
     errorKey = "pulls:actions.stateChangeFailed",
     reportError = setError,
+    conflictKey?: string,
   ) => {
     setActionBusy(true); reportError("");
-    try { setChangeset(await action()); }
-    catch (cause) { reportError(translateError(cause, t, errorKey)); }
+    try {
+      setChangeset(await action());
+      return true;
+    } catch (cause) {
+      reportError(conflictKey && cause instanceof APIError && cause.status === 409
+        ? t(conflictKey) : translateError(cause, t, errorKey));
+      return false;
+    }
     finally { setActionBusy(false); }
   };
-  const updateState = (action: "ready" | "draft" | "close" | "reopen") =>
-    run(
+  const updateState = async (action: "ready" | "draft" | "close" | "reopen") => {
+    await run(
       () => changesetAPI.updatePullRequestState(organization.id, pullNumber, action),
       "pulls:actions.stateChangeFailed",
       action === "close" || action === "reopen" ? setLifecycleError : setError,
     );
+  };
 
   if (loading) return <div className="org-loading">{t("pulls:detail.loading")}</div>;
   if (!current || !changeset) return <div className="org-error" role="alert">{error || t("pulls:detail.loadFailed")}</div>;
@@ -116,6 +127,24 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const state = pullRequestState(changeset);
   const canWrite = organization.role !== "viewer";
   const canManage = canWrite && (changeset.changeset.created_by === userID || ["owner", "admin"].includes(organization.role));
+  const currentTitle = changeset.changeset.title;
+  const editedTitle = titleDraft?.value.trim() ?? "";
+  const titleTooLong = [...editedTitle].length > 200;
+  const titleIssue = titleTooLong ? t("pulls:detail.titleTooLong", { max: 200 }) : titleError;
+  const finishTitleEdit = () => {
+    restoreTitleFocus.current = true;
+    setTitleDraft(undefined);
+    setTitleError("");
+  };
+  const saveTitle = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (actionBusy || !titleDraft || !editedTitle || titleTooLong || editedTitle === currentTitle) return;
+    const saved = await run(
+      () => changesetAPI.updatePullRequestTitle(organization.id, pullNumber, editedTitle, titleDraft.version),
+      "pulls:detail.titleSaveFailed", setTitleError, "pulls:detail.titleConflict",
+    );
+    if (saved) finishTitleEdit();
+  };
   const lifecycleAction = canManage && state !== "merged" ? (state === "closed" ? "reopen" : "close") : undefined;
   const canMerge = canWrite && state === "open" && changeset.status === "ready_to_merge";
   const StateIcon = stateIcons[state];
@@ -160,8 +189,41 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
       <ArrowLeft size={16} aria-hidden="true"/>{t("pulls:detail.backToList")}
     </Link>
     <header className="pull-request-header">
-      <div className="pull-request-title-row">
-        <h1>{changeset.changeset.title}</h1>
+      {canManage && titleDraft ? (
+        <form className="pull-request-title-form" onSubmit={saveTitle} onKeyDown={event => {
+          if (event.key === "Escape" && !event.nativeEvent.isComposing && !actionBusy) {
+            event.preventDefault();
+            finishTitleEdit();
+          }
+        }}>
+          <Input aria-label={t("pulls:create.titleLabel")} value={titleDraft.value} autoFocus readOnly={actionBusy}
+            error={titleIssue && <span role="alert">{titleIssue}</span>}
+            onChange={event => {
+              setTitleDraft({ ...titleDraft, value: event.target.value });
+              setTitleError("");
+            }}/>
+          <div className="pull-request-actions">
+            <Button onClick={finishTitleEdit} disabled={actionBusy}>{t("common:actions.cancel")}</Button>
+            <Button type="submit" variant="primary" loading={actionBusy}
+              disabled={!editedTitle || titleTooLong || editedTitle === currentTitle}>
+              {t("common:actions.save")} <CornerDownLeft size={14} aria-hidden="true"/>
+            </Button>
+          </div>
+        </form>
+      ) : <div className="pull-request-title-row">
+        <div className="pull-request-title">
+          <h1>{currentTitle}</h1>
+          {canManage && <Button variant="ghost" className="pull-request-title-edit" disabled={actionBusy}
+            aria-label={t("pulls:detail.editTitle")} title={t("pulls:detail.editTitle")}
+            ref={button => {
+              if (button && restoreTitleFocus.current) {
+                restoreTitleFocus.current = false;
+                button.focus();
+              }
+            }} onClick={() => setTitleDraft({ value: currentTitle, version: changeset.version })}>
+            <Pencil size={16} aria-hidden="true"/>
+          </Button>}
+        </div>
         <div className="pull-request-actions">
           {canManage && state === "draft" && (
             <Button className="button secondary" onClick={() => updateState("ready")} disabled={actionBusy}>
@@ -174,7 +236,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
             </Button>
           )}
         </div>
-      </div>
+      </div>}
       <div className="pull-request-meta">
         <span className={`pull-state pull-state-${state}`}>
           <StateIcon size={16} aria-hidden="true"/>{t(`pulls:state.${state}`)}

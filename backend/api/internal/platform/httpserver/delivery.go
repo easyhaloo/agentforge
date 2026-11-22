@@ -220,6 +220,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state", deps.changePRState)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title", deps.changePRTitle)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)
 
 	// Issue tracking routes
@@ -1200,6 +1201,61 @@ func (d DeliveryDependencies) changePRState(w http.ResponseWriter, r *http.Reque
 	}
 
 	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) changePRTitle(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	var input struct {
+		Title   string `json:"title"`
+		Version int64  `json:"version"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if input.Version < 1 {
+		writeProblem(w, http.StatusBadRequest, "Invalid version", "version must be a positive integer")
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if stored.Changeset.PullRequest == nil {
+		writeProblem(w, http.StatusBadRequest, "Not a pull request", "Only pull requests support this title update")
+		return
+	}
+	if principal.UserID != stored.Changeset.CreatedBy && principal.Role != "owner" && principal.Role != "admin" {
+		writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only the author, owner or admin can change the pull request title")
+		return
+	}
+	if stored.Version != input.Version {
+		writeRepositoryError(w, delivery.ErrVersionConflict)
+		return
+	}
+
+	previousTitle := stored.Changeset.Title
+	if err := stored.Changeset.SetPullRequestTitle(input.Title, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	if stored.Changeset.Title == previousTitle {
+		writeJSON(w, http.StatusOK, toChangesetResponse(stored))
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, input.Version)
 	if err != nil {
 		writeRepositoryError(w, err)
 		return

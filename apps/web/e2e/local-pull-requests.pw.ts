@@ -109,6 +109,27 @@ test("reviews an updated pull request and merges only its verified revision", as
     const detail = `${base.origin}${pullsPath}/${changeset.id}`;
     await expect(page).toHaveURL(detail);
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
+    const editTitle = page.getByRole("button", { name: "Edit title" });
+    const titleInput = page.getByRole("textbox", { name: "Title", exact: true });
+    const cancelTitle = page.getByRole("button", { name: "Cancel", exact: true });
+    const saveTitle = page.getByRole("button", { name: "Save", exact: true });
+    await editTitle.click();
+    await expect(titleInput).toBeFocused();
+    await expect(titleInput).toHaveValue(title);
+    await titleInput.fill("   ");
+    await expect(saveTitle).toBeDisabled();
+    await titleInput.fill("x".repeat(201));
+    await expect(saveTitle).toBeDisabled();
+    await expect(page.getByText("Use 200 characters or fewer.")).toBeVisible();
+    await titleInput.fill("Discard this title");
+    await cancelTitle.click();
+    await expect(editTitle).toBeFocused();
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    await editTitle.click();
+    await titleInput.fill("Discard this too");
+    await titleInput.press("Escape");
+    await expect(editTitle).toBeFocused();
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
     await expect(page.getByText("feature/docs", { exact: true }).first()).toBeVisible();
     const conversationTab = page.getByRole("tab", { name: /Conversation/ });
     const commitsTab = page.getByRole("tab", { name: /Commits/ });
@@ -196,6 +217,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await capture("close");
     await reviewer.goto(detail);
     await expect(reviewer.getByRole("button", { name: "Comment", exact: true })).toBeVisible();
+    await expect(reviewer.getByRole("button", { name: "Edit title" })).toHaveCount(0);
     await expect(reviewer.getByRole("button", { name: /^(Close|Reopen) pull request$/ })).toHaveCount(0);
     await commentInput.fill("An unsent draft");
     await close.click();
@@ -264,6 +286,26 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release" })).toEqual({ status: 409, detail: "a passed evaluation is required" });
     await verifyAndApprove();
 
+    const updatedTitle = "Document the verified delivery workflow";
+    await editTitle.click();
+    await titleInput.fill(`  ${updatedTitle}  `);
+    await capture("title-edit");
+    const titleUpdated = page.waitForResponse(response =>
+      response.request().method() === "PATCH" && new URL(response.url()).pathname.endsWith("/pull-request/title"));
+    await titleInput.press("Enter");
+    expect((await titleUpdated).status()).toBe(200);
+    await expect(page.getByRole("heading", { name: updatedTitle, exact: true })).toBeVisible();
+    await expect(editTitle).toBeFocused();
+    await expect(merge).toBeEnabled();
+    await expect(page.getByText("Changed pull request title", { exact: true })).toBeVisible();
+    await capture("title-saved");
+    await page.goto(`${base.origin}${pullsPath}`);
+    await page.getByRole("link", { name: new RegExp(updatedTitle) }).click();
+    await expect(page).toHaveURL(detail);
+    await expect(page.getByRole("heading", { name: updatedTitle, exact: true })).toBeVisible();
+    await expect(checksTab).toHaveAccessibleName("Checks 1");
+    await expect(page.getByText("Revision 2", { exact: true })).toBeVisible();
+
     await merge.click();
     await page.getByRole("dialog").getByRole("button", { name: "Merge pull request" }).click();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
@@ -276,6 +318,13 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
     await capture("merged");
     await page.setViewportSize({ width: 390, height: 844 });
+    await editTitle.click();
+    await expect(titleInput).toBeFocused();
+    await titleInput.fill("Document the verified delivery workflow on mobile");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    await expect(saveTitle).toBeEnabled();
+    await capture("title-edit-mobile");
+    await cancelTitle.click();
     await expect(conversationTab).toHaveAttribute("aria-selected", "true");
     await filesTab.click();
     await expect(filesTab).toHaveAttribute("aria-selected", "true");

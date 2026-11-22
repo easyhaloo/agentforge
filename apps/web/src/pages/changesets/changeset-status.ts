@@ -95,6 +95,7 @@ export const changesetAuditOperations = [
   "pull_request.ready",
   "pull_request.closed",
   "pull_request.reopened",
+  "pull_request.title_changed",
 ] as const;
 
 /** The outcomes an audit entry can carry. */

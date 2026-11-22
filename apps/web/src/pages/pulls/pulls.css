@@ -91,6 +91,16 @@
 }
 .pull-back-link:hover { color: var(--af-color-primary); }
 .pull-request-header { display: grid; gap: 12px; padding: 4px 0 2px; }
+.pull-request-title, .pull-request-title-form {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.pull-request-title { flex: 1 1 260px; align-items: center; }
+.pull-request-title-edit.af-button { flex: none; width: 34px; padding: 0; color: var(--af-color-text-secondary); }
+.pull-request-title-form { flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }
+.pull-request-title-form > .af-field { flex: 1 1 220px; min-width: 0; }
+.pull-request-title-form .af-input { font-size: 14px; }
 .pull-request-title-row h1 { margin: 0; font-size: clamp(24px, 3vw, 32px); font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
 .pull-request-header .pull-request-meta { gap: 10px; font-size: 14px; line-height: 1.8; }
 .pull-request-header .pull-state { padding: 3px 10px; font-size: 14px; border-radius: var(--af-radius-md); }
