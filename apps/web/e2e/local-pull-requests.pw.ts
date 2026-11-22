@@ -11,6 +11,12 @@ test.skip(!origin, "Requires the local API, PostgreSQL, and dev stack Git root")
 
 test("reviews an updated pull request and merges only its verified revision", async ({ page }, testInfo) => {
   const base = new URL(origin!);
+  const capture = async (name: string) => {
+    const path = testInfo.outputPath(`pull-request-${name}.png`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path, animations: "disabled", fullPage: true, style: ".af-notification-viewport { visibility: hidden; }" });
+    await testInfo.attach(`Pull request ${name}`, { path, contentType: "image/png" });
+  };
   expect(["localhost", "127.0.0.1", "[::1]"]).toContain(base.hostname);
   const register = async (browserPage: typeof page, displayName: string) => {
     await browserPage.goto(`${base.origin}/register`);
@@ -87,6 +93,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await selectOption(page, page.getByRole("combobox", { name: "Compare branch", exact: true }), "feature/docs");
     await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible();
     await expect(page.getByText(/First revision\./).first()).toBeVisible();
+    await capture("compare");
     const title = "Document the verification workflow";
     await page.getByLabel("Title", { exact: true }).fill(title);
     await page.getByLabel("Description", { exact: true }).fill("A real pull request from the Git test repository.");
@@ -101,6 +108,20 @@ test("reviews an updated pull request and merges only its verified revision", as
     const detail = `${base.origin}${pullsPath}/${changeset.id}`;
     await expect(page).toHaveURL(detail);
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
+    await expect(page.getByText("feature/docs", { exact: true }).first()).toBeVisible();
+    const conversationTab = page.getByRole("tab", { name: /Conversation/ });
+    const commitsTab = page.getByRole("tab", { name: /Commits/ });
+    const checksTab = page.getByRole("tab", { name: /Checks/ });
+    const filesTab = page.getByRole("tab", { name: /Files changed/ });
+    await expect(conversationTab).toHaveAccessibleName("Conversation 0");
+    await expect(commitsTab).toHaveAccessibleName("Commits 1");
+    await expect(checksTab).toHaveAccessibleName("Checks 0");
+    await expect(filesTab).toHaveAccessibleName("Files changed 1");
+    await expect(conversationTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tabpanel")).toHaveAccessibleName("Conversation 0");
+    await expect(conversationTab).toHaveCSS("font-size", "14px");
+    await expect(conversationTab.locator("svg")).toHaveCSS("width", "18px");
+    expect(await conversationTab.evaluate(tab => getComputedStyle(tab).boxShadow)).not.toBe(await commitsTab.evaluate(tab => getComputedStyle(tab).boxShadow));
     const post = (path: string, body: object) => page.evaluate(async ({ path, body }) => {
       const token = document.cookie.split("; ").find(entry => entry.startsWith("__Host-agentforge_csrf="))?.split("=")[1] ?? "";
       const response = await fetch(path, {
@@ -118,16 +139,29 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.getByPlaceholder("Leave a comment").fill("Verified the proposal locally.");
     await page.getByRole("button", { name: "Comment", exact: true }).click();
     await expect(page.getByText("Verified the proposal locally.", { exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: /Commits/ }).click();
+    await expect(conversationTab).toHaveAccessibleName("Conversation 1");
+    await capture("conversation");
+    await conversationTab.focus();
+    await conversationTab.press("ArrowRight");
     await expect(page).toHaveURL(`${detail}/commits`);
+    await expect(commitsTab).toBeFocused();
+    await expect(commitsTab).toHaveAttribute("aria-selected", "true");
+    await page.goBack();
+    await expect(conversationTab).toHaveAttribute("aria-selected", "true");
+    await page.goForward();
+    await expect(commitsTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tabpanel")).toHaveAccessibleName("Commits 1");
     await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: /Files changed/ }).click();
+    await capture("commits");
+    await filesTab.click();
     await expect(page).toHaveURL(`${detail}/files`);
     await expect(page.getByText(/First revision\./).first()).toBeVisible();
     await page.getByRole("button", { name: /Add a comment to this line/i }).last().click();
     await page.getByPlaceholder("Leave a comment").fill("Consider documenting the second revision too.");
     await page.getByRole("button", { name: "Comment", exact: true }).click();
     await expect(page.getByText("Consider documenting the second revision too.", { exact: true })).toBeVisible();
+    await expect(conversationTab).toHaveAccessibleName("Conversation 2");
+    await capture("files");
 
     await page.getByRole("tab", { name: /Conversation/ }).click();
     await page.getByRole("button", { name: "Close pull request" }).click();
@@ -146,6 +180,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page.getByText("No closed pull requests.")).toBeVisible();
     await search.fill("verification");
     await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+    await capture("list");
     const otherPulls = `${base.origin}${orgPath}/repositories/${otherRepository}/pulls`;
     await page.goto(`${otherPulls}?state=closed`);
     await expect(page.getByText("No closed pull requests.")).toBeVisible();
@@ -163,7 +198,10 @@ test("reviews an updated pull request and merges only its verified revision", as
       const evaluation = waitForWrite(page, /\/evaluations$/);
       await page.getByRole("button", { name: /Run (checks|evaluation)/i }).click();
       expect((await evaluation).ok()).toBeTruthy();
-      await page.getByRole("tab", { name: /Conversation/ }).click();
+      await expect(checksTab).toHaveAccessibleName("Checks 1");
+      await expect(page.getByText("All checks passed", { exact: true })).toBeVisible();
+      await capture("checks");
+      await conversationTab.click();
       await selectOption(page, page.getByRole("combobox", { name: "Reviewers" }), "Pull Request Reviewer");
       const assignment = waitForWrite(page, /\/reviews$/);
       await page.getByRole("button", { name: /Assign review/i }).click();
@@ -182,6 +220,9 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.getByRole("button", { name: /Refresh (revision|source branch)|Update revision/i }).click();
     await expect(merge.filter({ visible: true }).and(page.locator(":enabled"))).toHaveCount(0);
     await expect(page.getByText("This comment was made on an older revision", { exact: true })).toBeVisible();
+    await expect(checksTab).toHaveAccessibleName("Checks 0");
+    await expect(commitsTab).toHaveAccessibleName("Commits 2");
+    await expect(page.getByText("Revision 2", { exact: true })).toBeVisible();
     expect(await post("pull-request/comments", { body: "Outdated", revision_id: changeset.revisions[0].id, path: "README.md", side: "right", line: 3 })).toEqual({ status: 409, detail: "The inline comment revision is not current" });
     expect(await post("merge", { target_ref: "release" })).toEqual({ status: 409, detail: "a passed evaluation is required" });
     await verifyAndApprove();
@@ -196,9 +237,14 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
-    const screenshot = testInfo.outputPath("pull-request-merged.png");
-    await page.screenshot({ path: screenshot, animations: "disabled" });
-    await testInfo.attach("Merged pull request", { path: screenshot, contentType: "image/png" });
+    await capture("merged");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(conversationTab).toHaveAttribute("aria-selected", "true");
+    await filesTab.click();
+    await expect(filesTab).toHaveAttribute("aria-selected", "true");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    await conversationTab.click();
+    await capture("mobile");
   } finally {
     await reviewerContext.close();
     rmSync(repositoryDir, { recursive: true, force: true });

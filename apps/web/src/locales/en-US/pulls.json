@@ -78,7 +78,10 @@
       "commits": "Commits",
       "checks": "Checks",
       "files": "Files changed"
-    }
+    },
+    "branchSummary": "<author/> proposes merging <source/> into <base/>",
+    "branchSummary_one": "<author/> proposes merging {{count}} commit from <source/> into <base/>",
+    "branchSummary_other": "<author/> proposes merging {{count}} commits from <source/> into <base/>"
   },
   "conversation": {
     "title": "Conversation",
@@ -94,7 +97,8 @@
     "staleComment": "This comment was made on an older revision",
     "viewedRevision": "Viewed revision {{revision}}",
     "addLineComment": "Add a comment to this line",
-    "noDescription": "No description provided."
+    "noDescription": "No description provided.",
+    "openedOn": "opened this pull request on {{date}}"
   },
   "commits": {
     "title": "Commits",
@@ -103,7 +107,8 @@
     "count_other": "{{count}} commits",
     "noCommits": "No commits",
     "viewCommit": "View commit {{sha}}",
-    "author": "{{author}} committed on {{date}}"
+    "author": "{{author}} committed on {{date}}",
+    "truncated": "Showing the first {{count}} commits"
   },
   "checks": {
     "title": "Checks",
@@ -168,7 +173,8 @@
     "confirmMerge": "Merge {{source}} into {{base}}?",
     "confirmClose": "Close this pull request without merging?",
     "refresh": "Refresh revision",
-    "mergeRequirements": "Passing checks and an approval are required."
+    "mergeRequirements": "Passing checks and an approval are required.",
+    "retry": "Retry"
   },
   "sidebar": {
     "reviewers": "Reviewers",
@@ -195,6 +201,7 @@
     "merged": "Merged"
   },
   "errors": {
+    "comparisonChanged": "The comparison is out of date. Reload the active revision.",
     "loadFailed": "Unable to load pull requests",
     "createFailed": "Unable to create pull request",
     "updateFailed": "Unable to update pull request",
@@ -205,5 +212,20 @@
     "pending": "Review pending",
     "approved": "Approved",
     "changes_requested": "Changes requested"
+  },
+  "gate": {
+    "changeset": "Changeset",
+    "currentRevision": "Active revision",
+    "revisionNumber": "Revision {{number}}",
+    "commit": "Commit",
+    "evidence": "Evidence",
+    "evidenceStatus": {
+      "passed": "Verified",
+      "failed": "Failed",
+      "required": "Required"
+    },
+    "mergeTitle": "Merge requirements",
+    "merged": "Pull request merged",
+    "ready": "This revision has passing evidence and an approved review."
   }
 }

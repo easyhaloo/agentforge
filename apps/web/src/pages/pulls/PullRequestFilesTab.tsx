@@ -4,20 +4,19 @@ import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "..
 import { translateError } from "../../shared/api/errors";
 import { Button, Input, TextArea } from "../../shared/ui";
 import { getDiffFilePath, RepositoryDiffViewer } from "../repositories/RepositoryDiffViewer";
-import { parseRepositoryDiff } from "../repositories/repositoryDiff";
+import type { RepositoryDiffFile } from "../repositories/repositoryDiff";
 
 type Anchor = { path: string; side: "left" | "right"; line: number; trigger: HTMLButtonElement };
 type Props = {
+  files: RepositoryDiffFile[];
   organization: OrganizationSummary;
   changeset: StoredChangeset;
   pullNumber: string;
   onUpdate: (changeset: StoredChangeset) => void;
 };
 
-export function PullRequestFilesTab({ organization, changeset, pullNumber, onUpdate }: Props) {
+export function PullRequestFilesTab({ files, organization, changeset, pullNumber, onUpdate }: Props) {
   const { t } = useTranslation(["pulls", "common"]);
-  const [patch, setPatch] = useState<string>();
-  const [loadError, setLoadError] = useState("");
   const [filter, setFilter] = useState("");
   const [anchor, setAnchor] = useState<Anchor>();
   const [body, setBody] = useState("");
@@ -26,18 +25,9 @@ export function PullRequestFilesTab({ organization, changeset, pullNumber, onUpd
   const composer = useRef<HTMLTextAreaElement>(null);
   const revision = changeset.changeset.revisions.at(-1);
   const comments = changeset.changeset.pull_request?.comments ?? [];
-  const files = useMemo(() => parseRepositoryDiff(patch ?? "").filter(file =>
-    getDiffFilePath(file).toLowerCase().includes(filter.trim().toLowerCase())), [patch, filter]);
+  const visibleFiles = useMemo(() => files.filter(file =>
+    getDiffFilePath(file).toLowerCase().includes(filter.trim().toLowerCase())), [files, filter]);
 
-  useEffect(() => {
-    let active = true;
-    setPatch(undefined);
-    setLoadError("");
-    void changesetAPI.getComparison(organization.id, pullNumber)
-      .then(result => { if (active) setPatch(result.patch); })
-      .catch(cause => { if (active) setLoadError(translateError(cause, t, "pulls:errors.compareFailed")); });
-    return () => { active = false; };
-  }, [organization.id, pullNumber, revision?.id, t]);
   useEffect(() => { if (anchor) composer.current?.focus(); }, [anchor]);
 
   const closeComposer = () => {
@@ -59,16 +49,14 @@ export function PullRequestFilesTab({ organization, changeset, pullNumber, onUpd
     finally { setSaving(false); }
   };
 
-  if (loadError) return <div className="org-error" role="alert">{loadError}</div>;
-  if (patch === undefined) return <div className="org-loading">{t("common:status.loading")}</div>;
-  return <div className="pull-files-tab card">
+  return <div className="pull-files-tab">
     <aside className="pull-file-index">
       <Input disabled={!!anchor} label={t("pulls:files.filterFiles")} value={filter} onChange={event => setFilter(event.target.value)}/>
-      <ul>{files.map((file, index) => <li key={file.header}><a href={`#pull-file-${index}`}>{getDiffFilePath(file)}</a></li>)}</ul>
+      <ul>{visibleFiles.map((file, index) => <li key={file.header}><a href={`#pull-file-${index}`}>{getDiffFilePath(file)}</a></li>)}</ul>
     </aside>
     <div className="pull-file-patches">
-      {!files.length && <p>{t("pulls:files.noFiles")}</p>}
-      {files.length > 0 && <RepositoryDiffViewer files={files}
+      {!visibleFiles.length && <p>{t("pulls:files.noFiles")}</p>}
+      {visibleFiles.length > 0 && <RepositoryDiffViewer files={visibleFiles}
         lineControl={organization.role === "viewer" ? undefined : (path, side, line) =>
           <Button variant="ghost" className="pull-line-action" disabled={!!anchor}
             aria-label={`${t("pulls:conversation.addLineComment")} · ${path} · ${t(`pulls:files.${side}`)} ${line}`}

@@ -4,17 +4,15 @@ import { Button } from "../../shared/ui";
 import type { StoredChangeset } from "../../shared/api/identity";
 
 type Props = {
-  changeset: StoredChangeset;
   onEvaluate: () => void;
   canEvaluate: boolean;
-  activeRevision: StoredChangeset["changeset"]["revisions"][number];
+  activeRevision?: StoredChangeset["changeset"]["revisions"][number];
+  activeEvaluation?: StoredChangeset["changeset"]["evaluations"][number];
+  activeEvidence: StoredChangeset["changeset"]["evidence"];
 };
 
-export function PullRequestChecksTab({ changeset, activeRevision, onEvaluate, canEvaluate }: Props) {
+export function PullRequestChecksTab({ activeRevision, activeEvaluation, activeEvidence, onEvaluate, canEvaluate }: Props) {
   const { t } = useTranslation(["pulls", "changesets"]);
-
-  const activeEvaluation = changeset.changeset.evaluations.slice().reverse().find(e => e.revision_id === activeRevision?.id);
-  const activeEvidence = changeset.changeset.evidence.filter(e => e.revision_id === activeRevision?.id && e.evaluation_id === activeEvaluation?.id && e.status === "active");
 
   const hasChecks = !!activeEvaluation;
   const allPassed = activeEvaluation?.status === "passed";

@@ -78,7 +78,10 @@
       "commits": "提交",
       "checks": "检查",
       "files": "文件变更"
-    }
+    },
+    "branchSummary": "<author/> 提议将 <source/> 合并到 <base/>",
+    "branchSummary_one": "<author/> 提议将 <source/> 的 {{count}} 个提交合并到 <base/>",
+    "branchSummary_other": "<author/> 提议将 <source/> 的 {{count}} 个提交合并到 <base/>"
   },
   "conversation": {
     "title": "对话",
@@ -94,7 +97,8 @@
     "staleComment": "此评论针对较早的修订版本",
     "viewedRevision": "查看修订版本 {{revision}}",
     "addLineComment": "为此行添加评论",
-    "noDescription": "未提供描述。"
+    "noDescription": "未提供描述。",
+    "openedOn": "于 {{date}} 创建了此拉取请求"
   },
   "commits": {
     "title": "提交",
@@ -103,7 +107,8 @@
     "count_other": "{{count}} 次提交",
     "noCommits": "无提交",
     "viewCommit": "查看提交 {{sha}}",
-    "author": "{{author}} 提交于 {{date}}"
+    "author": "{{author}} 提交于 {{date}}",
+    "truncated": "显示前 {{count}} 个提交"
   },
   "checks": {
     "title": "检查",
@@ -168,7 +173,8 @@
     "confirmMerge": "将 {{source}} 合并到 {{base}}？",
     "confirmClose": "关闭此拉取请求而不合并？",
     "refresh": "刷新修订",
-    "mergeRequirements": "需要通过检查并获得批准。"
+    "mergeRequirements": "需要通过检查并获得批准。",
+    "retry": "重试"
   },
   "sidebar": {
     "reviewers": "审查者",
@@ -195,6 +201,7 @@
     "merged": "已合并"
   },
   "errors": {
+    "comparisonChanged": "比较结果已过期。请重新加载当前修订。",
     "loadFailed": "无法加载拉取请求",
     "createFailed": "无法创建拉取请求",
     "updateFailed": "无法更新拉取请求",
@@ -205,5 +212,20 @@
     "pending": "等待评审",
     "approved": "已批准",
     "changes_requested": "已请求修改"
+  },
+  "gate": {
+    "changeset": "变更集",
+    "currentRevision": "当前修订",
+    "revisionNumber": "修订 {{number}}",
+    "commit": "提交",
+    "evidence": "证据",
+    "evidenceStatus": {
+      "passed": "已验证",
+      "failed": "未通过",
+      "required": "待验证"
+    },
+    "mergeTitle": "合并条件",
+    "merged": "拉取请求已合并",
+    "ready": "此修订的证据已验证，审查已批准。"
   }
 }

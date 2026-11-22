@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { MessageSquare } from "lucide-react";
+import { Activity, GitCommitHorizontal, GitMerge, ShieldCheck } from "lucide-react";
+import { AccountAvatar } from "../../shared/ui/components/AccountAvatar";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { auditEntryLabel } from "../changesets/changeset-status";
 import { useTranslation } from "react-i18next";
-import { changesetAPI, type OrganizationSummary, type StoredChangeset, type PullRequestComment } from "../../shared/api/identity";
+import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { Button, TextArea } from "../../shared/ui";
 
@@ -43,44 +44,45 @@ export function PullRequestConversationTab({ organization, changeset, pullNumber
   };
 
   return <div className="pull-conversation-tab">
-    <div className="pull-description card">
-      <h3>{t("pulls:create.descriptionLabel")}</h3>
-      {pr.description ? (
-        <div className="pull-description-text">{pr.description}</div>
-      ) : (
-        <p className="text-muted">{t("pulls:conversation.noDescription")}</p>
-      )}
-    </div>
-
-    <div className="pull-comments card">
-      <h3>{t("pulls:conversation.title")}</h3>
-      {items.length === 0 ? (
-        <p className="text-muted">{t("pulls:conversation.noComments")}</p>
-      ) : (
-        <div className="comment-list">
-          {items.map(item => {
-            if (item.kind === "event") {
-              const event = item.event;
-              return <div key={`event-${event.sequence}`} className="pull-activity-event">
-                <strong>{auditEntryLabel(event.operation, event.outcome, t)}</strong>
-                <span>{t("changesets:detail.auditEntry", { actor: memberName(event.actor), at: formatDateTime(event.at) })}</span>
-              </div>;
-            }
-            const c = item.comment;
-            const isStale = c.revision_id && c.revision_id !== activeRevisionId;
-            return <div key={c.id} className={`comment-item ${isStale ? "comment-stale" : ""}`}>
-              <div className="comment-header">
-                <MessageSquare size={14}/>
-                <span className="comment-author">{memberName(c.author)}</span>
-                <span className="comment-date">{t("pulls:conversation.commentedOn", { date: formatDateTime(c.created_at) })}</span>
-                {isStale && <span className="comment-stale-badge">{t("pulls:conversation.staleComment")}</span>}
-              </div>
-              <div className="comment-body">{c.body}</div>
-            </div>;
-          })}
-        </div>
-      )}
-    </div>
+    <ol className="pull-timeline" aria-label={t("pulls:conversation.title")}>
+      <li className="pull-timeline-entry">
+        <div className="pull-timeline-marker"><AccountAvatar userId={changeset.changeset.created_by} size={32}/></div>
+        <article className="comment-item">
+          <div className="comment-header">
+            <strong>{memberName(changeset.changeset.created_by)}</strong>
+            <span className="comment-date">{t("pulls:conversation.openedOn", { date: formatDateTime(changeset.created_at) })}</span>
+          </div>
+          <div className="comment-body">{pr.description || t("pulls:conversation.noDescription")}</div>
+        </article>
+      </li>
+      {items.map(item => {
+        if (item.kind === "event") {
+          const event = item.event;
+          const Icon = event.operation.startsWith("revision.") ? GitCommitHorizontal : event.operation.startsWith("merge.") ? GitMerge :
+            /^(evaluation|evidence|review)\./.test(event.operation) ? ShieldCheck : Activity;
+          return <li key={`event-${event.sequence}`} className="pull-timeline-entry pull-activity-event">
+            <span className="pull-timeline-marker pull-event-icon"><Icon size={15} aria-hidden="true"/></span>
+            <div>
+              <strong>{auditEntryLabel(event.operation, event.outcome, t)}</strong>{" "}
+              <span>{t("changesets:detail.auditEntry", { actor: memberName(event.actor), at: formatDateTime(event.at) })}</span>
+            </div>
+          </li>;
+        }
+        const c = item.comment;
+        const isStale = c.revision_id && c.revision_id !== activeRevisionId;
+        return <li key={c.id} className="pull-timeline-entry">
+          <div className="pull-timeline-marker"><AccountAvatar userId={c.author} size={32}/></div>
+          <article className="comment-item">
+            <div className="comment-header">
+              <strong>{memberName(c.author)}</strong>
+              <span className="comment-date">{t("pulls:conversation.commentedOn", { date: formatDateTime(c.created_at) })}</span>
+              {isStale && <span className="comment-stale-badge">{t("pulls:conversation.staleComment")}</span>}
+            </div>
+            <div className="comment-body">{c.body}</div>
+          </article>
+        </li>;
+      })}
+    </ol>
 
     {organization.role !== "viewer" && <form className="pull-comment-form card" onSubmit={submit}>
       <h3>{t("pulls:conversation.writeComment")}</h3>
