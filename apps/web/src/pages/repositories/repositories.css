@@ -133,9 +133,16 @@
 .repo-catalog-filter__field { flex: 1; min-width: 0; position: relative; }
 .repo-catalog-filter__field:focus-within { z-index: 1; }
 .repo-catalog-filter__field .af-input { height: 34px; padding-inline: 12px 40px; border-start-end-radius: 0; border-end-end-radius: 0; }
+.repo-catalog-filter__field .af-input:focus {
+  outline: 2px solid var(--af-color-primary);
+  outline-offset: -2px;
+  box-shadow: none;
+}
 .repo-catalog-filter__field > button { position: absolute; inset-inline-end: 4px; inset-block: 3px; min-height: 0; padding: 0 6px; }
 .repo-catalog-filter > button { flex: none; width: 36px; min-height: 34px; margin-inline-start: -1px; padding: 0; border-start-start-radius: 0; border-end-start-radius: 0; }
 .repo-catalog-sidebar .af-button[aria-disabled="true"] { color: var(--af-color-text-muted); opacity: .75; cursor: not-allowed; }
+.repo-catalog-filter button { color: var(--af-color-text-secondary); }
+.repo-catalog-filter button:focus-visible { outline-offset: -2px; }
 .repo-catalog-sidebar [aria-disabled="true"]:hover { background: transparent; }
 .repo-catalog-list { border: 1px solid var(--af-color-border); border-radius: var(--af-radius-lg); background: var(--af-color-surface); }
 .repo-catalog-list__head, .repo-catalog-list li, .repo-catalog-empty { padding: 12px 16px; }
