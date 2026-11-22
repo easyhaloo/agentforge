@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getDiffFilePath } from "./RepositoryDiffViewer";
 import { parseRepositoryDiff } from "./repositoryDiff";
 
 describe("parseRepositoryDiff", () => {
@@ -13,4 +14,9 @@ describe("parseRepositoryDiff", () => {
     const lines = parseRepositoryDiff("@@ -1 +1 @@\n-\n+\n\\ No newline at end of file")[0].hunks[0].lines;
     expect(lines.map(line => line.kind)).toEqual(["remove", "add", "meta"]);
   });
+});
+
+it("decodes Git-quoted UTF-8 paths for review anchors", () => {
+  const files = parseRepositoryDiff(String.raw`diff --git "a/\346\265\213\350\257\225.md" "b/\346\265\213\350\257\225.md"` + "\n@@ -7,0 +8 @@\n+new");
+  expect(getDiffFilePath(files[0])).toBe("测试.md");
 });

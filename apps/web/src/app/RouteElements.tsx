@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useOutletContext, useParams, useRouteError, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DeliveryFlow } from "../features/delivery";
@@ -19,12 +19,13 @@ import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPa
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { RepositoryIssues } from "../pages/repositories/RepositoryIssues";
 import { IssueDetailPage } from "../pages/repositories/IssueDetailPage";
+import { PullRequestListPage, PullRequestComparePage, PullRequestDetailPage } from "../pages/pulls";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
-import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type RepositorySection } from "../shared/routing";
+import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySection } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
@@ -158,6 +159,39 @@ export function IssueDetailRoute() {
   return <section className="repo-layout repo-browser">
     <RepositoryMasthead organization={organization} repository={repository} />
     <IssueDetailPage key={`${organization.id}:${repository}:${issueNumber}`} organization={organization} repository={repository} issueNumber={issueNumber} onNotify={notify} />
+  </section>;
+}
+
+export function PullRequestListRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { owner, repo } = useParams();
+  const repository = `${owner}/${repo}`;
+  const handle = organizationHandle(organization);
+  return <section className="repo-layout repo-browser">
+    <RepositoryMasthead organization={organization} repository={repository} />
+    <PullRequestListPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} handle={handle} />
+  </section>;
+}
+
+export function PullRequestCompareRoute() {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { owner, repo } = useParams();
+  const repository = `${owner}/${repo}`;
+  const handle = organizationHandle(organization);
+  return <section className="repo-layout repo-browser">
+    <RepositoryMasthead organization={organization} repository={repository} />
+    <PullRequestComparePage key={`${organization.id}:${repository}`} organization={organization} repository={repository} handle={handle} />
+  </section>;
+}
+
+export function PullRequestDetailRoute({ tab }: { tab: PullRequestTab }) {
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const { owner, repo, id = "" } = useParams();
+  const repository = `${owner}/${repo}`;
+  const handle = organizationHandle(organization);
+  return <section className="repo-layout repo-browser">
+    <RepositoryMasthead organization={organization} repository={repository} />
+    <PullRequestDetailPage key={`${organization.id}:${repository}:${id}`} organization={organization} repository={repository} handle={handle} pullNumber={id} tab={tab} userID={account.user_id} />
   </section>;
 }
 

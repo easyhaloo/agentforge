@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -21,7 +22,7 @@ var (
 
 type GitProvider interface {
 	ResolveRevision(context.Context, string, string, string) (GitRevision, error)
-	MergeRevision(context.Context, string, string, string, string) (GitMerge, error)
+	MergeRevision(context.Context, string, string, string, string, string) (GitMerge, error)
 }
 
 type GitRevision struct {
@@ -177,43 +178,60 @@ func (p *LocalGitProvider) ResolveRevision(ctx context.Context, organizationID, 
 	return GitRevision{CommitSHA: commit, ParentSHA: parent, Ref: ref}, nil
 }
 
-func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef string) (GitMerge, error) {
+func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string) (GitMerge, error) {
 	path, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return GitMerge{}, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if strings.TrimSpace(targetRef) == "" || strings.HasPrefix(targetRef, "-") {
+	if !validGitObjectID(revisionSHA) || !validGitObjectID(expectedTargetSHA) || strings.HasPrefix(targetRef, "-") {
 		return GitMerge{}, ErrRepositoryInvalid
 	}
-	target, err := p.run(ctx, path, "rev-parse", "--verify", "--end-of-options", targetRef+"^{commit}")
-	if err != nil {
-		return GitMerge{}, ErrRepositoryInvalid
+	ref := "refs/heads/" + targetRef
+	target, err := p.run(ctx, path, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}")
+	if err != nil || target != expectedTargetSHA {
+		return GitMerge{}, ErrWriteConflict
 	}
-	revision, err := p.run(ctx, path, "rev-parse", "--verify", "--end-of-options", revisionSHA+"^{commit}")
-	if err != nil {
-		return GitMerge{}, ErrRepositoryInvalid
-	}
-	branch, branchErr := p.run(ctx, path, "symbolic-ref", "--quiet", "--short", "HEAD")
-	if branchErr != nil || branch != targetRef {
-		return GitMerge{}, errors.New("local repository must have the registered target branch checked out")
-	}
-	current, err := p.run(ctx, path, "rev-parse", "HEAD")
-	if err != nil || current != target {
-		return GitMerge{}, errors.New("local repository HEAD does not match target ref; synchronize the repository before merging")
-	}
-	if _, ancestorErr := p.run(ctx, path, "merge-base", "--is-ancestor", revision, target); ancestorErr == nil {
+	if _, err := p.run(ctx, path, "merge-base", "--is-ancestor", revisionSHA, target); err == nil {
 		return GitMerge{CommitSHA: target, TargetRef: targetRef}, nil
 	}
-	if _, err = p.run(ctx, path, "-c", "core.hooksPath=/dev/null", "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost", "merge", "--no-ff", "--no-edit", revision); err != nil {
+	tree, err := p.run(ctx, path, "merge-tree", "--write-tree", "--no-messages", target, revisionSHA)
+	if err != nil || !validGitObjectID(tree) {
 		return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry")
 	}
-	merged, err := p.run(ctx, path, "rev-parse", "HEAD")
+	commit, err := p.run(ctx, path, "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost",
+		"commit-tree", tree, "-p", target, "-p", revisionSHA, "-m", "Merge verified AgentForge revision")
+	if err != nil || !validGitObjectID(commit) {
+		return GitMerge{}, ErrRepositoryInvalid
+	}
+	branch, _ := p.run(ctx, path, "symbolic-ref", "--quiet", "HEAD")
+	bare, err := p.run(ctx, path, "rev-parse", "--is-bare-repository")
 	if err != nil {
 		return GitMerge{}, err
 	}
-	return GitMerge{CommitSHA: merged, TargetRef: targetRef}, nil
+	if branch == ref && bare != "true" {
+		status, err := p.run(ctx, path, "status", "--porcelain")
+		if err != nil || status != "" {
+			return GitMerge{}, ErrWriteConflict
+		}
+		current, err := p.run(ctx, path, "rev-parse", "HEAD")
+		if err != nil || current != target {
+			return GitMerge{}, ErrWriteConflict
+		}
+		if _, err := p.run(ctx, path, "-c", "core.hooksPath=/dev/null", "merge", "--ff-only", commit); err != nil {
+			return GitMerge{}, fmt.Errorf("advance checked-out target: %w", err)
+		}
+	} else {
+		worktrees, err := p.run(ctx, path, "worktree", "list", "--porcelain")
+		if err != nil || strings.Contains("\n"+worktrees+"\n", "\nbranch "+ref+"\n") {
+			return GitMerge{}, ErrWriteConflict
+		}
+		if _, err := p.run(ctx, path, "update-ref", ref, commit, target); err != nil {
+			return GitMerge{}, ErrWriteConflict
+		}
+	}
+	return GitMerge{CommitSHA: commit, TargetRef: targetRef}, nil
 }
 
 const (

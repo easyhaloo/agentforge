@@ -52,8 +52,22 @@ func TestLocalGitProviderResolvesRevisionAndMerges(t *testing.T) {
 	if revision.CommitSHA != stringTrim(feature) || revision.ParentSHA != stringTrim(base) {
 		t.Fatalf("resolved revision=%#v", revision)
 	}
+	gitTest(t, repository, "branch", "release", stringTrim(base))
+	if _, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", revision.CommitSHA, "release", revision.CommitSHA); err != ErrWriteConflict {
+		t.Fatalf("stale target: %v", err)
+	}
+	other, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", revision.CommitSHA, "release", stringTrim(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stringTrim(gitTest(t, repository, "rev-parse", "release")); got != other.CommitSHA {
+		t.Fatalf("release=%s want %s", got, other.CommitSHA)
+	}
+	if got := stringTrim(gitTest(t, repository, "rev-parse", "HEAD")); got != revision.CommitSHA {
+		t.Fatalf("merge changed the checked out source: %s", got)
+	}
 	gitTest(t, repository, "checkout", "main")
-	merged, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", revision.CommitSHA, "main")
+	merged, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", revision.CommitSHA, "main", stringTrim(base))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,12 +77,49 @@ func TestLocalGitProviderResolvesRevisionAndMerges(t *testing.T) {
 	if got := stringTrim(gitTest(t, repository, "rev-parse", "HEAD")); got != merged.CommitSHA {
 		t.Fatalf("HEAD=%s merge=%s", got, merged.CommitSHA)
 	}
-	retried, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", revision.CommitSHA, "main")
+	retried, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", revision.CommitSHA, "main", merged.CommitSHA)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if retried.CommitSHA != merged.CommitSHA {
 		t.Fatalf("merge retry commit=%s, want idempotent %s", retried.CommitSHA, merged.CommitSHA)
+	}
+}
+
+func TestLocalGitProviderLeavesConflictingTargetUnchanged(t *testing.T) {
+	root := t.TempDir()
+	repository := filepath.Join(root, "org-a", "team", "repo")
+	if err := os.MkdirAll(repository, 0700); err != nil {
+		t.Fatal(err)
+	}
+	gitTest(t, repository, "init", "-b", "main")
+	commit := func(contents string) string {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(repository, "README.md"), []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+		gitTest(t, repository, "add", "README.md")
+		gitTest(t, repository, "commit", "-m", contents)
+		return stringTrim(gitTest(t, repository, "rev-parse", "HEAD"))
+	}
+	commit("base\n")
+	gitTest(t, repository, "checkout", "-b", "release")
+	target := commit("release\n")
+	gitTest(t, repository, "checkout", "main")
+	source := commit("main\n")
+
+	provider, err := NewLocalGitProvider(root, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.MergeRevision(context.Background(), "org-a", "team/repo", source, "release", target); err == nil {
+		t.Fatal("expected merge conflict")
+	}
+	if got := stringTrim(gitTest(t, repository, "rev-parse", "release")); got != target {
+		t.Fatalf("release moved to %s after conflict", got)
+	}
+	if head, status := stringTrim(gitTest(t, repository, "rev-parse", "HEAD")), gitTest(t, repository, "status", "--porcelain"); head != source || status != "" {
+		t.Fatalf("conflict changed the checkout: HEAD=%s status=%q", head, status)
 	}
 }
 

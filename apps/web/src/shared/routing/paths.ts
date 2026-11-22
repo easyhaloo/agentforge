@@ -28,7 +28,7 @@ export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
-export const repositorySections = ["issues", "branches", "actions", "settings"] as const;
+export const repositorySections = ["issues", "pulls", "branches", "actions", "settings"] as const;
 export type RepositorySection = typeof repositorySections[number];
 
 export function repositoryPath(handle: string, slug: string, section?: RepositorySection): string {
@@ -38,6 +38,19 @@ export function repositoryPath(handle: string, slug: string, section?: Repositor
 
 export function repositoryNewPath(handle: string): string {
   return `${orgPath(handle, "repositories")}/new`;
+}
+
+/** Pull request tabs match the GitHub pattern: Conversation, Commits, Checks, Files changed. */
+export const pullRequestTabs = ["conversation", "commits", "checks", "files"] as const;
+export type PullRequestTab = typeof pullRequestTabs[number];
+
+export function pullRequestPath(handle: string, slug: string, pullNumber: string | number, tab?: PullRequestTab): string {
+  const base = `${repositoryPath(handle, slug, "pulls")}/${encodeURIComponent(pullNumber)}`;
+  return tab && tab !== "conversation" ? `${base}/${tab}` : base;
+}
+
+export function pullRequestComparePath(handle: string, slug: string): string {
+  return `${repositoryPath(handle, slug, "pulls")}/new`;
 }
 
 export function issueDetailPath(handle: string, slug: string, issueNumber: number): string {

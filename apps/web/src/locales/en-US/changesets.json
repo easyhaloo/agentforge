@@ -148,7 +148,11 @@
       "review_assigned": "Review assigned",
       "review_decided": "Review decided",
       "review_superseded": "Review superseded",
-      "merge_completed": "Merge completed"
+      "merge_completed": "Merge completed",
+      "pull_request_draft": "Converted to draft",
+      "pull_request_ready": "Marked ready for review",
+      "pull_request_closed": "Closed pull request",
+      "pull_request_reopened": "Reopened pull request"
     },
     "outcomes": {
       "succeeded": "Succeeded",

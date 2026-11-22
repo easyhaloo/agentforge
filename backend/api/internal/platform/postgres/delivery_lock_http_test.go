@@ -46,7 +46,7 @@ func (lockFakeGit) ResolveRevision(_ context.Context, _, _, ref string) (deliver
 	return delivery.GitRevision{Ref: ref, CommitSHA: lockCommit, ParentSHA: lockParent}, nil
 }
 
-func (g lockFakeGit) MergeRevision(ctx context.Context, _, _, _, targetRef string) (delivery.GitMerge, error) {
+func (g lockFakeGit) MergeRevision(ctx context.Context, _, _, _, targetRef, _ string) (delivery.GitMerge, error) {
 	select {
 	case <-time.After(g.mergeDelay):
 	case <-ctx.Done():

@@ -1,0 +1,102 @@
+.pull-requests-page, .pull-request-compare-page, .pull-request-detail-page,
+.pull-requests-header, .pull-conversation-tab, .pull-review-sidebar {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.pull-request-compare-page .card, .pull-request-detail-page .card { padding: 16px; }
+
+.pull-requests-search, .pull-requests-filters, .pull-request-title-row,
+.pull-request-actions, .pull-request-meta, .compare-stats, .pull-checks-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.pull-request-title-row, .pull-checks-header { justify-content: space-between; }
+.pull-requests-search > :first-child { flex: 1 1 240px; }
+.pull-requests-filters [aria-pressed="true"] { border-color: var(--af-color-primary); }
+.pull-requests-list { padding: 0; overflow: hidden; }
+.pull-request-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--af-color-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.pull-request-row + .pull-request-row { border-top: 1px solid var(--af-color-border); }
+.pull-request-row:hover { background: var(--af-color-row-hover); }
+.pull-request-row h3, .pull-request-meta, .pull-review-sidebar p { margin: 0; }
+.pull-request-row .pull-request-meta { margin-top: 4px; }
+.pull-request-meta { color: var(--af-color-text-secondary); font-size: 13px; overflow-wrap: anywhere; }
+.pull-state, .pull-draft-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pull-state-open, .checks-passed { color: var(--af-color-success); }
+.pull-state-merged { color: var(--af-color-merged); }
+.pull-state-closed, .checks-failed { color: var(--af-color-danger); }
+.pull-state-draft, .pull-draft-badge { color: var(--af-color-text-secondary); }
+
+.compare-branch-selector, .pull-conversation-layout, .pull-files-tab {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+.compare-branch-selector { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.compare-arrow { margin-top: 24px; }
+.pull-request-create-form, .pull-review-sidebar form, .pull-comment-form,
+.pull-inline-composer, .comment-list {
+  display: grid;
+  gap: 12px;
+}
+.pull-request-header h2 { margin: 4px 0 10px; overflow-wrap: anywhere; }
+.pull-conversation-layout { grid-template-columns: minmax(0, 1fr) minmax(210px, 275px); }
+.pull-files-tab { grid-template-columns: minmax(160px, 230px) minmax(0, 1fr); }
+.pull-review-sidebar, .pull-file-index, .pull-file-patches { min-width: 0; overflow-wrap: anywhere; }
+.pull-description-text, .comment-body, .pull-line-comment p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pull-conversation-tab h3, .pull-review-sidebar h3, .pull-checks-header h3,
+.pull-inline-composer h3 { margin: 0 0 8px; }
+.pull-conversation-tab .comment-item { border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); }
+.pull-conversation-tab .comment-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--af-color-surface-raised);
+}
+.pull-conversation-tab .comment-body { padding: 12px; }
+.pull-conversation-tab .comment-date, .comment-stale-badge, .pull-activity { color: var(--af-color-text-secondary); }
+.pull-activity { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 12px; }
+.pull-file-index ul { list-style: none; margin: 10px 0 0; padding: 0; }
+.pull-file-index a { display: block; padding: 5px 0; }
+.pull-file-patches .repository-diff { margin-top: 0; }
+.pull-file-patches summary { cursor: pointer; padding: 8px 12px; background: var(--af-color-surface-raised); }
+.pull-file-patches .pull-line-action { width: 100%; height: auto; min-height: 0; min-width: 0; padding: 0; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.pull-file-patches .pull-line-action:hover, .pull-file-patches .pull-line-action:focus-visible { color: var(--af-color-primary); text-decoration: underline; }
+.pull-line-comment, .pull-inline-composer { padding: 12px; background: var(--af-color-surface-raised); border-top: 1px solid var(--af-color-border); }
+.pull-file-patches .pull-inline-composer, .pull-file-patches .pull-line-comment { max-width: min(680px, 80vw); font: 13px/1.5 system-ui, sans-serif; }
+.pull-checks-tab .checks-status, .pull-checks-tab .evidence-item,
+.pull-commits-tab .commit-item, .compare-commits .commit-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; }
+.pull-commits-tab .commit-item + .commit-item, .compare-commits .commit-item + .commit-item { border-top: 1px solid var(--af-color-border); }
+
+@media (max-width: 760px) {
+  .pull-conversation-layout, .pull-files-tab, .compare-branch-selector { grid-template-columns: minmax(0, 1fr); }
+  .compare-arrow { display: none; }
+  .pull-file-index ul { max-height: 160px; overflow: auto; }
+}
+
+.pull-activity-event { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; }
+.pull-activity-event span { color: var(--af-color-text-secondary); }

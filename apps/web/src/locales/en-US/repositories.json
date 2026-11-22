@@ -3,6 +3,7 @@
     "issues": "Issues",
     "branches": "Branches",
     "pullRequests": "Pull requests",
+    "pulls": "Pull requests",
     "actions": "Actions",
     "settings": "Settings",
     "settingsFor": "Settings for {{repository}}",

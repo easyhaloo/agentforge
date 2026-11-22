@@ -245,8 +245,8 @@ func (p *RemoteGitProvider) ResolveRevision(ctx context.Context, org, repo, ref 
 	return rev, nil
 }
 
-// Direct Changeset merge has no expected target SHA. Only integration promotion can write a target.
-func (*RemoteGitProvider) MergeRevision(context.Context, string, string, string, string) (GitMerge, error) {
+// Only integration promotion can write a remote target.
+func (*RemoteGitProvider) MergeRevision(context.Context, string, string, string, string, string) (GitMerge, error) {
 	return GitMerge{}, ErrProviderUnavailable
 }
 func (w *remoteWork) retained(sha string) error {

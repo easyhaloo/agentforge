@@ -23,7 +23,7 @@ type lifecycleGit struct{}
 func (lifecycleGit) ResolveRevision(_ context.Context, _, _, ref string) (delivery.GitRevision, error) {
 	return delivery.GitRevision{Ref: ref, CommitSHA: "commit-" + ref, ParentSHA: "commit-base"}, nil
 }
-func (lifecycleGit) MergeRevision(_ context.Context, _, _, _, target string) (delivery.GitMerge, error) {
+func (lifecycleGit) MergeRevision(_ context.Context, _, _, _, target, _ string) (delivery.GitMerge, error) {
 	return delivery.GitMerge{CommitSHA: "merge-commit", TargetRef: target}, nil
 }
 
