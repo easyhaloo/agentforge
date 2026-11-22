@@ -121,7 +121,9 @@ func TestPullRequestTitlePostgres(t *testing.T) {
 				if err := json.Unmarshal(res.Body.Bytes(), &response); err != nil {
 					t.Fatal(err)
 				}
-				if !reflect.DeepEqual(response, toChangesetResponse(stored)) {
+				if response.Version != stored.Version || response.Status != string(stored.Changeset.Lifecycle()) ||
+					!response.CreatedAt.Equal(stored.CreatedAt) || !response.UpdatedAt.Equal(stored.UpdatedAt) ||
+					!reflect.DeepEqual(response.Changeset, stored.Changeset) {
 					t.Fatalf("response differs from persisted Changeset: %s", res.Body.String())
 				}
 			}
