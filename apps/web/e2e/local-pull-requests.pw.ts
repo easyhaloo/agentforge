@@ -10,6 +10,7 @@ const gitRoot = process.env.GIT_REPOSITORY_ROOT ?? join(process.env.RUN_DIR ?? "
 test.skip(!origin, "Requires the local API, PostgreSQL, and dev stack Git root");
 
 test("reviews an updated pull request and merges only its verified revision", async ({ page }, testInfo) => {
+  test.slow();
   const base = new URL(origin!);
   const capture = async (name: string) => {
     const path = testInfo.outputPath(`pull-request-${name}.png`);
@@ -91,7 +92,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page).toHaveURL(`${base.origin}${pullsPath}/new`);
     await selectOption(page, page.getByRole("combobox", { name: "Base branch", exact: true }), "release");
     await selectOption(page, page.getByRole("combobox", { name: "Compare branch", exact: true }), "feature/docs");
-    await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible();
+    await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/First revision\./).first()).toBeVisible();
     await capture("compare");
     const title = "Document the verification workflow";
@@ -121,7 +122,17 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page.getByRole("tabpanel")).toHaveAccessibleName("Conversation 0");
     await expect(conversationTab).toHaveCSS("font-size", "14px");
     await expect(conversationTab.locator("svg")).toHaveCSS("width", "18px");
-    expect(await conversationTab.evaluate(tab => getComputedStyle(tab).boxShadow)).not.toBe(await commitsTab.evaluate(tab => getComputedStyle(tab).boxShadow));
+    const expectSelectedOutline = async (selected: typeof conversationTab, inactive: typeof conversationTab) => {
+      const baseline = await inactive.evaluate(tab => getComputedStyle(tab).borderBottomColor);
+      expect(baseline).not.toBe("rgba(0, 0, 0, 0)");
+      await expect(inactive).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
+      await expect(selected).toHaveCSS("border-top", `1px solid ${baseline}`);
+      await expect(selected).toHaveCSS("border-left-color", baseline);
+      await expect(selected).toHaveCSS("border-right-color", baseline);
+      await expect(selected).toHaveCSS("border-bottom-color", "rgba(0, 0, 0, 0)");
+      await expect(selected.locator(".pull-tab-count")).toHaveCSS("border-radius", "999px");
+    };
+    await expectSelectedOutline(conversationTab, commitsTab);
     const post = (path: string, body: object) => page.evaluate(async ({ path, body }) => {
       const token = document.cookie.split("; ").find(entry => entry.startsWith("__Host-agentforge_csrf="))?.split("=")[1] ?? "";
       const response = await fetch(path, {
@@ -145,13 +156,17 @@ test("reviews an updated pull request and merges only its verified revision", as
     await conversationTab.press("ArrowRight");
     await expect(page).toHaveURL(`${detail}/commits`);
     await expect(commitsTab).toBeFocused();
+    await expect(commitsTab).toHaveCSS("outline-style", "solid");
     await expect(commitsTab).toHaveAttribute("aria-selected", "true");
     await page.goBack();
     await expect(conversationTab).toHaveAttribute("aria-selected", "true");
     await page.goForward();
     await expect(commitsTab).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tabpanel")).toHaveAccessibleName("Commits 1");
+    await expectSelectedOutline(commitsTab, conversationTab);
+    await expect(page.getByRole("button", { name: "Close pull request" })).toHaveCount(0);
     await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible();
+    await commitsTab.blur();
     await capture("commits");
     await filesTab.click();
     await expect(page).toHaveURL(`${detail}/files`);
@@ -163,14 +178,35 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(conversationTab).toHaveAccessibleName("Conversation 2");
     await capture("files");
 
-    await page.getByRole("tab", { name: /Conversation/ }).click();
-    await page.getByRole("button", { name: "Close pull request" }).click();
+    await conversationTab.click();
+    const close = page.getByRole("button", { name: "Close pull request" });
     const reopen = page.getByRole("button", { name: "Reopen pull request" });
-    await expect(reopen).toBeVisible();
+    const composer = page.getByRole("form", { name: "Write a comment" });
+    const commentInput = composer.getByRole("textbox", { name: "Write a comment" });
+    const commentButton = composer.getByRole("button", { name: "Comment", exact: true });
+    await expect(composer.getByRole("button", { name: "Close pull request" })).toBeVisible();
+    await expect(close).toHaveAttribute("type", "button");
+    const closeBox = (await close.boundingBox())!;
+    const commentBox = (await commentButton.boundingBox())!;
+    const editorBox = (await composer.locator(".pull-comment-editor").boundingBox())!;
+    expect(closeBox.y).toBeGreaterThan(editorBox.y + editorBox.height);
+    expect(closeBox.y).toBe(commentBox.y);
+    expect(closeBox.x + closeBox.width).toBeLessThan(commentBox.x);
+    await expect(commentButton).toBeDisabled();
+    await capture("close");
+    await reviewer.goto(detail);
+    await expect(reviewer.getByRole("button", { name: "Comment", exact: true })).toBeVisible();
+    await expect(reviewer.getByRole("button", { name: /^(Close|Reopen) pull request$/ })).toHaveCount(0);
+    await commentInput.fill("An unsent draft");
+    await close.click();
+    await expect(composer.getByRole("button", { name: "Reopen pull request" })).toBeVisible();
+    await expect(commentInput).toHaveValue("An unsent draft");
+    await expect(conversationTab).toHaveAccessibleName("Conversation 2");
     expect(await post("merge", { target_ref: "release" })).toEqual({ status: 422, detail: "closed pull request cannot be approved or merged" });
     await page.reload();
     await expect(reopen).toBeVisible();
     await expect(page.getByText("Verified the proposal locally.", { exact: true })).toBeVisible();
+    await capture("reopen");
     await page.goto(`${base.origin}${pullsPath}`);
     await expect(page.getByText("No open pull requests.")).toBeVisible();
     await page.getByRole("button", { name: "Closed", exact: true }).click();
@@ -188,7 +224,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page.getByRole("alert")).toBeVisible();
     await page.goto(detail);
     await reopen.click();
-    await expect(page.getByRole("button", { name: "Close pull request" })).toBeVisible();
+    await expect(close).toBeVisible();
 
     const waitForWrite = (browserPage: typeof page, suffix: RegExp) => browserPage.waitForResponse(response =>
       response.request().method() === "POST" && suffix.test(new URL(response.url()).pathname));

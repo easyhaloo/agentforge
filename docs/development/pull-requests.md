@@ -24,6 +24,7 @@ Detail                    Title                         Status
                           head → base · author · time
                           Conversation · Commits · Checks · Files changed
                           Timeline and merge gate       Reviewer / branch facts
+                          Comment composer
 Files changed             Filter and file index        Patch and line discussions
 ```
 
@@ -38,6 +39,7 @@ AgentForge uses the verified Changeset merge policy and a real merge commit. Git
 ## Detail typography and navigation
 
 - Use a 24–32px title and a 14px branch summary. Use monospace chips for the source and target refs. The lifecycle badge pairs a 16px state icon with a text label and the AgentForge success, danger, merged or neutral token.
-- The tab strip uses 14px labels, 18px Lucide icons, 12px counts, and a 44px minimum hit area. Mark the selected tab with the primary subtle fill and a 3px accent underline. A visible focus ring identifies keyboard focus. Narrow screens scroll the strip horizontally. Each selection has a URL and labels its content panel. Arrow keys, Home and End use the shared tab behavior.
+- The tab strip uses 14px labels, 18px Lucide icons, 12px counts, and a 44px minimum hit area. Use pill-shaped counts. Outline the selected tab on the top and sides with rounded top corners. Its open bottom interrupts the shared baseline, and the selected icon uses the AgentForge accent. A visible focus ring identifies keyboard focus. Narrow screens scroll the strip horizontally. Each selection has a URL and labels its content panel. Arrow keys, Home and End use the shared tab behavior.
 - Count persisted conversation comments, including inline comments. Count commits and changed files from the same pinned comparison rendered by their views. A `+` suffix marks truncated commit history. Hide unavailable counts and show a retryable error in comparison views. Count the result of the latest evaluation for the active Revision in Checks.
 - Start Conversation with the proposal body. Avatars and event markers connect discussion and delivery events in chronological order. The Changeset sidebar links to the stable ID and identifies the active Revision number, commit and evidence status. Display reviewer status for that Revision. The merge section exposes the action when the server reports that the Revision is ready. Keep append-only history visible when the source branch adds a Revision.
+- Place Close pull request and Reopen pull request in the Conversation composer footer, immediately before Comment and aligned to the trailing edge. Use a neutral button with a red closed-pull-request icon for Close. Preserve the comment draft during lifecycle updates.

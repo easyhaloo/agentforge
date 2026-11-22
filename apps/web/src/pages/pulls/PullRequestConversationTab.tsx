@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Activity, GitCommitHorizontal, GitMerge, ShieldCheck } from "lucide-react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { Activity, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, ShieldCheck } from "lucide-react";
 import { AccountAvatar } from "../../shared/ui/components/AccountAvatar";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { auditEntryLabel } from "../changesets/changeset-status";
@@ -14,15 +14,25 @@ type Props = {
   pullNumber: string;
   onUpdate: (changeset: StoredChangeset) => void;
   memberName: (id: string) => string;
+  lifecycleAction?: "close" | "reopen";
+  lifecycleError: string;
+  onLifecycleAction: (action: "close" | "reopen") => Promise<void>;
+  actionBusy: boolean;
+  children: ReactNode;
 };
 
-export function PullRequestConversationTab({ organization, changeset, pullNumber, onUpdate, memberName }: Props) {
+export function PullRequestConversationTab({
+  organization, changeset, pullNumber, onUpdate, memberName,
+  lifecycleAction, lifecycleError, onLifecycleAction, actionBusy, children,
+}: Props) {
   const { t } = useTranslation(["pulls", "changesets"]);
   const { formatDateTime } = useDateFormatting();
+  const composerTitle = useId();
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const LifecycleIcon = lifecycleAction === "close" ? GitPullRequestClosed : GitPullRequest;
   const pr = changeset.changeset.pull_request!;
   const activeRevisionId = changeset.changeset.revisions[changeset.changeset.revisions.length - 1]?.id;
   const items = [
@@ -33,7 +43,7 @@ export function PullRequestConversationTab({ organization, changeset, pullNumber
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!comment.trim()) return;
+    if (submitting || actionBusy || !comment.trim()) return;
     setSubmitting(true); setError("");
     try {
       const result = await changesetAPI.addPullRequestComment(organization.id, pullNumber, comment.trim());
@@ -84,20 +94,35 @@ export function PullRequestConversationTab({ organization, changeset, pullNumber
       })}
     </ol>
 
-    {organization.role !== "viewer" && <form className="pull-comment-form card" onSubmit={submit}>
-      <h3>{t("pulls:conversation.writeComment")}</h3>
-      <TextArea
-        value={comment}
-        onChange={e => setComment(e.target.value)}
-        label={t("pulls:conversation.writeComment")}
-        maxLength={10000}
-        placeholder={t("pulls:conversation.commentPlaceholder")}
-        rows={4}
-      />
+    {children}
+
+    {organization.role !== "viewer" && <form className="pull-comment-form" onSubmit={submit} aria-labelledby={composerTitle}>
+      <h3 id={composerTitle}>{t("pulls:conversation.writeComment")}</h3>
+      <div className="card pull-comment-editor">
+        <TextArea
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          aria-labelledby={composerTitle}
+          maxLength={10000}
+          placeholder={t("pulls:conversation.commentPlaceholder")}
+          rows={4}
+        />
+      </div>
       {error && <div className="form-error" role="alert">{error}</div>}
-      <Button type="submit" className="button primary" disabled={submitting || !comment.trim()}>
-        {submitting ? t("pulls:conversation.submitting") : t("pulls:conversation.submitComment")}
-      </Button>
+      {lifecycleError && <div className="form-error" role="alert">{lifecycleError}</div>}
+      <div className="pull-comment-actions">
+        {lifecycleAction && <Button
+          type="button"
+          className={lifecycleAction === "close" ? "pull-comment-close" : undefined}
+          onClick={() => { void onLifecycleAction(lifecycleAction); }}
+          disabled={actionBusy || submitting}
+        >
+          <LifecycleIcon size={16} aria-hidden="true"/> {t(`pulls:actions.${lifecycleAction}`)}
+        </Button>}
+        <Button type="submit" variant="primary" disabled={actionBusy || submitting || !comment.trim()}>
+          {submitting ? t("pulls:conversation.submitting") : t("pulls:conversation.submitComment")}
+        </Button>
+      </div>
     </form>}
   </div>;
 }

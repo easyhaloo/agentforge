@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CircleCheck, ClipboardCheck, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, X } from "lucide-react";
+import { ArrowLeft, Check, CircleCheck, ClipboardCheck, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
@@ -38,6 +38,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState("");
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [reviewerID, setReviewerID] = useState("");
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
@@ -91,14 +92,22 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     return () => { live = false; };
   }, [organization.id]);
 
-  const run = async (action: () => Promise<StoredChangeset>, errorKey = "pulls:actions.stateChangeFailed") => {
-    setActionBusy(true); setError("");
+  const run = async (
+    action: () => Promise<StoredChangeset>,
+    errorKey = "pulls:actions.stateChangeFailed",
+    reportError = setError,
+  ) => {
+    setActionBusy(true); reportError("");
     try { setChangeset(await action()); }
-    catch (cause) { setError(translateError(cause, t, errorKey)); }
+    catch (cause) { reportError(translateError(cause, t, errorKey)); }
     finally { setActionBusy(false); }
   };
   const updateState = (action: "ready" | "draft" | "close" | "reopen") =>
-    run(() => changesetAPI.updatePullRequestState(organization.id, pullNumber, action));
+    run(
+      () => changesetAPI.updatePullRequestState(organization.id, pullNumber, action),
+      "pulls:actions.stateChangeFailed",
+      action === "close" || action === "reopen" ? setLifecycleError : setError,
+    );
 
   if (loading) return <div className="org-loading">{t("pulls:detail.loading")}</div>;
   if (!current || !changeset) return <div className="org-error" role="alert">{error || t("pulls:detail.loadFailed")}</div>;
@@ -107,6 +116,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const state = pullRequestState(changeset);
   const canWrite = organization.role !== "viewer";
   const canManage = canWrite && (changeset.changeset.created_by === userID || ["owner", "admin"].includes(organization.role));
+  const lifecycleAction = canManage && state !== "merged" ? (state === "closed" ? "reopen" : "close") : undefined;
   const canMerge = canWrite && state === "open" && changeset.status === "ready_to_merge";
   const StateIcon = stateIcons[state];
   const activeEvaluation = changeset.changeset.evaluations.slice().reverse().find(item => item.revision_id === activeRevision?.id);
@@ -163,16 +173,6 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               {t("pulls:actions.markDraft")}
             </Button>
           )}
-          {canManage && (state === "open" || state === "draft") && (
-            <Button className="button secondary" onClick={() => updateState("close")} disabled={actionBusy}>
-              <X size={14}/> {t("pulls:actions.close")}
-            </Button>
-          )}
-          {canManage && state === "closed" && (
-            <Button className="button secondary" onClick={() => updateState("reopen")} disabled={actionBusy}>
-              {t("pulls:actions.reopen")}
-            </Button>
-          )}
         </div>
       </div>
       <div className="pull-request-meta">
@@ -207,14 +207,17 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
         {currentComparison.error} <Button onClick={retryComparison}>{t("pulls:actions.retry")}</Button>
       </div>}
       {tab === "conversation" && <div className="pull-conversation-layout">
-        <div className="pull-conversation-main">
-          <PullRequestConversationTab
-            organization={organization}
-            changeset={changeset}
-            pullNumber={pullNumber}
-            onUpdate={setChangeset}
-            memberName={memberName}
-          />
+        <PullRequestConversationTab
+          organization={organization}
+          changeset={changeset}
+          pullNumber={pullNumber}
+          onUpdate={setChangeset}
+          memberName={memberName}
+          lifecycleAction={lifecycleAction}
+          lifecycleError={lifecycleError}
+          onLifecycleAction={updateState}
+          actionBusy={actionBusy}
+        >
           <section className="pull-merge-gate" aria-label={t("pulls:gate.mergeTitle")}>
             <div className="pull-merge-gate-main">
               <GitMerge size={20} aria-hidden="true"/>
@@ -226,7 +229,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
             </div>
             {canMerge && <Button variant="primary" onClick={() => setShowMergeConfirm(true)} disabled={actionBusy}>{t("pulls:actions.merge")}</Button>}
           </section>
-        </div>
+        </PullRequestConversationTab>
         <aside className="pull-review-sidebar">
           <section className="pull-changeset-summary">
             <h3><Layers3 size={17} aria-hidden="true"/>{t("pulls:gate.changeset")}</h3>
