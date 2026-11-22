@@ -4,7 +4,7 @@ import { Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRo
 import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDate, formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, webIDEPath } from "../../shared/routing";
 import { Button, Input, Select } from "../../shared/ui";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
@@ -101,6 +101,7 @@ function CommitHistory({ organizationID, repository, refName, makeQuery, referen
   onCopy: (sha: string) => void; onCopySHA: (sha: string) => void;
 }) {
   const { t } = useTranslation("repositories");
+  const { formatDate, formatDateTime, formatRelativeTime, formatCalendarDay } = useDateFormatting();
   const [history, setHistory] = useState<{ commit_sha: string; items: RepositoryCommit[] }>();
   const [error, setError] = useState("");
   useEffect(() => {
@@ -113,10 +114,10 @@ function CommitHistory({ organizationID, repository, refName, makeQuery, referen
 
   const commits = history?.items ?? [];
   // Use the same local calendar date for the timeline and its filters.
-  const dates = new Map(commits.map(commit => [new Date(commit.authored_at).toDateString(), formatDate(commit.authored_at)]));
+  const dates = new Map(commits.map(commit => [formatCalendarDay(commit.authored_at), formatDate(commit.authored_at)]));
   const groups = new Map<string, RepositoryCommit[]>();
   for (const commit of commits) {
-    const commitDay = new Date(commit.authored_at).toDateString();
+    const commitDay = formatCalendarDay(commit.authored_at);
     if ((author && commit.author !== author) || (day && commitDay !== day)) continue;
     if (!groups.has(commitDay)) groups.set(commitDay, []);
     groups.get(commitDay)?.push(commit);
@@ -163,6 +164,7 @@ function CommitDetails({ organizationID, repository, makeQuery, change, base, on
   change: string; base: string; onCopy: (anchor?: string) => void; onCopySHA: (sha: string) => void; author: string; day: string;
 }) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime, formatRelativeTime } = useDateFormatting();
   const [commit, setCommit] = useState<RepositoryCommit>();
   const [patch, setPatch] = useState<string>();
   const [error, setError] = useState("");
@@ -219,6 +221,7 @@ function CodeBrowser({ organizationID, repository, refName, makeQuery, directory
   refs?: RepositoryPreviewRefs; referencePicker: React.ReactNode; directory: string; file: string; handle: string; onCopy: (sha: string) => void;
 }) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime, formatRelativeTime } = useDateFormatting();
   const navigate = useNavigate();
   const [tree, setTree] = useState<RepositoryPreviewTree>();
   const [latestCommit, setLatestCommit] = useState<RepositoryCommit>();

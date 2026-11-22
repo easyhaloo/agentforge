@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import i18n from "../../locales";
 
 /**
@@ -6,6 +7,8 @@ import i18n from "../../locales";
  * The interface language and the browser locale are two different things: a reader who chose
  * Chinese sees Chinese dates even on an English browser. Every timestamp therefore goes through
  * these helpers, which format in the language the interface is rendered in.
+ *
+ * The account timezone is applied to calendar dates; relative durations use elapsed time.
  */
 
 /** The language the interface is currently rendered in. */
@@ -20,26 +23,58 @@ function toDate(value: string | number | Date | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** A date and time, in the language the interface is rendered in. */
-export function formatDateTime(value: string | number | Date | null | undefined): string {
-  const date = toDate(value);
-  if (!date) return "";
-  return date.toLocaleString(activeLanguage(), { dateStyle: "medium", timeStyle: "short" });
+type DateValue = string | number | Date | null | undefined;
+let accountTimeZone: string | undefined;
+const listeners = new Set<() => void>();
+
+/** Use the browser timezone when there is no account preference or Intl cannot interpret it. */
+export function setAccountTimeZone(timeZone: string | undefined): void {
+  if (timeZone === "") timeZone = undefined;
+  if (timeZone) {
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone });
+    } catch {
+      timeZone = undefined;
+    }
+  }
+  if (accountTimeZone === timeZone) return;
+  accountTimeZone = timeZone;
+  listeners.forEach(listener => listener());
 }
 
-/** A date without its time, in the language the interface is rendered in. */
-export function formatDate(value: string | number | Date | null | undefined): string {
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+/** A date and time, in the language the interface is rendered in and account timezone. */
+export function formatDateTime(value: DateValue, timeZone?: string): string {
   const date = toDate(value);
   if (!date) return "";
-  return date.toLocaleDateString(activeLanguage(), { dateStyle: "medium" });
+  return date.toLocaleString(activeLanguage(), {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  });
+}
+
+/** A date without its time, in the language the interface is rendered in and account timezone. */
+export function formatDate(value: DateValue, timeZone?: string): string {
+  const date = toDate(value);
+  if (!date) return "";
+  return date.toLocaleDateString(activeLanguage(), {
+    dateStyle: "medium",
+    timeZone,
+  });
 }
 
 /**
  * How long ago something happened, in words.
  *
  * Anything older than a week is shown as a date instead, which reads better than "42 days ago".
+ * Relative durations (< 7 days) are timezone-independent. Older dates use the account timezone.
  */
-export function formatRelativeTime(value: string | number | Date | null | undefined): string {
+export function formatRelativeTime(value: DateValue, timeZone?: string): string {
   const date = toDate(value);
   if (!date) return "";
 
@@ -53,5 +88,26 @@ export function formatRelativeTime(value: string | number | Date | null | undefi
   const days = Math.floor(hours / 24);
   if (days < 7) return i18n.t("common:time.daysAgo", { count: days });
 
-  return formatDate(date);
+  return formatDate(date, timeZone);
+}
+
+/** Stable date key for repository history URLs, compatible with the original toDateString keys. */
+export function formatCalendarDay(value: DateValue, timeZone?: string): string {
+  const date = toDate(value);
+  if (!date) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, weekday: "short", month: "short", day: "2-digit", year: "numeric",
+  }).formatToParts(date);
+  return ["weekday", "month", "day", "year"].map(type => parts.find(part => part.type === type)?.value).join(" ");
+}
+
+/** Subscribe once so already rendered dates update when account preferences arrive. */
+export function useDateFormatting() {
+  const timeZone = useSyncExternalStore(subscribe, () => accountTimeZone, () => undefined);
+  return {
+    formatDateTime: (value: DateValue) => formatDateTime(value, timeZone),
+    formatDate: (value: DateValue) => formatDate(value, timeZone),
+    formatRelativeTime: (value: DateValue) => formatRelativeTime(value, timeZone),
+    formatCalendarDay: (value: DateValue) => formatCalendarDay(value, timeZone),
+  };
 }

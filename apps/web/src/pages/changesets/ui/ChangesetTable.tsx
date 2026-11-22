@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../../shared/ui";
 import type { ChangesetStatus, StoredChangeset } from "../../../shared/api/identity";
-import { formatDateTime } from "../../../shared/i18n/format";
+import { formatDateTime, useDateFormatting } from "../../../shared/i18n/format";
 import { changesetStatusClass, changesetStatusLabel } from "../changeset-status";
 
 export type ChangesetRow = {
@@ -16,14 +16,14 @@ export type ChangesetRow = {
 };
 
 /** One row per changeset the server sent: the browser never filters the list itself. */
-export function changesetRows(items: StoredChangeset[]): ChangesetRow[] {
+export function changesetRows(items: StoredChangeset[], formatUpdated = formatDateTime): ChangesetRow[] {
   return items.map(({ changeset, status, updated_at, version }) => ({
     id: changeset.id,
     title: changeset.title,
     repository: changeset.repository,
     status,
     revision: changeset.revisions.slice(-1)[0]?.commit_sha?.slice(0, 12) || "—",
-    updated: formatDateTime(updated_at),
+    updated: formatUpdated(updated_at),
     version: `v${version}`,
   }));
 }
@@ -42,7 +42,8 @@ type Props = {
 /** The changeset list: the rows the server sent for the current filters, with server-side paging. */
 export function ChangesetTable({ items, total, page, pageSize, emptyText, pathFor, onPageChange, onOpen }: Props) {
   const { t } = useTranslation();
-  const rows = changesetRows(items);
+  const { formatDateTime: formatUpdated } = useDateFormatting();
+  const rows = changesetRows(items, formatUpdated);
   return <DataTable<ChangesetRow>
     className="changesets-table"
     columns={[

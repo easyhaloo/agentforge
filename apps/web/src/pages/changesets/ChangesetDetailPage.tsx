@@ -4,7 +4,7 @@ import { CheckCircle2, Code2, FileCheck2, GitBranch, GitMerge, Play, ShieldCheck
 import { useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { changesetPath, changesetTabs, organizationHandle, orgPath, webIDEPath, type ChangesetTab } from "../../shared/routing";
 import { Button, Input } from "../../shared/ui";
 import { auditEntryLabel, changesetLifecycleSteps, changesetLifecycleStepLabel, changesetReviewRefusal, changesetStatusClass, changesetStatusLabel, completedLifecycleSteps, reviewStatusLabel } from "./changeset-status";
@@ -45,6 +45,7 @@ function WebIDELink({ handle, changeset, revision }: {
  */
 export function ChangesetDetailPage({ organization, accountUserID, changesetID, tab, onNotify }: Props) {
   const { t } = useTranslation();
+  const { formatDateTime } = useDateFormatting();
   const { org } = useParams();
   const handle = org || organizationHandle(organization);
   const [item, setItem] = useState<StoredChangeset | null>(null);

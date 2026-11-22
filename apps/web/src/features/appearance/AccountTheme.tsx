@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type PropsWithChildren } from "react";
 import i18n from "i18next";
 import { settingsAPI, type UserPreferences } from "../../shared/api/settings";
+import { setAccountTimeZone } from "../../shared/i18n/format";
 
 type AppearancePreview = Pick<UserPreferences, "theme" | "language">;
 
@@ -20,6 +21,7 @@ export function AccountTheme({ children }: PropsWithChildren) {
   const [preview, setPreview] = useState<AppearancePreview | null>(null);
   const theme = preview?.theme ?? saved?.theme ?? "auto";
   const language = preview?.language ?? saved?.language;
+  const timezone = saved?.timezone;
 
   useEffect(() => {
     let active = true;
@@ -33,6 +35,11 @@ export function AccountTheme({ children }: PropsWithChildren) {
   useEffect(() => {
     if (language && i18n.resolvedLanguage !== language) void i18n.changeLanguage(language);
   }, [language]);
+
+  useLayoutEffect(() => {
+    setAccountTimeZone(timezone);
+    return () => setAccountTimeZone(undefined);
+  }, [timezone]);
 
   useLayoutEffect(() => {
     const media = theme === "auto" ? window.matchMedia("(prefers-color-scheme: dark)") : null;

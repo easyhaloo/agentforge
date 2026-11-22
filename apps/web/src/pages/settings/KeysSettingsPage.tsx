@@ -7,7 +7,7 @@ import { ConfirmDialog, Button, Input } from "../../shared/ui/components";
 import { TextArea } from "../../shared/ui/components/form-controls";
 import { settingsAPI, type SSHKey } from "../../shared/api/settings";
 import { translateError } from "../../shared/api/errors";
-import { formatDate, formatRelativeTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { useSettingsList } from "./useSettingsList";
 import type { SettingsOutletContext } from "./SettingsLayout";
 
@@ -38,6 +38,7 @@ function validateSSHKey(key: string, t: TFunction): string | null {
 export function KeysSettingsPage() {
   const { t } = useTranslation("settings");
   const { notify } = useOutletContext<SettingsOutletContext>();
+  const { formatDate, formatRelativeTime } = useDateFormatting();
 
   const { items: keys, loading, refresh } = useSettingsList(settingsAPI.getSSHKeys);
   const [showAddForm, setShowAddForm] = useState(false);

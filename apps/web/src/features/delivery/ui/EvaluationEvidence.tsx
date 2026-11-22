@@ -1,6 +1,6 @@
 import { Check, CircleAlert, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { formatDateTime } from "../../../shared/i18n/format";
+import { useDateFormatting } from "../../../shared/i18n/format";
 import { Empty } from "../../../shared/ui";
 import type { EvaluationView } from "../model";
 
@@ -8,6 +8,7 @@ type Props = { evaluations: EvaluationView[]; evidenceCurrent: boolean };
 
 export function EvaluationEvidence({ evaluations, evidenceCurrent }: Props) {
   const { t } = useTranslation("common");
+  const { formatDateTime } = useDateFormatting();
   return <div className="flow-subsection">
     <div className="flow-subhead"><h4><ShieldCheck size={14} /> {t("delivery.evidence.title")}</h4><span>{evidenceCurrent ? t("delivery.evidence.current") : t("delivery.evidence.stale")}</span></div>
     {evaluations.length === 0 ? <Empty title={t("delivery.evidence.emptyTitle")} description={t("delivery.evidence.emptyDescription")} /> :

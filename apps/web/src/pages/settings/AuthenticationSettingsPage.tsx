@@ -4,13 +4,14 @@ import { ExternalLink } from "lucide-react";
 import { Button } from "../../shared/ui/components";
 import { settingsAPI, type AuthenticationInfo } from "../../shared/api/settings";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 
 import "./access-settings.css";
 
 export function AuthenticationSettingsPage() {
   const { t } = useTranslation("settings");
+  const { formatDateTime } = useDateFormatting();
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
