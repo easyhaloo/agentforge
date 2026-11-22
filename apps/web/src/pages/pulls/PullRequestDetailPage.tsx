@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Check, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
 import { changesetPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
-import { Button, Input, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
+import { Button, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
 import { PullRequestCommitsTab } from "./PullRequestCommitsTab";
@@ -39,6 +39,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [lifecycleError, setLifecycleError] = useState("");
+  const [statusError, setStatusError] = useState("");
   const [titleDraft, setTitleDraft] = useState<{ value: string; version: number }>();
   const [titleError, setTitleError] = useState("");
   const restoreTitleFocus = useRef(false);
@@ -112,11 +113,14 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     }
     finally { setActionBusy(false); }
   };
-  const updateState = async (action: "ready" | "draft" | "close" | "reopen") => {
+  const updateState = async (action: "ready" | "draft" | "close" | "reopen", fromStatusMenu = false) => {
+    if (actionBusy) return;
+    setLifecycleError("");
+    setStatusError("");
     await run(
       () => changesetAPI.updatePullRequestState(organization.id, pullNumber, action),
       "pulls:actions.stateChangeFailed",
-      action === "close" || action === "reopen" ? setLifecycleError : setError,
+      fromStatusMenu ? setStatusError : setLifecycleError,
     );
   };
 
@@ -148,6 +152,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const lifecycleAction = canManage && state !== "merged" ? (state === "closed" ? "reopen" : "close") : undefined;
   const canMerge = canWrite && state === "open" && changeset.status === "ready_to_merge";
   const StateIcon = stateIcons[state];
+  const stateClass = `pull-state pull-state-${state}`;
+  const stateLabel = <><StateIcon size={16} aria-hidden="true"/>{t(`pulls:state.${state}`)}</>;
   const activeEvaluation = changeset.changeset.evaluations.slice().reverse().find(item => item.revision_id === activeRevision?.id);
   const activeEvidence = changeset.changeset.evidence.filter(item => item.revision_id === activeRevision?.id && item.evaluation_id === activeEvaluation?.id && item.status === "active");
   const evidenceStatus = activeEvaluation?.status === "failed" ? "failed" :
@@ -224,23 +230,33 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
             <Pencil size={16} aria-hidden="true"/>
           </Button>}
         </div>
-        <div className="pull-request-actions">
-          {canManage && state === "draft" && (
-            <Button className="button secondary" onClick={() => updateState("ready")} disabled={actionBusy}>
-              <Check size={14}/> {t("pulls:actions.markReady")}
-            </Button>
-          )}
-          {canManage && state === "open" && (
-            <Button className="button secondary" onClick={() => updateState("draft")} disabled={actionBusy}>
-              {t("pulls:actions.markDraft")}
-            </Button>
-          )}
-        </div>
       </div>}
       <div className="pull-request-meta">
-        <span className={`pull-state pull-state-${state}`}>
-          <StateIcon size={16} aria-hidden="true"/>{t(`pulls:state.${state}`)}
-        </span>
+        {lifecycleAction ? <div className="pull-status-menu">
+          <Popover ariaLabel={t("pulls:detail.statusMenu")} triggerClassName={stateClass}
+            trigger={<>{stateLabel}<ChevronDown size={14} aria-hidden="true"/></>}>
+            {dismiss => {
+              const select = (action: Parameters<typeof updateState>[0]) => {
+                dismiss();
+                void updateState(action, true);
+              };
+              return <>
+                {state === "open" && <Button variant="ghost" disabled={actionBusy} onClick={() => select("draft")}>
+                  <GitPullRequestDraft size={16} aria-hidden="true"/>{t("pulls:actions.markDraft")}
+                </Button>}
+                {state === "draft" && <Button variant="ghost" disabled={actionBusy} onClick={() => select("ready")}>
+                  <Check size={16} aria-hidden="true"/>{t("pulls:actions.markReady")}
+                </Button>}
+                <Button variant="ghost" disabled={actionBusy}
+                  className={lifecycleAction === "close" ? "pull-status-action-danger" : undefined}
+                  onClick={() => select(lifecycleAction)}>
+                  {lifecycleAction === "close" ? <GitPullRequestClosed size={16} aria-hidden="true"/> : <GitPullRequest size={16} aria-hidden="true"/>}
+                  {t(`pulls:actions.${lifecycleAction}`)}
+                </Button>
+              </>;
+            }}
+          </Popover>
+        </div> : <span className={stateClass}>{stateLabel}</span>}
         <span>
           <Trans t={t} i18nKey="pulls:detail.branchSummary" count={currentComparison?.data?.commits_truncated ? undefined : currentComparison?.data?.commits.length}
             components={{
@@ -250,6 +266,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
             }}/>
         </span>
       </div>
+      {statusError && <div className="org-error" role="alert">{statusError}</div>}
     </header>
 
     {error && <div className="org-error" role="alert">{error}</div>}

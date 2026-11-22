@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -874,8 +875,9 @@ export function ConfirmDialog({
   );
 }
 
-export function Popover({ trigger, children, placement = "bottom", ariaLabel }: {
-  trigger: ReactNode; children: ReactNode; placement?: "bottom" | "top"; ariaLabel?: string;
+export function Popover({ trigger, children, placement = "bottom", ariaLabel, triggerClassName }: {
+  trigger: ReactNode; children: ReactNode | ((dismiss: () => void) => ReactNode);
+  placement?: "bottom" | "top"; ariaLabel?: string; triggerClassName?: string;
 }) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
@@ -883,6 +885,10 @@ export function Popover({ trigger, children, placement = "bottom", ariaLabel }: 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const contentId = useId();
+  const dismiss = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -890,10 +896,7 @@ export function Popover({ trigger, children, placement = "bottom", ariaLabel }: 
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
+      if (event.key === "Escape") dismiss();
     };
     document.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
@@ -906,12 +909,14 @@ export function Popover({ trigger, children, placement = "bottom", ariaLabel }: 
       document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, dismiss]);
 
   return (
     <div ref={rootRef} className="af-popover">
-      <button ref={triggerRef} type="button" className="af-popover__trigger" aria-haspopup="dialog" aria-controls={contentId} aria-expanded={open} onClick={() => setOpen((value) => !value)}>{trigger}</button>
-      {open && <div ref={contentRef} id={contentId} tabIndex={-1} className={`af-popover__content af-popover__content--${placement}`} role="dialog" aria-label={ariaLabel ?? t("common:components.additionalOptions")}>{children}</div>}
+      <button ref={triggerRef} type="button" className={["af-popover__trigger", triggerClassName].filter(Boolean).join(" ")} aria-haspopup="dialog" aria-controls={contentId} aria-expanded={open} onClick={() => setOpen((value) => !value)}>{trigger}</button>
+      {open && <div ref={contentRef} id={contentId} tabIndex={-1} className={`af-popover__content af-popover__content--${placement}`} role="dialog" aria-label={ariaLabel ?? t("common:components.additionalOptions")}>
+        {typeof children === "function" ? children(dismiss) : children}
+      </div>}
     </div>
   );
 }
