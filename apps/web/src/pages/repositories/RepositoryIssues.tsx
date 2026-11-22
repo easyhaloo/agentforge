@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2, List, User, MessageSquare } from "lucide-react";
@@ -11,7 +11,7 @@ import { issueDetailPath } from "../../shared/routing";
 import { IssueForm } from "./IssueForm";
 import "./repositories.css";
 
-type IssueFilterType = "open" | "closed" | "assigned" | "created";
+type IssueFilterType = "open" | "closed" | "all" | "assigned" | "created";
 
 interface RepositoryIssuesProps {
   organization: OrganizationSummary;
@@ -27,7 +27,8 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = searchParams.get("state");
-  const activeFilter: IssueFilterType = state === "closed" || state === "assigned" || state === "created" ? state : "open";
+  const activeFilter: IssueFilterType = state === "closed" || state === "all" || state === "assigned" || state === "created" ? state : "open";
+  const searchQuery = searchParams.get("q") ?? "";
 
   const [result, setResult] = useState<IssuePage>();
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,8 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
   const [error, setError] = useState("");
   const [requestVersion, setRequestVersion] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDraft, setSearchDraft] = useState(searchQuery);
+  const composing = useRef(false);
   const [authorFilter, setAuthorFilter] = useState("");
   const [labelFilter, setLabelFilter] = useState("");
   const [milestoneFilter, setMilestoneFilter] = useState("");
@@ -43,6 +45,13 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
   const [sort, setSort] = useState("updated-desc");
   const [page, setPage] = useState(1);
   const perPage = 30;
+
+  const [previousParams, setPreviousParams] = useState(searchParams);
+  if (searchParams !== previousParams) {
+    setPreviousParams(searchParams);
+    setSearchDraft(searchQuery);
+    setPage(1);
+  }
 
   useEffect(() => {
     let active = true;
@@ -93,9 +102,25 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
     update(value);
   }
 
+  function paramsWithQuery(value: string) {
+    const params = new URLSearchParams(searchParams);
+    if (value) params.set("q", value);
+    else params.delete("q");
+    return params;
+  }
+
+  function changeQuery(value: string) {
+    if (value === searchQuery) return;
+    // Apply the URL before a new input event can update the draft.
+    setSearchParams(paramsWithQuery(value), { replace: true, preventScrollReset: true, flushSync: true });
+  }
+
   function changeState(next: IssueFilterType) {
     setPage(1);
-    setSearchParams(next === "open" ? {} : { state: next });
+    const params = paramsWithQuery(searchDraft);
+    if (next === "open") params.delete("state");
+    else params.set("state", next);
+    setSearchParams(params, { flushSync: true });
   }
 
   const handleCreateIssue = async (fields: { title: string; body: string }) => {
@@ -119,8 +144,8 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
         <aside className="issues-sidebar">
           <nav className="issues-nav" aria-label={t("issues.views")}>
             <Button
-              onClick={() => changeState("open")}
-              aria-pressed={activeFilter === "open" || activeFilter === "closed"}
+              onClick={() => changeState(activeFilter === "all" ? "all" : "open")}
+              aria-pressed={activeFilter === "open" || activeFilter === "closed" || activeFilter === "all"}
               variant="ghost"
               className="af-action-row issues-nav-item"
             >
@@ -158,15 +183,32 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
               {t("issues.newIssue")}
             </Button>}
           </div>
-          <SearchInput
-            value={searchQuery}
-            onChange={(value) => changeFilter(setSearchQuery, value)}
-            onSearch={(value) => changeFilter(setSearchQuery, value)}
-            placeholder={t("issues.searchPlaceholder")}
-          />
+          <div
+            onCompositionStart={() => { composing.current = true; }}
+            onCompositionEnd={(event) => {
+              composing.current = false;
+              if (event.target instanceof HTMLInputElement) changeQuery(event.target.value);
+            }}
+          >
+            <SearchInput
+              value={searchDraft}
+              onChange={(value) => {
+                setSearchDraft(value);
+                if (!value && !composing.current) changeQuery(value);
+              }}
+              onSearch={(value) => {
+                // SearchInput trims submissions. Keep the original text in the URL.
+                if (!composing.current && value === searchDraft.trim()) changeQuery(searchDraft);
+              }}
+              placeholder={t("issues.searchPlaceholder")}
+            />
+          </div>
           <section className="issues-results" aria-label={t("issues.results")} aria-busy={loading}>
             <div className="issues-toolbar">
               <div className="issues-states">
+                <Button className="issues-state" size="small" aria-pressed={activeFilter === "all"} onClick={() => changeState("all")}>
+                  {t("issues.allStates")} <span className="issue-count">{openCount + closedCount}</span>
+                </Button>
                 <Button className="issues-state" size="small" aria-pressed={activeFilter === "open"} onClick={() => changeState("open")}>
                   <AlertCircle size={16} aria-hidden="true" />
                   {t("issues.openIssues")} <span className="issue-count">{openCount}</span>
@@ -236,9 +278,9 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
                 {issues.map((issue) => (
                   <li key={issue.id} className="issue-list-item">
                     {issue.state === "open" ? (
-                      <AlertCircle size={16} className="issue-icon-open" role="img" aria-label={t("issues.state.open")} />
+                      <AlertCircle size={16} className="issue-icon-open" role="img" aria-label={t("issues.state.open")} aria-hidden={activeFilter === "all"} />
                     ) : (
-                      <CheckCircle2 size={16} className="issue-icon-closed" role="img" aria-label={t("issues.state.closed")} />
+                      <CheckCircle2 size={16} className="issue-icon-closed" role="img" aria-label={t("issues.state.closed")} aria-hidden={activeFilter === "all"} />
                     )}
                     <div className="issue-title-cell">
                       <div className="issue-title-row">
@@ -249,6 +291,7 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
                       </div>
                       <div className="issue-meta-row">
                         <span>{!repository && issue.repository}#{issue.number}</span>
+                        {activeFilter === "all" && <span>{t(issue.state === "open" ? "issues.state.open" : "issues.state.closed")}</span>}
                         <span>{issue.created_by}</span>
                         <time dateTime={issue.updated_at} title={formatDateTime(issue.updated_at)}>{formatRelativeTime(issue.updated_at)}</time>
                         {issue.assignees.length > 0 && (

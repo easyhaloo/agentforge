@@ -282,20 +282,20 @@ test("Ctrl+K opens the command palette and selecting a page navigates by URL", a
   await installApiMocks(page);
   await page.goto("/");
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
-  const dialog = page.getByRole("dialog", { name: "Jump to a page" });
-  const search = dialog.getByRole("textbox", { name: "Search pages" });
+  const dialog = page.getByRole("dialog", { name: "Search or jump to" });
+  const search = dialog.getByRole("combobox", { name: "Search or jump to" });
 
   await page.keyboard.press("Control+k");
   await expect(dialog).toBeVisible();
   await search.fill("Projects");
-  await dialog.getByRole("button", { name: /Projects/ }).click();
+  await dialog.getByRole("option", { name: "Projects", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(pageHeading(page)).toHaveText("Projects");
 
   await page.keyboard.press("Control+k");
   await search.fill("Changesets");
-  await dialog.getByRole("button", { name: /Changesets/ }).click();
+  await dialog.getByRole("option", { name: "Changesets", exact: true }).click();
   await expect(page).toHaveURL(/\/orgs\/demo\/changesets$/);
   await expect(page.getByText("Browser test baseline")).toBeVisible();
 
@@ -311,11 +311,11 @@ test("selecting the page you are already on in the palette does not add a histor
   await openNavigation(page);
   await sidebarLink(page, "Projects").click();
   await expect(pageHeading(page)).toHaveText("Projects");
-  const dialog = page.getByRole("dialog", { name: "Jump to a page" });
+  const dialog = page.getByRole("dialog", { name: "Search or jump to" });
 
   await page.keyboard.press("Control+k");
-  await dialog.getByRole("textbox", { name: "Search pages" }).fill("Projects");
-  await dialog.getByRole("button", { name: /Projects/ }).click();
+  await dialog.getByRole("combobox", { name: "Search or jump to" }).fill("Projects");
+  await dialog.getByRole("option", { name: "Projects", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/projects$/);
 

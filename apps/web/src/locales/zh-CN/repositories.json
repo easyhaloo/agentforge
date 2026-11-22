@@ -341,6 +341,7 @@
     "daysAgo": "{{count}} 天前",
     "daysAgo_other": "{{count}} 天前",
     "filters": "筛选条件",
+    "allStates": "全部状态",
     "openIssues": "开放议题",
     "closedIssues": "已关闭议题",
     "assignedToMe": "分配给我的",

@@ -457,6 +457,22 @@ Review changes in light and dark themes, on desktop and narrow screens, and with
 
 For the new-repository form, check that steps 1 and 2 share the rail's centerline and align vertically with their section headings. Use 20 px for the page title, 16 px for section headings, 14 px for labels and control text, and 12 px for helper text. The Owner picker and repository-name field are both 32 px high. Verify that the form and its menus fit at 320 px.
 
+### Topbar search
+
+Use the shared topbar search dialog for workspace and repository routes. Center it at the top of the viewport and keep results scrollable within the panel. Use a single-line input with a leading search icon, a visible primary-color focus outline, and a trailing clear button when the input has text. Highlight the value of `repo:` with `--af-color-primary-subtle` inside the editable input. Show scope suggestions as compact rows below the input with action hints aligned to the end. Keep the input and clear button usable on narrow screens.
+
+| State | Behavior |
+| --- | --- |
+| Open and empty | Focus the input on open. Prefill `repo:owner/name ` on a repository route. An empty query can show recent searches, repositories, and pages. |
+| Partial `repo:` | Suggest matching repositories from the current workspace. Selecting a suggestion completes the qualifier and keeps focus in the input. |
+| Valid `repo:` | With no keywords, offer the repository's Issues list. With keywords, show matching issue previews and scoped actions for Issues and Changesets. Choosing the workspace search action removes the qualifier and keeps the keywords. |
+| Unavailable or invalid scope | Show guidance when the qualifier has no accessible match or the query contains multiple `repo:` qualifiers. Keep scoped requests blocked until the scope is valid. |
+| Loading, empty results, or failure | Show status feedback while loading and when there are no matches. Offer retry when the repository list or issue previews fail to load. |
+
+Resolve repository scopes against the server-provided catalog for the active workspace. Search stays within that workspace and the organization switch lives in workspace navigation. Keep recent searches separate by account and workspace.
+
+Support `Ctrl+K` or `Cmd+K` to open, with `/` as a shortcut outside editable controls. Use arrow keys to select results, Enter to activate, and Escape to close and restore focus. Let IME composition finish before running a query. When no result is selected, Enter uses the first applicable result once loading completes. Broader workspace search requires explicit selection. [Topbar search browser tests](../../apps/web/e2e/topbar-search.pw.ts)
+
 ## Change Workflow
 
 For every task:

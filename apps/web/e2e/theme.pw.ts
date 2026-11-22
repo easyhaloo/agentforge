@@ -41,8 +41,8 @@ test("settings and shell render the saved palette, and Auto follows the system",
   const pending = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/api/v1/me", async route => { await pending; await route.fallback(); });
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Search pages" }).click();
-  const search = page.getByRole("textbox", { name: "Search pages" });
+  await page.getByRole("button", { name: "Search or jump to" }).click();
+  const search = page.getByRole("combobox", { name: "Search or jump to" });
   await search.fill("changes");
   release();
   await expect(page.locator(".topbar")).toHaveCSS("background-color", "rgb(246, 248, 250)");

@@ -9,6 +9,7 @@ import { CommandPalette } from "../components/CommandPalette";
 import { Topbar } from "../components/Topbar";
 import { LoginRedirect } from "../LoginRedirect";
 import { useNotify } from "../useNotify";
+import { useSearchShortcut } from "../useSearchShortcut";
 
 /**
  * FocusedLayout: For independent pages like Settings and Profile that have their own
@@ -63,6 +64,8 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
   const updateDisplayName = (displayName: string) => {
     setAccount(current => current && { ...current, display_name: displayName });
   };
+
+  useSearchShortcut(!fullscreen && accountState === "ready" && !commandOpen, () => setCommandOpen(true));
 
   const selectedOrganization = account?.organizations[0];
 

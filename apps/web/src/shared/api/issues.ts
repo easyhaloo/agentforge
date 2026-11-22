@@ -77,7 +77,7 @@ export interface IssueUpdate {
 }
 
 export const issuesAPI = {
-  list: (organizationID: string, params: IssueListParams = {}) => {
+  list: (organizationID: string, params: IssueListParams = {}, signal?: AbortSignal) => {
     const queryParams = new URLSearchParams();
     if (params.repository) queryParams.set("repository", params.repository);
     if (params.state) queryParams.set("state", params.state);
@@ -95,7 +95,7 @@ export const issuesAPI = {
 
     const query = queryParams.toString();
     const url = `/api/v1/organizations/${encodeURIComponent(organizationID)}/issues${query ? `?${query}` : ""}`;
-    return request<IssuePage>(url);
+    return request<IssuePage>(url, { signal });
   },
 
   get: (organizationID: string, number: number, repository: string) => {

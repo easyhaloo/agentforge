@@ -71,11 +71,11 @@ test("command palette filters destinations and navigates on selection", async ({
   const location = page.getByTestId("navigation-result");
   await expect(location).toHaveText("Location: /harness");
   await page.getByRole("button", { name: "Open command palette" }).click();
-  const dialog = page.getByRole("dialog", { name: "Jump to a page" });
+  const dialog = page.getByRole("dialog", { name: "Search or jump to" });
   await expect(dialog).toBeVisible();
-  const search = dialog.getByRole("textbox", { name: "Search pages" });
+  const search = dialog.getByRole("combobox", { name: "Search or jump to" });
   await search.fill("Overview");
-  const result = dialog.getByRole("button", { name: /Overview/ }).first();
+  const result = dialog.getByRole("option", { name: "Overview", exact: true }).first();
   await expect(result).toBeVisible();
   await result.click();
   await expect(dialog).toBeHidden();
@@ -84,7 +84,7 @@ test("command palette filters destinations and navigates on selection", async ({
   // Outside the application shell there is no selected organization, so organization pages use the `current` alias.
   await page.getByRole("button", { name: "Open command palette" }).click();
   await search.fill("Changesets");
-  await dialog.getByRole("button", { name: /Changesets/ }).click();
+  await dialog.getByRole("option", { name: "Changesets", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(location).toHaveText("Location: /orgs/current/changesets");
 });
