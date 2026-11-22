@@ -127,9 +127,9 @@ func (s *Store) CreateLocalUser(ctx context.Context, email, passwordHash, displa
 	}
 	organizationName := displayName + "'s Workspace"
 	_, err = tx.Exec(ctx, `
-		INSERT INTO organizations (id, name, created_at)
-		VALUES ($1, $2, now())
-	`, organizationID, organizationName)
+		INSERT INTO organizations (id, name, created_at, personal_owner_id)
+		VALUES ($1, $2, now(), $3)
+	`, organizationID, organizationName, userID)
 	if err != nil {
 		return "", fmt.Errorf("create default organization: %w", err)
 	}
@@ -271,9 +271,9 @@ func (s *Store) CreateOrUpdateLocalUser(ctx context.Context, email, password, di
 	}
 	organizationName := displayName + "'s Workspace"
 	_, err = tx.Exec(ctx, `
-		INSERT INTO organizations (id, name, created_at)
-		VALUES ($1, $2, now())
-	`, organizationID, organizationName)
+		INSERT INTO organizations (id, name, created_at, personal_owner_id)
+		VALUES ($1, $2, now(), $3)
+	`, organizationID, organizationName, userID)
 	if err != nil {
 		return "", "", fmt.Errorf("create default organization: %w", err)
 	}

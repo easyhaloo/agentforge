@@ -8,6 +8,7 @@ import (
 type RepositoryMetadata struct {
 	OrganizationID string    `json:"organization_id"`
 	Slug           string    `json:"slug"`
+	Description    string    `json:"description,omitempty"`
 	DefaultBranch  string    `json:"default_branch"`
 	Visibility     string    `json:"visibility,omitempty"`
 	Fork           bool      `json:"fork"`

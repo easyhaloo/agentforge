@@ -371,8 +371,8 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
     post:
       operationId: registerOrganizationRepository
-      summary: Register a repository already provisioned under the trusted Git root
-      description: Owners and administrators only. The API validates the default branch against the configured local Git provider before persisting metadata.
+      summary: Create or register a repository under the trusted Git root
+      description: Owners and administrators only. Provide initialize to create a private repository on main. Otherwise the API validates the existing default branch before persisting metadata.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -384,14 +384,21 @@ paths:
               properties:
                 slug: { type: string, pattern: "^[^/]+/[^/]+$" }
                 default_branch: { type: string, minLength: 1 }
+                description: { type: string, maxLength: 350 }
+                initialize:
+                  type: object
+                  properties:
+                    readme: { type: boolean, default: false }
+                    gitignore: { type: string, enum: ["", node, python, go] }
+                    license: { type: string, enum: ["", mit] }
                 visibility:
                   type: string
                   enum: ["", public, private]
-                  description: Display-only visibility. An omitted or empty value means unknown.
+                  description: Display-only visibility. With initialize omitted, an empty or omitted value means unknown.
                 fork:
                   type: boolean
                   default: false
-                  description: Display-only fork indicator.
+                  description: Display-only fork indicator for an existing repository.
       responses:
         "201":
           description: Registered repository
@@ -1467,6 +1474,7 @@ components:
           description: Organization handle, usable in place of the organization id in any `/organizations/{organizationID}` path. Stored slugs are unique and match `^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$`; `current` is reserved and never assigned. An organization created without a slug (for example by direct SQL) reports its id, which may not match that pattern.
         name: { type: string }
         role: { type: string, enum: [owner, admin, member, viewer] }
+        personal: { type: boolean, description: Whether this is the account’s personal workspace. }
     AccountContext:
       type: object
       required: [user_id, display_name, organizations]
@@ -1484,6 +1492,7 @@ components:
         organization_id: { type: string }
         slug: { type: string }
         default_branch: { type: string }
+        description: { type: string, maxLength: 350 }
         visibility:
           type: string
           enum: [public, private]

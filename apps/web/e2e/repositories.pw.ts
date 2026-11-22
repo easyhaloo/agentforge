@@ -152,20 +152,133 @@ test("filters, sorts, and restores a saved repository view on desktop and mobile
   await expect(page.getByRole("button", { name: "Main branches", exact: true })).toBeVisible();
 });
 
-test("an owner registers a repository on that page", async ({ page }) => {
-  await page.goto("/orgs/demo/repositories");
-  await page.getByRole("button", { name: "Register repository" }).click();
-  const dialog = page.getByRole("dialog", { name: "Register repository" });
-  await dialog.getByLabel("Repository slug").fill("team/new-repository");
-  await dialog.getByRole("combobox", { name: "Visibility" }).click();
-  await dialog.getByRole("option", { name: "Private repository" }).click();
-  await dialog.getByRole("checkbox", { name: "Forked repository" }).check();
-  const sent = page.waitForRequest((request) => request.url().endsWith("/api/v1/organizations/org-demo/repositories") && request.method() === "POST");
+test("a repository owner can switch spaces, keep configuration, and create", async ({ page }, testInfo) => {
+  await installApiMocks(page, { organizations: [
+    { id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "owner" },
+    { id: "org-personal", slug: "taylor", name: "Taylor's Workspace", role: "owner", personal: true },
+  ] });
+  const catalog = "/orgs/demo/repositories";
+  const newPage = `${catalog}/new`;
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(catalog);
+  await page.getByRole("link", { name: "New repository", exact: true }).click();
+  await expect(page).toHaveURL(newPage);
+  await expect(page.getByRole("heading", { name: "Create a new repository" })).toBeVisible();
+  await page.getByRole("link", { name: "Cancel", exact: true }).click();
+  await expect(page).toHaveURL(catalog);
 
-  await dialog.getByRole("button", { name: "Register", exact: true }).click();
+  await page.goto(`${catalog}?register=1`);
+  await expect(page).toHaveURL(`${newPage}?mode=register`);
+  await expect(page.getByRole("heading", { name: "Register repository" })).toBeVisible();
+  await expect(page.getByLabel("Default branch", { exact: true })).toHaveValue("main");
+  await page.getByRole("link", { name: "Create a new repository" }).click();
+  const general = page.getByRole("region", { name: "General" });
+  const configuration = page.getByRole("region", { name: "Configuration" });
+  const ownerTrigger = general.getByRole("button", { name: "AgentForge Demo", exact: true });
+  const name = general.getByLabel("Repository name", { exact: true });
+  const rail = await general.evaluate(section => {
+    const fieldset = section.closest("fieldset")!;
+    const line = getComputedStyle(fieldset, "::before");
+    const lastSection = fieldset.lastElementChild!.getBoundingClientRect();
+    const bounds = fieldset.getBoundingClientRect();
+    const steps = Array.from(fieldset.querySelectorAll(".repo-create-step"), node => {
+      const marker = node.getBoundingClientRect();
+      const heading = node.parentElement!.getBoundingClientRect();
+      return {
+        number: node.textContent,
+        center: marker.left + marker.width / 2,
+        verticalOffset: marker.top + marker.height / 2 - (heading.top + heading.height / 2),
+      };
+    });
+    return {
+      steps,
+      width: parseFloat(line.width),
+      left: bounds.left + parseFloat(line.left),
+      bottom: bounds.bottom - parseFloat(line.bottom),
+      contentLeft: lastSection.left,
+      contentBottom: lastSection.bottom,
+    };
+  });
+  expect(rail.width).toBeGreaterThan(0);
+  expect(rail.steps.map(step => step.number)).toEqual(["1", "2"]);
+  for (const step of rail.steps) {
+    expect(step.center).toBeCloseTo(rail.left + rail.width / 2, 0);
+    expect(step.verticalOffset).toBeCloseTo(0, 0);
+  }
+  expect(rail.left + rail.width).toBeLessThan(rail.contentLeft);
+  expect(rail.bottom).toBeCloseTo(rail.contentBottom, 0);
+  await expect(page.getByRole("heading", { name: "Create a new repository" })).toHaveCSS("font-size", "20px");
+  await expect(general.getByRole("heading", { name: "General", exact: true })).toHaveCSS("font-size", "16px");
+  for (const control of [ownerTrigger, name]) {
+    await expect(control).toHaveCSS("height", "32px");
+    await expect(control).toHaveCSS("font-size", "14px");
+  }
+  await expect(general.locator(".repo-create-hint")).toHaveCSS("font-size", "12px");
+  const submit = page.getByRole("button", { name: "Create repository", exact: true });
+  await submit.click();
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await name.fill("new-repository");
+  await page.getByLabel("Description (optional)").fill("Created through the repository form");
+  await page.getByRole("switch", { name: /Add a README/ }).press("Space");
+  await page.getByRole("button", { name: "AgentForge Demo", exact: true }).click();
+  const search = page.getByRole("combobox", { name: "Search owners" });
+  await search.fill("Taylor");
+  await expect(page.getByRole("option", { name: /Taylor Owner.*Personal account/ })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("repository-create-owner.png"), animations: "disabled" });
+  await search.press("Enter");
+  await expect(page.getByRole("button", { name: "Taylor Owner", exact: true })).toBeFocused();
+  await expect(name).toHaveValue("new-repository");
+  await expect(page.getByRole("switch", { name: /Add a README/ })).toBeChecked();
+  const visibility = configuration.getByRole("button", { name: "Private", exact: true });
+  await visibility.click();
+  await expect(page.getByRole("option", { name: /Public.*unavailable/ })).toBeDisabled();
+  const visibilityBounds = (await visibility.boundingBox())!;
+  const optionsBounds = (await configuration.getByRole("listbox").boundingBox())!;
+  expect(optionsBounds.x + optionsBounds.width).toBeCloseTo(visibilityBounds.x + visibilityBounds.width - 1, 0);
+  await page.screenshot({ path: testInfo.outputPath("repository-create-visibility.png"), animations: "disabled" });
+  await page.getByRole("listbox").press("Escape");
+  await page.getByRole("button", { name: "No .gitignore", exact: true }).click();
+  await page.getByRole("option", { name: "Node", exact: true }).click();
+  await page.getByRole("button", { name: "No license", exact: true }).click();
+  await page.getByRole("option", { name: "MIT", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("repository-create-desktop.png"), animations: "disabled", fullPage: true });
 
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await visibility.click();
+  const mobileOptions = (await configuration.getByRole("listbox").boundingBox())!;
+  expect(mobileOptions.x).toBeGreaterThan(0);
+  expect(mobileOptions.x + mobileOptions.width).toBeLessThan(320);
+  await configuration.getByRole("listbox").press("Escape");
+  await page.screenshot({ path: testInfo.outputPath("repository-create-mobile.png"), animations: "disabled", fullPage: true });
+  const sent = page.waitForRequest(request => request.url().endsWith("/api/v1/organizations/org-personal/repositories") && request.method() === "POST");
+  await submit.click();
+  expect((await sent).postDataJSON()).toEqual({ slug: "taylor/new-repository", default_branch: "main", description: "Created through the repository form", initialize: { readme: true, gitignore: "node", license: "mit" } });
+  await expect(page).toHaveURL("/orgs/taylor/repositories/taylor/new-repository");
+});
+
+test("registers existing repository visibility and fork metadata", async ({ page }) => {
+  await page.goto("/orgs/demo/repositories/new?mode=register");
+  await page.getByLabel("Owner", { exact: true }).fill("team");
+  await page.getByLabel("Repository name", { exact: true }).fill("new-repository");
+  await page.getByRole("combobox", { name: "Visibility" }).click();
+  await page.getByRole("option", { name: "Private repository" }).click();
+  await page.getByRole("checkbox", { name: "Forked repository" }).check();
+  const sent = page.waitForRequest(request => request.url().endsWith("/api/v1/organizations/org-demo/repositories") && request.method() === "POST");
+  await page.getByRole("button", { name: "Register repository", exact: true }).click();
   expect((await sent).postDataJSON()).toEqual({ slug: "team/new-repository", default_branch: "main", visibility: "private", fork: true });
-  await expect(page.getByRole("link", { exact: true, name: "team/new-repository" })).toBeVisible();
+  await expect(page).toHaveURL("/orgs/demo/repositories/team/new-repository");
+});
+
+test("a viewer cannot open the repository registration form", async ({ page }) => {
+  await installApiMocks(page, { organizations: [{ id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "viewer" }] });
+  await page.goto("/orgs/demo/repositories");
+  await expect(page.getByRole("heading", { name: "Repositories", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "New repository", exact: true })).toHaveCount(0);
+  await page.goto("/orgs/demo/repositories/new");
+  await expect(page.getByRole("alert").filter({ hasText: /owners and admins|owners and administrators/i })).toBeVisible();
+  await expect(page.getByLabel("Repository name", { exact: true })).toHaveCount(0);
 });
 
 test("the flat repositories page is gone", async ({ page }) => {

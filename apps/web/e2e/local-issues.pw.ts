@@ -25,7 +25,7 @@ test("creates, edits, closes, and reopens an issue across reloads", async ({ pag
     const response = await fetch("/api/v1/me", { credentials: "include" });
     return {
       status: response.status,
-      account: await response.json() as { organizations: Array<{ id: string }> },
+      account: await response.json() as { organizations: Array<{ id: string; slug: string; personal?: boolean }> },
     };
   });
   expect(me.status).toBe(200);
@@ -33,6 +33,39 @@ test("creates, edits, closes, and reopens an issue across reloads", async ({ pag
   expect(organizations).toHaveLength(1);
   const orgID = organizations[0].id;
   expect(orgID).toMatch(/^[a-zA-Z0-9_-]+$/);
+
+  expect(organizations[0].personal).toBe(true);
+  const ownerHandle = organizations[0].slug || orgID;
+  const newRepo = "starter-repository";
+  const newSlug = `${ownerHandle}/${newRepo}`;
+  const newGitDir = join(gitRoot, orgID, ownerHandle, newRepo);
+  const newPath = `${organizationPath}/repositories/new`;
+  const repositoryList = `/api/v1/organizations/${orgID}/repositories`;
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(`${base.origin}${newPath}`);
+  await expect(page.getByRole("button", { name: "Issues QA", exact: true })).toBeVisible();
+  await page.getByLabel("Repository name", { exact: true }).fill(newRepo);
+  await page.getByLabel("Description (optional)").fill("Verified with PostgreSQL and Git");
+  await page.getByRole("switch", { name: /Add a README/ }).press("Space");
+  await page.getByRole("button", { name: "No .gitignore", exact: true }).click();
+  await page.getByRole("option", { name: "Node", exact: true }).click();
+  await page.getByRole("button", { name: "No license", exact: true }).click();
+  await page.getByRole("option", { name: "MIT", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("repository-create-real.png"), fullPage: true, animations: "disabled" });
+  const createdRepository = page.waitForResponse(response => new URL(response.url()).pathname === repositoryList && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Create repository", exact: true }).click();
+  const result = await createdRepository;
+  expect(result.status(), await result.text()).toBe(201);
+  expect(await result.json()).toMatchObject({ organization_id: orgID, slug: newSlug, default_branch: "main", visibility: "private", fork: false, description: "Verified with PostgreSQL and Git" });
+  await expect(page).toHaveURL(`${base.origin}${organizationPath}/repositories/${newSlug}`);
+  const gitFiles = execFileSync("git", ["-C", newGitDir, "ls-tree", "--name-only", "HEAD"], { encoding: "utf8" });
+  expect(gitFiles.trim().split("\n")).toEqual([".gitignore", "LICENSE", "README.md"]);
+  await expect(page.getByRole("link", { name: "README.md", exact: true })).toBeVisible();
+  await page.goto(`${base.origin}${newPath}`);
+  await page.getByLabel("Repository name", { exact: true }).fill(newRepo);
+  await expect(page.getByText(/repository name.*already taken/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create repository", exact: true })).toBeDisabled();
+  await page.screenshot({ path: testInfo.outputPath("repository-create-duplicate.png"), fullPage: true, animations: "disabled" });
 
   // The registration API verifies a real default branch under the tenant's configured Git root.
   const ownerDir = join(gitRoot, orgID, "issues-qa");
@@ -56,13 +89,27 @@ test("creates, edits, closes, and reopens an issue across reloads", async ({ pag
     );
 
     await page.goto(`${base.origin}${organizationPath}/repositories`);
-    await page.getByRole("button", { name: "Register repository" }).click();
-    const register = page.getByRole("dialog", { name: "Register repository" });
-    await register.getByLabel("Repository slug").fill(repository);
+    await page.getByRole("link", { name: "New repository", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Create a new repository" })).toBeVisible();
+    await page.getByRole("link", { name: "Register an existing repository" }).click();
+    await page.getByLabel("Owner", { exact: true }).fill("issues-qa");
+    const name = page.getByLabel("Repository name", { exact: true });
+    const submit = page.getByRole("button", { name: "Register repository", exact: true });
+    await name.fill(`${basename(gitDir)}-missing`);
+    const missing = apiResponse(repositoriesAPI, "POST");
+    await submit.click();
+    expect((await missing).status()).toBe(422);
+    await expect(page.getByRole("alert").filter({ hasText: /repository must exist/i })).toBeVisible();
+    await expect(name).toHaveValue(`${basename(gitDir)}-missing`);
+    await name.fill(basename(gitDir));
+    await page.getByRole("combobox", { name: "Visibility" }).click();
+    await page.getByRole("option", { name: "Private repository" }).click();
+    await page.getByRole("checkbox", { name: "Forked repository" }).check();
     const registered = apiResponse(repositoriesAPI, "POST");
-    await register.getByRole("button", { name: "Register", exact: true }).click();
-    expect((await registered).status()).toBe(201);
-    await page.getByRole("link", { name: repository, exact: true }).click();
+    await submit.click();
+    const registeredResponse = await registered;
+    expect(registeredResponse.status()).toBe(201);
+    expect(await registeredResponse.json()).toMatchObject({ slug: repository, visibility: "private", fork: true });
     await expect(page).toHaveURL(`${base.origin}${organizationPath}/repositories/${repository}`);
     await page.getByRole("link", { name: "Issues", exact: true }).click();
     await expect(page).toHaveURL(`${base.origin}${issuesPath}`);

@@ -36,6 +36,10 @@ export function repositoryPath(handle: string, slug: string, section?: Repositor
   return section ? `${base}/${section}` : base;
 }
 
+export function repositoryNewPath(handle: string): string {
+  return `${orgPath(handle, "repositories")}/new`;
+}
+
 export function issueDetailPath(handle: string, slug: string, issueNumber: number): string {
   return `${repositoryPath(handle, slug, "issues")}/${issueNumber}`;
 }

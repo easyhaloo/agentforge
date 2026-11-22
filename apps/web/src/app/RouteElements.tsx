@@ -12,6 +12,7 @@ import { OverviewPage, OverviewUnavailable } from "../pages/overview";
 import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
+import { RepositoryCreatePage } from "../pages/repositories/RepositoryCreatePage";
 import { RepositoryBrowserPage } from "../pages/repositories/RepositoryBrowserPage";
 import { RepositoryMasthead } from "../pages/repositories/RepositoryMasthead";
 import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPage";
@@ -23,7 +24,7 @@ import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
-import { flatPaths, organizationHandle, repositoryPath, type ChangesetTab, type RepositorySection } from "../shared/routing";
+import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type RepositorySection } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
@@ -116,14 +117,24 @@ export function RepositoriesRoute() {
   const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const [search] = useSearchParams();
   const { hash } = useLocation();
-  const notify = useNotify();
+  const handle = organizationHandle(organization);
   const repository = search.get("repository");
   if (repository && /^[^/]+\/[^/]+$/.test(repository)) {
     const params = new URLSearchParams(search);
     params.delete("repository");
-    return <Navigate replace to={{ pathname: repositoryPath(organizationHandle(organization), repository), search: params.toString(), hash }} />;
+    return <Navigate replace to={{ pathname: repositoryPath(handle, repository), search: params.toString(), hash }} />;
   }
-  return <RepositoriesPage key={organization.id} organization={organization} userID={account.user_id} onNotify={notify} />;
+  // Legacy redirect: ?register=1 -> /orgs/:org/repositories/new
+  if (search.get("register") === "1") {
+    return <Navigate replace to={{ pathname: repositoryNewPath(handle), search: "?mode=register" }} />;
+  }
+  return <RepositoriesPage key={organization.id} organization={organization} userID={account.user_id} />;
+}
+
+export function RepositoryCreateRoute() {
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const notify = useNotify();
+  return <RepositoryCreatePage key={organization.id} organization={organization} account={account} onNotify={notify} />;
 }
 
 export function RepositoryDetailRoute({ section }: { section?: RepositorySection }) {

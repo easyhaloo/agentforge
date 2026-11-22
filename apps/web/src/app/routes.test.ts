@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { matchPath, matchRoutes, type RouteObject } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { itemHref, navigationItems } from "./navigation";
+import { repositoryNewPath } from "../shared/routing";
 import { routes } from "./routes";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -33,6 +34,13 @@ describe("route table", () => {
     }
   });
 
+  it("routes the repository create page with the Repositories label (reused, no duplicate sidebar item)", () => {
+    const createPath = repositoryNewPath("demo");
+    const leaf = leafOf(createPath);
+    expect(leaf?.params).toMatchObject({ org: "demo" });
+    expect(leaf?.route.handle).toEqual({ label: "Repositories" });
+  });
+
   it("gives every navigation item its own route", () => {
     const routeOfEachItem = navigationItems.map((item) => leafOf(itemHref(item, "demo"))?.route);
     expect(new Set(routeOfEachItem).size).toBe(navigationItems.length);
@@ -54,7 +62,19 @@ describe("route table", () => {
   });
 
   it("serves the repository directory and repository sections under the organization", () => {
-    expect(leafOf("/orgs/demo/repositories")?.route.handle).toEqual({ label: "Repositories" });
+    const reposLeaf = leafOf("/orgs/demo/repositories");
+    expect(reposLeaf?.route.handle).toEqual({ label: "Repositories" });
+    expect(reposLeaf?.params).toMatchObject({ org: "demo" });
+
+    const createLeaf = leafOf("/orgs/demo/repositories/new");
+    expect(createLeaf?.route.handle).toEqual({ label: "Repositories" });
+    expect(createLeaf?.params).toMatchObject({ org: "demo" });
+
+    // Repository detail pattern must match before /new (pattern priority)
+    const newNameLeaf = leafOf("/orgs/demo/repositories/new/name");
+    expect(newNameLeaf?.params).toMatchObject({ org: "demo", owner: "new", repo: "name" });
+    expect(newNameLeaf?.route.handle).toEqual({ label: "Repository" });
+
     for (const suffix of ["", "/branches", "/actions", "/settings", "/issues"]) {
       const leaf = leafOf(`/orgs/demo/repositories/team/repo${suffix}`);
       expect(leaf?.params, suffix).toMatchObject({ org: "demo", owner: "team", repo: "repo" });

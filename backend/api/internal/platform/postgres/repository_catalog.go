@@ -20,10 +20,10 @@ func (s *Store) RegisterRepository(ctx context.Context, input delivery.Repositor
 		return delivery.RepositoryMetadata{}, delivery.ErrInvalidInput
 	}
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO delivery_repositories (organization_id,slug,default_branch,created_by,visibility,fork)
-		VALUES ($1,$2,$3,$4,$5,$6)
+		INSERT INTO delivery_repositories (organization_id,slug,default_branch,created_by,visibility,fork,description)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
 		RETURNING created_at,updated_at
-	`, input.OrganizationID, input.Slug, input.DefaultBranch, input.CreatedBy, input.Visibility, input.Fork).
+	`, input.OrganizationID, input.Slug, input.DefaultBranch, input.CreatedBy, input.Visibility, input.Fork, input.Description).
 		Scan(&input.CreatedAt, &input.UpdatedAt)
 	if err != nil {
 		var pgError *pgconn.PgError
@@ -40,7 +40,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		return nil, delivery.ErrInvalidInput
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork
+		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description
 		FROM delivery_repositories WHERE organization_id=$1 ORDER BY slug ASC
 	`, organizationID)
 	if err != nil {
@@ -52,7 +52,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		var item delivery.RepositoryMetadata
 		if err := rows.Scan(
 			&item.OrganizationID, &item.Slug, &item.DefaultBranch, &item.CreatedBy,
-			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork,
+			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description,
 		); err != nil {
 			return nil, err
 		}

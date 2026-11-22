@@ -3,10 +3,11 @@ package identity
 import "time"
 
 type OrganizationSummary struct {
-	ID   string `json:"id"`
-	Slug string `json:"slug"`
-	Name string `json:"name"`
-	Role string `json:"role"`
+	ID       string `json:"id"`
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	Personal bool   `json:"personal,omitempty"`
 }
 
 type AccountContext struct {

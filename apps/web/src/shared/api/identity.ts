@@ -1,5 +1,5 @@
 // `slug` is the URL handle; the API may not return it yet, so routing falls back to `id` (see shared/routing).
-export type OrganizationSummary = { id: string; slug: string; name: string; role: "owner" | "admin" | "member" | "viewer" };
+export type OrganizationSummary = { id: string; slug: string; name: string; personal?: boolean; role: "owner" | "admin" | "member" | "viewer" };
 export type AccountContext = { user_id: string; display_name: string; email?: string; organizations: OrganizationSummary[] };
 export type OrganizationMember = { user_id: string; display_name: string; email?: string; role: string; status: string; created_at: string; updated_at: string };
 export type OrganizationInvitation = { id: string; email: string; role: string; status: string; invited_by: string; expires_at: string; created_at: string };
@@ -130,7 +130,7 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
-export type RepositoryMetadata = { visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryMetadata = { visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
 export type RepositoryPreviewRefs = { repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
@@ -198,6 +198,10 @@ export const repositoryAPI = {
   summaries: (organizationID: string) => request<{items: RepositorySummary[]}>(`${repositoryBase(organizationID)}?details=1`),
   register: (organizationID: string, slug: string, defaultBranch: string, metadata: Pick<RepositoryMetadata, "visibility" | "fork"> = {}) =>
     request<RepositoryMetadata>(repositoryBase(organizationID), {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch,...metadata})}),
+  create: (organizationID: string, slug: string, description: string, initialize: { readme: boolean; gitignore: string; license: string }) =>
+    request<RepositoryMetadata>(repositoryBase(organizationID), {
+      method: "POST", body: JSON.stringify({ slug, default_branch: "main", description, initialize }),
+    }),
   actions: (organizationID: string, repository: string, offset: number) =>
     request<{items: RepositoryAction[]; has_more: boolean}>(`${repositoryBase(organizationID, repository)}/actions?offset=${offset}`),
   updateDefaultBranch: (organizationID: string, repository: string, defaultBranch: string, previousBranch: string) =>

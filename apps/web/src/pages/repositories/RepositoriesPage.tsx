@@ -6,11 +6,11 @@ import {
   Settings, Star, UserRound, UsersRound, Workflow, X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { repositoryAPI, type OrganizationSummary, type RepositorySummary, type RepositoryVisibility } from "../../shared/api/identity";
+import { repositoryAPI, type OrganizationSummary, type RepositorySummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { organizationHandle, repositoryChangesetsPath, repositoryPath } from "../../shared/routing";
-import { Button, Checkbox, Input, Modal, Select } from "../../shared/ui";
+import { organizationHandle, repositoryChangesetsPath, repositoryPath, repositoryNewPath } from "../../shared/routing";
+import { Button, Input, Modal, Select } from "../../shared/ui";
 import { canManageRepository } from "./RepositoryMasthead";
 import "./repositories.css";
 
@@ -25,7 +25,6 @@ const managedRepositories = "access:admin";
 
 type Props = {
   organization: OrganizationSummary;
-  onNotify: (message: string) => void;
   userID: string;
 };
 
@@ -40,14 +39,13 @@ function readViews(key: string): SavedView[] {
   }
 }
 
-export function RepositoriesPage({ organization, onNotify, userID }: Props) {
+export function RepositoriesPage({ organization, userID }: Props) {
   const { t } = useTranslation("repositories");
   const { formatDateTime, formatRelativeTime } = useDateFormatting();
   const [items, setItems] = useState<RepositorySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useSearchParams();
-  const registrationOpen = search.get("register") === "1";
   const sortParam = search.get("sort");
   const sort = sortParam === "name" || sortParam === "last-commit" ? sortParam : "relevance";
   const legacyScope = search.get("view") === "mine" ? `${ownRepositories} ` : "";
@@ -70,12 +68,6 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep the views available in this page. */ }
     setViews(next);
   };
-  const setOption = (key: string, value: string) => {
-    const next = new URLSearchParams(search);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setSearch(next, { replace: key === "register" && !value });
-  };
   const setQuery = (value: string, replace = true) => {
     const next = new URLSearchParams(search);
     next.delete("view");
@@ -83,15 +75,16 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
     else next.delete("q");
     if (next.toString() !== search.toString()) setSearch(next, { replace });
   };
+  const setOption = (key: string, value: string) => {
+    const next = new URLSearchParams(search);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearch(next);
+  };
   const setScope = (scope: string) => {
     const rest = query.trim().split(/\s+/).filter(term => ![ownRepositories, managedRepositories].includes(term.toLowerCase()));
     setQuery([scope, ...rest].filter(Boolean).join(" "), false);
   };
-  const [registrationError, setRegistrationError] = useState("");
-  const [slug, setSlug] = useState("");
-  const [defaultBranch, setDefaultBranch] = useState("main");
-  const [visibility, setVisibility] = useState<RepositoryVisibility>();
-  const [fork, setFork] = useState(false);
   const canRegister = canManageRepository(organization);
   const handle = organizationHandle(organization);
   const filtered = useMemo(() => {
@@ -126,12 +119,6 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
       return b.relevance - a.relevance || time(latestActivity(b.item)) - time(latestActivity(a.item)) || byName;
     }).map(({ item }) => item);
   }, [canRegister, items, sort, terms, userID]);
-  useEffect(() => {
-    if (!registrationOpen) return;
-    setSlug("");
-    setDefaultBranch("main");
-    setRegistrationError("");
-  }, [registrationOpen]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,25 +132,6 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
     }
   }, [organization.id, t]);
   useEffect(() => { void load(); }, [load]);
-
-  const register = async () => {
-    setRegistrationError("");
-    try {
-      const added = await repositoryAPI.register(organization.id, slug.trim(), defaultBranch.trim(), { visibility, fork });
-      setItems(current => [...current.filter(item => item.slug !== added.slug), added]);
-      const next = new URLSearchParams(search);
-      next.delete("q");
-      next.delete("view");
-      next.delete("register");
-      setSearch(next, { replace: true });
-      setVisibility(undefined);
-      setFork(false);
-      onNotify(t("repositories:feedback.registered"));
-      void load();
-    } catch (cause) {
-      setRegistrationError(translateError(cause, t, "repositories:feedback.registrationFailed"));
-    }
-  };
 
   const sidebarLabel = t(collapsed ? "repositories:catalog.expandSidebar" : "repositories:catalog.collapseSidebar");
   const sidebarToggle = <Button variant="ghost" className="repo-catalog-toggle" aria-expanded={!collapsed}
@@ -211,7 +179,7 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
     <section className="collection-content repo-catalog" aria-labelledby="repo-catalog-heading">
       <header className="collection-heading page-heading">
         <h1 id="repo-catalog-heading">{t(mine ? "repositories:catalog.mine" : adminAccess ? "repositories:catalog.adminAccess" : "navigation:routes.repositories")}</h1>
-        {canRegister && <Button variant="primary" onClick={() => setOption("register", "1")}>{t("repositories:catalog.register")}</Button>}
+        {canRegister && <Link className="af-button af-button--primary af-button--middle" to={repositoryNewPath(handle)}>{t("repositories:catalog.newRepository")}</Link>}
       </header>
       <form className="repo-catalog-filter" role="search" aria-label={t("repositories:catalog.search")}
         onSubmit={event => { event.preventDefault(); setQuery(query.trim()); }}>
@@ -298,26 +266,6 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
         onOk={() => { updateViews([...views, { name: viewName.trim(), filters: filters.toString() }]); setSaveOpen(false); }}>
         <Input label={t("repositories:catalog.viewName")} value={viewName} maxLength={60} onChange={event => setViewName(event.target.value)}/>
       </Modal>
-      {canRegister && <Modal open={registrationOpen} title={t("repositories:catalog.register")} onCancel={() => setOption("register", "")}
-        onOk={register} okText={t("repositories:form.registerButton")} okDisabled={!/^[^/\s]+\/[^/\s]+$/.test(slug.trim()) || !defaultBranch.trim()}>
-        <div className="repo-register-fields">
-          <p className="repo-meta">{t("repositories:catalog.registerHelp")}</p>
-          <Input label={t("repositories:form.slugLabel")} required value={slug} onChange={event => setSlug(event.target.value)} placeholder={t("repositories:form.slugPlaceholder")}/>
-          <Input label={t("repositories:form.branchLabel")} required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder={t("repositories:form.branchPlaceholder")}/>
-          <Select label={t("repositories:form.visibility")} value={visibility ?? ""}
-            onChange={event => {
-              const value = event.target.value;
-              setVisibility(value === "public" || value === "private" ? value : undefined);
-            }}
-            options={[
-              { label: t("repositories:form.visibilityUnknown"), value: "" },
-              { label: t("repositories:types.public"), value: "public" },
-              { label: t("repositories:types.private"), value: "private" },
-            ]} />
-          <Checkbox label={t("repositories:types.fork")} checked={fork} onChange={event => setFork(event.target.checked)} />
-          {registrationError && <p className="org-error" role="alert">{registrationError}</p>}
-        </div>
-      </Modal>}
     </section>
   </div>;
 }
