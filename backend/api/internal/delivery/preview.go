@@ -210,12 +210,32 @@ func (p *LocalGitProvider) ListHistory(ctx context.Context, organizationID, repo
 	if limit < 1 || limit > 100 {
 		return nil, ErrPreviewPathInvalid
 	}
+	return p.listCommitRange(ctx, organizationID, repository, commitSHA, limit)
+}
+
+type RepositoryCommitRangeReader interface {
+	ListCommitRange(context.Context, string, string, string, string) ([]RepositoryCommit, bool, error)
+}
+
+func (p *LocalGitProvider) ListCommitRange(ctx context.Context, organizationID, repository, baseSHA, headSHA string) ([]RepositoryCommit, bool, error) {
+	if !validGitObjectID(baseSHA) || !validGitObjectID(headSHA) {
+		return nil, false, ErrPreviewPathInvalid
+	}
+	const limit = 100
+	commits, err := p.listCommitRange(ctx, organizationID, repository, baseSHA+".."+headSHA, limit+1)
+	if len(commits) > limit {
+		return commits[:limit], true, err
+	}
+	return commits, false, err
+}
+
+func (p *LocalGitProvider) listCommitRange(ctx context.Context, organizationID, repository, revisionRange string, limit int) ([]RepositoryCommit, error) {
 	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return nil, err
 	}
 	format := "%H%x00%P%x00%an%x00%aI%x00%s"
-	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), commitSHA, "--")
+	output, err := p.runPreview(ctx, repoPath, 1<<20, "log", "-z", "--no-show-signature", "--format="+format, "--max-count="+strconv.Itoa(limit), revisionRange, "--")
 	if errors.Is(err, ErrPreviewTooLarge) {
 		return nil, ErrPreviewTooLarge
 	}

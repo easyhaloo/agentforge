@@ -247,7 +247,7 @@ func (s *Store) List(ctx context.Context, organizationID string, filter delivery
 		where += " AND repository = $2"
 		args = append(args, filter.Repository)
 	}
-	if filter.Status == "" && filter.Reviewer == "" && strings.TrimSpace(filter.Query) == "" {
+	if filter.State == "" && filter.Status == "" && filter.Reviewer == "" && strings.TrimSpace(filter.Query) == "" {
 		var total int
 		if err := s.pool.QueryRow(ctx, "SELECT count(*) FROM delivery_changesets WHERE "+where, args...).Scan(&total); err != nil {
 			return nil, 0, fmt.Errorf("count changesets: %w", err)

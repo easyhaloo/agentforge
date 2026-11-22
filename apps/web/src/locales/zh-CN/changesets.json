@@ -148,7 +148,12 @@
       "review_assigned": "分配审核",
       "review_decided": "审核结论",
       "review_superseded": "审核被取代",
-      "merge_completed": "完成合并"
+      "merge_completed": "完成合并",
+      "pull_request_draft": "转为草稿",
+      "pull_request_ready": "标记为待评审",
+      "pull_request_closed": "关闭拉取请求",
+      "pull_request_reopened": "重新打开拉取请求",
+      "pull_request_title_changed": "修改了拉取请求标题"
     },
     "outcomes": {
       "succeeded": "成功",

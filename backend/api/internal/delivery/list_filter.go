@@ -18,6 +18,9 @@ type ListFilter struct {
 	Reviewer string
 	// Query is a case-insensitive substring of the changeset id, title, repository or creator.
 	Query string
+	// State filters pull requests by open/closed status. "open" matches PRs where Closed is false.
+	// "closed" matches PRs where Closed is true (includes merged PRs). Empty string matches all.
+	State string
 }
 
 // FilterAndPage applies filter to items, orders the matches by UpdatedAt descending then ID
@@ -63,6 +66,18 @@ func (f ListFilter) matches(c *Changeset, query string) bool {
 	}
 	if f.Reviewer != "" && !c.reviewAssignedTo(c.currentRevisionID(), f.Reviewer) {
 		return false
+	}
+	if f.State != "" {
+		if c.PullRequest == nil {
+			return false
+		}
+		isClosed := c.PullRequest.Closed || c.Merge != nil
+		if f.State == "open" && isClosed {
+			return false
+		}
+		if f.State == "closed" && !isClosed {
+			return false
+		}
 	}
 	if query == "" {
 		return true

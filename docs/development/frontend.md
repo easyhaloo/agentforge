@@ -413,6 +413,8 @@ If either cannot be run, state explicitly and explain what remains unverified.
 
 ## UI and Design Consistency
 
+Use the [pull request frontend standard](pull-requests.md) for repository change proposal and review screens.
+
 - Reuse existing design tokens, spacing, typography, surfaces, interaction patterns in `styles/index.css`
 - Prefer existing Lucide icons over emoji or hand-drawn substitutes
 - Keep responsive behavior intentional across desktop and narrow viewports

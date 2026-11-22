@@ -11,12 +11,12 @@ import {
   SessionsSettingsPage,
   AgentSettingsPage,
 } from "../pages/settings";
-import { repositorySections, type ChangesetTab } from "../shared/routing";
+import { repositorySections, pullRequestTabs, type ChangesetTab, type PullRequestTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -35,6 +35,13 @@ const changesetDetail = (tab: ChangesetTab): RouteObject => ({
   path: tab === "overview" ? "orgs/:org/changesets/:id" : `orgs/:org/changesets/:id/${tab}`,
   handle: routeHandle("Changeset"),
   element: <ChangesetDetailRoute tab={tab} />,
+});
+
+/** Pull request tabs follow the GitHub pattern: conversation is the default. */
+const pullRequestDetail = (tab: PullRequestTab): RouteObject => ({
+  path: tab === "conversation" ? "orgs/:org/repositories/:owner/:repo/pulls/:id" : `orgs/:org/repositories/:owner/:repo/pulls/:id/${tab}`,
+  handle: routeHandle("Pull request"),
+  element: <PullRequestDetailRoute tab={tab} />,
 });
 
 export const routes: RouteObject[] = [
@@ -109,8 +116,11 @@ export const routes: RouteObject[] = [
               organizationPage("repositories", "Repositories", <RepositoriesRoute />),
               organizationPage("repositories/new", "Repositories", <RepositoryCreateRoute />),
               organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
-              ...repositorySections.map(section => organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
+              ...repositorySections.filter(section => section !== "pulls").map(section => organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
               organizationPage("repositories/:owner/:repo/issues/:number", "Issue", <IssueDetailRoute />),
+              { path: "orgs/:org/repositories/:owner/:repo/pulls", handle: routeHandle("Pull requests"), element: <PullRequestListRoute /> },
+              { path: "orgs/:org/repositories/:owner/:repo/pulls/new", handle: routeHandle("Compare and create pull request"), element: <PullRequestCompareRoute /> },
+              ...pullRequestTabs.map(tab => pullRequestDetail(tab)),
               {
                 path: "orgs/:org/repositories/:repositorySlug",
                 handle: routeHandle("Repository"),

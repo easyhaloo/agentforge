@@ -91,6 +91,11 @@ export const changesetAuditOperations = [
   "review.decided",
   "review.superseded",
   "merge.completed",
+  "pull_request.draft",
+  "pull_request.ready",
+  "pull_request.closed",
+  "pull_request.reopened",
+  "pull_request.title_changed",
 ] as const;
 
 /** The outcomes an audit entry can carry. */

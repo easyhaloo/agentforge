@@ -163,9 +163,13 @@ type changesetListResponse struct {
 }
 
 type createChangesetRequest struct {
-	Repository   string  `json:"repository"`
-	Title        string  `json:"title"`
-	SourceBranch *string `json:"source_branch,omitempty"`
+	Repository      string  `json:"repository"`
+	Title           string  `json:"title"`
+	SourceBranch    *string `json:"source_branch,omitempty"`
+	BaseBranch      *string `json:"base_branch,omitempty"`
+	ExpectedHeadSHA *string `json:"expected_head_sha,omitempty"`
+	Description     *string `json:"description,omitempty"`
+	Draft           *bool   `json:"draft,omitempty"`
 }
 
 type problemResponse struct {
@@ -207,6 +211,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets", deps.listChangesets)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets", deps.createChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}", deps.getChangeset)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}/comparison", deps.getChangesetComparison)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/revisions", deps.addRevision)
 	mux.HandleFunc("PUT /api/v1/organizations/{organizationID}/changesets/{id}/files", deps.saveChangesetFile)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evaluations", deps.recordEvaluation)
@@ -214,6 +219,9 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state", deps.changePRState)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title", deps.changePRTitle)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)
 
 	// Issue tracking routes
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues", deps.listIssues)
@@ -389,9 +397,19 @@ func (d DeliveryDependencies) listChangesets(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	values := r.URL.Query()
-	filter := delivery.ListFilter{Repository: values.Get("repository"), Status: delivery.Lifecycle(values.Get("status")), Reviewer: values.Get("reviewer"), Query: values.Get("q")}
+	filter := delivery.ListFilter{
+		Repository: values.Get("repository"),
+		Status:     delivery.Lifecycle(values.Get("status")),
+		Reviewer:   values.Get("reviewer"),
+		Query:      values.Get("q"),
+		State:      values.Get("state"),
+	}
 	if filter.Status != "" && !filter.Status.Valid() {
 		writeProblem(w, http.StatusBadRequest, "Invalid status", "status must be one of draft, evaluation_pending, evaluation_failed, evidence_required, review_required, in_review, changes_requested, ready_to_merge, merged")
+		return
+	}
+	if filter.State != "" && filter.State != "open" && filter.State != "closed" {
+		writeProblem(w, http.StatusBadRequest, "Invalid state", "state must be open or closed")
 		return
 	}
 	if utf8.RuneCountInString(filter.Query) > maxChangesetQueryLength {
@@ -459,8 +477,85 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// When source_branch is provided, atomically save the initial revision
-	if input.SourceBranch != nil && strings.TrimSpace(*input.SourceBranch) != "" {
+	// When base_branch is provided, create a pull request
+	isPR := input.BaseBranch != nil
+	if isPR {
+		if d.Git == nil {
+			writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted Git provider before creating pull requests")
+			return
+		}
+		if input.SourceBranch == nil || strings.TrimSpace(*input.SourceBranch) == "" {
+			writeProblem(w, http.StatusBadRequest, "Source branch required", "Pull requests require both base_branch and source_branch")
+			return
+		}
+		baseBranch := strings.TrimSpace(*input.BaseBranch)
+		sourceBranch := strings.TrimSpace(*input.SourceBranch)
+
+		if !validPullBranch(baseBranch) || !validPullBranch(sourceBranch) || baseBranch == sourceBranch || input.ExpectedHeadSHA == nil || *input.ExpectedHeadSHA == "" {
+			writeProblem(w, 400, "Invalid pull request branches", "Distinct published branches and the compared head SHA are required")
+			return
+		}
+		baseRevision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, changeset.Repository, "refs/heads/"+baseBranch)
+		if err != nil {
+			writeProblem(w, http.StatusUnprocessableEntity, "Base branch unavailable", "The base branch could not be resolved in the configured repository")
+			return
+		}
+		sourceRevision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, changeset.Repository, "refs/heads/"+sourceBranch)
+		if err != nil {
+			writeProblem(w, http.StatusUnprocessableEntity, "Source branch unavailable", "The source branch could not be resolved in the configured repository")
+			return
+		}
+
+		if *input.ExpectedHeadSHA != sourceRevision.CommitSHA {
+			writeProblem(w, 409, "Source branch moved", "Compare the current source branch before creating this pull request")
+			return
+		}
+
+		// Validate non-empty three-dot diff
+		if d.Preview == nil {
+			writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A Git preview reader is required to verify the diff")
+			return
+		}
+		comparison, err := d.compareCommits(r.Context(), principal.OrganizationID, changeset.Repository, baseRevision.CommitSHA, sourceRevision.CommitSHA, "merge-base", false)
+		if err != nil {
+			writeProblem(w, http.StatusUnprocessableEntity, "Branch comparison failed", "Could not compute the three-dot diff between base and source branches")
+			return
+		}
+		if comparison.Patch == "" {
+			writeProblem(w, http.StatusUnprocessableEntity, "Empty diff", "The source branch has no commits ahead of the base branch")
+			return
+		}
+
+		// Create PullRequest metadata
+		description := ""
+		if input.Description != nil {
+			description = *input.Description
+		}
+		draft := false
+		if input.Draft != nil {
+			draft = *input.Draft
+		}
+		changeset.PullRequest = &delivery.PullRequest{
+			BaseBranch:   baseBranch,
+			SourceBranch: sourceBranch,
+			Description:  description,
+			Draft:        draft,
+			Closed:       false,
+			Comments:     []delivery.PRComment{},
+		}
+
+		// Add initial revision
+		revisionID, err := newID()
+		if err != nil {
+			writeProblem(w, http.StatusInternalServerError, "Unable to create revision", "An identifier could not be generated")
+			return
+		}
+		if err = changeset.AddPullRequestRevision(delivery.ID(revisionID), sourceRevision, baseRevision.CommitSHA, principal.UserID, time.Now().UTC()); err != nil {
+			writeDeliveryError(w, err)
+			return
+		}
+	} else if input.SourceBranch != nil && strings.TrimSpace(*input.SourceBranch) != "" {
+		// Legacy: source_branch without base_branch (non-PR changeset with initial revision)
 		if d.Git == nil {
 			writeProblem(w, http.StatusServiceUnavailable, "Git provider unavailable", "Configure the trusted Git provider before creating changesets with source branches")
 			return
@@ -530,9 +625,20 @@ func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	if pull := stored.Changeset.PullRequest; pull != nil {
+		if input.Ref != pull.SourceBranch {
+			writeProblem(w, 422, "Invalid source branch", "Refresh from the pull request source branch")
+			return
+		}
+		input.Ref = "refs/heads/" + pull.SourceBranch
+	}
 	revision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, input.Ref)
 	if err != nil {
 		writeProblem(w, http.StatusUnprocessableEntity, "Git revision unavailable", "The requested ref could not be resolved in the organization's configured repository")
+		return
+	}
+	if current, ok := stored.Changeset.CurrentRevision(); stored.Changeset.PullRequest != nil && ok && current.CommitSHA == revision.CommitSHA {
+		writeProblem(w, 409, "Revision unchanged", "The source branch has no new commit")
 		return
 	}
 	id, err := newID()
@@ -540,7 +646,17 @@ func (d DeliveryDependencies) addRevision(w http.ResponseWriter, r *http.Request
 		writeProblem(w, 500, "Unable to create revision", "An identifier could not be generated")
 		return
 	}
-	if err = stored.Changeset.AddGitRevision(delivery.ID(id), revision.Ref, revision.CommitSHA, revision.ParentSHA, principal.UserID, time.Now().UTC()); err != nil {
+	if pull := stored.Changeset.PullRequest; pull != nil {
+		base, baseErr := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, "refs/heads/"+pull.BaseBranch)
+		if baseErr != nil {
+			writeProblem(w, http.StatusUnprocessableEntity, "Base branch unavailable", "The base branch could not be resolved")
+			return
+		}
+		err = stored.Changeset.AddPullRequestRevision(delivery.ID(id), revision, base.CommitSHA, principal.UserID, time.Now().UTC())
+	} else {
+		err = stored.Changeset.AddGitRevision(delivery.ID(id), revision.Ref, revision.CommitSHA, revision.ParentSHA, principal.UserID, time.Now().UTC())
+	}
+	if err != nil {
 		writeDeliveryError(w, err)
 		return
 	}
@@ -586,6 +702,10 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 	}
 	stored, ok := d.load(w, r, principal.OrganizationID)
 	if !ok {
+		return
+	}
+	if stored.Changeset.PullRequest != nil {
+		writeProblem(w, http.StatusConflict, "Pull request edits require a source branch update", "Commit changes to the source branch and refresh the pull request")
 		return
 	}
 	if stored.Changeset.Merge != nil {
@@ -688,6 +808,9 @@ func (d DeliveryDependencies) recordEvaluation(w http.ResponseWriter, r *http.Re
 	if baseRef == "" {
 		writeProblem(w, 409, "Repository not registered", "Register this repository before evaluating changesets")
 		return
+	}
+	if pull := stored.Changeset.PullRequest; pull != nil {
+		baseRef = "refs/heads/" + pull.BaseBranch
 	}
 	baseRevision, baseErr := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, baseRef)
 	if baseErr != nil {
@@ -929,8 +1052,11 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 			break
 		}
 	}
+	if allowedTarget != "" && stored.Changeset.PullRequest != nil {
+		allowedTarget = stored.Changeset.PullRequest.BaseBranch
+	}
 	if allowedTarget == "" || input.TargetRef != allowedTarget {
-		writeProblem(w, 422, "Invalid merge target", "Changesets can only merge into the registered default branch")
+		writeProblem(w, 422, "Invalid merge target", "Use the recorded target branch")
 		return
 	}
 	revision, exists := stored.Changeset.CurrentRevision()
@@ -952,9 +1078,18 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer unlockRepository()
-	baseRevision, baseErr := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, allowedTarget)
+	baseRef := allowedTarget
+	if pull := stored.Changeset.PullRequest; pull != nil {
+		baseRef = "refs/heads/" + allowedTarget
+		source, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, "refs/heads/"+pull.SourceBranch)
+		if err != nil || source.CommitSHA != revision.CommitSHA {
+			writeProblem(w, 409, "Source branch moved", "Refresh the pull request before merging")
+			return
+		}
+	}
+	baseRevision, baseErr := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, baseRef)
 	if baseErr != nil {
-		writeProblem(w, 409, "Target branch unavailable", "The registered default branch could not be resolved under the merge lock")
+		writeProblem(w, 409, "Target branch unavailable", "The recorded base branch could not be resolved under the merge lock")
 		return
 	}
 	currentEvaluation, hasEvaluation := stored.Changeset.LatestEvaluation(revision.ID)
@@ -967,7 +1102,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, 500, "Unable to record merge", "An identifier could not be generated")
 		return
 	}
-	merged, err := d.Git.MergeRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef)
+	merged, err := d.Git.MergeRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef, baseRevision.CommitSHA)
 	if err != nil {
 		writeProblem(w, 409, "Git merge rejected", "The target branch could not be merged cleanly; no merge record was written")
 		return
@@ -976,6 +1111,237 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeDeliveryError(w, err)
 		return
 	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) getChangesetComparison(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if stored.Changeset.PullRequest == nil {
+		writeProblem(w, http.StatusNotFound, "Not a pull request", "Only pull requests support this comparison")
+		return
+	}
+	revision, exists := stored.Changeset.CurrentRevision()
+	if !exists || revision.BaseSHA == "" {
+		writeProblem(w, http.StatusConflict, "Revision required", "A pinned Git comparison is required")
+		return
+	}
+	if d.Preview == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository preview unavailable", "A Git preview reader is required")
+		return
+	}
+	comparison, err := d.compareCommits(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.BaseSHA, revision.CommitSHA, "merge-base", true)
+	if err != nil {
+		writeProblem(w, http.StatusUnprocessableEntity, "Comparison failed", "Could not compute the diff")
+		return
+	}
+	writeJSON(w, http.StatusOK, comparison)
+}
+
+func (d DeliveryDependencies) changePRState(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	var input struct {
+		Action string `json:"action"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if input.Action != "ready" && input.Action != "draft" && input.Action != "close" && input.Action != "reopen" {
+		writeProblem(w, http.StatusBadRequest, "Invalid action", "action must be ready, draft, close, or reopen")
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if stored.Changeset.PullRequest == nil {
+		writeProblem(w, http.StatusBadRequest, "Not a pull request", "Only pull requests support state transitions")
+		return
+	}
+	// Authorization: only author, owner or admin can transition
+	if principal.UserID != stored.Changeset.CreatedBy && principal.Role != "owner" && principal.Role != "admin" {
+		writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only the author, owner or admin can change pull request state")
+		return
+	}
+
+	now := time.Now().UTC()
+	var err error
+	switch input.Action {
+	case "draft":
+		err = stored.Changeset.SetDraftState(principal.UserID, now)
+	case "ready":
+		err = stored.Changeset.SetReadyState(principal.UserID, now)
+	case "close":
+		err = stored.Changeset.ClosePullRequest(principal.UserID, now)
+	case "reopen":
+		err = stored.Changeset.ReopenPullRequest(principal.UserID, now)
+	}
+	if err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) changePRTitle(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	var input struct {
+		Title   string `json:"title"`
+		Version int64  `json:"version"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if input.Version < 1 {
+		writeProblem(w, http.StatusBadRequest, "Invalid version", "version must be a positive integer")
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if stored.Changeset.PullRequest == nil {
+		writeProblem(w, http.StatusBadRequest, "Not a pull request", "Only pull requests support this title update")
+		return
+	}
+	if principal.UserID != stored.Changeset.CreatedBy && principal.Role != "owner" && principal.Role != "admin" {
+		writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only the author, owner or admin can change the pull request title")
+		return
+	}
+	if stored.Version != input.Version {
+		writeRepositoryError(w, delivery.ErrVersionConflict)
+		return
+	}
+
+	previousTitle := stored.Changeset.Title
+	if err := stored.Changeset.SetPullRequestTitle(input.Title, principal.UserID, time.Now().UTC()); err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+	if stored.Changeset.Title == previousTitle {
+		writeJSON(w, http.StatusOK, toChangesetResponse(stored))
+		return
+	}
+	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, input.Version)
+	if err != nil {
+		writeRepositoryError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) addPRComment(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	unlock, locked := d.lockChangeset(w, r, principal.OrganizationID)
+	if !locked {
+		return
+	}
+	defer unlock()
+	var input struct {
+		Body       string `json:"body"`
+		RevisionID string `json:"revision_id,omitempty"`
+		Path       string `json:"path,omitempty"`
+		Side       string `json:"side,omitempty"`
+		Line       int    `json:"line,omitempty"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if strings.TrimSpace(input.Body) == "" || utf8.RuneCountInString(input.Body) > 10000 {
+		writeProblem(w, http.StatusBadRequest, "Invalid comment body", "Comment body must be between 1 and 10000 characters")
+		return
+	}
+	stored, ok := d.load(w, r, principal.OrganizationID)
+	if !ok {
+		return
+	}
+	if stored.Changeset.PullRequest == nil {
+		writeProblem(w, http.StatusBadRequest, "Not a pull request", "Only pull requests support comments")
+		return
+	}
+
+	if input.RevisionID != "" || input.Path != "" || input.Side != "" || input.Line != 0 {
+		if input.RevisionID == "" || input.Path == "" || len(input.Path) > 1024 || input.Line <= 0 || (input.Side != "left" && input.Side != "right") {
+			writeProblem(w, http.StatusBadRequest, "Invalid inline anchor", "A revision, path, side and positive line number are required")
+			return
+		}
+		revision, exists := stored.Changeset.CurrentRevision()
+		if !exists || revision.ID != delivery.ID(input.RevisionID) {
+			writeProblem(w, http.StatusConflict, "Stale inline anchor", "The inline comment revision is not current")
+			return
+		}
+		if d.Preview == nil || revision.BaseSHA == "" {
+			writeProblem(w, http.StatusServiceUnavailable, "Comparison unavailable", "The pinned Git diff is required to validate an inline comment")
+			return
+		}
+		comparison, err := d.compareCommits(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.BaseSHA, revision.CommitSHA, "merge-base", false)
+		if err != nil || !diffContainsLine(comparison.Patch, input.Path, input.Side, input.Line) {
+			writeProblem(w, http.StatusUnprocessableEntity, "Invalid inline anchor", "The file and line must exist on the selected side of the revision diff")
+			return
+		}
+	}
+
+	commentID, err := newID()
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to create comment", "An identifier could not be generated")
+		return
+	}
+
+	err = stored.Changeset.AddPRComment(
+		delivery.ID(commentID),
+		principal.UserID,
+		strings.TrimSpace(input.Body),
+		delivery.ID(input.RevisionID),
+		input.Path,
+		input.Side,
+		input.Line,
+		time.Now().UTC(),
+	)
+	if errors.Is(err, delivery.ErrStaleInlineAnchor) {
+		writeProblem(w, http.StatusConflict, "Stale inline anchor", "The inline comment revision is not current")
+		return
+	}
+	if err != nil {
+		writeDeliveryError(w, err)
+		return
+	}
+
 	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
 	if err != nil {
 		writeRepositoryError(w, err)
@@ -1432,4 +1798,22 @@ func (d DeliveryDependencies) lockChangeset(w http.ResponseWriter, r *http.Reque
 		return nil, false
 	}
 	return unlock, true
+}
+
+// Resolve only literal Git branch names, without revision expressions or ref namespaces.
+func validPullBranch(branch string) bool {
+	if branch == "" || len(branch) > 255 || strings.HasPrefix(branch, "-") || strings.HasPrefix(branch, "refs/") || strings.HasSuffix(branch, ".") || strings.Contains(branch, "..") || strings.Contains(branch, "@{") || strings.ContainsAny(branch, " ~^:?*[\\") {
+		return false
+	}
+	for _, r := range branch {
+		if r < 32 || r == 127 {
+			return false
+		}
+	}
+	for _, part := range strings.Split(branch, "/") {
+		if part == "" || strings.HasPrefix(part, ".") || strings.HasSuffix(part, ".lock") {
+			return false
+		}
+	}
+	return true
 }

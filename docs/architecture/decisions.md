@@ -80,8 +80,12 @@
 | Repositories | `/orgs/:org/repositories` | Repository directory (live API) |
 | Repositories | `/orgs/:org/repositories/new` | Repository create form (live API, label reused, no duplicate sidebar item) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |
-| | `/orgs/:org/repositories/:owner/:repo/{issues,branches,actions,settings}` | Repository sections |
+| | `/orgs/:org/repositories/:owner/:repo/{issues,pulls,branches,actions,settings}` | Repository sections |
 | | `/orgs/:org/repositories/:owner/:repo/issues/:number` | Issue detail |
+| | `/orgs/:org/repositories/:owner/:repo/pulls` | Pull request list |
+| | `/orgs/:org/repositories/:owner/:repo/pulls/new` | Compare and create pull request |
+| | `/orgs/:org/repositories/:owner/:repo/pulls/:id` | Pull request detail (conversation tab) |
+| | `/orgs/:org/repositories/:owner/:repo/pulls/:id/{commits,checks,files}` | Pull request tabs |
 | | `/orgs/:org/repositories/:repositorySlug` | Legacy repository view with a link to the canonical Issues section |
 | Issues | `/orgs/:org/issues` | Issues across the current organization, with links to repository issue details (live API) |
 | Workspaces | `/workspaces` | Resource workspace (mock) |
@@ -105,6 +109,7 @@
   - Every page is linkable, and refresh, Back and Forward work. Humans and agents can construct URLs the way they do for GitHub or GitLab views.
   - The Cloudflare Worker already serves `index.html` for unknown paths (`not_found_handling: single-page-application`), so deep links need no server change. `/api/*` and `/auth/*` must reach the backend, not the asset fallback.
   - Trails, Review and Eval are aliases of the changeset workspace until they get their own pages.
+  - Pull requests are repository-scoped views over Changesets with additional metadata (base/source branches, draft state, comments). They follow GitHub's URL pattern: `pulls` section, `pulls/new` for compare/create, `pulls/:id` for detail with conversation/commits/checks/files tabs.
   - A mock page that graduates to a real capability changes URL, from flat to organization-scoped.
   - Adding or changing a URL means updating `app/routes.tsx`, `app/navigation.ts`, the route table tests and this ADR together.
   - Browser tests run against the real entry and deep links instead of a separate harness page.

@@ -99,7 +99,7 @@ export const changesetStatuses: ChangesetStatus[] = [
 ];
 
 /** The filters the changeset list endpoint accepts; empty fields are not sent. */
-export type ChangesetListFilters = {
+export type ChangesetListFilters = { state?: "open" | "closed";
   q?: string;
   repository?: string;
   status?: ChangesetStatus;
@@ -108,18 +108,39 @@ export type ChangesetListFilters = {
   offset?: number;
 };
 
+export type PullRequestComment = {
+  id: string;
+  author: string;
+  body: string;
+  created_at: string;
+  revision_id?: string;
+  path?: string;
+  side?: "left" | "right";
+  line?: number;
+};
+
+export type PullRequestMetadata = {
+  base_branch: string;
+  source_branch: string;
+  description: string;
+  draft: boolean;
+  closed: boolean;
+  comments: PullRequestComment[];
+};
+
 export type StoredChangeset = {
   changeset: {
     id: string;
     created_by: string;
     repository: string;
     title: string;
-    revisions: Array<{ id: string; ref: string; commit_sha: string; parent_sha?: string; created_at: string }>;
+    revisions: Array<{ id: string; ref: string; commit_sha: string; parent_sha?: string; base_sha?: string; created_at: string }>;
     evaluations: Array<{ id: string; revision_id: string; base_sha?: string; status: string; summary: string; created_at: string }>;
     evidence: Array<{ id: string; revision_id: string; evaluation_id: string; kind: string; uri: string; sha256?: string; size?: number; status: string; created_at: string }>;
     reviews: Array<{ id: string; revision_id: string; reviewer: string; status: string; comment: string; created_at: string }>;
     merge?: { id: string; revision_id: string; actor: string; target_ref: string; commit_sha: string; created_at: string };
     audit: Array<{ sequence: number; actor: string; operation: string; target_id: string; outcome: string; at: string }>;
+    pull_request?: PullRequestMetadata;
   };
   status: ChangesetStatus;
   version: number;
@@ -137,6 +158,7 @@ export type RepositoryPreviewRefs = { repository: string; default_branch: string
 export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
+export type PullRequestComparison = RepositoryCompare & { commits: RepositoryCommit[]; commits_truncated: boolean };
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
 export const repositoryPreviewAPI = {
@@ -155,6 +177,11 @@ export const repositoryPreviewAPI = {
     const [owner, name] = repository.split("/");
     const query = new URLSearchParams({ base, head });
     return request<RepositoryCompare>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/compare?${query.toString()}`);
+  },
+  compareBranches: (organizationID: string, repository: string, base: string, head: string) => {
+    const [owner, name] = repository.split("/");
+    const query = new URLSearchParams({ base: `refs/heads/${base}`, head: `refs/heads/${head}`, mode: "merge-base", include_commits: "true" });
+    return request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/compare?${query}`);
   },
   history: (organizationID: string, repository: string, ref = "", limit = 30) => {
     const [owner, name] = repository.split("/");
@@ -277,6 +304,7 @@ export const changesetAPI = {
     if (filters.q) query.set("q", filters.q);
     if (filters.repository) query.set("repository", filters.repository);
     if (filters.status) query.set("status", filters.status);
+    if (filters.state) query.set("state", filters.state);
     if (filters.reviewer) query.set("reviewer", filters.reviewer);
     query.set("limit", String(filters.limit ?? 20));
     query.set("offset", String(filters.offset ?? 0));
@@ -286,4 +314,22 @@ export const changesetAPI = {
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
       method: "POST", body: JSON.stringify({ repository, title }),
     }),
+  createPullRequest: (organizationID: string, repository: string, title: string, baseBranch: string, sourceBranch: string, expectedHeadSHA: string, description: string, draft: boolean) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
+      method: "POST", body: JSON.stringify({ repository, title, base_branch: baseBranch, source_branch: sourceBranch, expected_head_sha: expectedHeadSHA, description, draft }),
+    }),
+  updatePullRequestTitle: (organizationID: string, id: string, title: string, version: number) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/title`, {
+      method: "PATCH", body: JSON.stringify({ title, version }),
+    }),
+  updatePullRequestState: (organizationID: string, id: string, action: "ready" | "draft" | "close" | "reopen") =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/state`, {
+      method: "POST", body: JSON.stringify({ action }),
+    }),
+  addPullRequestComment: (organizationID: string, id: string, body: string, revisionID?: string, path?: string, side?: "left" | "right", line?: number) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/comments`, {
+      method: "POST", body: JSON.stringify({ body, revision_id: revisionID, path, side, line }),
+    }),
+  getComparison: (organizationID: string, id: string) =>
+    request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/comparison`),
 };

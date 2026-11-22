@@ -3,7 +3,9 @@ package delivery
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type ID string
@@ -31,6 +33,11 @@ var (
 	ErrAlreadyMerged         = errors.New("changeset is already merged")
 	ErrReviewForbidden       = errors.New("only the assigned reviewer can decide this review")
 	ErrReviewAlreadyApproved = errors.New("a review is already approved for the current revision")
+	ErrDraftPullRequest      = errors.New("draft pull request cannot be approved or merged")
+	ErrClosedPullRequest     = errors.New("closed pull request cannot be approved or merged")
+	ErrInvalidTransition     = errors.New("invalid state transition")
+	ErrStaleInlineAnchor     = errors.New("inline comment anchor is not on the current revision")
+	ErrDuplicateRevisionSHA  = errors.New("a revision with this commit SHA already exists")
 )
 
 type Revision struct {
@@ -38,6 +45,7 @@ type Revision struct {
 	Ref       string    `json:"ref"`
 	CommitSHA string    `json:"commit_sha"`
 	ParentSHA string    `json:"parent_sha,omitempty"`
+	BaseSHA   string    `json:"base_sha,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -80,6 +88,26 @@ type Merge struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
+type PRComment struct {
+	ID         ID        `json:"id"`
+	Author     string    `json:"author"`
+	Body       string    `json:"body"`
+	CreatedAt  time.Time `json:"created_at"`
+	RevisionID ID        `json:"revision_id,omitempty"`
+	Path       string    `json:"path,omitempty"`
+	Side       string    `json:"side,omitempty"`
+	Line       int       `json:"line,omitempty"`
+}
+
+type PullRequest struct {
+	BaseBranch   string      `json:"base_branch"`
+	SourceBranch string      `json:"source_branch"`
+	Description  string      `json:"description,omitempty"`
+	Draft        bool        `json:"draft"`
+	Closed       bool        `json:"closed"`
+	Comments     []PRComment `json:"comments"`
+}
+
 type AuditEvent struct {
 	Sequence  uint64    `json:"sequence"`
 	Actor     string    `json:"actor"`
@@ -99,6 +127,7 @@ type Changeset struct {
 	Evidence    []Evidence   `json:"evidence"`
 	Reviews     []Review     `json:"reviews"`
 	Merge       *Merge       `json:"merge,omitempty"`
+	PullRequest *PullRequest `json:"pull_request,omitempty"`
 	Audit       []AuditEvent `json:"audit"`
 }
 
@@ -131,6 +160,17 @@ func (c *Changeset) AddGitRevision(id ID, ref, commitSHA, parentSHA, actor strin
 			return fmt.Errorf("%w: duplicate revision id", ErrInvalidInput)
 		}
 	}
+	// For pull requests, enforce source branch and reject duplicate commit SHA
+	if c.PullRequest != nil {
+		if ref != c.PullRequest.SourceBranch {
+			return fmt.Errorf("%w: ref must be the recorded source branch %s", ErrInvalidInput, c.PullRequest.SourceBranch)
+		}
+		for _, revision := range c.Revisions {
+			if revision.CommitSHA != "" && revision.CommitSHA == commitSHA {
+				return ErrDuplicateRevisionSHA
+			}
+		}
+	}
 	c.Revisions = append(c.Revisions, Revision{ID: id, Ref: ref, CommitSHA: commitSHA, ParentSHA: parentSHA, CreatedAt: now})
 	for i := range c.Evidence {
 		if c.Evidence[i].Status == EvidenceActive {
@@ -143,6 +183,18 @@ func (c *Changeset) AddGitRevision(id ID, ref, commitSHA, parentSHA, actor strin
 		}
 	}
 	c.record(actor, "revision.created", id, "succeeded", now)
+	return nil
+}
+
+// AddPullRequestRevision pins the comparison so inline anchors cannot move when the base branch advances.
+func (c *Changeset) AddPullRequestRevision(id ID, source GitRevision, baseSHA, actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil || baseSHA == "" {
+		return ErrInvalidInput
+	}
+	if err := c.AddGitRevision(id, c.PullRequest.SourceBranch, source.CommitSHA, source.ParentSHA, actor, now); err != nil {
+		return err
+	}
+	c.Revisions[len(c.Revisions)-1].BaseSHA = baseSHA
 	return nil
 }
 
@@ -201,10 +253,19 @@ func (c *Changeset) SubmitReview(id, revisionID ID, reviewer, comment string, no
 // AssignReview adds a pending review to the current revision. A revision has one active review:
 // the assignment is refused once the revision has an approved review (a new revision is needed to
 // ask again), and otherwise supersedes every pending review of the revision, which becomes stale.
-// Rejected reviews stay as history. A refused assignment changes nothing.
+// Rejected reviews stay as history. A refused assignment changes nothing. Draft and closed pull
+// requests block review assignment.
 func (c *Changeset) AssignReview(id, revisionID ID, reviewer, actor, comment string, now time.Time) error {
 	if c == nil || id == "" || reviewer == "" || actor == "" || reviewer == c.CreatedBy {
 		return ErrInvalidInput
+	}
+	if c.PullRequest != nil {
+		if c.PullRequest.Draft {
+			return ErrDraftPullRequest
+		}
+		if c.PullRequest.Closed {
+			return ErrClosedPullRequest
+		}
 	}
 	if err := c.requireCurrent(revisionID); err != nil {
 		return err
@@ -342,6 +403,14 @@ func (c *Changeset) ValidateMerge() error {
 	if c.Merge != nil {
 		return ErrAlreadyMerged
 	}
+	if c.PullRequest != nil {
+		if c.PullRequest.Draft {
+			return ErrDraftPullRequest
+		}
+		if c.PullRequest.Closed {
+			return ErrClosedPullRequest
+		}
+	}
 	revisionID := c.currentRevisionID()
 	if revisionID == "" {
 		return ErrRevisionNotCurrent
@@ -355,5 +424,120 @@ func (c *Changeset) ValidateMerge() error {
 	if !c.hasApprovedReview(revisionID) {
 		return ErrReviewRequired
 	}
+	return nil
+}
+
+// SetPullRequestTitle updates metadata without affecting revision-bound delivery state.
+func (c *Changeset) SetPullRequestTitle(title, actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil || actor == "" {
+		return ErrInvalidInput
+	}
+	title = strings.TrimSpace(title)
+	if title == "" || utf8.RuneCountInString(title) > 200 || strings.ContainsRune(title, 0) {
+		return fmt.Errorf("%w: title must contain 1 to 200 characters after trimming and cannot contain NUL", ErrInvalidInput)
+	}
+	if c.Title != title {
+		c.Title = title
+		c.record(actor, "pull_request.title_changed", c.ID, "succeeded", now)
+	}
+	return nil
+}
+
+// SetDraftState marks a pull request as draft. Only the author, owner or admin can transition.
+func (c *Changeset) SetDraftState(actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil {
+		return ErrInvalidInput
+	}
+	if c.Merge != nil {
+		return ErrAlreadyMerged
+	}
+	if c.PullRequest.Draft {
+		return nil // already draft, no-op
+	}
+	c.PullRequest.Draft = true
+	c.record(actor, "pull_request.draft", c.ID, "succeeded", now)
+	return nil
+}
+
+// SetReadyState marks a pull request as ready (not draft). Only the author, owner or admin can transition.
+func (c *Changeset) SetReadyState(actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil {
+		return ErrInvalidInput
+	}
+	if c.Merge != nil {
+		return ErrAlreadyMerged
+	}
+	if !c.PullRequest.Draft {
+		return nil // already ready, no-op
+	}
+	c.PullRequest.Draft = false
+	c.record(actor, "pull_request.ready", c.ID, "succeeded", now)
+	return nil
+}
+
+// ClosePullRequest closes a pull request. Only the author, owner or admin can close.
+func (c *Changeset) ClosePullRequest(actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil {
+		return ErrInvalidInput
+	}
+	if c.Merge != nil {
+		return ErrInvalidTransition // merged PRs cannot be closed
+	}
+	if c.PullRequest.Closed {
+		return nil // already closed, no-op
+	}
+	c.PullRequest.Closed = true
+	c.record(actor, "pull_request.closed", c.ID, "succeeded", now)
+	return nil
+}
+
+// ReopenPullRequest reopens a closed pull request. Only the author, owner or admin can reopen.
+func (c *Changeset) ReopenPullRequest(actor string, now time.Time) error {
+	if c == nil || c.PullRequest == nil {
+		return ErrInvalidInput
+	}
+	if c.Merge != nil {
+		return ErrInvalidTransition // merged PRs cannot be reopened
+	}
+	if !c.PullRequest.Closed {
+		return nil // already open, no-op
+	}
+	c.PullRequest.Closed = false
+	c.record(actor, "pull_request.reopened", c.ID, "succeeded", now)
+	return nil
+}
+
+// AddPRComment adds a comment to the pull request. For inline comments, all of revisionID, path,
+// side and line must be provided and the revision must be current. Stale inline anchors are rejected.
+func (c *Changeset) AddPRComment(id ID, author, body string, revisionID ID, path, side string, line int, now time.Time) error {
+	if c == nil || c.PullRequest == nil || id == "" || author == "" || body == "" {
+		return ErrInvalidInput
+	}
+	isInline := revisionID != "" || path != "" || side != "" || line != 0
+	if isInline {
+		if revisionID == "" || path == "" || side == "" || line <= 0 {
+			return fmt.Errorf("%w: inline comments require revision_id, path, side and line", ErrInvalidInput)
+		}
+		if side != "left" && side != "right" {
+			return fmt.Errorf("%w: side must be left or right", ErrInvalidInput)
+		}
+		if err := c.requireCurrent(revisionID); err != nil {
+			return ErrStaleInlineAnchor
+		}
+	}
+	for _, comment := range c.PullRequest.Comments {
+		if comment.ID == id {
+			return fmt.Errorf("%w: duplicate comment id", ErrInvalidInput)
+		}
+	}
+	comment := PRComment{ID: id, Author: author, Body: body, CreatedAt: now}
+	if isInline {
+		comment.RevisionID = revisionID
+		comment.Path = path
+		comment.Side = side
+		comment.Line = line
+	}
+	c.PullRequest.Comments = append(c.PullRequest.Comments, comment)
+	c.record(author, "pull_request.comment_added", id, "succeeded", now)
 	return nil
 }

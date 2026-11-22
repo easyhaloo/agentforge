@@ -809,6 +809,10 @@ paths:
           name: q
           description: Case-insensitive substring match over id, title, repository and created_by.
           schema: { type: string, maxLength: 200 }
+        - in: query
+          name: state
+          description: Filter pull requests by open/closed status. "open" matches PRs where closed is false. "closed" matches PRs where closed is true (includes merged PRs). Non-PR changesets are always included regardless of this filter.
+          schema: { type: string, enum: [open, closed] }
       responses:
         "200":
           description: Changeset page
@@ -1066,6 +1070,157 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/comparison:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getChangesetComparison
+      summary: Get the comparison (diff) for the active revision
+      description: Returns the three-dot diff between the base and the current revision. For pull requests, uses the evaluated base SHA if available, otherwise the base branch. For non-PR changesets, uses the repository default branch.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Comparison result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [base_sha, head_sha, patch]
+                properties:
+                  base_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  head_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
+                  patch: { type: string }
+                  commits: { type: array, items: { type: object } }
+                  commits_truncated: { type: boolean }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      operationId: changePullRequestState
+      summary: Change pull request state
+      description: Transitions the pull request state. Only the author, owner or admin can transition. Actions are ready (mark as ready), draft (mark as draft), close (close the PR), reopen (reopen a closed PR). Merged PRs cannot be closed or reopened.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [ready, draft, close, reopen] }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: changePullRequestTitle
+      summary: Change pull request title
+      description: The author with organization write access, an organization owner, or an admin can change the title in any pull request state. The changeset ID and revision-bound delivery state are preserved. A title equal to the current title after trimming leaves the version and audit trail unchanged. A stale version returns 409 even if the title matches.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, version]
+              additionalProperties: false
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  description: Leading and trailing whitespace is trimmed. The resulting title must contain 1 to 200 Unicode code points and no NUL character.
+                version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                  description: Version of the stored changeset being edited.
+      responses:
+        "200":
+          description: Stored changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      operationId: addPullRequestComment
+      summary: Add a comment to the pull request
+      description: Adds a general comment or an inline comment anchored to a specific line in a file. Inline comments require revision_id, path, side (left or right), and line. The revision must be current or the request is rejected with 409.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1 }
+                revision_id: { type: string, description: "For inline comments, the revision to anchor to." }
+                path: { type: string, description: "For inline comments, the file path." }
+                side: { type: string, enum: [left, right], description: "For inline comments, which side of the diff." }
+                line: { type: integer, minimum: 1, description: "For inline comments, the line number." }
+      responses:
+        "200":
+          description: Updated changeset with the new comment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
@@ -1541,6 +1696,10 @@ components:
         repository: { type: string, minLength: 1 }
         title: { type: string, minLength: 1 }
         source_branch: { type: string, minLength: 1, maxLength: 245, description: Optional non-default branch to resolve and record as the initial revision. }
+        base_branch: { type: string, minLength: 1, maxLength: 245, description: "When provided, creates a pull request. Requires source_branch. The base branch to merge into." }
+        expected_head_sha: { type: string, pattern: "^[0-9a-f]{40,64}$", description: "Optional. When provided, validates that the source branch HEAD matches this SHA." }
+        description: { type: string, description: "Optional pull request description." }
+        draft: { type: boolean, description: "Optional. If true, creates the pull request as draft." }
     Revision:
       type: object
       required: [id, ref, commit_sha, created_at]
@@ -1549,6 +1708,7 @@ components:
         ref: { type: string }
         commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
         parent_sha: { type: string }
+        base_sha: { type: string, pattern: "^([0-9a-f]{40}|[0-9a-f]{64})$", description: "Immutable base commit used for the pull request revision comparison." }
         created_at: { type: string, format: date-time }
     Evaluation:
       type: object
@@ -1556,7 +1716,7 @@ components:
       properties:
         id: { type: string }
         revision_id: { type: string }
-        base_sha: { type: string, pattern: "^[0-9a-f]{40,64}$", description: "Exact default-branch commit used as the evaluation base." }
+        base_sha: { type: string, pattern: "^[0-9a-f]{40,64}$", description: "Exact target-branch commit used as the evaluation base." }
         status: { type: string, enum: [pending, passed, failed] }
         summary: { type: string }
         created_at: { type: string, format: date-time }
@@ -1596,6 +1756,28 @@ components:
         target_ref: { type: string }
         commit_sha: { type: string, pattern: "^[0-9a-f]{40,64}$" }
         created_at: { type: string, format: date-time }
+    PRComment:
+      type: object
+      required: [id, author, body, created_at]
+      properties:
+        id: { type: string }
+        author: { type: string }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+        revision_id: { type: string, description: "For inline comments, the revision the comment is anchored to." }
+        path: { type: string, description: "For inline comments, the file path." }
+        side: { type: string, enum: [left, right], description: "For inline comments, which side of the diff." }
+        line: { type: integer, minimum: 1, description: "For inline comments, the line number." }
+    PullRequest:
+      type: object
+      required: [base_branch, source_branch, draft, closed, comments]
+      properties:
+        base_branch: { type: string, description: "The branch to merge into." }
+        source_branch: { type: string, description: "The branch with the changes." }
+        description: { type: string, description: "Optional pull request description." }
+        draft: { type: boolean, description: "Whether the PR is in draft state." }
+        closed: { type: boolean, description: "Whether the PR is closed (not merged)." }
+        comments: { type: array, items: { $ref: "#/components/schemas/PRComment" } }
     StoredChangeset:
       type: object
       required: [changeset, status, version, created_at, updated_at]
@@ -1613,6 +1795,7 @@ components:
             evidence: { type: array, items: { $ref: "#/components/schemas/Evidence" } }
             reviews: { type: array, items: { $ref: "#/components/schemas/Review" } }
             merge: { $ref: "#/components/schemas/Merge" }
+            pull_request: { $ref: "#/components/schemas/PullRequest" }
             audit: { type: array, items: { type: object } }
         status:
           type: string

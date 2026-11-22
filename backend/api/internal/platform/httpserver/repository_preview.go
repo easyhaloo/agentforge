@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -161,11 +162,6 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 	if !ok {
 		return
 	}
-	reader, supported := d.Preview.(delivery.RepositoryCompareReader)
-	if !supported {
-		writeProblem(w, http.StatusServiceUnavailable, "Repository compare unavailable", "The configured Git provider does not support commit comparison")
-		return
-	}
 	baseRef := strings.TrimSpace(r.URL.Query().Get("base"))
 	headRef := strings.TrimSpace(r.URL.Query().Get("head"))
 	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
@@ -187,26 +183,54 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusNotFound, "Head revision not found", "The head ref could not be resolved")
 		return
 	}
-	var patch string
-	if mode == "merge-base" {
-		patch, err = reader.CompareWithMergeBase(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
-	} else {
-		patch, err = reader.Compare(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA)
-	}
+	comparison, err := d.compareCommits(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA, mode, r.URL.Query().Get("include_commits") == "true")
 	if errors.Is(err, delivery.ErrPreviewTooLarge) {
-		writeProblem(w, http.StatusRequestEntityTooLarge, "Compare too large", "The diff exceeds the 1 MiB preview output limit")
+		writeProblem(w, http.StatusRequestEntityTooLarge, "Compare too large", "The comparison exceeds the 1 MiB preview output limit")
 		return
 	}
 	if err != nil {
 		writeProblem(w, http.StatusNotFound, "Compare unavailable", "The requested commits could not be compared")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"repository": repository.Slug,
-		"base_sha":   base.CommitSHA,
-		"head_sha":   head.CommitSHA,
-		"patch":      patch,
-	})
+	writeJSON(w, http.StatusOK, comparison)
+}
+
+type repositoryComparison struct {
+	Repository       string                       `json:"repository"`
+	BaseSHA          string                       `json:"base_sha"`
+	HeadSHA          string                       `json:"head_sha"`
+	Patch            string                       `json:"patch"`
+	Commits          *[]delivery.RepositoryCommit `json:"commits,omitempty"`
+	CommitsTruncated *bool                        `json:"commits_truncated,omitempty"`
+}
+
+func (d DeliveryDependencies) compareCommits(ctx context.Context, org, repo, base, head, mode string, includeCommits bool) (repositoryComparison, error) {
+	out := repositoryComparison{Repository: repo, BaseSHA: base, HeadSHA: head}
+	reader, ok := d.Preview.(delivery.RepositoryCompareReader)
+	if !ok {
+		return out, delivery.ErrRepositoryInvalid
+	}
+	compare := reader.Compare
+	if mode == "merge-base" {
+		compare = reader.CompareWithMergeBase
+	}
+	patch, err := compare(ctx, org, repo, base, head)
+	if err != nil {
+		return out, err
+	}
+	out.Patch = patch
+	if includeCommits {
+		history, ok := d.Preview.(delivery.RepositoryCommitRangeReader)
+		if !ok {
+			return out, delivery.ErrRepositoryInvalid
+		}
+		commits, truncated, err := history.ListCommitRange(ctx, org, repo, base, head)
+		if err != nil {
+			return out, err
+		}
+		out.Commits, out.CommitsTruncated = &commits, &truncated
+	}
+	return out, nil
 }
 
 func (d DeliveryDependencies) listRepositoryFileHistory(w http.ResponseWriter, r *http.Request) {

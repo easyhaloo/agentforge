@@ -25,5 +25,8 @@ func (c Changeset) MarshalJSON() ([]byte, error) {
 	if c.Audit == nil {
 		c.Audit = []AuditEvent{}
 	}
+	if c.PullRequest != nil && c.PullRequest.Comments == nil {
+		c.PullRequest.Comments = []PRComment{}
+	}
 	return json.Marshal(plain(c))
 }

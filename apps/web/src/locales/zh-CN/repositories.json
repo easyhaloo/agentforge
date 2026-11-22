@@ -3,6 +3,7 @@
     "issues": "议题",
     "branches": "分支",
     "pullRequests": "拉取请求",
+    "pulls": "拉取请求",
     "actions": "Actions",
     "settings": "设置",
     "settingsFor": "{{repository}} 的设置",

@@ -13,6 +13,7 @@ import enRepositories from "./en-US/repositories.json";
 import enOverview from "./en-US/overview.json";
 import enPipelines from "./en-US/pipelines.json";
 import enErrors from "./en-US/errors.json";
+import enPulls from "./en-US/pulls.json";
 import enApp from "./en-US/app.json";
 
 import zhCommon from "./zh-CN/common.json";
@@ -26,6 +27,7 @@ import zhRepositories from "./zh-CN/repositories.json";
 import zhOverview from "./zh-CN/overview.json";
 import zhPipelines from "./zh-CN/pipelines.json";
 import zhErrors from "./zh-CN/errors.json";
+import zhPulls from "./zh-CN/pulls.json";
 import zhApp from "./zh-CN/app.json";
 
 const resources = {
@@ -42,6 +44,7 @@ const resources = {
     pipelines: enPipelines,
     errors: enErrors,
     app: enApp,
+    pulls: enPulls,
   },
   "zh-CN": {
     common: zhCommon,
@@ -56,6 +59,7 @@ const resources = {
     pipelines: zhPipelines,
     errors: zhErrors,
     app: zhApp,
+    pulls: zhPulls,
   },
 };
 

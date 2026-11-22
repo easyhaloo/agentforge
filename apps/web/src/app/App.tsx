@@ -95,8 +95,8 @@ function App() {
   const item = navigationItemFor(label);
   const isRepositoryCatalog = label === "Repositories" && accountState === "ready" && Boolean(urlOrganization);
   const { owner, repo } = match?.params ?? {};
-  const isRepositoryDetail = (label === "Repository" || label === "Issue") && Boolean(owner && repo) && accountState === "ready" && Boolean(urlOrganization);
   const repositorySection = repositorySections.find(section => section === match?.pathname.split("/")[6]);
+  const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
   const isOverview = label === "Overview";
   // Organization pages are backed by the account API; the mock pages only simulate a refresh.
   const refresh = () => {

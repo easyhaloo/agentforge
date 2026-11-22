@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, Fragment, type ReactNode } from "react";
 import { detectCodeLanguage } from "../../shared/code/languages";
 import { highlightRepositorySource, type RepositorySyntaxResult } from "./repositorySyntax";
 import { parseRepositoryDiff, type RepositoryDiffFile, type RepositoryDiffHunk } from "./repositoryDiff";
@@ -6,9 +6,19 @@ import { parseRepositoryDiff, type RepositoryDiffFile, type RepositoryDiffHunk }
 const MAX_DIFF_HIGHLIGHT_BYTES = 256 * 1024;
 const MAX_DIFF_HIGHLIGHT_LINES = 10_000;
 
-function getDiffFilePath(file: RepositoryDiffFile): string {
-  const match = /^diff --git a\/.+ b\/(.+)$/.exec(file.header);
-  return match?.[1] ?? file.header;
+export function getDiffFilePath(file: RepositoryDiffFile): string {
+  const header = file.header;
+  const match = /^diff --git "(?:[^"\\]|\\.)*" "b\/((?:[^"\\]|\\.)*)"$/.exec(header);
+  if (match) {
+    const escapes: Record<string, string> = { a: "\x07", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v", '"': '"', "\\": "\\" };
+    return match[1].replace(/(?:\\[0-7]{3})+|\\[abfnrtv"\\]/g, escaped => {
+      if (escaped.length === 2) return escapes[escaped[1]];
+      return new TextDecoder().decode(Uint8Array.from(escaped.slice(1).split("\\"), octal => parseInt(octal, 8)));
+    });
+  }
+  const repeated = header.slice("diff --git a/".length).slice(0, (header.length - "diff --git a/ b/".length) / 2);
+  if (header === `diff --git a/${repeated} b/${repeated}`) return repeated;
+  return /^diff --git a\/.+ b\/(.+)$/.exec(header)?.[1] ?? header;
 }
 
 function tokenStyle(token: RepositorySyntaxResult["tokens"][number][number]): CSSProperties {
@@ -28,7 +38,9 @@ function renderTokens(tokens: RepositorySyntaxResult["tokens"][number] | undefin
     : <span key={index}>{token.content}</span>);
 }
 
-function RepositoryDiffFileView({ file }: { file: RepositoryDiffFile }) {
+type DiffLineControl = (path: string, side: "left" | "right", line: number) => ReactNode;
+
+function RepositoryDiffFileView({ file, lineControl, lineDiscussion, id, collapsible }: { file: RepositoryDiffFile; lineControl?: DiffLineControl; lineDiscussion?: DiffLineControl; id?: string; collapsible?: boolean }) {
   const path = getDiffFilePath(file);
   const language = detectCodeLanguage(path);
   const [tokensByHunk, setTokensByHunk] = useState<Record<number, RepositorySyntaxResult["tokens"]>>({});
@@ -63,30 +75,35 @@ function RepositoryDiffFileView({ file }: { file: RepositoryDiffFile }) {
     return () => { current = false; };
   }, [file, language]);
 
-  return <section className="repository-diff__file" data-highlight-engine={highlightStatus}>
-    <h4>{file.header.replace(/^diff --git a\//, "").replace(/ b\//, " → ")}</h4>
-    {file.hunks.map((hunk, hunkIndex) => <RepositoryDiffHunkView key={hunkIndex} hunk={hunk} tokens={tokensByHunk[hunkIndex]} />)}
+  const hunks = file.hunks.map((hunk, hunkIndex) => <RepositoryDiffHunkView key={hunkIndex} hunk={hunk} tokens={tokensByHunk[hunkIndex]} path={path} lineControl={lineControl} lineDiscussion={lineDiscussion} />);
+  return <section id={id} className="repository-diff__file" data-highlight-engine={highlightStatus}>
+    {collapsible ? <details open><summary>{path}</summary>{hunks}</details> : <>
+      <h4>{file.header.replace(/^diff --git a\//, "").replace(/ b\//, " → ")}</h4>{hunks}
+    </>}
   </section>;
 }
 
-function RepositoryDiffHunkView({ hunk, tokens }: { hunk: RepositoryDiffHunk; tokens?: RepositorySyntaxResult["tokens"] }) {
+function RepositoryDiffHunkView({ hunk, tokens, path, lineControl, lineDiscussion }: { hunk: RepositoryDiffHunk; tokens?: RepositorySyntaxResult["tokens"]; path: string; lineControl?: DiffLineControl; lineDiscussion?: DiffLineControl }) {
   let tokenLine = 0;
   return <div>
     <div className="repository-diff__hunk">{hunk.header}</div>
     {hunk.lines.map((line, lineIndex) => {
       const lineTokens = line.kind === "meta" ? undefined : tokens?.[tokenLine++];
-      return <div className={"repository-diff__line repository-diff__line--" + line.kind} key={lineIndex}>
-        <span>{line.oldLine ?? ""}</span><span>{line.newLine ?? ""}</span>
+      return <Fragment key={lineIndex}><div className={"repository-diff__line repository-diff__line--" + line.kind}>
+        <span>{line.oldLine === undefined ? "" : lineControl?.(path, "left", line.oldLine) ?? line.oldLine}</span><span>{line.newLine === undefined ? "" : lineControl?.(path, "right", line.newLine) ?? line.newLine}</span>
         <code>{line.kind === "add" ? "+" : line.kind === "remove" ? "-" : line.kind === "context" ? " " : ""}{renderTokens(lineTokens, line.text)}</code>
-      </div>;
+      </div>
+        {line.oldLine !== undefined && lineDiscussion?.(path, "left", line.oldLine)}
+        {line.newLine !== undefined && lineDiscussion?.(path, "right", line.newLine)}
+      </Fragment>;
     })}
   </div>;
 }
 
-export function RepositoryDiffViewer({ patch }: { patch: string }) {
-  const files = useMemo(() => parseRepositoryDiff(patch), [patch]);
+export function RepositoryDiffViewer({ patch, files: suppliedFiles, lineControl, lineDiscussion }: { patch?: string; files?: RepositoryDiffFile[]; lineControl?: DiffLineControl; lineDiscussion?: DiffLineControl }) {
+  const files = useMemo(() => suppliedFiles ?? parseRepositoryDiff(patch ?? ""), [suppliedFiles, patch]);
   if (!files.length) return <p className="changeset-hint">No textual changes in this comparison.</p>;
   return <div className="repository-diff">
-    {files.map((file, fileIndex) => <RepositoryDiffFileView file={file} key={fileIndex} />)}
+    {files.map((file, fileIndex) => <RepositoryDiffFileView file={file} key={file.header + fileIndex} id={suppliedFiles ? `pull-file-${fileIndex}` : undefined} lineControl={lineControl} lineDiscussion={lineDiscussion} collapsible={!!suppliedFiles} />)}
   </div>;
 }

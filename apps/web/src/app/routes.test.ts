@@ -82,6 +82,17 @@ describe("route table", () => {
     }
   });
 
+  it("routes repository pull request lists, creation and each detail tab", () => {
+    const pulls = "/orgs/demo/repositories/team/repo/pulls";
+    expect(leafOf(pulls)?.route.handle).toEqual({ label: "Pull requests" });
+    expect(leafOf(`${pulls}/new`)?.route.handle).toEqual({ label: "Compare and create pull request" });
+    for (const suffix of ["", "/commits", "/checks", "/files"]) {
+      const leaf = leafOf(`${pulls}/pr-id${suffix}`);
+      expect(leaf?.params).toMatchObject({ org: "demo", owner: "team", repo: "repo", id: "pr-id" });
+      expect(leaf?.route.handle).toEqual({ label: "Pull request" });
+    }
+  });
+
   it("matches issue details and preserves the legacy repository route", () => {
     const detail = leafOf("/orgs/demo/repositories/team/repo/issues/42");
     expect(detail?.params).toMatchObject({ org: "demo", owner: "team", repo: "repo", number: "42" });
