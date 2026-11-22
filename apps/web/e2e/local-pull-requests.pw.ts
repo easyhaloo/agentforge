@@ -200,6 +200,7 @@ test("reviews an updated pull request and merges only its verified revision", as
       expect((await evaluation).ok()).toBeTruthy();
       await expect(checksTab).toHaveAccessibleName("Checks 1");
       await expect(page.getByText("All checks passed", { exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
       await capture("checks");
       await conversationTab.click();
       await selectOption(page, page.getByRole("combobox", { name: "Reviewers" }), "Pull Request Reviewer");
@@ -242,6 +243,9 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(conversationTab).toHaveAttribute("aria-selected", "true");
     await filesTab.click();
     await expect(filesTab).toHaveAttribute("aria-selected", "true");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    await checksTab.click();
+    await expect(page.getByText("All checks passed", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     await conversationTab.click();
     await capture("mobile");

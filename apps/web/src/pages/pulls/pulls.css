@@ -66,6 +66,7 @@
 .pull-file-patches .pull-line-action:hover, .pull-file-patches .pull-line-action:focus-visible { color: var(--af-color-primary); text-decoration: underline; }
 .pull-line-comment, .pull-inline-composer { padding: 12px; background: var(--af-color-surface-raised); border-top: 1px solid var(--af-color-border); }
 .pull-file-patches .pull-inline-composer, .pull-file-patches .pull-line-comment { max-width: min(680px, 80vw); font: 13px/1.5 system-ui, sans-serif; }
+.pull-checks-tab { overflow-wrap: anywhere; }
 .pull-checks-tab .checks-status, .pull-checks-tab .evidence-item,
 .pull-commits-tab .commit-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; }
 .pull-commits-tab .commit-item + .commit-item + .commit-item { border-top: 1px solid var(--af-color-border); }
