@@ -4,37 +4,35 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryPreviewAPI, type OrganizationSummary, type RepositoryPreviewRefs } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, pipelineRunPath, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Button, Select } from "../../shared/ui";
+import { RepositoryMasthead, canManageRepository } from "./RepositoryMasthead";
 import { RepositoryIssues } from "./RepositoryIssues";
 import "./repositories.css";
 
-export function canManageRepository(organization: OrganizationSummary) {
-  return organization.role === "owner" || organization.role === "admin";
-}
+type Props = { organization: OrganizationSummary; repository: string; section: RepositorySection; onNotify: (message: string) => void };
 
-type Props = { organization: OrganizationSummary; repository: string; section: RepositorySection };
-
-export function RepositorySectionPage({ organization, repository, section, userId, displayName }: Props & { userId: string; displayName: string }) {
+export function RepositorySectionPage({ organization, repository, section, currentUser, onNotify }: Props & { currentUser: string }) {
   const { t } = useTranslation("repositories");
-  const props = { organization, repository, section };
+  const props = { organization, repository, section, onNotify };
+  const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
-    <header className="repo-masthead">
-      <div className="repo-browser-heading"><h1>{repository}</h1>
-        {section === "issues" && <Link className="repo-back" to={repositoryPath(organizationHandle(organization), repository)}>{t("issues.code")}</Link>}
+    <RepositoryMasthead organization={organization} repository={repository} />
+    {section === "issues" ? (
+      <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} currentUser={currentUser} onNotify={onNotify} />
+    ) : (
+      <div className="repo-panel repo-section-content">
+        <h2>{t(`sections.${section}`)}</h2>
+        {section === "actions" ? <RepositoryActions {...props}/>
+          : section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
+          : <RepositoryBranches {...props}/>}
       </div>
-    </header>
-    {section === "issues" ? <RepositoryIssues organization={organization} repository={repository} userId={userId} displayName={displayName}/>: <div className="repo-panel repo-section-content">
-      <h2>{t(`sections.${section}`)}</h2>
-      {section === "actions" ? <RepositoryActions {...props}/>
-        : section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
-        : <RepositoryBranches {...props}/>}
-    </div>}
+    )}
   </section>;
 }
 
-function RepositoryBranches({ organization, repository, section }: Props) {
+function RepositoryBranches({ organization, repository, section, onNotify }: Props) {
   const { t } = useTranslation("repositories");
   const [refs, setRefs] = useState<RepositoryPreviewRefs>();
   const [branch, setBranch] = useState("");
@@ -85,8 +83,9 @@ function RepositoryBranches({ organization, repository, section }: Props) {
   </form>;
 }
 
-function RepositoryActions({ organization, repository }: Props) {
+function RepositoryActions({ organization, repository, onNotify }: Props) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime } = useDateFormatting();
   const [search, setSearch] = useSearchParams();
   const offset = Number(search.get("offset")) || 0;
   const [result, setResult] = useState<Awaited<ReturnType<typeof repositoryAPI.actions>>>();

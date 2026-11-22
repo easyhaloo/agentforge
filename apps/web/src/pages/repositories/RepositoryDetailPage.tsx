@@ -1,25 +1,24 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, ChevronRight, ChevronDown, File, Folder, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
 import type { OrganizationSummary, RepositoryPreviewEntry, RepositoryPreviewBlob } from "../../shared/api/identity";
 import { repositoryPreviewAPI } from "../../shared/api/identity";
+import { organizationHandle, repositoryPath } from "../../shared/routing";
 import { Button, SearchInput, Select, DataTable, Tabs } from "../../shared/ui";
 import type { DataTableColumn } from "../../shared/ui";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
-import { RepositoryIssues } from "./RepositoryIssues";
 import { RepositoryReadme } from "./RepositoryReadme";
 import "./RepositoryDetailPage.css";
 
 interface RepositoryDetailPageProps {
   organization: OrganizationSummary;
   repositorySlug: string;
-  userId?: string;
-  displayName?: string;
 }
 
-type TabType = "code" | "issues" | "pulls" | "actions" | "packages" | "wiki" | "settings" | "members";
+type TabType = "code" | "pulls" | "actions" | "packages" | "wiki" | "settings" | "members";
 
-export function RepositoryDetailPage({ organization, repositorySlug, userId = "", displayName }: RepositoryDetailPageProps) {
+export function RepositoryDetailPage({ organization, repositorySlug }: RepositoryDetailPageProps) {
   const { t } = useTranslation("repositories");
   const [activeTab, setActiveTab] = useState<TabType>("code");
 
@@ -28,7 +27,6 @@ export function RepositoryDetailPage({ organization, repositorySlug, userId = ""
 
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: "code", label: "Code", icon: <Code2 size={16} /> },
-    { id: "issues", label: t("issues.tab"), icon: <AlertCircle size={16} /> },
     { id: "pulls", label: "Pull Requests", icon: <GitPullRequest size={16} /> },
     { id: "actions", label: "Actions", icon: <PlayCircle size={16} /> },
     { id: "packages", label: "Packages", icon: <Package size={16} /> },
@@ -58,6 +56,9 @@ export function RepositoryDetailPage({ organization, repositorySlug, userId = ""
           </div>
         </div>
         <div className="repository-actions">
+          <Link className="af-button af-button--secondary af-button--small" to={repositoryPath(organizationHandle(organization), `${organization.slug}/${repositorySlug}`, "issues")}>
+            <AlertCircle size={16} aria-hidden="true"/>{t("sections.issues")}
+          </Link>
           <Button variant="secondary" size="small">Watch</Button>
           <Button variant="secondary" size="small">Fork</Button>
           <Button variant="secondary" size="small">Star</Button>
@@ -79,7 +80,6 @@ export function RepositoryDetailPage({ organization, repositorySlug, userId = ""
       {/* Tab Content */}
       <div className="repository-content">
         {activeTab === "code" && <CodeTabContent organization={organization} repositorySlug={repositorySlug} />}
-        {activeTab === "issues" && <RepositoryIssues organization={organization} repository={repositorySlug.includes("/") ? repositorySlug : `${organization.slug}/${repositorySlug}`} userId={userId} displayName={displayName}/>}
         {activeTab === "pulls" && <PullRequestsTabContent />}
         {activeTab === "actions" && <ActionsTabContent />}
         {activeTab === "packages" && <PackagesTabContent />}

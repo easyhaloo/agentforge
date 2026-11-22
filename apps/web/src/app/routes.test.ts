@@ -47,7 +47,7 @@ describe("route table", () => {
   });
 
   it("serves the live pages and their aliases under /orgs/:org", () => {
-    const labels: Record<string, string> = { webide: "WebIDE", changesets: "Changesets", trails: "Trails", review: "Review", eval: "Eval", settings: "Organization" };
+    const labels: Record<string, string> = { webide: "WebIDE", issues: "Issues", changesets: "Changesets", trails: "Trails", review: "Review", eval: "Eval", settings: "Organization" };
     for (const [section, label] of Object.entries(labels)) {
       const leaf = leafOf(`/orgs/x/${section}`);
       expect(leaf?.params.org, section).toBe("x");
@@ -78,8 +78,18 @@ describe("route table", () => {
     for (const suffix of ["", "/branches", "/actions", "/settings", "/issues"]) {
       const leaf = leafOf(`/orgs/demo/repositories/team/repo${suffix}`);
       expect(leaf?.params, suffix).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
-      expect(leaf?.route.handle, suffix).toEqual({ label: suffix === "/issues" ? "Issues" : "Repository" });
+      expect(leaf?.route.handle, suffix).toEqual({ label: "Repository" });
     }
+  });
+
+  it("matches issue details and preserves the legacy repository route", () => {
+    const detail = leafOf("/orgs/demo/repositories/team/repo/issues/42");
+    expect(detail?.params).toMatchObject({ org: "demo", owner: "team", repo: "repo", number: "42" });
+    expect(detail?.route.handle).toEqual({ label: "Issue" });
+
+    const legacy = leafOf("/orgs/demo/repositories/repo");
+    expect(legacy?.params).toMatchObject({ org: "demo", repositorySlug: "repo" });
+    expect(legacy?.route.handle).toEqual({ label: "Repository" });
   });
 
   it("serves the changeset detail page under the organization", () => {

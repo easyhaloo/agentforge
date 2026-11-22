@@ -271,6 +271,8 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 type repositoryRegistrationRequest struct {
 	Slug          string `json:"slug"`
 	DefaultBranch string `json:"default_branch"`
+	Visibility    string `json:"visibility"`
+	Fork          bool   `json:"fork"`
 	Description   string `json:"description"`
 	Initialize    *struct {
 		Readme    bool   `json:"readme"`
@@ -319,6 +321,12 @@ func (d DeliveryDependencies) registerRepository(w http.ResponseWriter, r *http.
 	}
 	input.Slug = strings.TrimSpace(input.Slug)
 	input.DefaultBranch = strings.TrimSpace(input.DefaultBranch)
+	switch input.Visibility {
+	case "", "public", "private":
+	default:
+		writeProblem(w, http.StatusBadRequest, "Invalid repository visibility", "visibility must be public, private, or empty")
+		return
+	}
 	input.Description = strings.TrimSpace(input.Description)
 	if utf8.RuneCountInString(input.Description) > 350 || strings.ContainsRune(input.Description, 0) {
 		writeProblem(w, 422, "Invalid description", "Repository descriptions must be at most 350 characters")
@@ -332,7 +340,15 @@ func (d DeliveryDependencies) registerRepository(w http.ResponseWriter, r *http.
 		writeProblem(w, 422, "Repository not available", "The repository must exist under the configured organization Git root and its default branch must resolve")
 		return
 	}
-	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: input.Slug, DefaultBranch: input.DefaultBranch, CreatedBy: principal.UserID, Description: input.Description})
+	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{
+		OrganizationID: principal.OrganizationID,
+		Slug:           input.Slug,
+		DefaultBranch:  input.DefaultBranch,
+		Visibility:     input.Visibility,
+		Fork:           input.Fork,
+		CreatedBy:      principal.UserID,
+		Description:    input.Description,
+	})
 	if errors.Is(err, delivery.ErrVersionConflict) {
 		writeProblem(w, 409, "Repository already registered", "This repository is already registered for the organization")
 		return

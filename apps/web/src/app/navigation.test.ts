@@ -4,10 +4,9 @@ import zh from "../locales/zh-CN/navigation.json";
 import { groupToNavKey, labelToNavKey } from "./navigation-labels";
 import { itemHref, navigationGroups, navigationItems } from "./navigation";
 
-// Pre-refactor values, copied as literals from the old navigation.ts (`groups`).
-// They are deliberately not derived from the code under test, so any drift in copy or order fails here.
-const legacyGroups = [
-  { label: "WORKSPACE", items: ["Overview", "Projects", "Repositories", "Changesets", "Workspaces"] },
+// Deliberately independent of the code under test so changes in copy or order fail here.
+const expectedGroups = [
+  { label: "WORKSPACE", items: ["Overview", "Projects", "Repositories", "Issues", "Changesets", "Workspaces"] },
   { label: "COORDINATION", items: ["Trails", "Review", "Eval", "Self-healing"] },
   { label: "INTELLIGENCE", items: ["Memory", "CI / CD"] },
   { label: "DEVELOPER", items: ["WebIDE", "UI Components"] },
@@ -24,7 +23,7 @@ describe("navigation data source", () => {
   });
 
   it("keeps the group labels, item labels and their order", () => {
-    expect(navigationGroups.map((group) => ({ label: group.label, items: group.items.map((item) => item.label) }))).toEqual(legacyGroups);
+    expect(navigationGroups.map((group) => ({ label: group.label, items: group.items.map((item) => item.label) }))).toEqual(expectedGroups);
   });
 
   it("points every item at a description key instead of a hardcoded sentence", () => {
@@ -36,7 +35,7 @@ describe("navigation data source", () => {
   });
 
   it("tags every item with the group it is listed under", () => {
-    for (const group of legacyGroups) {
+    for (const group of expectedGroups) {
       for (const label of group.items) {
         expect(navigationItems.find((item) => item.label === label)?.group).toBe(group.label);
       }
@@ -52,6 +51,7 @@ describe("navigation data source", () => {
       Overview: "/",
       Projects: "/projects",
       Repositories: "/orgs/demo/repositories",
+      Issues: "/orgs/demo/issues",
       Changesets: "/orgs/demo/changesets",
       Workspaces: "/workspaces",
       Trails: "/orgs/demo/trails",

@@ -16,7 +16,7 @@ export function CommandPalette({ open, onClose }: Props) {
   const navigateTo = useNavigateTo();
   const { selectedOrganization } = useAppAccount();
   const handle = selectedOrganization ? organizationHandle(selectedOrganization) : CURRENT_ORGANIZATION_HANDLE;
-  const pages = navigationItems.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const pages = navigationItems.filter((item) => t(labelToNavKey(item.label)).toLowerCase().includes(query.trim().toLowerCase()));
 
   const navigate = (item: NavigationItem) => {
     navigateTo(itemHref(item, handle));

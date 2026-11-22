@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { settingsAPI, type UserProfile } from "../../shared/api/settings";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 
 export function AccountSettingsPage() {
   const { t } = useTranslation("settings");
+  const { formatDateTime } = useDateFormatting();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);

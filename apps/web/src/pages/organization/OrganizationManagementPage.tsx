@@ -3,7 +3,7 @@ import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban,
 import { useTranslation } from "react-i18next";
 import { organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { Button, ConfirmDialog, DataTable, Input, Select, Tabs } from "../../shared/ui";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -13,6 +13,7 @@ const statusClass = (status: string) => status === "active" || status === "accep
 
 export function OrganizationManagementPage({ organization, onNotify }: Props) {
   const { t } = useTranslation("organization");
+  const { formatDateTime } = useDateFormatting();
   const [tab, setTab] = useState<Tab>("members");
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);

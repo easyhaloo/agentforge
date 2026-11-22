@@ -1,225 +1,313 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, MessageSquare, Plus, User } from "lucide-react";
+import { AlertCircle, CheckCircle2, List, User, MessageSquare } from "lucide-react";
+import { Button, SearchInput, Select, Modal } from "../../shared/ui";
+import type { OrganizationSummary } from "../../shared/api/identity";
+import { issuesAPI, type IssueListParams, type IssuePage } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
-import { type OrganizationSummary } from "../../shared/api/identity";
-import { issuesAPI, type Issue, type IssuePage } from "../../shared/api/issues";
-import { formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
-import { Button, DataTable, Input, Modal, SearchInput, Select, TextArea, type DataTableColumn } from "../../shared/ui";
-import "./RepositoryDetailPage.css";
+import { useDateFormatting } from "../../shared/i18n/format";
+import { issueDetailPath } from "../../shared/routing";
+import { IssueForm } from "./IssueForm";
+import "./repositories.css";
 
-const filters = ["open", "closed", "assigned", "created"] as const;
-const sortOptions = ["updated", "newest", "oldest", "comments"] as const;
-const pageSize = 20;
+type IssueFilterType = "open" | "closed" | "assigned" | "created";
 
-type Props = { organization: OrganizationSummary; repository: string; userId: string; displayName?: string };
+interface RepositoryIssuesProps {
+  organization: OrganizationSummary;
+  repository?: string;
+  organizationHandle: string;
+  currentUser: string;
+  onNotify: (message: string) => void;
+}
 
-export function RepositoryIssues({ organization, repository, userId, displayName }: Props) {
+export function RepositoryIssues({ organization, repository, organizationHandle, currentUser, onNotify }: RepositoryIssuesProps) {
   const { t } = useTranslation("repositories");
-  const { t: translate } = useTranslation();
-  const [filter, setFilter] = useState<typeof filters[number]>("open");
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
-  const [author, setAuthor] = useState("");
-  const [label, setLabel] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [milestone, setMilestone] = useState("");
-  const [sort, setSort] = useState<typeof sortOptions[number]>("updated");
-  const [offset, setOffset] = useState(0);
-  const [revision, refresh] = useState(0);
+  const { formatDateTime, formatRelativeTime } = useDateFormatting();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const state = searchParams.get("state");
+  const activeFilter: IssueFilterType = state === "closed" || state === "assigned" || state === "created" ? state : "open";
+
   const [result, setResult] = useState<IssuePage>();
-  const [listState, setListState] = useState<"loading" | "ready" | "error">("loading");
-  const [error, setError] = useState("");
-  const [create, setCreate] = useState(false);
-  const [selected, selectIssue] = useState<number>();
-  const open = result?.open_total;
-  const closed = result?.closed_total;
-  const names = (id: string) => id === userId && displayName ? displayName : id;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setListState("loading");
-    void issuesAPI.list(organization.id, {
-      repository, state: filter === "open" || filter === "closed" ? filter : undefined,
-      created_by: filter === "created" ? userId : author,
-      assignee: filter === "assigned" ? userId : assignee,
-      labels: label, milestone, q: query,
-      sort: sort === "oldest" || sort === "newest" ? "created" : sort,
-      direction: sort === "oldest" ? "asc" : "desc",
-      limit: pageSize, offset, include_filter_options: true,
-    }, controller.signal).then(page => {
-      if (controller.signal.aborted) return;
-      setResult(page);
-      if (offset > 0 && offset >= page.total) setOffset(Math.max(0, Math.floor((page.total - 1) / pageSize) * pageSize));
-      else setListState("ready");
-    }).catch(cause => {
-      if (controller.signal.aborted) return;
-      setError(translateError(cause, translate, "repositories:issues.loadError"));
-      setListState("error");
-    });
-    return () => controller.abort();
-  }, [organization.id, repository, userId, filter, author, assignee, label, milestone, query, sort, offset, revision, translate]);
-
-  const columns: DataTableColumn<Issue>[] = [
-    { key: "title", title: t("issues.issue"), render: (_, row) => <div className="issue-title-cell">
-      <div className="issue-title-row">
-        {row.state === "open" ? <AlertCircle size={16} className="issue-icon-open"/> : <CheckCircle2 size={16} className="issue-icon-closed"/>}
-        <Button variant="ghost" className="issue-title-button" onClick={() => selectIssue(row.number)}>{row.title}</Button>
-      </div>
-      <div className="issue-meta-row">
-        <span className="issue-number">#{row.number}</span>
-        {!!row.labels.length && <div className="issue-labels">{row.labels.map(item => <span key={item.id} className="issue-label">{item.name}</span>)}</div>}
-      </div>
-    </div> },
-    { key: "created_by", title: t("issues.author"), render: (_, row) => <div className="issue-author"><User size={14}/>{names(row.created_by)}</div> },
-    { key: "assignees", title: t("issues.assignee"), render: (_, row) => row.assignees.length
-      ? <div className="issue-assignee"><User size={14}/>{row.assignees.map(item => names(item.user_id)).join(", ")}</div>
-      : <span className="issue-unassigned">{t("issues.unassigned")}</span> },
-    { key: "comments", title: t("issues.comments"), render: (_, row) => <div className="issue-comments"><MessageSquare size={14}/>{row.comments}</div> },
-    { key: "updated_at", title: t("issues.updatedColumn"), render: (_, row) => <time className="issue-date" dateTime={row.updated_at} title={formatDateTime(row.updated_at)}>{formatRelativeTime(row.updated_at)}</time> },
-  ];
-
-  const changeFilter = (setter: (value: string) => void) => (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setter(event.target.value);
-    setOffset(0);
-  };
-  const choices = (values: string[] = [], title: (value: string) => string = value => value) =>
-    values.map(value => ({ label: title(value), value }));
-  const filterOptions = result?.filter_options;
-  const reload = () => refresh(value => value + 1);
-  return <div className="issues-tab-content">
-    <div className="issues-tab-layout">
-      <aside className="issues-sidebar">
-        <h3>{t("issues.filters")}</h3>
-        <nav className="issues-nav" aria-label={t("issues.filters")}>
-          {filters.map(item => {
-            const Icon = item === "open" ? AlertCircle : item === "closed" ? CheckCircle2 : User;
-            const count = item === "open" ? open : item === "closed" ? closed : undefined;
-            return <Button key={item} variant="ghost" onClick={() => { setFilter(item); setOffset(0); }}
-              disabled={!userId && (item === "assigned" || item === "created")}
-              aria-pressed={filter === item} className="af-action-row issues-nav-item">
-              <Icon size={14} aria-hidden="true"/><span>{t(`issues.${item}`)}</span>
-              {count !== undefined && <span className="issue-count">{count}</span>}
-            </Button>;
-          })}
-        </nav>
-      </aside>
-      <div className="issues-main">
-        <div className="issues-header">
-          <SearchInput value={search} onChange={setSearch} onSearch={value => { setQuery(value); setOffset(0); }} placeholder={t("issues.search")} className="issues-search"/>
-          <Button variant="primary" size="small" disabled={organization.role === "viewer"} onClick={() => setCreate(true)}>
-            <Plus size={14} aria-hidden="true"/>{t("issues.newIssue")}
-          </Button>
-        </div>
-        <div className="issues-filters">
-          <Select aria-label={t("issues.filterAuthor")} placeholder={t("issues.author")} value={filter === "created" ? userId : author}
-            disabled={filter === "created"} onChange={changeFilter(setAuthor)} options={choices(filterOptions?.authors, names)}/>
-          <Select aria-label={t("issues.filterLabel")} placeholder={t("issues.label")} value={label} onChange={changeFilter(setLabel)} options={choices(filterOptions?.labels)}/>
-          <Select aria-label={t("issues.projectUnavailable")} placeholder={t("issues.project")} options={[]} disabled />
-          <Select aria-label={t("issues.filterMilestone")} placeholder={t("issues.milestone")} value={milestone} onChange={changeFilter(setMilestone)} options={choices(filterOptions?.milestones)}/>
-          <Select aria-label={t("issues.filterAssignee")} placeholder={t("issues.assignee")} value={filter === "assigned" ? userId : assignee}
-            disabled={filter === "assigned"} onChange={changeFilter(setAssignee)} options={choices(filterOptions?.assignees, names)}/>
-          <Select aria-label={t("issues.sort")} value={sort} onChange={event => { setSort(event.target.value as typeof sort); setOffset(0); }}
-            options={sortOptions.map(value => ({ value, label: t(`issues.${value === "updated" ? "recentlyUpdated" : value === "comments" ? "mostCommented" : value}`) }))}/>
-        </div>
-        {listState === "loading" && <p role="status">{t("issues.loading")}</p>}
-        {listState === "error" && <p role="alert" className="org-error">{error} <Button onClick={reload}>{t("issues.retry")}</Button></p>}
-        {listState === "ready" && result && <>
-          <div className="issues-table-wrap">
-            <DataTable columns={columns} data={result.items} rowKey="id" showColumnVisibility={false} emptyText={t("issues.empty")}/>
-          </div>
-          <div className="issues-footer">
-            <span>{t("issues.showing", { count: result.items.length, total: result.open_total + result.closed_total })}</span>
-            {(offset > 0 || result.total > pageSize) && <span>
-              <Button size="small" disabled={offset === 0} onClick={() => setOffset(offset - pageSize)}>{translate("common:actions.previous")}</Button>
-              <Button size="small" disabled={offset + pageSize >= result.total} onClick={() => setOffset(offset + pageSize)}>{translate("common:actions.next")}</Button>
-            </span>}
-          </div>
-        </>}
-      </div>
-    </div>
-    {create && <IssueEditor onCancel={() => setCreate(false)} onSave={async (title, body) => {
-      const issue = await issuesAPI.create(organization.id, { repository, title, body });
-      setCreate(false);
-      selectIssue(issue.number);
-      reload();
-    }}/>}
-    {selected !== undefined && <IssueDetails key={selected} organization={organization} repository={repository} userId={userId}
-      displayName={displayName} number={selected} onClose={() => selectIssue(undefined)} onChange={reload}/>}
-  </div>;
-}
-
-function IssueEditor({ issue, onCancel, onSave }: {
-  issue?: Issue; onCancel: () => void; onSave: (title: string, body: string) => Promise<void>;
-}) {
-  const { t } = useTranslation("repositories");
-  const { t: translate } = useTranslation();
-  const [title, setTitle] = useState(issue?.title ?? "");
-  const [body, setBody] = useState(issue?.body ?? "");
-  const [error, setError] = useState("");
-  return <Modal open title={t(issue ? "issues.editIssue" : "issues.newIssue")} onCancel={onCancel} okDisabled={!title.trim()}
-    okText={t(issue ? "issues.save" : "issues.createIssue")} onOk={async () => {
-      setError("");
-      try { await onSave(title.trim(), body.trim()); }
-      catch (cause) { setError(translateError(cause, translate, "repositories:issues.saveError")); }
-    }}>
-    <div className="repo-register-fields">
-      <Input label={t("issues.title")} value={title} onChange={event => setTitle(event.target.value)} required />
-      <TextArea label={t("issues.description")} rows={5} value={body} onChange={event => setBody(event.target.value)}/>
-      {error && <p role="alert" className="org-error">{error}</p>}
-    </div>
-  </Modal>;
-}
-
-function IssueDetails({ organization, repository, userId, displayName, number, onClose, onChange }: Props & {
-  number: number; onClose: () => void; onChange: () => void;
-}) {
-  const { t } = useTranslation("repositories");
-  const { t: translate } = useTranslation();
-  const [issue, setIssue] = useState<Issue>();
-  const [editing, setEditing] = useState(false);
-  const [error, setError] = useState("");
-  const [refresh, setRefresh] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [requestVersion, setRequestVersion] = useState(0);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [authorFilter, setAuthorFilter] = useState("");
+  const [labelFilter, setLabelFilter] = useState("");
+  const [milestoneFilter, setMilestoneFilter] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [sort, setSort] = useState("updated-desc");
+  const [page, setPage] = useState(1);
+  const perPage = 30;
+
   useEffect(() => {
-    const controller = new AbortController();
+    let active = true;
+    setLoading(true);
     setError("");
-    void issuesAPI.get(organization.id, number, repository, controller.signal).then(issue => {
-      if (!controller.signal.aborted) setIssue(issue);
-    }).catch(cause => {
-      if (!controller.signal.aborted) setError(translateError(cause, translate, "repositories:issues.loadError"));
+
+    const [sortBy, direction] = sort.split("-") as [IssueListParams["sort"], IssueListParams["direction"]];
+    const params: IssueListParams = {
+      repository,
+      include_filter_options: Boolean(repository),
+      state: activeFilter === "open" || activeFilter === "closed" ? activeFilter : undefined,
+      created_by: activeFilter === "created" ? currentUser : authorFilter,
+      assignee: activeFilter === "assigned" ? currentUser : assigneeFilter,
+      labels: labelFilter,
+      milestone: milestoneFilter,
+      q: searchQuery.trim(),
+      sort: sortBy,
+      direction,
+      limit: perPage,
+      offset: (page - 1) * perPage,
+    };
+
+    void issuesAPI.list(organization.id, params).then((data) => {
+      if (active) setResult(data);
+    }).catch((cause) => {
+      if (!active) return;
+      setResult(undefined);
+      setError(translateError(cause, t, "repositories:issues.loadFailed"));
+    }).finally(() => {
+      if (active) setLoading(false);
     });
-    return () => controller.abort();
-  }, [organization.id, repository, number, translate, refresh]);
-  if (issue && editing) return <IssueEditor issue={issue} onCancel={() => setEditing(false)} onSave={async (title, body) => {
-    setIssue(await issuesAPI.update(organization.id, number, repository, { title, body }));
-    setEditing(false);
-    onChange();
-  }}/>;
-  const canEdit = issue && organization.role !== "viewer" &&
-    (issue.created_by === userId || organization.role === "owner" || organization.role === "admin");
-  return <Modal open title={issue ? `${issue.title} #${number}` : `#${number}`} cancelText={t("issues.dismiss")} onCancel={onClose} confirmLoading={busy}>
-    {error && <p role="alert" className="org-error">{error} <Button onClick={() => setRefresh(value => value + 1)}>{t("issues.retry")}</Button></p>}
-    {!issue && !error && <p role="status">{t("issues.loading")}</p>}
-    {issue && <>
-      <p className="repo-meta">{t(issue.state === "open" ? "issues.openStatus" : "issues.closedStatus")} · {issue.created_by === userId && displayName ? displayName : issue.created_by}</p>
-      <p className="issue-description-body">{issue.body || t("issues.noDescription")}</p>
-      {canEdit && <div className="repo-toolbar">
-        <Button disabled={busy} onClick={() => setEditing(true)}>{t("issues.editIssue")}</Button>
-        <Button disabled={busy} onClick={async () => {
-          setError("");
-          setBusy(true);
-          try {
-            setIssue(await (issue.state === "open" ? issuesAPI.close(organization.id, number, repository, "completed")
-              : issuesAPI.reopen(organization.id, number, repository)));
-            onChange();
-          } catch (cause) {
-            setError(translateError(cause, translate, "repositories:issues.saveError"));
-          } finally {
-            setBusy(false);
-          }
-        }}>{t(issue.state === "open" ? "issues.closeIssue" : "issues.reopenIssue")}</Button>
-      </div>}
-    </>}
-  </Modal>;
+
+    return () => { active = false; };
+  }, [organization.id, repository, activeFilter, searchQuery, authorFilter, labelFilter, milestoneFilter, assigneeFilter, sort, page, currentUser, requestVersion, t]);
+
+  const issues = result?.items ?? [];
+  const totalIssues = result?.total ?? 0;
+  const openCount = result?.open_total ?? 0;
+  const closedCount = result?.closed_total ?? 0;
+
+  function options(placeholder: string, values: string[], selected: string) {
+    const unique = [...new Set([...values, selected].filter(Boolean))].sort();
+    return [{ label: placeholder, value: "" }, ...unique.map((value) => ({ label: value, value }))];
+  }
+
+  function changeFilter(update: (value: string) => void, value: string) {
+    setPage(1);
+    update(value);
+  }
+
+  function changeState(next: IssueFilterType) {
+    setPage(1);
+    setSearchParams(next === "open" ? {} : { state: next });
+  }
+
+  const handleCreateIssue = async (fields: { title: string; body: string }) => {
+    if (!repository) return;
+    setBusy(true);
+    try {
+      const newIssue = await issuesAPI.create(organization.id, { repository, ...fields });
+      setShowCreateModal(false);
+      onNotify(t("issues.createSuccess"));
+      navigate(issueDetailPath(organizationHandle, repository, newIssue.number));
+    } catch (cause) {
+      throw new Error(translateError(cause, t, "repositories:issues.createFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="issues-tab-content">
+      <div className="issues-tab-layout">
+        <aside className="issues-sidebar">
+          <nav className="issues-nav" aria-label={t("issues.views")}>
+            <Button
+              onClick={() => changeState("open")}
+              aria-pressed={activeFilter === "open" || activeFilter === "closed"}
+              variant="ghost"
+              className="af-action-row issues-nav-item"
+            >
+              <List size={16} aria-hidden="true" />
+              {t("issues.allIssues")}
+            </Button>
+            {currentUser && (
+              <>
+                <Button
+                  onClick={() => changeState("assigned")}
+                  aria-pressed={activeFilter === "assigned"}
+                  variant="ghost"
+                  className="af-action-row issues-nav-item"
+                >
+                  <User size={16} aria-hidden="true" />
+                  <span>{t("issues.assignedToMe")}</span>
+                </Button>
+                <Button
+                  onClick={() => changeState("created")}
+                  aria-pressed={activeFilter === "created"}
+                  variant="ghost"
+                  className="af-action-row issues-nav-item"
+                >
+                  <User size={16} aria-hidden="true" />
+                  <span>{t("issues.createdByMe")}</span>
+                </Button>
+              </>
+            )}
+          </nav>
+        </aside>
+        <div className="issues-main">
+          <div className="issues-header">
+            {repository && <h2>{t("sections.issues")}</h2>}
+            {repository && <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+              {t("issues.newIssue")}
+            </Button>}
+          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={(value) => changeFilter(setSearchQuery, value)}
+            onSearch={(value) => changeFilter(setSearchQuery, value)}
+            placeholder={t("issues.searchPlaceholder")}
+          />
+          <section className="issues-results" aria-label={t("issues.results")} aria-busy={loading}>
+            <div className="issues-toolbar">
+              <div className="issues-states">
+                <Button className="issues-state" size="small" aria-pressed={activeFilter === "open"} onClick={() => changeState("open")}>
+                  <AlertCircle size={16} aria-hidden="true" />
+                  {t("issues.openIssues")} <span className="issue-count">{openCount}</span>
+                </Button>
+                <Button className="issues-state" size="small" aria-pressed={activeFilter === "closed"} onClick={() => changeState("closed")}>
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  {t("issues.closedIssues")} <span className="issue-count">{closedCount}</span>
+                </Button>
+              </div>
+              <div className="issues-filters">
+                {repository && <>
+                  <Select
+                    aria-label={t("issues.filterByAuthor")}
+                    placeholder={t("issues.author")}
+                    value={activeFilter === "created" ? currentUser : authorFilter}
+                    disabled={activeFilter === "created"}
+                    onChange={(event) => changeFilter(setAuthorFilter, event.target.value)}
+                    options={options(t("issues.author"), result?.filter_options?.authors ?? [], activeFilter === "created" ? currentUser : authorFilter)}
+                  />
+                  <Select
+                    aria-label={t("issues.filterByLabel")}
+                    placeholder={t("issues.label")}
+                    value={labelFilter}
+                    onChange={(event) => changeFilter(setLabelFilter, event.target.value)}
+                    options={options(t("issues.label"), result?.filter_options?.labels ?? [], labelFilter)}
+                  />
+                  <Select
+                    aria-label={t("issues.filterByMilestone")}
+                    placeholder={t("issues.milestone")}
+                    value={milestoneFilter}
+                    onChange={(event) => changeFilter(setMilestoneFilter, event.target.value)}
+                    options={options(t("issues.milestone"), result?.filter_options?.milestones ?? [], milestoneFilter)}
+                  />
+                  <Select
+                    aria-label={t("issues.filterByAssignee")}
+                    placeholder={t("issues.assignee")}
+                    value={activeFilter === "assigned" ? currentUser : assigneeFilter}
+                    disabled={activeFilter === "assigned"}
+                    onChange={(event) => changeFilter(setAssigneeFilter, event.target.value)}
+                    options={options(t("issues.assignee"), result?.filter_options?.assignees ?? [], activeFilter === "assigned" ? currentUser : assigneeFilter)}
+                  />
+                </>}
+                <Select
+                  aria-label={t("issues.sortBy")}
+                  value={sort}
+                  onChange={(event) => changeFilter(setSort, event.target.value)}
+                  options={[
+                    { label: t("issues.recentlyUpdated"), value: "updated-desc" },
+                    { label: t("issues.newest"), value: "created-desc" },
+                    { label: t("issues.oldest"), value: "created-asc" },
+                    { label: t("issues.mostCommented"), value: "comments-desc" },
+                  ]}
+                />
+              </div>
+            </div>
+            {loading ? (
+              <p role="status" className="issues-message">{t("common:components.loading")}</p>
+            ) : error ? (
+              <div className="issues-message">
+                <p role="alert" className="org-error">{error}</p>
+                <Button variant="secondary" onClick={() => setRequestVersion(version => version + 1)}>{t("app:organizationGate.retry")}</Button>
+              </div>
+            ) : issues.length === 0 ? (
+              <p className="issues-message">{t("issues.noIssues")}</p>
+            ) : (
+              <ul className="issues-list" role="list">
+                {issues.map((issue) => (
+                  <li key={issue.id} className="issue-list-item">
+                    {issue.state === "open" ? (
+                      <AlertCircle size={16} className="issue-icon-open" role="img" aria-label={t("issues.state.open")} />
+                    ) : (
+                      <CheckCircle2 size={16} className="issue-icon-closed" role="img" aria-label={t("issues.state.closed")} />
+                    )}
+                    <div className="issue-title-cell">
+                      <div className="issue-title-row">
+                        <Link className="repo-link issue-title-link" to={issueDetailPath(organizationHandle, issue.repository, issue.number)}>{issue.title}</Link>
+                        {issue.labels.map((label) => (
+                          <span key={label.id} className="issue-label" style={{ borderColor: `#${label.color}` }}>{label.name}</span>
+                        ))}
+                      </div>
+                      <div className="issue-meta-row">
+                        <span>{!repository && issue.repository}#{issue.number}</span>
+                        <span>{issue.created_by}</span>
+                        <time dateTime={issue.updated_at} title={formatDateTime(issue.updated_at)}>{formatRelativeTime(issue.updated_at)}</time>
+                        {issue.assignees.length > 0 && (
+                          <span className="issue-assignee" title={t("issues.assignees")}>
+                            <User size={14} aria-hidden="true" />
+                            {issue.assignees[0].user_id}{issue.assignees.length > 1 && ` +${issue.assignees.length - 1}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="issue-comments" role="img" aria-label={t("issues.detail.commentCount", { count: issue.comments })}>
+                      <MessageSquare size={14} aria-hidden="true" />
+                      {issue.comments}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          {!loading && !error && <div className="issues-footer">
+            <span>
+              {t("issues.showingCount", { count: issues.length, total: totalIssues })}
+            </span>
+            {totalIssues > perPage && (
+              <div className="issues-pagination">
+                <Button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                  {t("common:actions.previous")}
+                </Button>
+                <span>
+                  {t("issues.page", { current: page, total: Math.ceil(totalIssues / perPage) })}
+                </span>
+                <Button
+                  disabled={page >= Math.ceil(totalIssues / perPage)}
+                  onClick={() => setPage(page + 1)}
+                >
+                  {t("common:actions.next")}
+                </Button>
+              </div>
+            )}
+          </div>}
+        </div>
+      </div>
+
+      {/* Create Issue Modal */}
+      {showCreateModal && (
+        <Modal
+          open={showCreateModal}
+          onCancel={() => setShowCreateModal(false)}
+          title={t("issues.createIssue")}
+          confirmLoading={busy}
+        >
+          <IssueForm
+            mode="create"
+            onSubmit={handleCreateIssue}
+            onCancel={() => setShowCreateModal(false)}
+            busy={busy}
+          />
+        </Modal>
+      )}
+    </div>
+  );
 }

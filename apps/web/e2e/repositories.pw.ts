@@ -245,6 +245,19 @@ test("a repository owner can switch spaces, keep configuration, and create", asy
   await expect(page).toHaveURL("/orgs/taylor/repositories/taylor/new-repository");
 });
 
+test("registers existing repository visibility and fork metadata", async ({ page }) => {
+  await page.goto("/orgs/demo/repositories/new?mode=register");
+  await page.getByLabel("Owner", { exact: true }).fill("team");
+  await page.getByLabel("Repository name", { exact: true }).fill("new-repository");
+  await page.getByRole("combobox", { name: "Visibility" }).click();
+  await page.getByRole("option", { name: "Private repository" }).click();
+  await page.getByRole("checkbox", { name: "Forked repository" }).check();
+  const sent = page.waitForRequest(request => request.url().endsWith("/api/v1/organizations/org-demo/repositories") && request.method() === "POST");
+  await page.getByRole("button", { name: "Register repository", exact: true }).click();
+  expect((await sent).postDataJSON()).toEqual({ slug: "team/new-repository", default_branch: "main", visibility: "private", fork: true });
+  await expect(page).toHaveURL("/orgs/demo/repositories/team/new-repository");
+});
+
 test("a viewer cannot open the repository registration form", async ({ page }) => {
   await installApiMocks(page, { organizations: [{ id: "org-demo", slug: "demo", name: "AgentForge Demo", role: "viewer" }] });
   await page.goto("/orgs/demo/repositories");

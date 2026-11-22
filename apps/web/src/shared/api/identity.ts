@@ -129,7 +129,8 @@ export type StoredChangeset = {
 
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
-export type RepositoryMetadata = { organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryVisibility = "public" | "private";
+export type RepositoryMetadata = { visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
 export type RepositoryPreviewRefs = { repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
@@ -195,8 +196,8 @@ export type RepositoryAction = { id: string; pipeline: string; status: string; v
 export const repositoryAPI = {
   list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(repositoryBase(organizationID)),
   summaries: (organizationID: string) => request<{items: RepositorySummary[]}>(`${repositoryBase(organizationID)}?details=1`),
-  register: (organizationID: string, slug: string, defaultBranch: string) =>
-    request<RepositoryMetadata>(repositoryBase(organizationID), {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch})}),
+  register: (organizationID: string, slug: string, defaultBranch: string, metadata: Pick<RepositoryMetadata, "visibility" | "fork"> = {}) =>
+    request<RepositoryMetadata>(repositoryBase(organizationID), {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch,...metadata})}),
   create: (organizationID: string, slug: string, description: string, initialize: { readme: boolean; gitignore: string; license: string }) =>
     request<RepositoryMetadata>(repositoryBase(organizationID), {
       method: "POST", body: JSON.stringify({ slug, default_branch: "main", description, initialize }),

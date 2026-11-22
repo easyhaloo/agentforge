@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Building2, CircleAlert, Lock, Globe, UserRound } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { repositoryAPI, type AccountContext, type OrganizationSummary } from "../../shared/api/identity";
+import { repositoryAPI, type AccountContext, type OrganizationSummary, type RepositoryVisibility } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
 import { organizationHandle, orgPath, repositoryPath } from "../../shared/routing";
-import { Button, Input, Switch } from "../../shared/ui";
+import { Button, Checkbox, Input, Select, Switch } from "../../shared/ui";
 import { RepositoryCreatePicker } from "./RepositoryCreatePicker";
-import { canManageRepository } from "./RepositorySectionPage";
+import { canManageRepository } from "./RepositoryMasthead";
 import "./repositories.css";
 
 const validName = /^[a-z0-9][a-z0-9_.-]{0,99}$/i;
@@ -30,6 +30,8 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [branch, setBranch] = useState("main");
+  const [visibility, setVisibility] = useState<RepositoryVisibility>();
+  const [fork, setFork] = useState(false);
   const [readme, setReadme] = useState(false);
   const [gitignore, setGitignore] = useState("");
   const [license, setLicense] = useState("");
@@ -69,7 +71,7 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
     setSubmitting(true);
     try {
       const result = registering
-        ? await repositoryAPI.register(target.id, slug, branch.trim())
+        ? await repositoryAPI.register(target.id, slug, branch.trim(), { visibility, fork })
         : await repositoryAPI.create(target.id, slug, description, { readme, gitignore, license });
       onNotify(registering ? t("feedback.registered") : t("create.created"));
       navigate(repositoryPath(organizationHandle(target), result.slug));
@@ -119,8 +121,21 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
 
             <section className="repo-create-section" aria-labelledby="repo-create-configuration">
               <h2 id="repo-create-configuration"><span className="repo-create-step" aria-hidden="true">2</span>{t("create.configurationSection")}</h2>
-              {registering ? <Input label={t("create.defaultBranchLabel")} aria-label={t("create.defaultBranchLabel")} value={branch} onChange={event => setBranch(event.target.value)}
-                hint={t("create.defaultBranchHelp")} error={attempted && !branch.trim() ? t("create.defaultBranchError") : ""} required autoComplete="off" /> :
+              {registering ? <div className="repo-create-configuration">
+                <Input label={t("create.defaultBranchLabel")} aria-label={t("create.defaultBranchLabel")} value={branch} onChange={event => setBranch(event.target.value)}
+                  hint={t("create.defaultBranchHelp")} error={attempted && !branch.trim() ? t("create.defaultBranchError") : ""} required autoComplete="off" />
+                <Select label={t("form.visibility")} value={visibility ?? ""}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setVisibility(value === "public" || value === "private" ? value : undefined);
+                  }}
+                  options={[
+                    { label: t("form.visibilityUnknown"), value: "" },
+                    { label: t("types.public"), value: "public" },
+                    { label: t("types.private"), value: "private" },
+                  ]} />
+                <Checkbox label={t("types.fork")} checked={fork} onChange={event => setFork(event.target.checked)} />
+              </div> :
                 <div className="repo-create-configuration">
                   <div className="repo-create-option repo-create-visibility">
                     <div><strong>{t("create.visibilityLabel")}</strong><p>{t("create.visibilityHelp")}</p></div>

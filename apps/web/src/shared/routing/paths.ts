@@ -22,13 +22,13 @@ export const flatPaths = {
 } as const;
 
 /** Pages backed by the real API live under `/orgs/:org/<section>`. `settings` is the Organization page. */
-export type OrgSection = "pipelines" | "changesets" | "repositories" | "webide" | "trails" | "review" | "eval" | "settings";
+export type OrgSection = "pipelines" | "changesets" | "issues" | "repositories" | "webide" | "trails" | "review" | "eval" | "settings";
 
 export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
-export const repositorySections = ["branches", "issues", "actions", "settings"] as const;
+export const repositorySections = ["issues", "branches", "actions", "settings"] as const;
 export type RepositorySection = typeof repositorySections[number];
 
 export function repositoryPath(handle: string, slug: string, section?: RepositorySection): string {
@@ -38,6 +38,10 @@ export function repositoryPath(handle: string, slug: string, section?: Repositor
 
 export function repositoryNewPath(handle: string): string {
   return `${orgPath(handle, "repositories")}/new`;
+}
+
+export function issueDetailPath(handle: string, slug: string, issueNumber: number): string {
+  return `${repositoryPath(handle, slug, "issues")}/${issueNumber}`;
 }
 
 export function repositoryChangesetsPath(handle: string, repository: string, options: { source?: string; create?: string } = {}): string {

@@ -8,10 +8,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, type OrganizationSummary, type RepositorySummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, repositoryChangesetsPath, repositoryPath, repositoryNewPath } from "../../shared/routing";
 import { Button, Input, Modal, Select } from "../../shared/ui";
-import { canManageRepository } from "./RepositorySectionPage";
+import { canManageRepository } from "./RepositoryMasthead";
 import "./repositories.css";
 
 const languageColors: Record<string, string> = {
@@ -41,6 +41,7 @@ function readViews(key: string): SavedView[] {
 
 export function RepositoriesPage({ organization, userID }: Props) {
   const { t } = useTranslation("repositories");
+  const { formatDateTime, formatRelativeTime } = useDateFormatting();
   const [items, setItems] = useState<RepositorySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

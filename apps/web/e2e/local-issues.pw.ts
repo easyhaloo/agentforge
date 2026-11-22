@@ -8,7 +8,7 @@ const origin = process.env.AGENTFORGE_TEST_ORIGIN;
 const gitRoot = process.env.GIT_REPOSITORY_ROOT ?? join(process.env.RUN_DIR ?? "/tmp/agentforge-dev", "git");
 test.skip(!origin, "Requires a local API, PostgreSQL, and the dev stack Git root");
 
-test("repository issues persist create, edit, close and reopen through the API", async ({ page }, testInfo) => {
+test("creates, edits, closes, and reopens an issue across reloads", async ({ page }, testInfo) => {
   const base = new URL(origin!);
   expect(["localhost", "127.0.0.1", "[::1]"]).toContain(base.hostname);
   const password = randomUUID();
@@ -56,7 +56,7 @@ test("repository issues persist create, edit, close and reopen through the API",
   await page.getByRole("button", { name: "Create repository", exact: true }).click();
   const result = await createdRepository;
   expect(result.status(), await result.text()).toBe(201);
-  expect(await result.json()).toMatchObject({ organization_id: orgID, slug: newSlug, default_branch: "main", description: "Verified with PostgreSQL and Git" });
+  expect(await result.json()).toMatchObject({ organization_id: orgID, slug: newSlug, default_branch: "main", visibility: "private", fork: false, description: "Verified with PostgreSQL and Git" });
   await expect(page).toHaveURL(`${base.origin}${organizationPath}/repositories/${newSlug}`);
   const gitFiles = execFileSync("git", ["-C", newGitDir, "ls-tree", "--name-only", "HEAD"], { encoding: "utf8" });
   expect(gitFiles.trim().split("\n")).toEqual([".gitignore", "LICENSE", "README.md"]);
@@ -102,9 +102,14 @@ test("repository issues persist create, edit, close and reopen through the API",
     await expect(page.getByRole("alert").filter({ hasText: /repository must exist/i })).toBeVisible();
     await expect(name).toHaveValue(`${basename(gitDir)}-missing`);
     await name.fill(basename(gitDir));
+    await page.getByRole("combobox", { name: "Visibility" }).click();
+    await page.getByRole("option", { name: "Private repository" }).click();
+    await page.getByRole("checkbox", { name: "Forked repository" }).check();
     const registered = apiResponse(repositoriesAPI, "POST");
     await submit.click();
-    expect((await registered).status()).toBe(201);
+    const registeredResponse = await registered;
+    expect(registeredResponse.status()).toBe(201);
+    expect(await registeredResponse.json()).toMatchObject({ slug: repository, visibility: "private", fork: true });
     await expect(page).toHaveURL(`${base.origin}${organizationPath}/repositories/${repository}`);
     await page.getByRole("link", { name: "Issues", exact: true }).click();
     await expect(page).toHaveURL(`${base.origin}${issuesPath}`);
@@ -113,7 +118,7 @@ test("repository issues persist create, edit, close and reopen through the API",
     const title = "Preserve issue state after reload";
     const description = "Verify this issue is stored by the real API.";
     await page.getByRole("button", { name: "New issue", exact: true }).click();
-    const create = page.getByRole("dialog", { name: "New issue" });
+    const create = page.getByRole("dialog", { name: "Create issue" });
     await create.getByLabel("Title").fill(title);
     await create.getByLabel("Description").fill(description);
     const created = apiResponse(issuesAPI, "POST");
@@ -123,61 +128,57 @@ test("repository issues persist create, edit, close and reopen through the API",
     const issue = await createdResponse.json() as { number: number; repository: string; state: string };
     expect(issue).toMatchObject({ number: 1, repository, state: "open" });
     const detailAPI = `${issuesAPI}/${issue.number}`;
-    const detail = page.getByRole("dialog");
-    await expect(detail).toHaveAccessibleName(`${title} #${issue.number}`);
-    await expect(detail.getByText(description, { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(`${base.origin}${issuesPath}/${issue.number}`);
+    await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Issue", exact: true })).toHaveCount(0);
+    await expect(page.getByText(description, { exact: true })).toBeVisible();
 
     const updatedTitle = `${title} (edited)`;
-    await detail.getByRole("button", { name: "Edit issue" }).click();
-    await detail.getByLabel("Title").fill(updatedTitle);
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const edit = page.getByRole("dialog", { name: "Edit issue" });
+    await edit.getByLabel("Title").fill(updatedTitle);
     const updated = apiResponse(detailAPI, "PATCH");
-    await detail.getByRole("button", { name: "Save changes" }).click();
+    await edit.getByRole("button", { name: "Update issue", exact: true }).click();
     expect((await updated).status()).toBe(200);
-    await expect(detail).toHaveAccessibleName(`${updatedTitle} #${issue.number}`);
+    await expect(page.getByRole("heading", { name: /Preserve issue state after reload.*edited/ })).toBeVisible();
 
+    await page.getByRole("button", { name: "Close issue", exact: true }).click();
     const closed = apiResponse(`${detailAPI}/close`, "POST");
-    await detail.getByRole("button", { name: "Close issue", exact: true }).click();
+    await page.getByRole("dialog", { name: "Close issue" }).getByRole("button", { name: "Close issue", exact: true }).click();
     const closedResponse = await closed;
     expect(closedResponse.status()).toBe(200);
-    expect(await closedResponse.json()).toMatchObject({ state: "closed", state_reason: "completed" });
-    await expect(detail.getByRole("button", { name: "Reopen issue" })).toBeVisible();
-
-    await page.reload();
-    await expect(page.getByText("No issues found matching your filters.")).toBeVisible();
-    const list = apiResponse(issuesAPI, "GET");
-    await page.getByRole("button", { name: /^Closed issues\b/i }).click();
-    const listResponse = await list;
-    expect(new URL(listResponse.url()).searchParams.get("state")).toBe("closed");
-    expect(await listResponse.json()).toMatchObject({ total: 1, items: [{ title: updatedTitle, state: "closed" }] });
-    const issueRow = page.getByRole("button", { name: updatedTitle, exact: true });
-    await expect(issueRow).toBeVisible();
-    const screenshot = async (name: string) => {
-      const path = testInfo.outputPath(`${name}.png`);
-      await page.screenshot({ path, animations: "disabled", fullPage: true });
-      await testInfo.attach(name, { path, contentType: "image/png" });
-    };
-    await screenshot("issues-closed-list-real-api");
+    expect(closedResponse.request().postDataJSON()).toEqual({ reason: "completed" });
+    const reopen = page.getByRole("button", { name: "Reopen issue", exact: true });
+    await expect(reopen).toBeVisible();
 
     const reloaded = apiResponse(detailAPI, "GET");
-    await issueRow.click();
-    expect(await (await reloaded).json()).toMatchObject({ number: issue.number, title: updatedTitle, state: "closed" });
-    const reopen = detail.getByRole("button", { name: "Reopen issue", exact: true });
+    await page.reload();
+    const reloadedResponse = await reloaded;
+    expect(reloadedResponse.status()).toBe(200);
+    expect(await reloadedResponse.json()).toMatchObject({ number: issue.number, title: updatedTitle, state: "closed", state_reason: "completed" });
     await expect(reopen).toBeVisible();
-    await screenshot("issue-closed-detail-real-api");
+    const closedScreenshot = testInfo.outputPath("issue-closed-real-api.png");
+    await page.screenshot({ path: closedScreenshot, animations: "disabled", fullPage: true });
+    await testInfo.attach("Closed issue after reload", { path: closedScreenshot, contentType: "image/png" });
+
+    await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+    await expect(page).toHaveURL(`${base.origin}${issuesPath}`);
+    await expect(page.getByText("No issues found matching your filters.")).toBeVisible();
+    await page.getByRole("button", { name: /^Closed issues\b/i }).click();
+    const closedIssue = page.getByRole("link", { name: updatedTitle, exact: true });
+    await expect(closedIssue).toBeVisible();
+    await expect(closedIssue).toHaveAttribute("href", `${issuesPath}/${issue.number}`);
+    const closedListScreenshot = testInfo.outputPath("issues-closed-list-real-api.png");
+    await page.screenshot({ path: closedListScreenshot, animations: "disabled" });
+    await testInfo.attach("Issue in the Closed list", { path: closedListScreenshot, contentType: "image/png" });
+
+    await closedIssue.click();
     const reopened = apiResponse(`${detailAPI}/reopen`, "POST");
     await reopen.click();
     const reopenedResponse = await reopened;
     expect(reopenedResponse.status()).toBe(200);
     expect(await reopenedResponse.json()).toMatchObject({ state: "open" });
-    await expect(detail.getByRole("button", { name: "Close issue", exact: true })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /^Open issues\b/i }).click();
-    await expect(issueRow).toBeVisible();
-    const search = page.getByPlaceholder("Search issues...");
-    await search.fill("does not exist");
-    await expect(page.getByText("No issues found matching your filters.")).toBeVisible();
-    await search.fill(updatedTitle);
-    await expect(issueRow).toBeVisible();
+    await expect(page.getByRole("button", { name: "Close issue", exact: true })).toBeVisible();
   } finally {
     rmSync(gitDir, { recursive: true, force: true });
   }

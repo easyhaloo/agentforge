@@ -10,6 +10,8 @@ type RepositoryMetadata struct {
 	Slug           string    `json:"slug"`
 	Description    string    `json:"description,omitempty"`
 	DefaultBranch  string    `json:"default_branch"`
+	Visibility     string    `json:"visibility,omitempty"`
+	Fork           bool      `json:"fork"`
 	CreatedBy      string    `json:"created_by"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

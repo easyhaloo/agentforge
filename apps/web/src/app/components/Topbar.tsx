@@ -1,16 +1,16 @@
 import type { ReactNode } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import { flatPaths } from "../../shared/routing";
+import { flatPaths, orgPath } from "../../shared/routing";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../shared/ui";
-import { LanguageSwitcher } from "../../shared/ui/components/LanguageSwitcher";
+import { TopbarIcon } from "./TopbarIcon";
 import { labelToNavKey } from "../navigation-labels";
 import { UserMenu } from "./UserMenu";
 
-type Props = { focused?: boolean; label: string; onSearch: () => void; navigation?: ReactNode; organization?: ReactNode; onSignOut: () => void };
+type Props = { focused?: boolean; label: string; onSearch: () => void; navigation?: ReactNode; organization?: ReactNode; organizationHandle?: string; context?: ReactNode; onSignOut: () => void };
 
-export function Topbar({ focused, label, onSearch, onSignOut, navigation, organization }: Props) {
+export function Topbar({ focused, label, onSearch, onSignOut, navigation, organization, organizationHandle, context }: Props) {
   const { t } = useTranslation();
   const translatedLabel = t(labelToNavKey(label));
 
@@ -24,16 +24,27 @@ export function Topbar({ focused, label, onSearch, onSignOut, navigation, organi
       ) : <div className="workspace-brand">
         {navigation}
         <Link to={flatPaths.overview} aria-label={t("navigation:sidebar.brand")}>
-          <span className="brand-mark"><Sparkles size={16} /></span><strong>{t("navigation:sidebar.productName")}</strong>
+          <span className="brand-mark"><Sparkles size={16} aria-hidden="true" /></span>
         </Link>
-        <span className="workspace-brand__page">{translatedLabel}</span>
+        {context ?? <span className="workspace-brand__page">{translatedLabel}</span>}
       </div>}
       <div className="top-actions">
-        <Button variant="ghost" className="searchbox" onClick={onSearch} aria-label={t("navigation:topbar.searchAriaLabel")}>
-          <Search size={15} /> {t("navigation:topbar.searchPlaceholder")} <kbd>⌘ K</kbd>
+        <Button variant="ghost" className="searchbox" onClick={onSearch} aria-label={t("navigation:topbar.searchPages")}
+          aria-keyshortcuts={focused ? undefined : "/ Control+K Meta+K"}>
+          <Search size={15} aria-hidden="true" /> {t("navigation:topbar.searchPages")} {!focused && <kbd aria-hidden="true">/</kbd>}
         </Button>
         {organization}
-        <LanguageSwitcher />
+        {organizationHandle && <div className="topbar-shortcuts">
+          <Link className="workspace-icon" to={orgPath(organizationHandle, "issues")} aria-label={t("navigation:topbar.allIssues")} title={t("navigation:topbar.allIssues")}>
+            <TopbarIcon name="issue-opened" />
+          </Link>
+          <Link className="workspace-icon" to={orgPath(organizationHandle, "changesets")} aria-label={t("navigation:topbar.allPullRequests")} title={t("navigation:topbar.allPullRequests")}>
+            <TopbarIcon name="git-pull-request" />
+          </Link>
+          <Link className="workspace-icon" to={orgPath(organizationHandle, "repositories")} aria-label={t("navigation:topbar.allRepositories")} title={t("navigation:topbar.allRepositories")}>
+            <TopbarIcon name="repo" />
+          </Link>
+        </div>}
         <UserMenu onSignOut={onSignOut} />
       </div>
     </header>
