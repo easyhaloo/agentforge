@@ -29,9 +29,9 @@ export function Topbar({ focused, label, onSearch, onSignOut, navigation, organi
         {context ?? <span className="workspace-brand__page">{translatedLabel}</span>}
       </div>}
       <div className="top-actions">
-        <Button variant="ghost" className="searchbox" onClick={onSearch} aria-label={t("navigation:topbar.searchPages")}
-          aria-keyshortcuts={focused ? undefined : "/ Control+K Meta+K"}>
-          <Search size={15} aria-hidden="true" /> {t("navigation:topbar.searchPages")} {!focused && <kbd aria-hidden="true">/</kbd>}
+        <Button variant="ghost" className="searchbox" onClick={onSearch} aria-label={t("navigation:commandPalette.title")}
+          aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K">
+          <Search size={15} aria-hidden="true" /> {t("navigation:commandPalette.title")} <kbd aria-hidden="true">/</kbd>
         </Button>
         {organization}
         {organizationHandle && <div className="topbar-shortcuts">

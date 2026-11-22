@@ -16,6 +16,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { navigationItemFor, routeLabel } from "./navigation";
 import { useNavigateTo } from "./useNavigateTo";
 import { useNotify } from "./useNotify";
+import { useSearchShortcut } from "./useSearchShortcut";
 
 /** Root layout: loads the account once and renders the shell around the page the URL selects. */
 function App() {
@@ -80,20 +81,10 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const command = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
-      const quickSearch = event.key === "/" && !event.altKey && !event.metaKey && !event.ctrlKey && !event.isComposing &&
-        event.target instanceof HTMLElement && !event.target.closest('input, textarea, select, [contenteditable], [role="textbox"], [role=dialog], [aria-expanded="true"]');
-      if (!event.defaultPrevented && !commandOpen && (command || (quickSearch && !navigationOpen))) {
-        event.preventDefault();
-        setNavigationOpen(false);
-        setCommandOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [commandOpen, navigationOpen]);
+  useSearchShortcut(!commandOpen, () => {
+    setNavigationOpen(false);
+    setCommandOpen(true);
+  }, !navigationOpen);
 
   // The router serves /projects/ like /projects, but the sidebar highlights only the exact path (NavLink `end`), so
   // trailing slashes are removed (history `replace`, query and hash kept) before a page is shown.
@@ -141,7 +132,8 @@ function App() {
             {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>
         </main>
-        <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+        <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} linkHandle={linkHandle}
+          repository={isRepositoryDetail && owner && repo ? `${owner}/${repo}` : undefined} />
       </div>
     </AppAccountContext.Provider>
   );

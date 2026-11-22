@@ -341,6 +341,7 @@
     "daysAgo": "{{count}} day ago",
     "daysAgo_other": "{{count}} days ago",
     "filters": "Filters",
+    "allStates": "All states",
     "openIssues": "Open issues",
     "closedIssues": "Closed issues",
     "assignedToMe": "Assigned to me",

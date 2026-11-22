@@ -194,7 +194,7 @@ export type RepositorySummary = RepositoryMetadata & {
 export type RepositoryAction = { id: string; pipeline: string; status: string; version: number; created_at: string };
 
 export const repositoryAPI = {
-  list: (organizationID: string) => request<{items: RepositoryMetadata[]}>(repositoryBase(organizationID)),
+  list: (organizationID: string, signal?: AbortSignal) => request<{items: RepositoryMetadata[]}>(repositoryBase(organizationID), { signal }),
   summaries: (organizationID: string) => request<{items: RepositorySummary[]}>(`${repositoryBase(organizationID)}?details=1`),
   register: (organizationID: string, slug: string, defaultBranch: string, metadata: Pick<RepositoryMetadata, "visibility" | "fork"> = {}) =>
     request<RepositoryMetadata>(repositoryBase(organizationID), {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch,...metadata})}),
