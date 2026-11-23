@@ -133,22 +133,22 @@ func TestPreviewRequiresTenantOwnedRepository(t *testing.T) {
 }
 
 func TestBuildAndPromoteOnlyRetainedCandidate(t *testing.T) {
-	root := t.TempDir()
+	p := mustProvider(t, t.TempDir())
+	cleanupRepo, err := p.InitializeRepository(t.Context(), "org", "team/repo", RepositoryInitialization{Readme: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupRepo()
+	repo := filepath.Join(p.Root, "org", "team", "repo")
 	src := t.TempDir()
-	gitTest(t, src, "init", "-b", "main")
-	gitTest(t, src, "commit", "--allow-empty", "-m", "base")
+	gitTest(t, src, "clone", repo, ".")
 	gitTest(t, src, "checkout", "-b", "topic")
 	if err := os.WriteFile(filepath.Join(src, "input"), []byte("exact revision"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	gitTest(t, src, "add", "input")
 	gitTest(t, src, "commit", "-m", "feature")
-	repo := filepath.Join(root, "org", "team", "repo")
-	gitTest(t, src, "clone", "--bare", src, repo)
-	p, err := NewLocalGitProvider(root, time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitTest(t, src, "push", "origin", "topic")
 	candidate, err := p.PrepareCandidate(t.Context(), "org", "team/repo", MergeRequest{Target: "main", Sources: []string{"topic"}})
 	if err != nil || candidate.Status != "clean" {
 		t.Fatalf("prepare=%v %v", candidate, err)

@@ -95,8 +95,14 @@ func (m MetadataUpdate) HasChanges() bool {
 	return m.Fields != nil || m.ChangesetIDs != nil || m.AssigneeIDs != nil || m.LabelIDs != nil || m.ProjectIDs != nil || m.MilestoneID != nil || m.Type != nil
 }
 
+type CommitLink struct {
+	SHA     string `json:"sha"`
+	Subject string `json:"subject"`
+}
+
 // Issue represents a trackable unit of work or discussion.
 type Issue struct {
+	Commits           []CommitLink      `json:"commits,omitempty"`
 	Fields            map[string]string `json:"custom_fields,omitempty"`
 	Changesets        []ChangesetLink   `json:"changesets,omitempty"`
 	CreatedByName     string            `json:"created_by_name,omitempty"`

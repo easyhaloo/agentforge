@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/config"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
@@ -19,6 +20,9 @@ import (
 )
 
 func main() {
+	if handled, status := githttp.RunHelper(os.Args); handled {
+		os.Exit(status)
+	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	configuration, err := config.LoadFromEnv()
 	if err != nil {
@@ -86,6 +90,34 @@ func main() {
 	if err := configureGit(&deps, configuration, os.Getenv("GIT_REMOTE_BINDINGS_FILE"), logger); err != nil {
 		logger.Error("invalid remote integration Git bindings", "error", err)
 		os.Exit(1)
+	}
+	deps.GitCredentials = store
+	if os.Getenv("GIT_SMART_HTTP_ENABLED") == "1" {
+		provider, ok := deps.Git.(*delivery.LocalGitProvider)
+		executable, err := os.Executable()
+		if !ok || err != nil {
+			logger.Error("Git Smart HTTP requires a local Git repository root and API executable")
+			os.Exit(1)
+		}
+		deps.GitHTTP, err = githttp.New(ctx, provider.Root, executable)
+		if err != nil {
+			logger.Error("Git Smart HTTP initialization failed", "error", err)
+			os.Exit(1)
+		}
+		go projectGitIssues(ctx, provider, issueRepo, logger)
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for ctx.Err() == nil {
+				if err := deps.GitHTTP.Reconcile(ctx, store.LockGitDefaultBranch); err != nil && ctx.Err() == nil {
+					logger.Error("Git push journal recovery failed", "error", err)
+				}
+				select {
+				case <-ctx.Done():
+				case <-ticker.C:
+				}
+			}
+		}()
 	}
 
 	go func() {

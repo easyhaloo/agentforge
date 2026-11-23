@@ -192,6 +192,22 @@
     "top": "Back to top",
     "commit": "Commit"
   },
+  "clone": {
+    "title": "Clone",
+    "url": "Clone URL",
+    "copyUrl": "Copy URL",
+    "scope": "Credential access",
+    "read": "Clone and fetch",
+    "write": "Clone and push",
+    "create": "Generate credential",
+    "revoke": "Revoke credential",
+    "copyToken": "Copy credential",
+    "hint": "Use git as the username and the generated credential as the password. Credentials expire in one hour.",
+    "issued": "Copy the credential before closing.",
+    "active": "A credential is active. Revoke it to generate another one.",
+    "copied": "Copied",
+    "failed": "Could not manage the Git credential."
+  },
   "browser": {
     "about": "About",
     "branches_one": "{{count}} branch",
@@ -225,6 +241,8 @@
     "historyEmpty": "No commits found.",
     "commitMissing": "Commit not found.",
     "commitDetails": "Commit details",
+    "linkedIssues": "Linked issues",
+    "linkedIssuesFailed": "Could not load linked issues.",
     "backToHistory": "Back to commits",
     "browseAtCommit": "Browse files at this commit",
     "commitLoading": "Loading commit changes…",
@@ -702,6 +720,7 @@
       "uniqueFields": "Use a different name for each field.",
       "development": "Development",
       "noChangesets": "No linked changesets",
+      "linkedCommits": "Linked commits",
       "searchChangesets": "Search changesets in this repository",
       "changeset": "Changeset",
       "systemActor": "System"

@@ -20,7 +20,10 @@
   justify-content: space-between;
 }
 
-.repo-code-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.repo-code-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+.repo-clone-dialog { display: grid; gap: 12px; }
+.repo-clone-dialog p { margin: 0; }
+.repo-clone-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .repo-back,
 .repo-link,
 .repo-breadcrumbs a {

@@ -19,6 +19,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/events"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 	"github.com/easyhaloo/agentforge/backend/api/internal/labels"
@@ -128,6 +129,8 @@ type DeliveryDependencies struct {
 	Settings         SettingsRepository
 	Git              delivery.GitProvider
 	IntegrationGit   delivery.IntegrationGitProvider
+	GitHTTP          *githttp.Transport
+	GitCredentials   GitCredentialStore
 	Evaluator        delivery.Evaluator
 	Evidence         delivery.EvidenceStore
 	Reviewers        ReviewerAuthorizer
@@ -210,6 +213,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blob", deps.readRepositoryBlob)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history", deps.listRepositoryHistory)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/commit-issues", deps.listCommitIssues)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/compare", deps.compareRepositoryCommits)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/file-history", deps.listRepositoryFileHistory)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/blame", deps.blameRepositoryFile)

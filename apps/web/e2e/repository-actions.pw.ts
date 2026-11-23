@@ -4,7 +4,8 @@ import { once } from "node:events";
 import { expect, test, type Page } from "@playwright/test";
 import { demoOrganization, installApiMocks, now } from "./support/api-mocks";
 import { selectOption } from "./support/select-option";
-import type { Pipeline, WorkflowTrigger } from "../src/shared/api/pipelines";
+import type { StoredChangeset } from "../src/shared/api/identity";
+import type { Pipeline, Run, WorkflowTrigger } from "../src/shared/api/pipelines";
 
 const repository = "easyhaloo/agentforge";
 const pagePath = `/orgs/demo/repositories/${repository}/actions`;
@@ -294,6 +295,76 @@ test("repository Actions persists a published workflow and its runs through the 
   await page.getByRole("button", { name: "Enable workflow" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Enable workflow" }).click();
   await expect(page.getByRole("button", { name: "Run workflow" })).toBeVisible();
+});
+
+test("repository Actions enables and disables the live Changeset revision trigger", async ({ page }, testInfo) => {
+  test.skip(!liveOrigin, "Requires a local API with PostgreSQL and Git");
+  await openLiveRepositoryActions(page);
+  const orgPath = new URL(page.url()).pathname.split("/repositories/")[0];
+  await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
+  await page.getByLabel("Workflow name").fill("revision-ci");
+  await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("button", { name: "Publish version" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await expect(page).toHaveURL(/[?&]workflow=/);
+  const actionsURL = page.url();
+
+  const triggers = page.getByRole("dialog", { name: "Triggers" });
+  const openTriggers = () => page.getByRole("button", { name: "Triggers" }).click();
+  await openTriggers();
+  await selectOption(page, triggers.getByRole("combobox", { name: "Event" }), "Changeset revision");
+  await triggers.getByRole("button", { name: "Enable trigger" }).click();
+  await expect(triggers.getByText("Changeset revision · Version 1")).toBeVisible();
+  await page.reload();
+  await openTriggers();
+  await expect(triggers.getByText("Changeset revision · Version 1")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("revision-trigger-enabled.png") });
+
+  await page.goto(`${orgPath}/changesets`);
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill("Trigger revision CI");
+  await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), /actions-qa · main$/);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("link", { name: "Trigger revision CI", exact: true }).click();
+  await page.getByRole("navigation", { name: "Changeset sections" }).getByRole("link", { name: "Revisions" }).click();
+  const revisionsURL = page.url();
+  async function addRevision() {
+    await page.getByPlaceholder("branch, tag or commit SHA").fill("main");
+    const added = page.waitForResponse(response => response.url().endsWith("/revisions") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Add revision" }).click();
+    const response = await added;
+    expect(response.ok()).toBe(true);
+    return (await response.json() as StoredChangeset).changeset;
+  }
+  const changeset = await addRevision();
+  const revision = changeset.revisions.at(-1)!;
+  await page.goto(actionsURL);
+  await expect(async () => {
+    const list = page.waitForResponse(response => new URL(response.url()).pathname.startsWith("/api/v1/") && new URL(response.url()).pathname.endsWith("/actions"));
+    await page.reload();
+    const response = await list;
+    expect(response.ok()).toBe(true);
+    expect((await response.json()).items).toHaveLength(1);
+  }).toPass({ timeout: 15_000 });
+  const runResponse = page.waitForResponse(response => /\/pipeline-runs\/[^/?]+$/.test(new URL(response.url()).pathname) && response.request().method() === "GET");
+  await page.locator(".repo-actions-run").getByRole("link", { name: "revision-ci" }).click();
+  const response = await runResponse;
+  expect(response.ok()).toBe(true);
+  const run = await response.json() as Run;
+  expect(run.trigger).toMatchObject({ kind: "changeset_revision", changesetId: changeset.id, revisionId: revision.id, sha: revision.commit_sha });
+  await expect(page.getByRole("region", { name: "Run graph" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("revision-trigger-run.png") });
+
+  await page.goto(actionsURL);
+  await openTriggers();
+  await triggers.getByRole("button", { name: "Disable", exact: true }).click();
+  await expect(triggers.getByText("No automatic triggers enabled.")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("revision-trigger-disabled.png") });
+  await page.goto(revisionsURL);
+  const next = await addRevision();
+  expect(next.revisions.at(-1)!.id).not.toBe(revision.id);
+  await page.goto(actionsURL);
+  await expect(page.locator(".repo-actions-run")).toHaveCount(1);
 });
 
 // Run against an isolated local stack with the worker built from ./cmd/pipeline-worker.

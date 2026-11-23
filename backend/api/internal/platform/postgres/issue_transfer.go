@@ -68,6 +68,7 @@ func (r *IssueRepository) Transfer(ctx context.Context, scope issues.DetailScope
 	batch.Queue(`UPDATE issues SET repository = $3, number = $4, milestone_id = NULL, updated_at = clock_timestamp(), version = version + 1
 		WHERE organization_id = $1 AND id = $2`, org, id, destination, number)
 	batch.Queue(`DELETE FROM issue_labels WHERE organization_id = $1 AND issue_id = $2`, org, id)
+	batch.Queue(`DELETE FROM issue_commit_links WHERE organization_id = $1 AND issue_id = $2`, org, id)
 	batch.Queue(`DELETE FROM issue_changeset_links WHERE organization_id = $1 AND issue_id = $2`, org, id)
 	batch.Queue(`DELETE FROM issue_projects ip USING organization_projects p
 		WHERE (p.organization_id, p.id) = (ip.organization_id, ip.project_id)

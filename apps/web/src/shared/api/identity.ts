@@ -163,7 +163,17 @@ export type RepositoryCommit = { sha: string; parents: string[]; author: string;
 export type PullRequestComparison = RepositoryCompare & { commits: RepositoryCommit[]; commits_truncated: boolean };
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
+export type GitCredential = { id: string; username: string; token: string; expires_at: string };
+export const repositoryGitAPI = {
+  createCredential: (organizationID: string, repository: string, scope: "read" | "write") =>
+    request<GitCredential>(`${repositoryBase(organizationID, repository)}/git-credentials`, { method: "POST", body: JSON.stringify({ scope }) }),
+  revokeCredential: (organizationID: string, repository: string, credentialID: string) =>
+    request<void>(`${repositoryBase(organizationID, repository)}/git-credentials/${encodeURIComponent(credentialID)}`, { method: "DELETE" }),
+};
+
 export const repositoryPreviewAPI = {
+  commitIssues: (organizationID: string, repository: string, sha: string, signal?: AbortSignal) =>
+    request<{ items: number[] }>(`${repositoryBase(organizationID, repository)}/commit-issues?${new URLSearchParams({ ref: sha })}`, { signal }),
   refs: (organizationID: string, repository: string) => {
     const [owner, name] = repository.split("/");
     return request<RepositoryPreviewRefs>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/refs`);

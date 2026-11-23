@@ -23,6 +23,7 @@ func NewHandler() http.Handler {
 
 func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 	mux := http.NewServeMux()
+	deps.gitHTTPRoutes(mux)
 	mux.HandleFunc("GET /api/v1/me", deps.currentAccount)
 	mux.HandleFunc("GET /api/v1/me/identities", deps.listIdentities)
 	mux.HandleFunc("POST /api/v1/me/password", deps.changePassword)
