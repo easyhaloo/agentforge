@@ -47,6 +47,9 @@ test("repository settings persist and update the native Git endpoint", async ({ 
   const settingsNav = page.locator(".repo-settings-nav");
   await content.getByRole("textbox", { name: "Description", exact: true }).fill("Release engineering starter");
   await content.getByRole("checkbox", { name: "Template repository" }).check();
+  const deleteMergedBranches = content.getByRole("checkbox", { name: "Automatically delete head branches" });
+  await expect(deleteMergedBranches).not.toBeChecked();
+  await deleteMergedBranches.check();
   await content.getByRole("checkbox", { name: "Limit branch and tag updates per push" }).check();
   await content.getByRole("spinbutton", { name: "Maximum updates per push" }).fill("2");
   await content.getByRole("button", { name: "Save", exact: true }).click();
@@ -54,6 +57,8 @@ test("repository settings persist and update the native Git endpoint", async ({ 
   await page.reload();
   await expect(content.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Release engineering starter");
   await expect(content.getByRole("checkbox", { name: "Template repository" })).toBeChecked();
+  await expect(deleteMergedBranches).toBeChecked();
+  await capture("auto-delete-head-branches");
   const issuesToggle = content.getByRole("checkbox", { name: "Issues", exact: true });
   const issuesTab = repoNav.getByRole("link", { name: "Issues", exact: true });
   await expect(issuesToggle).toBeChecked();

@@ -150,7 +150,8 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 			}
 		}
 	}
-	for _, c := range changesets {
+	for i := range changesets {
+		c := &changesets[i]
 		revision, ok := c.CurrentRevision()
 		if !ok || !slices.Contains(commits, revision.CommitSHA) {
 			return pipeline.ErrConflict
@@ -182,5 +183,11 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 			return err
 		}
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	if local, ok := git.(*delivery.LocalGitProvider); ok {
+		s.CleanupMergedPullRequestBranches(ctx, org, candidate.Repository, changesets, local)
+	}
+	return nil
 }

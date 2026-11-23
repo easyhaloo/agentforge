@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -535,6 +536,11 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 			writeProblem(w, 400, "Invalid pull request branches", "Distinct published branches and the compared head SHA are required")
 			return
 		}
+		release, locked := d.lockPullRequestBranches(w, r, principal.OrganizationID, changeset.Repository)
+		if !locked {
+			return
+		}
+		defer release()
 		baseRevision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, changeset.Repository, "refs/heads/"+baseBranch)
 		if err != nil {
 			writeProblem(w, http.StatusUnprocessableEntity, "Base branch unavailable", "The base branch could not be resolved in the configured repository")
@@ -1102,6 +1108,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	if !locked {
 		return
 	}
+	unlockRepository = sync.OnceFunc(unlockRepository)
 	defer unlockRepository()
 	// Promotion can complete a Changeset without the Changeset advisory lock.
 	// Refresh its state after taking the repository lock shared by both paths.
@@ -1172,6 +1179,16 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		writeRepositoryError(w, err)
 		return
+	}
+	if pull != nil {
+		cleanup, canCleanup := d.Catalog.(interface {
+			CleanupMergedPullRequestBranches(context.Context, string, string, []delivery.Changeset, *delivery.LocalGitProvider)
+		})
+		git, local := d.Git.(*delivery.LocalGitProvider)
+		if canCleanup && local {
+			unlockRepository()
+			cleanup.CleanupMergedPullRequestBranches(r.Context(), principal.OrganizationID, repo, []delivery.Changeset{*updated.Changeset}, git)
+		}
 	}
 	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }
@@ -1251,6 +1268,20 @@ func (d DeliveryDependencies) getChangesetComparison(w http.ResponseWriter, r *h
 	writeJSON(w, http.StatusOK, comparison)
 }
 
+func (d DeliveryDependencies) lockPullRequestBranches(w http.ResponseWriter, r *http.Request, org, repo string) (func(), bool) {
+	if catalog, ok := d.Catalog.(interface {
+		LockPullRequestBranches(context.Context, string, string) (func(), error)
+	}); ok {
+		release, err := catalog.LockPullRequestBranches(r.Context(), org, repo)
+		if err != nil {
+			writeProblem(w, 503, "Pull request branches unavailable", "The repository branches could not be safely locked")
+			return nil, false
+		}
+		return release, true
+	}
+	return func() {}, true
+}
+
 func (d DeliveryDependencies) changePRState(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true)
 	if !ok {
@@ -1296,6 +1327,20 @@ func (d DeliveryDependencies) changePRState(w http.ResponseWriter, r *http.Reque
 		err = stored.Changeset.ClosePullRequest(principal.UserID, now)
 	case "reopen":
 		err = stored.Changeset.ReopenPullRequest(principal.UserID, now)
+		if _, local := d.Git.(*delivery.LocalGitProvider); err == nil && local {
+			repo, pr := stored.Changeset.Repository, stored.Changeset.PullRequest
+			release, locked := d.lockPullRequestBranches(w, r, principal.OrganizationID, repo)
+			if !locked {
+				return
+			}
+			defer release()
+			for _, branch := range []string{pr.SourceBranch, pr.BaseBranch} {
+				if _, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repo, "refs/heads/"+branch); err != nil {
+					writeProblem(w, 409, "Pull request branch unavailable", "Restore the source and target branches before reopening this pull request")
+					return
+				}
+			}
+		}
 	}
 	if err != nil {
 		writeDeliveryError(w, err)

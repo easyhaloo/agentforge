@@ -29,6 +29,27 @@ type PushPolicy struct {
 	RefRules      []RefRule
 }
 
+func (policy PushPolicy) AllowsBranchDeletion(branch string) bool {
+	if branch == "" || branch == policy.DefaultBranch || protectedRef(policy.ProtectedRefs, "refs/heads/"+branch) {
+		return false
+	}
+	for _, rule := range policy.RefRules {
+		if rule.RestrictDeletion && rule.matches("branch", branch, policy.DefaultBranch) {
+			return false
+		}
+	}
+	return true
+}
+
+func protectedRef(patterns []string, ref string) bool {
+	for _, pattern := range patterns {
+		if matched, _ := path.Match(pattern, ref); matched && strings.Count(pattern, "/") == strings.Count(ref, "/") {
+			return true
+		}
+	}
+	return false
+}
+
 func ValidProtectedRefs(patterns []string) bool {
 	if len(patterns) > 20 {
 		return false
@@ -183,10 +204,8 @@ func receiveHook(name string, input io.Reader) error {
 			if update.Ref == defaultRef || update.Ref == headRef {
 				return errors.New("direct updates to the default branch are prohibited")
 			}
-			for _, pattern := range protectedRefs {
-				if matched, _ := path.Match(pattern, update.Ref); matched && strings.Count(pattern, "/") == strings.Count(update.Ref, "/") {
-					return fmt.Errorf("direct pushes to %s are prohibited by repository settings", update.Ref)
-				}
+			if protectedRef(protectedRefs, update.Ref) {
+				return fmt.Errorf("direct pushes to %s are prohibited by repository settings", update.Ref)
 			}
 			if err := checkRefRules(rules, update, os.Getenv("AF_GIT_DEFAULT")); err != nil {
 				return err
