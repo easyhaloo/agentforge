@@ -70,6 +70,7 @@ test("the account language is saved through Appearance and applied across the wo
   await page.keyboard.press("Escape");
   await expect(navigation).toBeHidden();
   await header.getByRole("button", { name: "User menu" }).click();
+  await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", { name: "Appearance", exact: true }).click();
   await page.getByRole("combobox", { name: "Language" }).click();
   await page.getByRole("option", { name: "简体中文" }).click();
