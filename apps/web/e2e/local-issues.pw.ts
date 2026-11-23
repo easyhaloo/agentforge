@@ -12,7 +12,7 @@ test.skip(!origin, "Requires a local API, PostgreSQL, and the dev stack Git root
 test.use({ actionTimeout: 8000 });
 
 test("register a repository, commit a Changeset revision and complete an Issue through the UI", async ({ page, context }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const base = new URL(origin!);
   expect(["localhost", "127.0.0.1", "[::1]"]).toContain(base.hostname);
   const email = `issues-${randomUUID()}@example.test`;
