@@ -59,7 +59,7 @@ describe("navigation data source", () => {
   it("links each item to its documented URL, scoping only the live pages to the organization", () => {
     expect(Object.fromEntries(navigationItems.map((item) => [item.label, itemHref(item, "demo")]))).toEqual({
       Overview: "/",
-      Projects: "/projects",
+      Projects: "/orgs/demo/projects",
       Repositories: "/orgs/demo/repositories",
       Issues: "/orgs/demo/issues",
       Inbox: "/orgs/demo/notifications",
@@ -86,6 +86,6 @@ describe("navigation data source", () => {
     expect(itemHref(changesets, "current")).toBe("/orgs/current/changesets");
     expect(itemHref(changesets, "a b")).toBe("/orgs/a%20b/changesets");
     const projects = navigationItems.find((item) => item.label === "Projects")!;
-    expect(itemHref(projects, "anything")).toBe("/projects");
+    expect(itemHref(projects, "anything")).toBe("/orgs/anything/projects");
   });
 });

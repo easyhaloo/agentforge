@@ -49,8 +49,10 @@ func (d DeliveryDependencies) createIssueProject(w http.ResponseWriter, r *http.
 		return
 	}
 	var input struct {
-		Name       string `json:"name"`
-		Repository string `json:"repository,omitempty"`
+		Name              string               `json:"name"`
+		Repository        string               `json:"repository,omitempty"`
+		Layout            issues.ProjectLayout `json:"layout,omitempty"`
+		DefaultRepository string               `json:"default_repository,omitempty"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -65,13 +67,31 @@ func (d DeliveryDependencies) createIssueProject(w http.ResponseWriter, r *http.
 			return
 		}
 	}
+	if input.Layout == "" {
+		input.Layout = issues.ProjectTable
+	}
+	if input.Layout != issues.ProjectTable && input.Layout != issues.ProjectBoard {
+		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project layout", "Choose table or board")
+		return
+	}
+	defaultRepository := strings.TrimSpace(input.DefaultRepository)
+	if defaultRepository != "" && defaultRepository != repository {
+		if _, ok := d.resolveRegisteredRepository(w, r, principal, defaultRepository); !ok {
+			return
+		}
+	}
+	if repository != "" && defaultRepository != "" && defaultRepository != repository {
+		writeProblem(w, http.StatusUnprocessableEntity, "Invalid default repository", "Use the repository that scopes this project")
+		return
+	}
 	id, err := newID()
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to create project", "An identifier could not be generated")
 		return
 	}
-	project := issues.Project{ID: id, Name: name, Repository: repository}
-	project.Number, err = d.ProjectRepo.CreateIssueProject(r.Context(), principal.OrganizationID, project)
+	project, err := d.ProjectRepo.CreateIssueProject(r.Context(), principal.OrganizationID, issues.Project{
+		ID: id, Name: name, Repository: repository, Layout: input.Layout, DefaultRepository: defaultRepository,
+	})
 	if errors.Is(err, issues.ErrProjectNameInUse) {
 		writeProblem(w, http.StatusConflict, "Project name in use", "Choose another name in this scope")
 		return

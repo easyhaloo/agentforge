@@ -10,7 +10,7 @@ export const CURRENT_ORGANIZATION_HANDLE = "current";
 /** Mock/fixture pages are not organization-scoped. */
 export const flatPaths = {
   overview: "/",
-  projects: "/projects",
+  projects: "/projects", // Compatibility entry for links without organization context.
   workspaces: "/workspaces",
   selfHealing: "/self-healing",
   memory: "/memory",
@@ -22,10 +22,14 @@ export const flatPaths = {
 } as const;
 
 /** Pages backed by the real API live under `/orgs/:org/<section>`. `settings` is the Organization page. */
-export type OrgSection = "pipelines" | "changesets" | "issues" | "notifications" | "repositories" | "webide" | "trails" | "review" | "eval" | "settings";
+export type OrgSection = "pipelines" | "changesets" | "projects" | "issues" | "notifications" | "repositories" | "webide" | "trails" | "review" | "eval" | "settings";
 
 export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
+}
+
+export function projectPath(handle: string, number: string | number): string {
+  return `${orgPath(handle, "projects")}/${encodeURIComponent(number)}`;
 }
 
 export const repositorySections = ["issues", "pulls", "actions", "settings"] as const;

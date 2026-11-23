@@ -66,6 +66,10 @@ paths:
           in: query
           description: Number of matching issues to skip
           schema: { type: integer, minimum: 0, default: 0 }
+        - name: project_id
+          in: query
+          description: Return issues linked to this project in the organization.
+          schema: { type: string, minLength: 32, maxLength: 32 }
         - name: include_filter_options
           in: query
           description: Return distinct filter values across the repository. Requires repository.
@@ -297,7 +301,9 @@ paths:
               required: [name]
               properties:
                 name: { type: string, minLength: 1, maxLength: 100 }
-                repository: { type: string, description: Omit for an organization-wide project. }
+                repository: { type: string, description: Legacy scope. Omit for an organization-wide project. }
+                default_repository: { type: string, description: Optional default repository without narrowing project scope. }
+                layout: { type: string, enum: [table, board], default: table }
       responses:
         "201":
           description: Issue project created
@@ -1771,6 +1777,9 @@ components:
         number: { type: integer, minimum: 1, description: Stable number within the organization. }
         name: { type: string }
         repository: { type: string }
+        layout: { type: string, enum: [table, board] }
+        default_repository: { type: string }
+        created_at: { type: string, format: date-time }
         recent: { type: boolean, description: The caller added this project to an issue in the last 30 days. }
 
     IssueSummary:

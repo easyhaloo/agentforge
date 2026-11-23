@@ -14,7 +14,7 @@ func (s *Store) ListIssueProjects(ctx context.Context, organizationID, repositor
 		SELECT 1 FROM issue_projects ip JOIN enabled_repository_issues i ON i.organization_id = ip.organization_id AND i.id = ip.issue_id
 		WHERE ip.organization_id = p.organization_id AND ip.project_id = p.id
 		AND i.created_by = $3 AND i.created_at > now() - interval '30 days'
-	), p.number
+	), p.number, p.layout, coalesce(p.default_repository, ''), p.created_at
 	FROM organization_projects p
 	WHERE p.organization_id = $1 AND ($2 = '' OR p.repository IS NULL OR p.repository = $2)
 	ORDER BY lower(p.name), p.id`, organizationID, repository, actorID)
@@ -28,29 +28,28 @@ func (s *Store) ListIssueProjects(ctx context.Context, organizationID, repositor
 	return items, nil
 }
 
-func (s *Store) CreateIssueProject(ctx context.Context, organizationID string, project issues.Project) (int, error) {
+func (s *Store) CreateIssueProject(ctx context.Context, organizationID string, project issues.Project) (issues.Project, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("begin issue project creation: %w", err)
+		return issues.Project{}, fmt.Errorf("begin issue project creation: %w", err)
 	}
 	defer tx.Rollback(ctx)
 	// Serialize number allocation within an organization.
 	if _, err := tx.Exec(ctx, `SELECT id FROM organizations WHERE id = $1 FOR UPDATE`, organizationID); err != nil {
-		return 0, fmt.Errorf("lock issue project scope: %w", err)
+		return issues.Project{}, fmt.Errorf("lock issue project scope: %w", err)
 	}
-	var number int
-	err = tx.QueryRow(ctx, `INSERT INTO organization_projects(organization_id, id, name, repository, number)
-		SELECT $1, $2, $3, nullif($4, ''), coalesce(max(number), 0) + 1
+	err = tx.QueryRow(ctx, `INSERT INTO organization_projects(organization_id, id, name, repository, number, layout, default_repository)
+		SELECT $1, $2, $3, nullif($4, ''), coalesce(max(number), 0) + 1, $5, nullif($6, '')
 		FROM organization_projects WHERE organization_id = $1
-		ON CONFLICT DO NOTHING RETURNING number`, organizationID, project.ID, project.Name, project.Repository).Scan(&number)
+		ON CONFLICT DO NOTHING RETURNING number, created_at`, organizationID, project.ID, project.Name, project.Repository, project.Layout, project.DefaultRepository).Scan(&project.Number, &project.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, issues.ErrProjectNameInUse
+		return issues.Project{}, issues.ErrProjectNameInUse
 	}
 	if err != nil {
-		return 0, fmt.Errorf("create issue project: %w", err)
+		return issues.Project{}, fmt.Errorf("create issue project: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit issue project creation: %w", err)
+		return issues.Project{}, fmt.Errorf("commit issue project creation: %w", err)
 	}
-	return number, nil
+	return project, nil
 }

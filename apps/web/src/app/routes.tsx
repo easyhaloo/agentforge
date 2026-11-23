@@ -17,7 +17,7 @@ import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, NotificationsRoute, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, IssueCreateRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, NotificationsRoute, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, ProjectsRedirect, ProjectsRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, IssueCreateRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -107,10 +107,18 @@ export const routes: RouteObject[] = [
         errorElement: <PageError />,
         children: [
           { index: true, handle: routeHandle("Overview"), element: <OverviewRoute /> },
-          resource("projects", "Projects"),
+          { path: "projects", handle: routeHandle("Projects"), element: <ProjectsRedirect /> },
           resource("workspaces", "Workspaces"),
           delivery("self-healing", "Self-healing"),
           resource("memory", "Memory"),
+          {
+            element: <OrganizationGate variant="projects" />,
+            children: [
+              organizationPage("projects", "Projects", <ProjectsRoute page="list" />),
+              organizationPage("projects/new", "Projects", <ProjectsRoute page="create" />),
+              organizationPage("projects/:number", "Projects", <ProjectsRoute page="detail" />),
+            ],
+          },
           {
             element: <OrganizationGate variant="repositories" />,
             children: [

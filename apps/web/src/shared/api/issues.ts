@@ -21,7 +21,18 @@ export interface Assignee {
   display_name?: string;
 }
 
-export type IssueProject = { id: string; number: number; name: string; repository?: string; recent?: boolean };
+export type ProjectLayout = "table" | "board";
+
+export type IssueProject = {
+  id: string;
+  number: number;
+  name: string;
+  repository?: string;
+  default_repository?: string;
+  layout?: ProjectLayout;
+  created_at?: string;
+  recent?: boolean;
+};
 
 export interface Issue {
   custom_fields?: Record<string, string>;
@@ -63,6 +74,7 @@ export interface IssuePage {
 
 export interface IssueListParams {
   linked_changeset?: string;
+  project_id?: string;
   repository?: string;
   state?: IssueState;
   created_by?: string;
@@ -129,9 +141,9 @@ export const issuesAPI = {
     return items ?? [];
   },
 
-  createProject: (organizationID: string, name: string, repository: string) =>
+  createProject: (organizationID: string, input: { name: string; layout: ProjectLayout; default_repository?: string }) =>
     request<IssueProject>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/issue-projects`, {
-      method: "POST", body: JSON.stringify({ name, repository }),
+      method: "POST", body: JSON.stringify(input),
     }),
 
   uploadAttachment: async (organizationID: string, repository: string, file: File) => {
@@ -158,6 +170,7 @@ export const issuesAPI = {
 
   list: (organizationID: string, params: IssueListParams = {}, signal?: AbortSignal) => {
     const queryParams = new URLSearchParams();
+    if (params.project_id) queryParams.set("project_id", params.project_id);
     if (params.repository) queryParams.set("repository", params.repository);
     if (params.linked_changeset) queryParams.set("linked_changeset", params.linked_changeset);
     if (params.state) queryParams.set("state", params.state);

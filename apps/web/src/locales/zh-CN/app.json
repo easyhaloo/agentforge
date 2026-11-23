@@ -36,6 +36,10 @@
       "unavailableTitle": "变更集服务不可用",
       "noOrganization": "该账户没有所属的组织。"
     },
+    "projects": {
+      "unavailableTitle": "项目不可用",
+      "noOrganization": "加入组织后即可使用项目。"
+    },
     "repositories": {
       "unavailableTitle": "代码仓库服务不可用",
       "noOrganization": "该账户没有所属的组织。"

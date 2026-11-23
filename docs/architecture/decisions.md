@@ -76,7 +76,10 @@
 | Sidebar label | Path | Page |
 |---|---|---|
 | Overview | `/` | Overview (mock) |
-| Projects | `/projects` | Resource workspace (mock) |
+| Projects | `/orgs/:org/projects` | Organization project directory backed by the issue-project API |
+| New project | `/orgs/:org/projects/new` | Full-page project creation |
+| Project | `/orgs/:org/projects/:number` | Project workspace displaying linked issues |
+| Projects (legacy) | `/projects` | Redirects to the selected organization's project directory |
 | Repositories | `/orgs/:org/repositories` | Repository directory (live API) |
 | Repositories | `/orgs/:org/repositories/new` | Repository create form (live API, label reused, no duplicate sidebar item) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |

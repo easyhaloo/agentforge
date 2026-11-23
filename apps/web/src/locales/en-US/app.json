@@ -36,6 +36,10 @@
       "unavailableTitle": "Changeset service unavailable",
       "noOrganization": "This account has no active organization membership."
     },
+    "projects": {
+      "unavailableTitle": "Projects unavailable",
+      "noOrganization": "Join an organization to use Projects."
+    },
     "repositories": {
       "unavailableTitle": "Repository service unavailable",
       "noOrganization": "This account has no active organization membership."

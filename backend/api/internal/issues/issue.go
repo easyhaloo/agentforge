@@ -146,6 +146,7 @@ type Issue struct {
 }
 
 type ListFilter struct {
+	ProjectID       string
 	LinkedChangeset string
 	State           State
 	CreatedBy       string

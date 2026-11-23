@@ -25,7 +25,7 @@ import { IssueCreation } from "../pages/repositories/IssueCreation";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
-import { IssueProjectsPanel } from "../pages/repositories/IssueProjectsPanel";
+import { ProjectCreatePage, ProjectDetailPage, ProjectsPage } from "../pages/projects/ProjectsPages";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
 import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySettingsSection } from "../shared/routing";
@@ -72,12 +72,20 @@ export function OverviewRoute() {
 
 export function ResourceRoute({ label }: { label: string }) {
   const notify = useNotify();
-  // The key keeps each page's state and its agentforge:resources:<label> storage separate.
-  const { selectedOrganization } = useAppAccount();
-  return <>
-    {label === "Projects" && selectedOrganization && <IssueProjectsPanel key={selectedOrganization.id} organization={selectedOrganization} />}
-    <ResourceWorkspacePage key={label} page={label} onNotify={notify} />
-  </>;
+  return <ResourceWorkspacePage key={label} page={label} onNotify={notify} />;
+}
+
+export function ProjectsRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate replace to={{ pathname: "/orgs/current/projects", search, hash }} />;
+}
+
+export function ProjectsRoute({ page }: { page: "list" | "create" | "detail" }) {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { number = "" } = useParams();
+  if (page === "create") return <ProjectCreatePage key={organization.id} organization={organization} />;
+  if (page === "detail") return <ProjectDetailPage key={`${organization.id}:${number}`} organization={organization} number={number} />;
+  return <ProjectsPage key={organization.id} organization={organization} />;
 }
 
 export function DeliveryRoute({ label }: { label: string }) {
