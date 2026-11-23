@@ -8,9 +8,9 @@ import { TopbarIcon } from "./TopbarIcon";
 import { labelToNavKey } from "../navigation-labels";
 import { UserMenu } from "./UserMenu";
 
-type Props = { focused?: boolean; label: string; onSearch: () => void; navigation?: ReactNode; organization?: ReactNode; organizationHandle?: string; context?: ReactNode; onSignOut: () => void };
+type Props = { focused?: boolean; label: string; onSearch: () => void; navigation?: ReactNode; organizationHandle?: string; context?: ReactNode; onSignOut: () => void };
 
-export function Topbar({ focused, label, onSearch, onSignOut, navigation, organization, organizationHandle, context }: Props) {
+export function Topbar({ focused, label, onSearch, onSignOut, navigation, organizationHandle, context }: Props) {
   const { t } = useTranslation();
   const translatedLabel = t(labelToNavKey(label));
 
@@ -33,7 +33,6 @@ export function Topbar({ focused, label, onSearch, onSignOut, navigation, organi
           aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K">
           <Search size={15} aria-hidden="true" /> {t("navigation:commandPalette.title")} <kbd aria-hidden="true">/</kbd>
         </Button>
-        {organization}
         {organizationHandle && <div className="topbar-shortcuts">
           <Link className="workspace-icon" to={orgPath(organizationHandle, "issues")} aria-label={t("navigation:topbar.allIssues")} title={t("navigation:topbar.allIssues")}>
             <TopbarIcon name="issue-opened" />

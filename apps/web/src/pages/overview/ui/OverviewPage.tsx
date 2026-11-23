@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, BookMarked, Building2, GitPullRequest, Workflow } from "lucide-react";
+import { ArrowRight, BookMarked, GitPullRequest, Workflow } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, repositoryAPI, type ChangesetPage, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../../shared/api/identity";
@@ -61,7 +61,6 @@ export function OverviewPage({ organization, userId, displayName }: Props) {
 
   return <div className="workbench">
     <aside className="workbench-repositories">
-      <div className="workbench-identity"><Building2 size={30} aria-hidden="true" /><span><strong>{organization.name}</strong><small>@{handle}</small></span></div>
       <Link className="workbench-quick" to={reviewUrl}><GitPullRequest size={16} />{t("workbench.pending")}{reviews && <span>{reviews.total}</span>}</Link>
       <section className="workbench-repo-list" aria-label={t("workbench.repositories")}>
         <h2>{t("workbench.repositories")}</h2>

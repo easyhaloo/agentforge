@@ -8,7 +8,6 @@ test.beforeEach(async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Select organization" })).toContainText("AgentForge Demo");
 });
 
 test("Overview lists pending reviews and passes the filters to Changesets", async ({ page }) => {
