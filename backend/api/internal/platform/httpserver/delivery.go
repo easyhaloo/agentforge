@@ -208,6 +208,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs", deps.listRepositoryRefs)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/settings", deps.updateRepositorySettings)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions", deps.listRepositoryActions)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions/workflows", deps.listRepositoryWorkflows)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/tree", deps.listRepositoryTree)
@@ -305,9 +306,11 @@ type repositoryRegistrationRequest struct {
 	Fork          bool   `json:"fork"`
 	Description   string `json:"description"`
 	Initialize    *struct {
-		Readme    bool   `json:"readme"`
-		Gitignore string `json:"gitignore"`
-		License   string `json:"license"`
+		Template           string `json:"template"`
+		IncludeAllBranches bool   `json:"include_all_branches"`
+		Readme             bool   `json:"readme"`
+		Gitignore          string `json:"gitignore"`
+		License            string `json:"license"`
 	} `json:"initialize"`
 }
 

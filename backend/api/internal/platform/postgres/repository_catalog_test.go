@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 )
 
 func TestPostgresRepositoryCatalogIsOrganizationScoped(t *testing.T) {
@@ -125,4 +129,98 @@ func TestPostgresRepositoryCatalogIconMetadata(t *testing.T) {
 			check(item, tc.visibility, tc.fork)
 		}
 	}
+}
+
+func TestPostgresRepositoryTemplateSettings(t *testing.T) {
+	fx := lockOpenStore(t, lockOptions{})
+	ctx, store := fx.ctx, fx.store
+	owner, outsider := newLockHTTP(t, fx, 0), newLockHTTP(t, fx, 0)
+	provider, err := delivery.NewLocalGitProvider(t.TempDir(), time.Minute)
+	lockMust(t, err)
+	owner.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+		Repository: store, Identity: store, CSRF: store, Catalog: store,
+		Git: provider, Preview: provider, AllowedOrigin: lockHTTPOrigin,
+	})
+	outsider.handler = owner.handler
+	base := "/api/v1/organizations/" + owner.organizationID + "/repositories"
+	source, destination := "team/source", "team/generated"
+	check := func(h *lockHTTP, status int, method, path, body string) []byte {
+		t.Helper()
+		got := h.do(ctx, method, path, body)
+		if got.Code != status {
+			t.Fatalf("%s %s: got %d, want %d: %s", method, path, got.Code, status, got.Body.String())
+		}
+		return got.Body.Bytes()
+	}
+	var created delivery.RepositoryMetadata
+	lockMust(t, json.Unmarshal(check(owner, 201, "POST", base, `{"slug":"team/source","default_branch":"main","initialize":{"readme":true}}`), &created))
+	create := `{"slug":"team/generated","default_branch":"main","initialize":{"template":"team/source"}}`
+	check(owner, 422, "POST", base, create)
+	check(outsider, 404, "POST", "/api/v1/organizations/"+outsider.organizationID+"/repositories", create)
+	update := fmt.Sprintf(`{"description":"Starter project","is_template":true,"updated_at":%q}`, created.UpdatedAt.Format(time.RFC3339Nano))
+	_, err = store.pool.Exec(ctx, "INSERT INTO organization_memberships (organization_id,user_id,role,status) VALUES ($1,$2,'member','active')", owner.organizationID, outsider.userID)
+	lockMust(t, err)
+	check(outsider, 403, "PATCH", base+"/"+source+"/settings", update)
+	var updated delivery.RepositoryMetadata
+	lockMust(t, json.Unmarshal(check(owner, 200, "PATCH", base+"/"+source+"/settings", update), &updated))
+	if !updated.IsTemplate || updated.Description != "Starter project" || !updated.UpdatedAt.After(created.UpdatedAt) {
+		t.Fatalf("settings were not saved: %+v", updated)
+	}
+	check(owner, 409, "PATCH", base+"/"+source+"/settings", update)
+	check(owner, 422, "POST", base, strings.Replace(create, `"template":`, `"readme":true,"template":`, 1))
+	check(owner, 422, "POST", base, `{"slug":"team/invalid","default_branch":"main","initialize":{"include_all_branches":true}}`)
+	git := func(path string, args ...string) string {
+		t.Helper()
+		output, err := exec.CommandContext(ctx, "git", append([]string{"-C", path}, args...)...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %s: %v", args, output, err)
+		}
+		return strings.TrimSpace(string(output))
+	}
+	original := filepath.Join(provider.Root, owner.organizationID, source)
+	sha := git(original, "rev-parse", "HEAD")
+	git(original, "branch", "feature/starter", sha)
+	git(original, "tag", "v1", sha)
+	check(owner, 201, "POST", base, create)
+	check(owner, 201, "POST", base, `{"slug":"team/generated-all","default_branch":"main","initialize":{"template":"team/source","include_all_branches":true}}`)
+	for _, tc := range []struct {
+		slug string
+		refs string
+	}{
+		{destination, "refs/heads/main"},
+		{"team/generated-all", "refs/heads/feature/starter\nrefs/heads/main"},
+	} {
+		repo := filepath.Join(provider.Root, owner.organizationID, tc.slug)
+		if got := git(repo, "for-each-ref", "--format=%(refname)"); got != tc.refs {
+			t.Fatalf("%s refs = %q, want %q", tc.slug, got, tc.refs)
+		}
+		if git(repo, "symbolic-ref", "HEAD") != "refs/heads/main" {
+			t.Fatal("generated repository should use main as its default")
+		}
+		seen := make(map[string]bool)
+		for _, ref := range strings.Split(tc.refs, "\n") {
+			if git(repo, "rev-parse", ref+"^{tree}") != git(original, "rev-parse", ref+"^{tree}") || git(repo, "rev-list", "--count", ref) != "1" {
+				t.Fatalf("%s should have the source tree in a single root commit", ref)
+			}
+			commit := git(repo, "rev-parse", ref)
+			if seen[commit] {
+				t.Fatalf("%s shares a commit with another generated branch", ref)
+			}
+			seen[commit] = true
+		}
+		if _, err := provider.ResolveRevision(ctx, owner.organizationID, tc.slug, sha); err == nil {
+			t.Fatal("source commit is accessible by SHA in the generated repository")
+		}
+	}
+	check(owner, 204, "PATCH", base+"/"+source+"/settings", `{"default_branch":"feature/starter","previous_branch":"main"}`)
+	var fork delivery.RepositoryMetadata
+	lockMust(t, json.Unmarshal(check(owner, 201, "POST", base, `{"slug":"team/generated-custom-default","default_branch":"main","initialize":{"template":"team/source","include_all_branches":true}}`), &fork))
+	if fork.DefaultBranch != "feature/starter" {
+		t.Fatalf("generated repository default branch = %s", fork.DefaultBranch)
+	}
+	path := filepath.Join(provider.Root, owner.organizationID, fork.Slug)
+	if got := git(path, "symbolic-ref", "HEAD"); got != "refs/heads/feature/starter" {
+		t.Fatalf("generated HEAD = %s", got)
+	}
+
 }

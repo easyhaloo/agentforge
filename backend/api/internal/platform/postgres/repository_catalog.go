@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
@@ -41,7 +42,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		return nil, delivery.ErrInvalidInput
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description
+		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description,is_template,push_ref_limit
 		FROM delivery_repositories WHERE organization_id=$1 ORDER BY slug ASC
 	`, organizationID)
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		var item delivery.RepositoryMetadata
 		if err := rows.Scan(
 			&item.OrganizationID, &item.Slug, &item.DefaultBranch, &item.CreatedBy,
-			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description,
+			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description, &item.IsTemplate, &item.PushRefLimit,
 		); err != nil {
 			return nil, err
 		}
@@ -67,13 +68,36 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 
 var _ delivery.RepositoryCatalog = (*Store)(nil)
 
-func (s *Store) SetRepositoryDefaultBranch(ctx context.Context, org, slug, branch, previous string) error {
-	result, err := s.pool.Exec(ctx, `UPDATE delivery_repositories SET default_branch=$3, updated_at=now()
+func (s *Store) SetRepositoryDefaultBranch(ctx context.Context, org, slug, branch, previous string, verifyBranch func() error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin default branch update: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	// The row update excludes Git pushes until the branch is verified and the new setting is visible.
+	result, err := tx.Exec(ctx, `UPDATE delivery_repositories SET default_branch=$3, updated_at=clock_timestamp()
 		WHERE organization_id=$1 AND slug=$2 AND default_branch=$4`, org, slug, branch, previous)
-	if err == nil && result.RowsAffected() == 0 {
+	if err != nil {
+		return fmt.Errorf("update default branch: %w", err)
+	}
+	if result.RowsAffected() == 0 {
 		return delivery.ErrVersionConflict
 	}
-	return err
+	if err := verifyBranch(); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *Store) SetRepositoryGeneralSettings(ctx context.Context, repository delivery.RepositoryMetadata) (time.Time, error) {
+	var updated time.Time
+	err := s.pool.QueryRow(ctx, `UPDATE delivery_repositories SET description=$3, is_template=$4, push_ref_limit=$6, updated_at=clock_timestamp()
+  WHERE organization_id=$1 AND slug=$2 AND updated_at=$5
+  RETURNING updated_at`, repository.OrganizationID, repository.Slug, repository.Description, repository.IsTemplate, repository.UpdatedAt, repository.PushRefLimit).Scan(&updated)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, delivery.ErrVersionConflict
+	}
+	return updated, err
 }
 
 // Explicit integration and trigger attribution takes precedence over the workflow's repository at admission.

@@ -626,7 +626,7 @@ paths:
     post:
       operationId: registerOrganizationRepository
       summary: Create or register a repository under the trusted Git root
-      description: Owners and administrators only. Provide initialize to create a private repository on main. Otherwise the API validates the existing default branch before persisting metadata.
+      description: Owners and administrators only. Provide initialize to create a private repository. The default is main or the selected template’s default branch. Otherwise the API validates the existing default branch before persisting metadata.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -642,6 +642,8 @@ paths:
                 initialize:
                   type: object
                   properties:
+                    template: { type: string, description: Enabled native Git template slug in the same organization. Cannot be combined with starter files. }
+                    include_all_branches: { type: boolean, default: false, description: Copy each template branch as an independent root commit. Requires a template. }
                     readme: { type: boolean, default: false }
                     gitignore: { type: string, enum: ["", node, python, go] }
                     license: { type: string, enum: ["", mit] }
@@ -661,6 +663,53 @@ paths:
               schema: { $ref: "#/components/schemas/RepositoryMetadata" }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/settings:
+    parameters:
+      - { in: path, name: organizationID, required: true, schema: { type: string } }
+      - { in: path, name: owner, required: true, schema: { type: string } }
+      - { in: path, name: repo, required: true, schema: { type: string } }
+    patch:
+      operationId: updateRepositorySettings
+      summary: Update general repository settings or the default branch
+      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the catalog or refs endpoint.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [default_branch, previous_branch]
+                  properties:
+                    default_branch: { type: string }
+                    previous_branch: { type: string }
+                - type: object
+                  additionalProperties: false
+                  required: [updated_at]
+                  minProperties: 2
+                  properties:
+                    updated_at: { type: string, format: date-time }
+                    description: { type: string, maxLength: 350 }
+                    is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
+                    push_ref_limit:
+                      description: Optional branch and tag update cap for native Git pushes. Zero uses the server maximum of 128.
+                      oneOf:
+                        - { type: integer, enum: [0] }
+                        - { type: integer, minimum: 2, maximum: 128 }
+      responses:
+        "200":
+          description: Updated general repository settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+        "204": { description: Updated default branch }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs:
@@ -689,10 +738,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [repository, default_branch, resolved_commit_sha, items]
+                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, push_ref_limit, updated_at]
                 properties:
                   repository: { type: string }
                   default_branch: { type: string }
+                  hosting_kind: { type: string, enum: [hosted, registered] }
+                  git_credentials_available: { type: boolean }
+                  description: { type: string }
+                  is_template: { type: boolean }
+                  push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
+                  updated_at: { type: string, format: date-time }
                   resolved_commit_sha: { type: string, pattern: "^([0-9a-f]{40}|[0-9a-f]{64})?$", description: Empty before the default branch has a commit }
                   items:
                     type: array
@@ -768,6 +823,32 @@ paths:
       - { in: path, name: organizationID, required: true, schema: { type: string } }
       - { in: path, name: owner, required: true, schema: { type: string } }
       - { in: path, name: repo, required: true, schema: { type: string } }
+    get:
+      operationId: listGitCredentials
+      summary: List the signed-in user's active Smart HTTP credentials for this repository
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Active credential metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, scope, expires_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        scope: { type: string, enum: [read, write] }
+                        expires_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createGitCredential
       summary: Issue a repository-scoped Smart HTTP credential valid for one hour
@@ -2025,8 +2106,10 @@ components:
           items: { $ref: "#/components/schemas/OrganizationSummary" }
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, push_ref_limit, created_by, created_at, updated_at]
       properties:
+        is_template: { type: boolean }
+        push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
         organization_id: { type: string }
         slug: { type: string }
         default_branch: { type: string }

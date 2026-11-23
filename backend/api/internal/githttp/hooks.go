@@ -10,12 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+const MaxPushRefs = 128
 
 const helperCommand = "agentforge-git-http-backend"
 
@@ -100,7 +103,7 @@ func receiveHook(name string, input io.Reader) error {
 	scanner.Buffer(make([]byte, 1024), 4096)
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), " ")
-		if len(updates) >= 128 || len(parts) != 3 || !validObjectID(parts[0]) || !validObjectID(parts[1]) || len(parts[0]) != len(parts[1]) {
+		if len(updates) >= MaxPushRefs || len(parts) != 3 || !validObjectID(parts[0]) || !validObjectID(parts[1]) || len(parts[0]) != len(parts[1]) {
 			return errors.New("invalid ref updates or too many refs in one push")
 		}
 		updates = append(updates, RefUpdate{Ref: parts[2], Old: parts[0], New: parts[1]})
@@ -117,6 +120,13 @@ func receiveHook(name string, input io.Reader) error {
 	}
 	event.ID = id.String()
 	if name == "pre-receive" {
+		limit, err := strconv.Atoi(os.Getenv("AF_GIT_PUSH_REF_LIMIT"))
+		if err != nil || (limit != 0 && (limit < 2 || limit > MaxPushRefs)) {
+			return errors.New("push ref limit unavailable")
+		}
+		if limit > 0 && len(updates) > limit {
+			return fmt.Errorf("push exceeds the repository limit of %d branch and tag updates", limit)
+		}
 		head, err := os.ReadFile("HEAD") // Git invokes push hooks in $GIT_DIR.
 		if err != nil || os.Getenv("AF_GIT_DEFAULT") == "" {
 			return errors.New("default branch protection unavailable")

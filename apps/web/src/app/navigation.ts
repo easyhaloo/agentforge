@@ -1,5 +1,5 @@
 import { Activity, Bell, ArrowDownUp, Boxes, BrainCircuit, CheckCircle2, Code2, CircleDot, GitBranch, GitCommitHorizontal, GitPullRequest, LayoutDashboard, LockKeyhole, PanelsTopLeft, Settings, ShieldCheck, Terminal, Workflow, Zap, Users, type LucideIcon } from "lucide-react";
-import { flatPaths, orgPath, type OrgSection } from "../shared/routing";
+import { flatPaths, orgPath, repositorySections, type OrgSection } from "../shared/routing";
 
 /**
  * Shared page metadata for the sidebar, the command palette, the page header and the breadcrumb.
@@ -46,6 +46,12 @@ export const navigationGroups = [...new Set(sidebarItems.map((item) => item.grou
 /** The URL of an item; `handle` only matters for organization-scoped items. */
 export function itemHref(item: NavigationItem, handle: string): string {
   return "orgPath" in item ? item.orgPath(handle) : item.path;
+}
+
+/** Repository subpages, including settings panels, activate their owning top-level tab. */
+export function repositorySectionForPath(pathname: string | undefined) {
+  const segment = pathname?.split("/")[6]?.toLowerCase();
+  return repositorySections.find(section => section === segment);
 }
 
 /** Every leaf route in app/routes.tsx declares `handle: { label }`; the root layout reads it with useMatches(). */

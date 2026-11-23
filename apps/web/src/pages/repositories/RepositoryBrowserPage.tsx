@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { issueDetailPath, organizationHandle, webIDEPath } from "../../shared/routing";
+import { issueDetailPath, organizationHandle, repositorySettingsPath, webIDEPath } from "../../shared/routing";
 import { Button, Input, Select } from "../../shared/ui";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
@@ -299,8 +299,8 @@ function CodeBrowser({ organizationID, repository, refName, makeQuery, directory
         <div className="repo-toolbar">
           {referencePicker}
           {isRoot && refs && <span className="repo-ref-summary">
-            <span><GitBranch size={15}/>{t("repositories:browser.branches", { count: refs.items.filter(ref => ref.kind === "branch").length })}</span>
-            <span><Tag size={15}/>{t("repositories:browser.tags", { count: refs.items.filter(ref => ref.kind === "tag").length })}</span>
+            <Link to={repositorySettingsPath(handle, repository, "branches")}><GitBranch size={15} aria-hidden="true"/>{t("repositories:browser.branches", { count: refs.items.filter(ref => ref.kind === "branch").length })}</Link>
+            <Link to={repositorySettingsPath(handle, repository, "tags")}><Tag size={15} aria-hidden="true"/>{t("repositories:browser.tags", { count: refs.items.filter(ref => ref.kind === "tag").length })}</Link>
           </span>}
         </div>
         {!file && <div className="repo-toolbar repo-file-controls">

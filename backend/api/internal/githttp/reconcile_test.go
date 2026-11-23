@@ -63,12 +63,12 @@ func TestReconcileInterruptedPush(t *testing.T) {
 		t.Fatal(err)
 	}
 	locks := 0
-	lock := func(_ context.Context, organization, repository string) (string, func(), error) {
+	lock := func(_ context.Context, organization, repository string) (string, int, func(), error) {
 		if organization != org || repository != repo {
 			t.Fatalf("unexpected recovery scope %q %q", organization, repository)
 		}
 		locks++
-		return "main", func() { locks-- }, nil
+		return "main", 0, func() { locks-- }, nil
 	}
 	final := filepath.Join(journal, event.ID+".json")
 	for range 2 {

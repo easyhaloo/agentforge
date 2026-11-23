@@ -12,6 +12,8 @@ type RepositoryMetadata struct {
 	DefaultBranch  string    `json:"default_branch"`
 	Visibility     string    `json:"visibility,omitempty"`
 	Fork           bool      `json:"fork"`
+	IsTemplate     bool      `json:"is_template"`
+	PushRefLimit   int       `json:"push_ref_limit"`
 	CreatedBy      string    `json:"created_by"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

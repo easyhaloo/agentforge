@@ -4,7 +4,7 @@ import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } fro
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
-import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, repositorySections, withOrganizationHandle } from "../shared/routing";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, withOrganizationHandle } from "../shared/routing";
 import { Button, Select } from "../shared/ui";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
@@ -14,7 +14,7 @@ import { RepositoryNavigation } from "../pages/repositories/RepositoryNavigation
 import { RepositorySwitcher } from "./components/RepositorySwitcher";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
-import { navigationItemFor, routeLabel } from "./navigation";
+import { navigationItemFor, repositorySectionForPath, routeLabel } from "./navigation";
 import { useNavigateTo } from "./useNavigateTo";
 import { useNotify } from "./useNotify";
 import { useSearchShortcut } from "./useSearchShortcut";
@@ -96,7 +96,7 @@ function App() {
   const item = navigationItemFor(label);
   const isRepositoryCatalog = label === "Repositories" && accountState === "ready" && Boolean(urlOrganization);
   const { owner, repo } = match?.params ?? {};
-  const repositorySection = repositorySections.find(section => section === match?.pathname.split("/")[6]);
+  const repositorySection = repositorySectionForPath(match?.pathname);
   const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || label === "New Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
   const isOverview = label === "Overview";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);

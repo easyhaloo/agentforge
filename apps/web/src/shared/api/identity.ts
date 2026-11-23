@@ -153,10 +153,10 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
-export type RepositoryMetadata = { visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
-export type RepositoryPreviewRefs = { repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
+export type RepositoryPreviewRefs = { description?: string; is_template?: boolean; push_ref_limit?: number; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
 export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
@@ -164,7 +164,10 @@ export type PullRequestComparison = RepositoryCompare & { commits: RepositoryCom
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
 export type GitCredential = { id: string; username: string; token: string; expires_at: string };
+export type GitCredentialSummary = { id: string; scope: "read" | "write"; expires_at: string };
 export const repositoryGitAPI = {
+  listCredentials: (organizationID: string, repository: string, signal: AbortSignal) =>
+    request<{ items: GitCredentialSummary[] }>(`${repositoryBase(organizationID, repository)}/git-credentials`, { signal }),
   createCredential: (organizationID: string, repository: string, scope: "read" | "write") =>
     request<GitCredential>(`${repositoryBase(organizationID, repository)}/git-credentials`, { method: "POST", body: JSON.stringify({ scope }) }),
   revokeCredential: (organizationID: string, repository: string, credentialID: string) =>
@@ -237,7 +240,7 @@ export const repositoryAPI = {
   summaries: (organizationID: string) => request<{items: RepositorySummary[]}>(`${repositoryBase(organizationID)}?details=1`),
   register: (organizationID: string, slug: string, defaultBranch: string, metadata: Pick<RepositoryMetadata, "visibility" | "fork"> = {}) =>
     request<RepositoryMetadata>(repositoryBase(organizationID), {method:"POST",body:JSON.stringify({slug,default_branch:defaultBranch,...metadata})}),
-  create: (organizationID: string, slug: string, description: string, initialize: { readme: boolean; gitignore: string; license: string }) =>
+  create: (organizationID: string, slug: string, description: string, initialize: { readme: boolean; gitignore: string; license: string } | { template: string; include_all_branches: boolean }) =>
     request<RepositoryMetadata>(repositoryBase(organizationID), {
       method: "POST", body: JSON.stringify({ slug, default_branch: "main", description, initialize }),
     }),
@@ -245,6 +248,10 @@ export const repositoryAPI = {
     request<operations["listRepositoryActions"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions?${filters}`, { signal }),
   workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
+  updateGeneralSettings: (organizationID: string, repository: string, settings: { description: string; is_template: boolean; push_ref_limit?: number; updated_at: string }) =>
+    request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`, {
+      method: "PATCH", body: JSON.stringify(settings),
+    }),
   updateDefaultBranch: (organizationID: string, repository: string, defaultBranch: string, previousBranch: string) =>
     request<void>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify({ default_branch: defaultBranch, previous_branch: previousBranch }),

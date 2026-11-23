@@ -16,6 +16,7 @@ import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryCreatePage } from "../pages/repositories/RepositoryCreatePage";
 import { RepositoryBrowserPage } from "../pages/repositories/RepositoryBrowserPage";
 import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPage";
+import { RepositorySettingsPage } from "../pages/repositories/RepositorySettingsPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { RepositoryIssues } from "../pages/repositories/RepositoryIssues";
 import { IssueDetailPage } from "../pages/repositories/IssueDetailPage";
@@ -27,7 +28,7 @@ import { ResourceWorkspacePage } from "../pages/resources";
 import { IssueProjectsPanel } from "../pages/repositories/IssueProjectsPanel";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
-import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySection } from "../shared/routing";
+import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySettingsSection } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
 import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
@@ -148,7 +149,7 @@ export function RepositoryCreateRoute() {
   return <RepositoryCreatePage key={organization.id} organization={organization} account={account} onNotify={notify} />;
 }
 
-export function RepositoryDetailRoute({ section }: { section?: RepositorySection }) {
+export function RepositoryDetailRoute({ section, settingsSection }: { section?: "issues" | "actions"; settingsSection?: RepositorySettingsSection }) {
   const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const { owner, repo, repositorySlug } = useParams();
   const notify = useNotify();
@@ -156,7 +157,8 @@ export function RepositoryDetailRoute({ section }: { section?: RepositorySection
     return <RepositoryDetailPage key={`${organization.id}:${repositorySlug}`} organization={organization} repositorySlug={repositorySlug} />;
   }
   const repository = `${owner}/${repo}`;
-  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} currentUser={account.user_id} onNotify={notify}/>;
+  if (settingsSection) return <RepositorySettingsPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} section={settingsSection} onNotify={notify} />;
+  if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} currentUser={account.user_id}/>;
   return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
 }
 

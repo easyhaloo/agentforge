@@ -72,6 +72,7 @@ jobs:
         working-directory: apps/web
         env:
           AGENTFORGE_TEST_ORIGIN: http://127.0.0.1:4173
+          GIT_SMART_HTTP_ENABLED: "1"
           RUN_DIR: ${{ runner.temp }}/agentforge-web-e2e
         run: npm run test:e2e
       - name: Show test stack logs on failure
