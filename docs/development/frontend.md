@@ -468,7 +468,7 @@ Use GitHub Primer as a reference for buttons, labels, and anchored action menus.
 | Control | Standard |
 | --- | --- |
 | Buttons | Use the green primary button for Invite member and Create invitation in their respective panels. Use neutral controls for refresh and copy, and give icon-only actions a descriptive accessible name. Use 32 px height, 14 px text, and 6 px corners for standard controls. |
-| Tabs | Mark the active tab with an underline, stronger text, and `aria-selected`. Show neutral count pills for Members and Invitations after data loads. Move focus to the email field when Invite member opens the Invitations tab. |
+| Tabs | Mark the active tab with an underline, stronger text, and `aria-selected`. Show neutral count pills for Members and Invitations after data loads. Let tabs wrap on narrow screens to keep every label fully visible. Move focus to the email field when Invite member opens the Invitations tab. |
 | Status labels | Use a compact outline pill with localized text. Use success for Active and Accepted, warning for Invited and Pending, danger for Suspended, Removed, and Revoked, and neutral for Expired and other statuses. Keep read-only roles visibly distinct from editable role controls. |
 | Role picker | Use an anchored single-select with a chevron and a checkmark beside the current role. Offer only roles the actor can assign. Support arrow keys and Enter, and close on Escape with focus returned to the trigger. |
 | Row actions | Group suspend or reactivate and remove in a trailing ellipsis popover. Give the trigger a name that identifies the member. Focus the first action on open and return focus to the trigger on Escape. Style Remove member as a danger action and require explicit confirmation. |

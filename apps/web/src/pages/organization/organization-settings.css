@@ -242,7 +242,10 @@
   .org-admin-summary__icon { width: 40px; height: 40px; }
   .org-admin-summary__identity { flex-basis: calc(100% - 50px); }
   .org-admin-summary h1 { font-size: 22px; }
-  .org-settings .org-tabs { gap: 2px; }
+  .org-settings .org-tabs {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
   .org-settings .org-tabs .af-button[role="tab"] { gap: 4px; padding-inline: 4px; font-size: 13px; }
   .org-table th:nth-child(2) { width: 89px; }
   .org-table th:last-child { width: 58px; }

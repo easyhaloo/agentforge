@@ -20,7 +20,13 @@ test("organization settings keep role and action menus usable at 320px", async (
 
   await page.goto("/orgs/demo/settings");
   await expect(page.getByRole("heading", { level: 1, name: demoOrganization.name })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Audit history" })).toBeInViewport({ ratio: 1 });
+  const tabs = page.getByRole("tablist", { name: "Organization administration" });
+  await expect(tabs.getByRole("tab", { name: "Members 1" })).toBeVisible();
+  // Exercise wider font metrics even on platforms where all three tabs fit by default.
+  await page.addStyleTag({ content: ".org-tabs [role=tab] { letter-spacing: 0.1em; }" });
+  for (const tab of await tabs.getByRole("tab").all()) {
+    await expect(tab).toBeInViewport({ ratio: 1 });
+  }
   const row = page.getByRole("row", { name: /Taylor Member/ });
   await expect(row.getByText("Active", { exact: true }).filter({ visible: true })).toBeVisible();
   const role = row.getByRole("combobox", { name: "Role for Taylor Member" });
