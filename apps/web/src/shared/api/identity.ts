@@ -155,7 +155,19 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
-export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryRefRule = {
+  name: string;
+  target: "branch" | "tag";
+  enabled: boolean;
+  include: string[];
+  exclude: string[];
+  restrict_creation: boolean;
+  restrict_update: boolean;
+  restrict_deletion: boolean;
+  block_force_push: boolean;
+};
+export type RepositoryMetadata = { ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered" };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
 export type RepositoryPreviewRefs = { description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
@@ -251,9 +263,9 @@ export const repositoryAPI = {
   workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
   settings: (organizationID: string, repository: string) =>
-    request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`),
-  updateGeneralSettings: (organizationID: string, repository: string, settings: Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "updated_at">) =>
-    request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`, {
+    request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`),
+  updateGeneralSettings: (organizationID: string, repository: string, settings: Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "ref_rules" | "updated_at">) =>
+    request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
     }),
   updateDefaultBranch: (organizationID: string, repository: string, defaultBranch: string, previousBranch: string) =>

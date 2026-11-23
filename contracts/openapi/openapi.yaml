@@ -679,13 +679,13 @@ paths:
           description: Repository settings
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+              schema: { $ref: "#/components/schemas/RepositorySettings" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateRepositorySettings
       summary: Update general repository settings or the default branch
-      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the catalog or refs endpoint.
+      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the settings or refs endpoint.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -709,6 +709,7 @@ paths:
                     is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
                     actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
+                    ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
                     push_ref_limit:
                       description: Optional branch and tag update cap for native Git pushes. Zero uses the server maximum of 128.
                       oneOf:
@@ -719,7 +720,7 @@ paths:
           description: Updated general repository settings
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+              schema: { $ref: "#/components/schemas/RepositorySettings" }
         "204": { description: Updated default branch }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -2128,6 +2129,38 @@ components:
         type: string
         pattern: '^refs/(heads|tags)/.+$'
         maxLength: 139
+    RepositoryRefRules:
+      type: array
+      description: Rulesets for direct pushes to a native Git repository. Every matching enabled rule applies. Exclusions take precedence within a ruleset. Each ruleset requires at least one restriction and allows at most 10 patterns across include and exclude.
+      maxItems: 10
+      items:
+        type: object
+        additionalProperties: false
+        required: [name, target, enabled, include]
+        properties:
+          name: { type: string, minLength: 1, maxLength: 80 }
+          target: { type: string, enum: [branch, tag] }
+          enabled: { type: boolean }
+          include:
+            allOf: [{ $ref: "#/components/schemas/RepositoryRefRulePatterns" }, { minItems: 1 }]
+          exclude: { $ref: "#/components/schemas/RepositoryRefRulePatterns" }
+          restrict_creation: { type: boolean }
+          restrict_update: { type: boolean }
+          restrict_deletion: { type: boolean }
+          block_force_push: { type: boolean, description: Applicable only to branch rulesets. }
+    RepositoryRefRulePatterns:
+      type: array
+      description: Ref names or globs without the refs/heads/ or refs/tags/ prefix. Use ~ALL for every ref or ~DEFAULT_BRANCH for the current default branch.
+      maxItems: 10
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 128 }
+    RepositorySettings:
+      allOf:
+        - $ref: "#/components/schemas/RepositoryMetadata"
+        - type: object
+          required: [hosting_kind]
+          properties:
+            hosting_kind: { type: string, enum: [hosted, registered] }
     RepositoryMetadata:
       type: object
       required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, push_ref_limit, created_by, created_at, updated_at]
@@ -2135,6 +2168,7 @@ components:
         is_template: { type: boolean }
         actions_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
+        ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
         push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
         organization_id: { type: string }
         slug: { type: string }

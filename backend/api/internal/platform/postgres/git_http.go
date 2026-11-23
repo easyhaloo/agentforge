@@ -77,8 +77,8 @@ func (s *Store) LockGitPolicy(ctx context.Context, organization, repository stri
 		_ = tx.Rollback(ctx)
 	}
 	var policy githttp.PushPolicy
-	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs FROM delivery_repositories
-		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs, ref_rules FROM delivery_repositories
+		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs, &policy.RefRules); err != nil {
 		release()
 		return githttp.PushPolicy{}, nil, fmt.Errorf("lock Git default branch: %w", err)
 	}

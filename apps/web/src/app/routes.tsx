@@ -121,6 +121,7 @@ export const routes: RouteObject[] = [
               organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
               ...repositorySections.filter(section => section === "issues" || section === "actions").map(section =>
                 organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
+              // Settings panels share the repository shell and its top-level Settings tab.
               ...repositorySettingsSections.map(section =>
                 organizationPage(`repositories/:owner/:repo/settings${section === "general" ? "" : `/${section}`}`, "Repository", <RepositoryDetailRoute settingsSection={section} />)),
               organizationPage("repositories/:owner/:repo/branches", "Repository", <Navigate to="../settings/branches" relative="path" replace />),

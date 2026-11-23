@@ -136,6 +136,11 @@ func (d DeliveryDependencies) listRepositoryWorkflows(w http.ResponseWriter, r *
 	writeJSON(w, 200, map[string]any{"items": items})
 }
 
+type repositorySettingsResponse struct {
+	delivery.RepositoryMetadata
+	HostingKind string `json:"hosting_kind"`
+}
+
 func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, false)
 	if !ok {
@@ -146,7 +151,7 @@ func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
-	writeJSON(w, http.StatusOK, repository)
+	writeJSON(w, http.StatusOK, repositorySettingsResponse{repository, d.repositoryHostingKind(r.Context(), repository)})
 }
 
 func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r *http.Request) {
@@ -163,19 +168,20 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		return
 	}
 	var input struct {
-		DefaultBranch   string    `json:"default_branch"`
-		PreviousBranch  string    `json:"previous_branch"`
-		Description     *string   `json:"description"`
-		ActionsDisabled *bool     `json:"actions_disabled"`
-		IsTemplate      *bool     `json:"is_template"`
-		PushRefLimit    *int      `json:"push_ref_limit"`
-		ProtectedRefs   *[]string `json:"protected_refs"`
-		UpdatedAt       time.Time `json:"updated_at"`
+		DefaultBranch   string             `json:"default_branch"`
+		PreviousBranch  string             `json:"previous_branch"`
+		Description     *string            `json:"description"`
+		ActionsDisabled *bool              `json:"actions_disabled"`
+		IsTemplate      *bool              `json:"is_template"`
+		PushRefLimit    *int               `json:"push_ref_limit"`
+		ProtectedRefs   *[]string          `json:"protected_refs"`
+		RefRules        *[]githttp.RefRule `json:"ref_rules"`
+		UpdatedAt       time.Time          `json:"updated_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil {
+	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -213,6 +219,19 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				return
 			}
 			repository.ProtectedRefs = *input.ProtectedRefs
+		}
+		if input.RefRules != nil {
+			if !githttp.ValidRefRules(*input.RefRules) ||
+				(len(*input.RefRules) > 0 && d.repositoryHostingKind(r.Context(), repository) != "hosted") {
+				writeProblem(w, 422, "Invalid rulesets", "Provide up to 10 valid rulesets for a native Git repository")
+				return
+			}
+			for i := range *input.RefRules {
+				if (*input.RefRules)[i].Exclude == nil {
+					(*input.RefRules)[i].Exclude = []string{}
+				}
+			}
+			repository.RefRules = *input.RefRules
 		}
 		if input.ActionsDisabled != nil {
 			repository.ActionsDisabled = *input.ActionsDisabled
@@ -282,6 +301,6 @@ func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWri
 		writeProblem(w, 500, "Unable to update repository settings", "General settings could not be saved")
 	default:
 		repository.UpdatedAt = updatedAt
-		writeJSON(w, 200, repository)
+		writeJSON(w, http.StatusOK, repositorySettingsResponse{repository, d.repositoryHostingKind(r.Context(), repository)})
 	}
 }

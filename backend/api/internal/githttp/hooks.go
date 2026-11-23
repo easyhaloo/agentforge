@@ -26,6 +26,7 @@ type PushPolicy struct {
 	DefaultBranch string
 	RefLimit      int
 	ProtectedRefs []string
+	RefRules      []RefRule
 }
 
 func ValidProtectedRefs(patterns []string) bool {
@@ -171,6 +172,10 @@ func receiveHook(name string, input io.Reader) error {
 		if err := json.Unmarshal([]byte(os.Getenv("AF_GIT_PROTECTED_REFS")), &protectedRefs); err != nil || !ValidProtectedRefs(protectedRefs) {
 			return errors.New("ref protection unavailable")
 		}
+		var rules []RefRule
+		if err := json.Unmarshal([]byte(os.Getenv("AF_GIT_REF_RULES")), &rules); err != nil || !ValidRefRules(rules) {
+			return errors.New("repository rulesets unavailable")
+		}
 		for _, update := range updates {
 			if !strings.HasPrefix(update.Ref, "refs/heads/") && !strings.HasPrefix(update.Ref, "refs/tags/") {
 				return errors.New("only branch and tag updates are allowed")
@@ -182,6 +187,9 @@ func receiveHook(name string, input io.Reader) error {
 				if matched, _ := path.Match(pattern, update.Ref); matched && strings.Count(pattern, "/") == strings.Count(update.Ref, "/") {
 					return fmt.Errorf("direct pushes to %s are prohibited by repository settings", update.Ref)
 				}
+			}
+			if err := checkRefRules(rules, update, os.Getenv("AF_GIT_DEFAULT")); err != nil {
+				return err
 			}
 		}
 		if err := writePushEvent(intent, event); err != nil {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GitBranch, KeyRound, Play, Settings, Tag } from "lucide-react";
+import { GitBranch, KeyRound, Play, Scale, Settings, Tag } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
@@ -9,6 +9,7 @@ import { organizationHandle, repositoryNewPath, repositoryPath, repositorySettin
 import { Button, Checkbox, Input, Modal, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
+import { RepositoryRulesetsSettings } from "./RepositoryRulesetsSettings";
 import "./repositories.css";
 import "./repository-settings.css";
 
@@ -20,6 +21,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const isActions = section === "actions";
+  const needsRefs = !isActions && section !== "rulesets";
   const handle = organizationHandle(organization);
   const path = (panel: RepositorySettingsSection) => repositorySettingsPath(handle, repository, panel);
 
@@ -31,7 +33,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
     return () => { active = false; };
   }, [organization.id, repository, t, attempt]);
 
-  const title = t({ general: "settings.general", branches: "sections.branches", tags: "settings.tags", actions: "sections.actions", "git-tokens": "git.tokens" }[section]);
+  const title = t({ general: "settings.general", rulesets: "settings.rulesets.title", branches: "sections.branches", tags: "settings.tags", actions: "sections.actions", "git-tokens": "git.tokens" }[section]);
   return <div className="repo-layout repo-browser repo-settings">
     <nav className="repo-settings-nav" aria-label={t("sections.settingsFor", { repository })}>
       <NavLink to={path("general")} end><Settings size={16} aria-hidden="true"/>{t("settings.general")}</NavLink>
@@ -41,6 +43,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
       </div>}
       <div className="repo-settings-nav-group">
         <p>{t("settings.sourceControl")}</p>
+        <NavLink to={path("rulesets")} end><Scale size={16} aria-hidden="true"/>{t("settings.rulesets.title")}</NavLink>
         <NavLink to={path("branches")} end><GitBranch size={16} aria-hidden="true"/>{t("sections.branches")}</NavLink>
         <NavLink to={path("tags")} end><Tag size={16} aria-hidden="true"/>{t("settings.tags")}</NavLink>
       </div>
@@ -52,11 +55,11 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
       <header className="repo-settings-heading">
         <h1 id="repository-settings-title">{title}</h1>
       </header>
-      {!isActions && error && <div className="repo-settings-card">
+      {needsRefs && error && <div className="repo-settings-card">
         <p role="alert" className="org-error">{error}</p>
         <Button onClick={() => { setError(""); setAttempt(attempt + 1); }}>{t("app:organizationGate.retry")}</Button>
       </div>}
-      {!isActions && !refs && !error && <p role="status">{t("common:components.loading")}</p>}
+      {needsRefs && !refs && !error && <p role="status">{t("common:components.loading")}</p>}
       {refs && section === "general" && <>
         <section className="repo-settings-card">
           <h2>{t("settings.repositoryName")}</h2>
@@ -71,6 +74,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
             setAttempt(current => current + 1);
           }} />
       </>}
+      {section === "rulesets" && <RepositoryRulesetsSettings organization={organization} repository={repository} />}
       {refs && (section === "branches" || section === "tags") && <>
         {refs.hosting_kind === "hosted" && <RefProtectionSettings key={section} section={section} organization={organization} refs={refs}
           onSave={item => setRefs(current => current && { ...current, protected_refs: item.protected_refs, updated_at: item.updated_at })} />}

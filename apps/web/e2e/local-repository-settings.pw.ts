@@ -169,6 +169,57 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await content.getByRole("button", { name: "Save", exact: true }).click();
     await expect(content.getByText("Actions settings saved.")).toBeVisible();
 
+    await page.goto(`${repositoryURL}/settings/rulesets`);
+    const saveRulesets = async () => {
+      await content.getByRole("button", { name: "Save changes", exact: true }).click();
+      await expect(content.getByText("Rulesets saved.")).toBeVisible();
+    };
+    await content.getByRole("button", { name: "New ruleset" }).click();
+    await content.getByRole("textbox", { name: "Ruleset name" }).fill("Release history");
+    await content.getByRole("textbox", { name: "Include patterns" }).fill("shipping/**");
+    await content.getByRole("textbox", { name: "Exclude patterns" }).fill("shipping/scratch/**");
+    await content.getByRole("checkbox", { name: "Restrict deletion" }).check();
+    await content.getByRole("checkbox", { name: "Block force pushes" }).check();
+    await saveRulesets();
+    await page.reload();
+    await expect(content.getByText("Release history", { exact: true })).toBeVisible();
+    await content.getByRole("button", { name: "Edit Release history" }).click();
+    await expect(content.getByRole("textbox", { name: "Exclude patterns" })).toHaveValue("shipping/scratch/**");
+    await capture("rulesets");
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await capture("rulesets-mobile");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+
+    const shipping = "refs/heads/shipping/eu/next";
+    const scratch = "refs/heads/shipping/scratch/next";
+    checkedGit(worktree, "push", "origin", `HEAD:${shipping}`, `HEAD:${scratch}`);
+    checkedGit(worktree, "-c", "user.name=Settings QA", "-c", "user.email=qa@example.test", "commit", "--allow-empty", "-m", "Fast-forward to a quarantined commit");
+    checkedGit(worktree, "push", "origin", `HEAD:${shipping}`, `HEAD:${scratch}`);
+    checkedGit(worktree, "push", "origin", `+HEAD^:${scratch}`);
+    expect(git(worktree, "push", "origin", `+HEAD^:${shipping}`).stderr).toContain(`blocks non-fast-forward updates to ${shipping}`);
+    expect(git(worktree, "push", "origin", `:${shipping}`, ":refs/heads/shipping/scratch/next").stderr).toContain(`blocks deletion of ${shipping}`);
+    expect(checkedGit(folder, "ls-remote", gitURL, scratch)).toContain(scratch);
+
+    await content.getByRole("button", { name: "New ruleset" }).click();
+    await content.getByRole("textbox", { name: "Ruleset name" }).fill("Release tags");
+    await selectOption(page, content.getByRole("combobox", { name: "Target", exact: true }), "Tags");
+    await content.getByRole("textbox", { name: "Include patterns" }).fill("locked-*");
+    await content.getByRole("checkbox", { name: "Restrict updates" }).check();
+    await saveRulesets();
+    const lockedTag = "refs/tags/locked-release";
+    checkedGit(worktree, "push", "origin", `HEAD:${lockedTag}`);
+    expect(git(worktree, "push", "origin", `+HEAD^:${lockedTag}`).stderr).toContain(`blocks updates to ${lockedTag}`);
+    await content.getByRole("button", { name: "Edit Release tags" }).click();
+    await content.getByRole("checkbox", { name: "Restrict creation" }).check();
+    await saveRulesets();
+    expect(git(worktree, "push", "origin", "HEAD:refs/tags/locked-next", "HEAD:refs/heads/ordinary").stderr).toContain("blocks creation of refs/tags/locked-next");
+    expect(checkedGit(folder, "ls-remote", gitURL, "refs/heads/ordinary", "refs/tags/locked-next")).toBe("");
+    await content.getByRole("button", { name: "Edit Release tags" }).click();
+    await content.getByRole("checkbox", { name: "Enable ruleset" }).uncheck();
+    await saveRulesets();
+    checkedGit(worktree, "push", "origin", "HEAD:refs/tags/locked-next");
+
     await page.goto(`${repositoryURL}/settings/git-tokens`);
     await content.getByRole("button", { name: "Revoke credential" }).click();
     await expect(content.getByText("No active Git tokens.")).toBeVisible();
