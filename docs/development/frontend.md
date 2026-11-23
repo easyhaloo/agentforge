@@ -459,6 +459,10 @@ Review changes in light and dark themes, on desktop and narrow screens, and with
 
 For the new-repository form, check that steps 1 and 2 share the rail's centerline and align vertically with their section headings. Use 20 px for the page title, 16 px for section headings, 14 px for labels and control text, and 12 px for helper text. The Owner picker and repository-name field are both 32 px high. Verify that the form and its menus fit at 320 px.
 
+### Repository header
+
+Show the repository owner and name once in the Topbar. Place the repository navigation on the same surface directly below it, with a divider under the navigation. Keep page titles and page-specific actions in the page body. Use route links with `aria-current="page"` and a visible underline for the active section, including on nested issue and pull request URLs. Keep the row horizontally scrollable on narrow screens and every link reachable by keyboard.
+
 ### Topbar search
 
 Use the shared topbar search dialog for workspace and repository routes. Center it at the top of the viewport and keep results scrollable within the panel. Use a single-line input with a leading search icon, a visible primary-color focus outline, and a trailing clear button when the input has text. Highlight the value of `repo:` with `--af-color-primary-subtle` inside the editable input. Show scope suggestions as compact rows below the input with action hints aligned to the end. Keep the input and clear button usable on narrow screens.

@@ -7,7 +7,7 @@ import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, pipelineRunPath, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Button, Select } from "../../shared/ui";
-import { RepositoryMasthead, canManageRepository } from "./RepositoryMasthead";
+import { canManageRepository } from "./repositoryPermissions";
 import { RepositoryIssues } from "./RepositoryIssues";
 import "./repositories.css";
 
@@ -18,7 +18,6 @@ export function RepositorySectionPage({ organization, repository, section, curre
   const props = { organization, repository, section, onNotify };
   const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
-    <RepositoryMasthead organization={organization} repository={repository} />
     {section === "issues" ? (
       <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} currentUser={currentUser} onNotify={onNotify} />
     ) : (

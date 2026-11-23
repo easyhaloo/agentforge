@@ -10,6 +10,7 @@ import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
 import { AccountTheme } from "../features/appearance/AccountTheme";
 import { Topbar } from "./components/Topbar";
+import { RepositoryNavigation } from "../pages/repositories/RepositoryNavigation";
 import { RepositorySwitcher } from "./components/RepositorySwitcher";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
@@ -119,6 +120,7 @@ function App() {
             aria-haspopup="dialog" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}><Menu size={17} aria-hidden="true" /></Button>}
           organizationHandle={selectedOrganization ? linkHandle : undefined}
           organization={<div className="workspace-organization">{organizationSelect}</div>} />
+        {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} />}
         <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} controls={<>
           <div className="workspace-navigation__compact">{organizationSelect}</div>
           {selectedOrganization && <Link className="af-button af-button--ghost af-button--middle nav-item" to={orgPath(linkHandle, "settings")}

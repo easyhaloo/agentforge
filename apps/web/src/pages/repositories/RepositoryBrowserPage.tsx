@@ -8,7 +8,6 @@ import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, webIDEPath } from "../../shared/routing";
 import { Button, Input, Select } from "../../shared/ui";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
-import { RepositoryMasthead } from "./RepositoryMasthead";
 import { RepositoryReadme } from "./RepositoryReadme";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { formatRepositoryFileSize } from "./repositoryFileUtils";
@@ -78,9 +77,9 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
     {snapshot && <Link className="repo-back" to={makeQuery({ commit: "", view: isHistory ? "commits" : "" })}>{t("repositories:browser.backToBranch")}</Link>}
   </div>;
   return <section className="repo-layout repo-browser" aria-label={t("repositories:preview.ariaLabel")}>
-    <RepositoryMasthead organization={organization} repository={repository} actions={
+    <div className="repo-code-actions">
       <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
-    }/>
+    </div>
     {refError && <p className="org-error" role="alert">{refError}</p>}
     {copyError && <p className="org-error" role="alert">{copyError}</p>}
     {change ? <CommitDetails key={`${change}:${compareBase}`} {...browse} change={change} base={compareBase} onCopy={anchor => void copyPermalink(change, anchor)}

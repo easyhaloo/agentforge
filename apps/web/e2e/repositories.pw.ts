@@ -313,7 +313,7 @@ test("repository code and commit details are independently navigable", async ({ 
 test("a commit-pinned file permalink opens directly", async ({ page }) => {
   await page.goto("/orgs/demo/repositories?repository=easyhaloo%2Fagentforge&commit=" + "a".repeat(40) + "&path=README.md");
   await expect(page).toHaveURL(/\/repositories\/easyhaloo\/agentforge\?commit=/);
-  await expect(page.getByRole("heading", { name: "easyhaloo/agentforge", exact: true })).toBeVisible();
+  await expect(page.getByRole("banner").locator(".topbar-repository").getByRole("link", { name: "agentforge", exact: true })).toBeVisible();
   await expect(page.getByText(/Pinned commit:/)).toContainText("aaaaaaaaaaaa");
   const copyPermalink = page.getByRole("button", { name: "Copy permalink" });
   await expect(copyPermalink).toBeEnabled();

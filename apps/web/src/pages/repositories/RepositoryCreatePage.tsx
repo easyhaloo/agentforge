@@ -7,7 +7,7 @@ import { APIError, translateError } from "../../shared/api/errors";
 import { organizationHandle, orgPath, repositoryPath } from "../../shared/routing";
 import { Button, Checkbox, Input, Select, Switch } from "../../shared/ui";
 import { RepositoryCreatePicker } from "./RepositoryCreatePicker";
-import { canManageRepository } from "./RepositoryMasthead";
+import { canManageRepository } from "./repositoryPermissions";
 import "./repositories.css";
 
 const validName = /^[a-z0-9][a-z0-9_.-]{0,99}$/i;

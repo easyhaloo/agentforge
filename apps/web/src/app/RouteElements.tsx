@@ -14,7 +14,6 @@ import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesP
 import { RepositoriesPage } from "../pages/repositories/RepositoriesPage";
 import { RepositoryCreatePage } from "../pages/repositories/RepositoryCreatePage";
 import { RepositoryBrowserPage } from "../pages/repositories/RepositoryBrowserPage";
-import { RepositoryMasthead } from "../pages/repositories/RepositoryMasthead";
 import { RepositorySectionPage } from "../pages/repositories/RepositorySectionPage";
 import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage";
 import { RepositoryIssues } from "../pages/repositories/RepositoryIssues";
@@ -157,7 +156,6 @@ export function IssueDetailRoute() {
   const repository = `${owner}/${repo}`;
   const issueNumber = Number(number);
   return <section className="repo-layout repo-browser">
-    <RepositoryMasthead organization={organization} repository={repository} />
     <IssueDetailPage key={`${organization.id}:${repository}:${issueNumber}`} organization={organization} repository={repository} issueNumber={issueNumber} onNotify={notify} />
   </section>;
 }
@@ -168,7 +166,6 @@ export function PullRequestListRoute() {
   const repository = `${owner}/${repo}`;
   const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
-    <RepositoryMasthead organization={organization} repository={repository} />
     <PullRequestListPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} handle={handle} />
   </section>;
 }
@@ -179,7 +176,6 @@ export function PullRequestCompareRoute() {
   const repository = `${owner}/${repo}`;
   const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
-    <RepositoryMasthead organization={organization} repository={repository} />
     <PullRequestComparePage key={`${organization.id}:${repository}`} organization={organization} repository={repository} handle={handle} />
   </section>;
 }
@@ -190,7 +186,6 @@ export function PullRequestDetailRoute({ tab }: { tab: PullRequestTab }) {
   const repository = `${owner}/${repo}`;
   const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
-    <RepositoryMasthead organization={organization} repository={repository} />
     <PullRequestDetailPage key={`${organization.id}:${repository}:${id}`} organization={organization} repository={repository} handle={handle} pullNumber={id} tab={tab} userID={account.user_id} />
   </section>;
 }

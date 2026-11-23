@@ -491,6 +491,32 @@
 /* Workspace chrome */
 .shell .main { margin: 0; width: 100%; min-width: 0; }
 .shell > .topbar { position: sticky; top: 0; z-index: var(--af-z-sticky); gap: 12px; padding-inline: 12px 16px; }
+.shell > .topbar:has(+ .repo-section-nav) { border-bottom: 0; }
+.repo-section-nav {
+  display: flex;
+  gap: 4px;
+  padding-inline: 12px;
+  overflow-x: auto;
+  background: var(--af-color-surface-raised);
+  border-bottom: 1px solid var(--af-color-border);
+}
+.repo-section-nav a {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  min-height: 40px;
+  padding-inline: 10px;
+  border-bottom: 2px solid transparent;
+  color: var(--af-color-text);
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.repo-section-nav svg { color: var(--af-color-text-secondary); }
+.repo-section-nav a:hover { background: var(--af-color-row-hover); }
+.repo-section-nav a:focus-visible { outline: 2px solid var(--af-color-primary); outline-offset: -2px; }
+.repo-section-nav a[aria-current="page"] { border-bottom-color: var(--af-color-primary); font-weight: 600; }
 .shell > .topbar .top-actions { gap: 8px; flex: none; }
 .shell > .topbar .searchbox { background: transparent; font-size: 13px; }
 .shell .content { max-width: 1600px; margin-inline: auto; }

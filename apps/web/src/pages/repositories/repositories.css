@@ -5,7 +5,6 @@
   margin-inline: auto;
 }
 
-.repo-browser-heading,
 .repo-panel-header,
 .repo-toolbar,
 .repo-row,
@@ -16,51 +15,12 @@
   gap: 8px 12px;
 }
 
-.repo-browser-heading,
 .repo-panel-header,
 .repo-code-toolbar {
   justify-content: space-between;
 }
 
-.repo-masthead {
-  margin-bottom: 16px;
-  padding: 16px 18px 0;
-  border: 1px solid var(--af-color-border);
-  border-radius: var(--af-radius-lg);
-  background: linear-gradient(115deg, var(--af-color-primary-subtle), var(--af-color-background) 72%);
-}
-.repo-browser-heading { padding-bottom: 9px; }
-.repo-browser-heading h1 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 6px 0 0;
-  font-size: clamp(20px, 3vw, 26px);
-  overflow-wrap: anywhere;
-}
-.repo-browser-heading h1 svg { align-self: center; flex-shrink: 0; }
-.repo-browser-heading > div { min-width: 0; }
-.repo-section-nav {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-}
-.repo-section-nav a {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 2px solid transparent;
-  color: var(--af-color-text);
-  font-size: 13px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.repo-section-nav a:hover { background: var(--af-color-surface-raised); }
-.repo-section-nav a[aria-current="page"] {
-  border-bottom-color: var(--af-color-primary);
-  font-weight: 600;
-}
+.repo-code-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .repo-back,
 .repo-link,
 .repo-breadcrumbs a {
@@ -286,13 +246,11 @@
 .repo-commit-detail .repository-diff { font-size: 12px; }
 
 @media (max-width: 600px) {
-  .repo-browser-heading { align-items: flex-start; }
   .repo-row { gap: 6px 8px; }
   .repo-row > .af-button { margin-left: 25px; }
   .repo-panel-header .repo-toolbar .af-field { flex: 1 1 130px; }
 }
 
-.repo-owner { color: var(--af-color-text-secondary); font-weight: 400; }
 .repo-code-main { min-width: 0; }
 .repo-overview {
   display: grid;
@@ -343,7 +301,6 @@
   .repo-overview { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 600px) {
-  .repo-masthead { padding-inline: 12px; }
   .repo-history-row > .repo-row-main, .repo-latest-commit > .repo-row-main { flex-basis: 100%; }
   .repo-history-actions { gap: 6px; }
   .repo-timeline { padding-left: 14px; }
