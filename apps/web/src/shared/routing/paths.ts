@@ -28,12 +28,20 @@ export function orgPath(handle: string, section: OrgSection): string {
   return `/orgs/${encodeURIComponent(handle)}/${section}`;
 }
 
-export const repositorySections = ["issues", "pulls", "branches", "actions", "settings"] as const;
+export const repositorySections = ["issues", "pulls", "actions", "settings"] as const;
 export type RepositorySection = typeof repositorySections[number];
 
 export function repositoryPath(handle: string, slug: string, section?: RepositorySection): string {
   const base = `${orgPath(handle, "repositories")}/${slug.split("/").map(encodeURIComponent).join("/")}`;
   return section ? `${base}/${section}` : base;
+}
+
+export const repositorySettingsSections = ["general", "branches", "tags", "git-tokens"] as const;
+export type RepositorySettingsSection = typeof repositorySettingsSections[number];
+
+export function repositorySettingsPath(handle: string, slug: string, section: RepositorySettingsSection = "general"): string {
+  const base = repositoryPath(handle, slug, "settings");
+  return section === "general" ? base : `${base}/${section}`;
 }
 
 export function repositoryNewPath(handle: string): string {

@@ -116,6 +116,10 @@
     "noMatch": "没有匹配的仓库。"
   },
   "create": {
+    "repositoryTemplate": "仓库模板",
+    "noRepositoryTemplate": "不使用模板",
+    "includeAllBranches": "包含所有分支",
+    "templateUnavailable": "所选组织中无法使用此模板。",
     "title": "创建新仓库",
     "intro": "注册此服务器上已有的 Git 仓库，以启用变更集工作流程和经验证的交付。",
     "generalSection": "基本信息",
@@ -776,5 +780,41 @@
       "changesetFailed": "无法创建变更集",
       "saveFailed": "保存失败，请重新加载文件后再试。"
     }
+  },
+  "settings": {
+    "refProtection": "直接推送保护",
+    "protectedPatterns": "受保护的名称模式",
+    "protectedPatternsHelp": "每行填写一个名称或模式，例如 {{example}}。可在单个路径段中使用 *、? 或字符集。分支与标签合计最多 20 条。直接推送无法创建、更新或删除匹配的引用。",
+    "description": "描述",
+    "templateRepository": "模板仓库",
+    "templateHelp": "使用此仓库的文件在本组织中创建新仓库。可以复制默认分支或所有分支。",
+    "useTemplate": "使用此模板",
+    "generalSaved": "常规设置已保存。",
+    "general": "常规",
+    "access": "访问权限",
+    "sourceControl": "源代码管理",
+    "tags": "标签",
+    "noTags": "暂无标签。",
+    "repositoryName": "仓库名称",
+    "protected": "受保护",
+    "changeDefaultBranch": "更改默认分支",
+    "newDefaultBranch": "新的默认分支",
+    "confirmDefaultBranch": "更新默认分支",
+    "defaultBranchWarning": "将默认分支从 {{previous}} 切换到 {{branch}}？新建合并请求和克隆仓库时将默认使用 {{branch}}。",
+    "pushes": "推送",
+    "limitPushRefs": "限制单次推送的分支和标签更新数",
+    "maxPushRefs": "每次推送的更新上限",
+    "pushLimitHelp": "设置推送到此仓库的更新数上限，范围为 2 到 128。",
+    "tokensUnavailable": "原生托管仓库启用 HTTPS 后才能管理 Git 访问令牌。"
+  },
+  "git": {
+    "tokens": "Git 访问令牌",
+    "protectedBranch": "默认分支 {{branch}} 受保护。更新该分支需发起合并请求。",
+    "read": "克隆和拉取",
+    "write": "克隆、拉取和推送工作分支",
+    "expires": "{{date}} 到期",
+    "empty": "暂无有效的 Git 访问令牌。",
+    "failed": "Git 访问令牌操作失败。",
+    "manage": "新建 Git 访问令牌"
   }
 }

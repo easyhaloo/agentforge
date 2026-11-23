@@ -33,7 +33,7 @@ func TestGitCredentialRepositoryAndLiveAuthorization(t *testing.T) {
 	}
 	verify := func(hash [32]byte, organization, repository string, write, allowed bool) {
 		t.Helper()
-		gotOrg, gotUser, err := store.AuthorizeGitCredential(ctx, hash[:], organization, repository, write)
+		gotOrg, gotUser, _, err := store.AuthorizeGitCredential(ctx, hash[:], organization, repository, write)
 		if allowed {
 			if err != nil || gotOrg != org || gotUser != user {
 				t.Fatalf("authorize (%s, %s, write=%t) = (%q, %q, %v)", organization, repository, write, gotOrg, gotUser, err)

@@ -375,7 +375,9 @@ func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.
 			break
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "default_branch": repository.DefaultBranch, "resolved_commit_sha": commitSHA, "items": refs})
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "default_branch": repository.DefaultBranch, "resolved_commit_sha": commitSHA, "items": refs,
+		"hosting_kind": d.repositoryHostingKind(r.Context(), repository), "git_credentials_available": d.GitHTTP != nil && d.GitHTTP.Available(repository.OrganizationID, repository.Slug),
+		"description": repository.Description, "is_template": repository.IsTemplate, "push_ref_limit": repository.PushRefLimit, "protected_refs": append([]string{}, repository.ProtectedRefs...), "updated_at": repository.UpdatedAt})
 }
 
 // repositoryImageContentType deliberately recognizes only passive raster formats.

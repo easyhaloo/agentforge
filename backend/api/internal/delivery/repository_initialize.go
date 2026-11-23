@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 var initializationSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
@@ -75,10 +77,12 @@ type RepositoryInitializer interface {
 
 // RepositoryInitialization specifies optional initialization templates for a new repository.
 type RepositoryInitialization struct {
-	Description string // UTF-8, max 350 chars, no NUL
-	Readme      bool
-	Gitignore   string // "", "node", "python", "go"
-	License     string // "", "mit"
+	Description        string // UTF-8, max 350 chars, no NUL
+	Readme             bool
+	Gitignore          string // "", "node", "python", "go"
+	License            string // "", "mit"
+	IncludeAllBranches bool
+	Template           RepositoryMetadata
 }
 
 var _ RepositoryInitializer = (*LocalGitProvider)(nil)
@@ -135,51 +139,18 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 	}()
 
 	repoPath := filepath.Join(rootPath, organizationID, owner, name)
-	if _, err := p.runWithEnvInput(ctx, repoPath, nil, nil, "--git-dir=.", "init", "--bare", "--quiet", "--initial-branch=main", "--template="); err != nil {
-		return nil, fmt.Errorf("initialize Git repository: %w", err)
+	if init.Template.Slug != "" {
+		err = p.seedFromTemplate(ctx, repoPath, organizationID, init.Template, init.IncludeAllBranches)
+	} else {
+		err = p.seedInitialFiles(ctx, repoPath, owner, name, ignore, init)
+	}
+	if err != nil {
+		return nil, err
 	}
 	if init.Description != "" {
 		if err := repo.WriteFile("description", []byte(init.Description+"\n"), 0600); err != nil {
 			return nil, fmt.Errorf("write repository description: %w", err)
 		}
-	}
-	scratch, err := os.MkdirTemp("", "agentforge-git-init-*")
-	if err != nil {
-		return nil, fmt.Errorf("create initialization workspace: %w", err)
-	}
-	defer os.RemoveAll(scratch)
-	workTree := filepath.Join(scratch, "work")
-	if err := os.Mkdir(workTree, 0700); err != nil {
-		return nil, fmt.Errorf("create initialization work tree: %w", err)
-	}
-	env := map[string]string{"GIT_ATTR_NOSYSTEM": "1", "GIT_INDEX_FILE": filepath.Join(scratch, "index")}
-	git := func(args ...string) error {
-		_, err := p.runWithEnvInput(ctx, workTree, env, nil,
-			append([]string{"--git-dir=" + repoPath, "--work-tree=.", "-c", "core.hooksPath=/dev/null"}, args...)...)
-		return err
-	}
-	files := map[string]string{".gitignore": ignore}
-	if init.Readme {
-		files["README.md"] = "# " + name + "\n"
-		if init.Description != "" {
-			files["README.md"] += "\n" + init.Description + "\n"
-		}
-	}
-	if init.License == "mit" {
-		files["LICENSE"] = generateMIT(owner)
-	}
-	for file, content := range files {
-		if content != "" {
-			if err := os.WriteFile(filepath.Join(workTree, file), []byte(content), 0600); err != nil {
-				return nil, fmt.Errorf("write starter file %s: %w", file, err)
-			}
-		}
-	}
-	if err := git("add", "--all", "--"); err != nil {
-		return nil, fmt.Errorf("stage starter files: %w", err)
-	}
-	if err := git("-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost", "commit", "--allow-empty", "-m", "Initial commit"); err != nil {
-		return nil, fmt.Errorf("create initial commit: %w", err)
 	}
 	gitInfo, err := repo.Lstat("objects")
 	if err != nil {
@@ -285,4 +256,125 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 `
+}
+
+func (p *LocalGitProvider) seedInitialFiles(ctx context.Context, repoPath, owner, name, ignore string, init RepositoryInitialization) error {
+	if _, err := p.runWithEnvInput(ctx, repoPath, nil, nil, "--git-dir=.", "init", "--bare", "--quiet", "--initial-branch=main", "--template="); err != nil {
+		return fmt.Errorf("initialize Git repository: %w", err)
+	}
+	scratch, err := os.MkdirTemp("", "agentforge-git-init-*")
+	if err != nil {
+		return fmt.Errorf("create initialization workspace: %w", err)
+	}
+	defer os.RemoveAll(scratch)
+	workTree := filepath.Join(scratch, "work")
+	if err := os.Mkdir(workTree, 0700); err != nil {
+		return fmt.Errorf("create initialization work tree: %w", err)
+	}
+	env := map[string]string{"GIT_ATTR_NOSYSTEM": "1", "GIT_INDEX_FILE": filepath.Join(scratch, "index")}
+	git := func(args ...string) error {
+		_, err := p.runWithEnvInput(ctx, workTree, env, nil,
+			append([]string{"--git-dir=" + repoPath, "--work-tree=.", "-c", "core.hooksPath=/dev/null"}, args...)...)
+		return err
+	}
+	files := map[string]string{".gitignore": ignore}
+	if init.Readme {
+		files["README.md"] = "# " + name + "\n"
+		if init.Description != "" {
+			files["README.md"] += "\n" + init.Description + "\n"
+		}
+	}
+	if init.License == "mit" {
+		files["LICENSE"] = generateMIT(owner)
+	}
+	for file, content := range files {
+		if content != "" {
+			if err := os.WriteFile(filepath.Join(workTree, file), []byte(content), 0600); err != nil {
+				return fmt.Errorf("write starter file %s: %w", file, err)
+			}
+		}
+	}
+	if err := git("add", "--all", "--"); err != nil {
+		return fmt.Errorf("stage starter files: %w", err)
+	}
+	if err := git("-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost", "commit", "--allow-empty", "-m", "Initial commit"); err != nil {
+		return fmt.Errorf("create initial commit: %w", err)
+	}
+	return nil
+}
+
+func (p *LocalGitProvider) IsBareRepository(ctx context.Context, organization, repository string) bool {
+	path, err := p.repositoryPath(ctx, organization, repository)
+	if err != nil {
+		return false
+	}
+	bare, err := p.run(ctx, path, "rev-parse", "--is-bare-repository")
+	return err == nil && bare == "true"
+}
+
+func (p *LocalGitProvider) seedFromTemplate(ctx context.Context, repoPath, org string, template RepositoryMetadata, includeAllBranches bool) error {
+	if template.OrganizationID != org || !template.IsTemplate {
+		return ErrRepositoryInvalid
+	}
+	source, err := p.repositoryPath(ctx, org, template.Slug)
+	if err != nil {
+		return err
+	}
+	defaultRef := "refs/heads/" + template.DefaultBranch
+	pattern := defaultRef
+	if includeAllBranches {
+		pattern = "refs/heads"
+	}
+	output, err := p.runPreview(ctx, source, 1<<20, "for-each-ref", "--count=1001", "--format=%(refname)%00%(tree)", pattern)
+	if err != nil {
+		return fmt.Errorf("list template branches: %w", err)
+	}
+	branches := make(map[string]string)
+	var trees strings.Builder
+	for record := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
+		ref, tree, ok := strings.Cut(record, "\x00")
+		if !ok || (!includeAllBranches && ref != defaultRef) || !strings.HasPrefix(ref, "refs/heads/") {
+			continue
+		}
+		if strings.HasPrefix(ref, "refs/heads/agentforge/") || ref == "refs/heads/agentforge" {
+			continue
+		}
+		if !validGitObjectID(tree) {
+			return ErrRepositoryInvalid
+		}
+		branches[ref] = tree
+		trees.WriteString(tree)
+		trees.WriteByte('\n')
+	}
+	defaultTree, found := branches[defaultRef]
+	if !found {
+		return ErrRepositoryInvalid
+	}
+	if len(branches) > 1000 {
+		return ErrPreviewTooLarge
+	}
+	format := "sha1"
+	if len(defaultTree) == 64 {
+		format = "sha256"
+	}
+	if _, err := p.run(ctx, repoPath, "--git-dir=.", "init", "--bare", "--quiet", "--initial-branch="+template.DefaultBranch, "--template=", "--object-format="+format); err != nil {
+		return fmt.Errorf("initialize template copy: %w", err)
+	}
+	prefix := filepath.Join(repoPath, "objects", "pack", "pack")
+	if _, err := p.runWithEnvInput(ctx, source, nil, []byte(trees.String()), "pack-objects", "--revs", prefix); err != nil {
+		return fmt.Errorf("copy template trees: %w", err)
+	}
+	key := uuid.NewString()
+	for ref, tree := range branches {
+		// Same tree, author and second can otherwise produce identical root commits.
+		message := fmt.Sprintf("Initial commit from template\n\nAgentForge repository: %s\nBranch: %s\n", key, strings.TrimPrefix(ref, "refs/heads/"))
+		commit, err := p.runWithEnvInput(ctx, repoPath, nil, []byte(message), "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost", "commit-tree", tree)
+		if err != nil || !validGitObjectID(commit) {
+			return fmt.Errorf("commit template tree: %w", errors.Join(err, ErrRepositoryInvalid))
+		}
+		if _, err := p.run(ctx, repoPath, "update-ref", ref, commit); err != nil {
+			return fmt.Errorf("publish template branch: %w", err)
+		}
+	}
+	return nil
 }

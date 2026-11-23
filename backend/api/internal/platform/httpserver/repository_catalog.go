@@ -9,8 +9,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
@@ -147,41 +149,122 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 	if !ok {
 		return
 	}
+	var input struct {
+		DefaultBranch  string    `json:"default_branch"`
+		PreviousBranch string    `json:"previous_branch"`
+		Description    *string   `json:"description"`
+		IsTemplate     *bool     `json:"is_template"`
+		PushRefLimit   *int      `json:"push_ref_limit"`
+		ProtectedRefs  *[]string `json:"protected_refs"`
+		UpdatedAt      time.Time `json:"updated_at"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil {
+		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
+			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
+			return
+		}
+		if input.Description != nil {
+			repository.Description = strings.TrimSpace(*input.Description)
+			if utf8.RuneCountInString(repository.Description) > 350 || strings.ContainsRune(repository.Description, 0) {
+				writeProblem(w, 422, "Invalid description", "Repository descriptions must be at most 350 characters")
+				return
+			}
+		}
+		if input.IsTemplate != nil {
+			if *input.IsTemplate && d.repositoryHostingKind(r.Context(), repository) != "hosted" {
+				writeProblem(w, 422, "Invalid template repository", "Only native Git repositories can be used as templates")
+				return
+			}
+			repository.IsTemplate = *input.IsTemplate
+		}
+		if input.PushRefLimit != nil {
+			limit := *input.PushRefLimit
+			if limit != 0 && (limit < 2 || limit > githttp.MaxPushRefs) {
+				writeProblem(w, 422, "Invalid push limit", "Set the limit to zero or between 2 and 128")
+				return
+			}
+			if limit != 0 && d.repositoryHostingKind(r.Context(), repository) != "hosted" {
+				writeProblem(w, 422, "Invalid push policy", "Push limits require a native Git repository")
+				return
+			}
+			repository.PushRefLimit = limit
+		}
+		if input.ProtectedRefs != nil {
+			if !githttp.ValidProtectedRefs(*input.ProtectedRefs) ||
+				(len(*input.ProtectedRefs) > 0 && d.repositoryHostingKind(r.Context(), repository) != "hosted") {
+				writeProblem(w, 422, "Invalid ref protection", "Provide up to 20 unique branch or tag patterns for a native Git repository")
+				return
+			}
+			repository.ProtectedRefs = *input.ProtectedRefs
+		}
+		repository.UpdatedAt = input.UpdatedAt
+		d.updateRepositoryGeneralSettings(w, r, repository)
+		return
+	}
 	store, storeOK := d.Catalog.(interface {
-		SetRepositoryDefaultBranch(context.Context, string, string, string, string) error
+		SetRepositoryDefaultBranch(context.Context, string, string, string, string, func() error) error
 	})
 	reader, refsOK := d.Preview.(delivery.RepositoryRefsReader)
 	if !storeOK || !refsOK {
 		writeProblem(w, 503, "Repository settings unavailable", "Repository catalog and Git branch access are required")
 		return
 	}
-	var input struct {
-		DefaultBranch  string `json:"default_branch"`
-		PreviousBranch string `json:"previous_branch"`
-	}
-	if !decodeJSON(w, r, &input) {
-		return
-	}
 	branch := strings.TrimSpace(input.DefaultBranch)
-	refs, err := reader.ListRefs(r.Context(), principal.OrganizationID, repository.Slug)
-	if err != nil {
+	branchNotFound := errors.New("branch not found")
+	verifyBranch := func() error {
+		if branch == "agentforge" || strings.HasPrefix(branch, "agentforge/") {
+			return branchNotFound
+		}
+		refs, err := reader.ListRefs(r.Context(), principal.OrganizationID, repository.Slug)
+		if err != nil {
+			return err
+		}
+		for _, ref := range refs {
+			if ref.Kind == "branch" && ref.Name == branch {
+				return nil
+			}
+		}
+		return branchNotFound
+	}
+	err := store.SetRepositoryDefaultBranch(r.Context(), principal.OrganizationID, repository.Slug, branch, input.PreviousBranch, verifyBranch)
+	switch {
+	case errors.Is(err, delivery.ErrVersionConflict):
+		writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
+	case errors.Is(err, branchNotFound):
+		writeProblem(w, 422, "Branch not found", "Select an existing Git branch")
+	case err != nil:
 		writeRepositoryError(w, err)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (d DeliveryDependencies) repositoryHostingKind(ctx context.Context, repository delivery.RepositoryMetadata) string {
+	if provider, ok := d.Git.(*delivery.LocalGitProvider); ok && provider.IsBareRepository(ctx, repository.OrganizationID, repository.Slug) {
+		return "hosted"
+	}
+	return "registered"
+}
+
+func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWriter, r *http.Request, repository delivery.RepositoryMetadata) {
+	store, ok := d.Catalog.(interface {
+		SetRepositoryGeneralSettings(context.Context, delivery.RepositoryMetadata) (time.Time, error)
+	})
+	if !ok {
+		writeProblem(w, 503, "Repository settings unavailable", "Repository settings are not configured")
 		return
 	}
-	for _, ref := range refs {
-		if ref.Kind != "branch" || ref.Name != branch {
-			continue
-		}
-		err = store.SetRepositoryDefaultBranch(r.Context(), principal.OrganizationID, repository.Slug, branch, input.PreviousBranch)
-		switch {
-		case errors.Is(err, delivery.ErrVersionConflict):
-			writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
-		case err != nil:
-			writeProblem(w, 500, "Unable to update repository settings", "The default branch could not be saved")
-		default:
-			w.WriteHeader(http.StatusNoContent)
-		}
-		return
+	updatedAt, err := store.SetRepositoryGeneralSettings(r.Context(), repository)
+	switch {
+	case errors.Is(err, delivery.ErrVersionConflict):
+		writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
+	case err != nil:
+		writeProblem(w, 500, "Unable to update repository settings", "General settings could not be saved")
+	default:
+		repository.UpdatedAt = updatedAt
+		writeJSON(w, 200, repository)
 	}
-	writeProblem(w, 422, "Branch not found", "Select an existing Git branch")
 }

@@ -109,7 +109,7 @@ func main() {
 			ticker := time.NewTicker(10 * time.Second)
 			defer ticker.Stop()
 			for ctx.Err() == nil {
-				if err := deps.GitHTTP.Reconcile(ctx, store.LockGitDefaultBranch); err != nil && ctx.Err() == nil {
+				if err := deps.GitHTTP.Reconcile(ctx, store.LockGitPolicy); err != nil && ctx.Err() == nil {
 					logger.Error("Git push journal recovery failed", "error", err)
 				}
 				select {

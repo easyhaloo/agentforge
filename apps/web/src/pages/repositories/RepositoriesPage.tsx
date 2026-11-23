@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { repositoryAPI, type OrganizationSummary, type RepositorySummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { organizationHandle, repositoryChangesetsPath, repositoryPath, repositoryNewPath } from "../../shared/routing";
+import { organizationHandle, repositoryChangesetsPath, repositoryPath, repositorySettingsPath, repositoryNewPath } from "../../shared/routing";
 import { Button, Input, Modal, Select } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
 import "./repositories.css";
@@ -242,7 +242,7 @@ export function RepositoriesPage({ organization, userID }: Props) {
                   </Link>
                   <div className="repo-catalog-meta">
                     {language && <span className="repo-language"><i style={{ backgroundColor: languageColors[language] }} aria-hidden="true"/>{language}</span>}
-                    <Link to={repositoryPath(handle, item.slug, "branches")} title={t("sections.branchLabel", { branch: item.default_branch, count: branchCount })}
+                    <Link to={repositorySettingsPath(handle, item.slug, "branches")} title={t("sections.branchLabel", { branch: item.default_branch, count: branchCount })}
                       aria-label={t("sections.branchLabel", { branch: item.default_branch, count: branchCount })}>
                       <GitBranch size={16} aria-hidden="true"/><code>{item.default_branch}</code>{branchCount !== undefined && <span>{branchCount}</span>}
                     </Link>

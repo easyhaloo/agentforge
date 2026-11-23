@@ -57,19 +57,19 @@ func (s *testGitCredentials) RevokeGitCredential(_ context.Context, id, org, rep
 	return nil
 }
 
-func (s *testGitCredentials) AuthorizeGitCredential(_ context.Context, hash []byte, org, repo string, write bool) (string, string, error) {
+func (s *testGitCredentials) AuthorizeGitCredential(_ context.Context, hash []byte, org, repo string, write bool) (string, string, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, item := range s.items {
 		if item.org == org && item.repo == repo && bytes.Equal(item.hash, hash) && item.expires.After(time.Now()) && (!write || item.scope == "write") {
-			return item.org, item.actor, nil
+			return item.org, item.actor, "main", nil
 		}
 	}
-	return "", "", identity.ErrUnauthenticated
+	return "", "", "", identity.ErrUnauthenticated
 }
 
-func (s *testGitCredentials) LockGitDefaultBranch(context.Context, string, string) (string, func(), error) {
-	return "main", func() {}, nil
+func (s *testGitCredentials) LockGitPolicy(context.Context, string, string) (githttp.PushPolicy, func(), error) {
+	return githttp.PushPolicy{DefaultBranch: "main"}, func() {}, nil
 }
 
 func TestGitSmartHTTPCloneFetchPushAndCredentials(t *testing.T) {

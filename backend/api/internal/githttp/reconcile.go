@@ -32,7 +32,7 @@ func finishPush(journal, intent string, event PushEvent) error {
 
 // Reconcile publishes events for interrupted receives. The same database lock
 // used by normal pushes must cover each recovery attempt.
-func (t *Transport) Reconcile(ctx context.Context, lock func(context.Context, string, string) (string, func(), error)) error {
+func (t *Transport) Reconcile(ctx context.Context, lock func(context.Context, string, string) (PushPolicy, func(), error)) error {
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	return t.walkIntents(ctx, func(path string, event PushEvent) error {

@@ -8,14 +8,51 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+const MaxPushRefs = 128
+
+// PushPolicy is loaded while holding the repository row lock for a Git receive.
+type PushPolicy struct {
+	DefaultBranch string
+	RefLimit      int
+	ProtectedRefs []string
+}
+
+func ValidProtectedRefs(patterns []string) bool {
+	if len(patterns) > 20 {
+		return false
+	}
+	seen := make(map[string]bool, len(patterns))
+	for _, pattern := range patterns {
+		prefix, name, ok := strings.Cut(strings.TrimPrefix(pattern, "refs/"), "/")
+		if !strings.HasPrefix(pattern, "refs/") || !ok || (prefix != "heads" && prefix != "tags") ||
+			name == "" || len(name) > 128 || strings.ContainsAny(name, "\\~^:") || seen[pattern] {
+			return false
+		}
+		for _, ch := range name {
+			if ch <= ' ' || ch == 127 {
+				return false
+			}
+		}
+		for segment := range strings.SplitSeq(name, "/") {
+			if _, err := path.Match(segment, ""); err != nil || segment == "" || strings.HasPrefix(segment, ".") || strings.HasSuffix(segment, ".lock") {
+				return false
+			}
+		}
+		seen[pattern] = true
+	}
+	return true
+}
 
 const helperCommand = "agentforge-git-http-backend"
 
@@ -100,7 +137,7 @@ func receiveHook(name string, input io.Reader) error {
 	scanner.Buffer(make([]byte, 1024), 4096)
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), " ")
-		if len(updates) >= 128 || len(parts) != 3 || !validObjectID(parts[0]) || !validObjectID(parts[1]) || len(parts[0]) != len(parts[1]) {
+		if len(updates) >= MaxPushRefs || len(parts) != 3 || !validObjectID(parts[0]) || !validObjectID(parts[1]) || len(parts[0]) != len(parts[1]) {
 			return errors.New("invalid ref updates or too many refs in one push")
 		}
 		updates = append(updates, RefUpdate{Ref: parts[2], Old: parts[0], New: parts[1]})
@@ -117,18 +154,34 @@ func receiveHook(name string, input io.Reader) error {
 	}
 	event.ID = id.String()
 	if name == "pre-receive" {
+		limit, err := strconv.Atoi(os.Getenv("AF_GIT_PUSH_REF_LIMIT"))
+		if err != nil || (limit != 0 && (limit < 2 || limit > MaxPushRefs)) {
+			return errors.New("push ref limit unavailable")
+		}
+		if limit > 0 && len(updates) > limit {
+			return fmt.Errorf("push exceeds the repository limit of %d branch and tag updates", limit)
+		}
 		head, err := os.ReadFile("HEAD") // Git invokes push hooks in $GIT_DIR.
 		if err != nil || os.Getenv("AF_GIT_DEFAULT") == "" {
 			return errors.New("default branch protection unavailable")
 		}
 		headRef, _ := strings.CutPrefix(strings.TrimSpace(string(head)), "ref: ")
 		defaultRef := "refs/heads/" + os.Getenv("AF_GIT_DEFAULT")
+		var protectedRefs []string
+		if err := json.Unmarshal([]byte(os.Getenv("AF_GIT_PROTECTED_REFS")), &protectedRefs); err != nil || !ValidProtectedRefs(protectedRefs) {
+			return errors.New("ref protection unavailable")
+		}
 		for _, update := range updates {
 			if !strings.HasPrefix(update.Ref, "refs/heads/") && !strings.HasPrefix(update.Ref, "refs/tags/") {
 				return errors.New("only branch and tag updates are allowed")
 			}
 			if update.Ref == defaultRef || update.Ref == headRef {
 				return errors.New("direct updates to the default branch are prohibited")
+			}
+			for _, pattern := range protectedRefs {
+				if matched, _ := path.Match(pattern, update.Ref); matched && strings.Count(pattern, "/") == strings.Count(update.Ref, "/") {
+					return fmt.Errorf("direct pushes to %s are prohibited by repository settings", update.Ref)
+				}
 			}
 		}
 		if err := writePushEvent(intent, event); err != nil {

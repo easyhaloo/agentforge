@@ -116,6 +116,10 @@
     "noMatch": "No repositories match your search."
   },
   "create": {
+    "repositoryTemplate": "Repository template",
+    "noRepositoryTemplate": "No template",
+    "includeAllBranches": "Include all branches",
+    "templateUnavailable": "This template is unavailable in the selected organization.",
     "title": "Create a new repository",
     "intro": "Register an existing Git repository on this server to enable changeset workflows and verified delivery.",
     "generalSection": "General",
@@ -776,5 +780,41 @@
       "changesetFailed": "Unable to create changeset",
       "saveFailed": "Save failed. Reload the file before retrying."
     }
+  },
+  "settings": {
+    "refProtection": "Direct push protection",
+    "protectedPatterns": "Protected name patterns",
+    "protectedPatternsHelp": "Enter one name or pattern per line, such as {{example}}. Use *, ? or character classes within one path segment. Up to 20 patterns across branches and tags. Matching refs cannot be created, updated or deleted by a direct Git push.",
+    "description": "Description",
+    "templateRepository": "Template repository",
+    "templateHelp": "Use this repository’s files to create new repositories in this organization. You can copy the default branch or all branches.",
+    "useTemplate": "Use this template",
+    "generalSaved": "General settings saved.",
+    "general": "General",
+    "access": "Access",
+    "sourceControl": "Source control",
+    "tags": "Tags",
+    "noTags": "No tags found.",
+    "repositoryName": "Repository name",
+    "protected": "Protected",
+    "changeDefaultBranch": "Change default branch",
+    "newDefaultBranch": "New default branch",
+    "confirmDefaultBranch": "Update default branch",
+    "defaultBranchWarning": "Change the default branch from {{previous}} to {{branch}}? New pull requests and clones will use {{branch}} by default.",
+    "pushes": "Pushes",
+    "limitPushRefs": "Limit branch and tag updates per push",
+    "maxPushRefs": "Maximum updates per push",
+    "pushLimitHelp": "Set a limit from 2 to 128 for Git pushes to this repository.",
+    "tokensUnavailable": "Git access tokens require an enabled HTTPS endpoint for this hosted repository."
+  },
+  "git": {
+    "tokens": "Git access tokens",
+    "protectedBranch": "The default branch {{branch}} is protected. Use a pull request to update it.",
+    "read": "Clone and fetch",
+    "write": "Clone, fetch, and push working branches",
+    "expires": "Expires {{date}}",
+    "empty": "No active Git tokens.",
+    "failed": "The Git token action failed.",
+    "manage": "New Git access token"
   }
 }

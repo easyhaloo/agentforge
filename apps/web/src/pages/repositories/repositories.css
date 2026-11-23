@@ -270,7 +270,7 @@
 .repo-about dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .repo-about-links { display: grid; justify-items: start; gap: 8px; padding-top: 12px; border-top: 1px solid var(--af-color-border); }
 .repo-code-toolbar, .repo-breadcrumbs, .repo-history-toolbar { margin-bottom: 12px; }
-.repo-reference, .repo-ref-summary, .repo-ref-summary > span, .repo-latest-author,
+.repo-reference, .repo-ref-summary, .repo-ref-summary > a, .repo-latest-author,
 .repo-history-row .repo-meta, .repo-history-actions, .repo-quiet-action, .repo-readme h2 {
   display: flex;
   align-items: center;
@@ -281,6 +281,8 @@
 .repo-reference .af-field { min-width: 0; max-width: 100%; }
 .repo-ref-summary, .repo-quiet-action, .repo-text-button { color: var(--af-color-text-secondary); font-size: 13px; }
 .repo-ref-summary { gap: 12px; }
+.repo-ref-summary a { color: inherit; text-decoration: none; }
+.repo-ref-summary a:hover { color: var(--af-color-primary); text-decoration: underline; }
 .repo-latest-commit .repo-row-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
 .repo-latest-author { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .repo-latest-commit .repo-row-main .repo-link { color: var(--af-color-text-secondary); font-size: 13px; font-weight: 400; }

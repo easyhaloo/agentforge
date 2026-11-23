@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +36,12 @@ var segment = regexp.MustCompile(`^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}$`)
 
 func ValidSegment(value string) bool {
 	return segment.MatchString(value) && !strings.Contains(value, "..")
+}
+
+type CredentialSummary struct {
+	ID        string    `json:"id"`
+	Scope     string    `json:"scope"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 type Transport struct {
@@ -98,8 +106,34 @@ func (t *Transport) Available(organization, repository string) bool {
 	return err == nil
 }
 
+func (t *Transport) DefaultBranchMatches(organization, repository, branch string) bool {
+	path, err := t.repositoryPath(organization, repository)
+	return err == nil && defaultBranchMatches(path, "refs/heads/"+branch)
+}
+
+func defaultBranchMatches(path, ref string) bool {
+	head, err := os.ReadFile(filepath.Join(path, "HEAD"))
+	return err == nil && strings.TrimSpace(string(head)) == "ref: "+ref
+}
+
+// SyncDefaultBranch uses the catalog as the source of truth for the advertised HEAD.
+// Callers hold the same row lock used to protect the push destination.
+func (t *Transport) SyncDefaultBranch(ctx context.Context, organization, repository, branch string) error {
+	path, err := t.repositoryPath(organization, repository)
+	if err != nil {
+		return err
+	}
+	ref := "refs/heads/" + branch
+	if defaultBranchMatches(path, ref) {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, t.git, "--git-dir="+path, "symbolic-ref", "HEAD", ref)
+	cmd.Env = []string{"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}
+	return cmd.Run()
+}
+
 // Serve takes server-resolved identity and catalog fields, never a user-supplied filesystem path.
-func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organization, repository, actor, defaultBranch string) {
+func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organization, repository, actor string, policy PushPolicy) {
 	if service != UploadPack && service != ReceivePack {
 		http.NotFound(w, r)
 		return
@@ -184,7 +218,7 @@ func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organ
 	var pushEnv []string
 	if service == ReceivePack && r.Method == http.MethodPost {
 		// HEAD is also protected if it differs from the catalog's configured default.
-		if defaultBranch == "" {
+		if policy.DefaultBranch == "" || !ValidProtectedRefs(policy.ProtectedRefs) {
 			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -198,7 +232,7 @@ func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organ
 			return
 		}
 		// Read the base before receive changes any refs, while the repository is locked.
-		base := exec.CommandContext(ctx, t.git, "--git-dir="+path, "rev-parse", "--verify", "--end-of-options", "refs/heads/"+defaultBranch+"^{commit}")
+		base := exec.CommandContext(ctx, t.git, "--git-dir="+path, "rev-parse", "--verify", "--end-of-options", "refs/heads/"+policy.DefaultBranch+"^{commit}")
 		base.Env = []string{"PATH=" + t.runtime + ":/usr/bin:/bin", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_NO_REPLACE_OBJECTS=1"}
 		out, err := base.Output()
 		baseSHA := strings.TrimSpace(string(out))
@@ -206,8 +240,10 @@ func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organ
 			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
+		protectedRefs, _ := json.Marshal(policy.ProtectedRefs) // A string slice always marshals.
 		pushEnv = []string{"AF_GIT_BASE=" + baseSHA, "AF_GIT_JOURNAL=" + journal, "AF_GIT_ORG=" + organization, "AF_GIT_REPO=" + repository,
-			"AF_GIT_ACTOR=" + actor, "AF_GIT_DEFAULT=" + defaultBranch, "AF_GIT_INTENT=" + uuid.NewString()}
+			"AF_GIT_ACTOR=" + actor, "AF_GIT_DEFAULT=" + policy.DefaultBranch, "AF_GIT_PUSH_REF_LIMIT=" + strconv.Itoa(policy.RefLimit),
+			"AF_GIT_PROTECTED_REFS=" + string(protectedRefs), "AF_GIT_INTENT=" + uuid.NewString()}
 	}
 	cmd := exec.CommandContext(ctx, t.helper, helperCommand, t.backend)
 	cmd.Dir = work

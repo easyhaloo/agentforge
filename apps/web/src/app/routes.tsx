@@ -12,7 +12,7 @@ import {
   SessionsSettingsPage,
   AgentSettingsPage,
 } from "../pages/settings";
-import { repositorySections, pullRequestTabs, type ChangesetTab, type PullRequestTab } from "../shared/routing";
+import { repositorySections, repositorySettingsSections, pullRequestTabs, type ChangesetTab, type PullRequestTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
@@ -119,7 +119,11 @@ export const routes: RouteObject[] = [
               organizationPage("repositories", "Repositories", <RepositoriesRoute />),
               organizationPage("repositories/new", "Repositories", <RepositoryCreateRoute />),
               organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
-              ...repositorySections.filter(section => section !== "pulls").map(section => organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
+              ...repositorySections.filter(section => section === "issues" || section === "actions").map(section =>
+                organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
+              ...repositorySettingsSections.map(section =>
+                organizationPage(`repositories/:owner/:repo/settings${section === "general" ? "" : `/${section}`}`, "Repository", <RepositoryDetailRoute settingsSection={section} />)),
+              organizationPage("repositories/:owner/:repo/branches", "Repository", <Navigate to="../settings/branches" relative="path" replace />),
               organizationPage("repositories/:owner/:repo/issues/new/choose", "New Issue", <IssueCreateRoute chooseTemplate />),
               organizationPage("repositories/:owner/:repo/issues/new", "New Issue", <IssueCreateRoute />),
               organizationPage("repositories/:owner/:repo/issues/:number", "Issue", <IssueDetailRoute />),

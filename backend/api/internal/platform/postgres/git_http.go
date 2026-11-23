@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/jackc/pgx/v5"
 )
@@ -41,7 +42,7 @@ func (s *Store) RevokeGitCredential(ctx context.Context, id, organizationID, rep
 }
 
 // AuthorizeGitCredential uses the exact repository slug and checks current access.
-func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organization, repository string, write bool) (organizationID, actorID string, err error) {
+func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organization, repository string, write bool) (organizationID, actorID, defaultBranch string, err error) {
 	err = s.pool.QueryRow(ctx, `
 		UPDATE git_http_credentials c SET last_used_at = now()
 		FROM organizations o, organization_memberships m, delivery_repositories r
@@ -52,34 +53,56 @@ func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organiz
 		  AND m.organization_id = o.id AND m.user_id = c.actor_id AND m.status = 'active'
 		  AND r.organization_id = o.id AND r.slug = c.repository
 		  AND (NOT $4 OR (c.scope = 'write' AND m.role IN ('owner', 'admin', 'member')))
-		RETURNING c.organization_id, c.actor_id
-	`, hash, organization, repository, write, foldASCIICase(organization)).Scan(&organizationID, &actorID)
+		RETURNING c.organization_id, c.actor_id, r.default_branch
+	`, hash, organization, repository, write, foldASCIICase(organization)).Scan(&organizationID, &actorID, &defaultBranch)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", identity.ErrUnauthenticated
+		return "", "", "", identity.ErrUnauthenticated
 	}
 	if err != nil {
-		return "", "", fmt.Errorf("authorize Git credential: %w", err)
+		return "", "", "", fmt.Errorf("authorize Git credential: %w", err)
 	}
-	return organizationID, actorID, nil
+	return organizationID, actorID, defaultBranch, nil
 }
 
-// LockGitDefaultBranch serializes pushes and recovery for the repository and
+// LockGitPolicy serializes pushes and recovery for the repository and
 // prevents a concurrent catalog update from changing the protected ref.
-func (s *Store) LockGitDefaultBranch(ctx context.Context, organization, repository string) (string, func(), error) {
+func (s *Store) LockGitPolicy(ctx context.Context, organization, repository string) (githttp.PushPolicy, func(), error) {
 	tx, err := s.lockPool.Begin(ctx)
 	if err != nil {
-		return "", nil, fmt.Errorf("begin Git branch lock: %w", err)
+		return githttp.PushPolicy{}, nil, fmt.Errorf("begin Git branch lock: %w", err)
 	}
 	release := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = tx.Rollback(ctx)
 	}
-	var branch string
-	if err := tx.QueryRow(ctx, `SELECT default_branch FROM delivery_repositories
-		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&branch); err != nil {
+	var policy githttp.PushPolicy
+	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs FROM delivery_repositories
+		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs); err != nil {
 		release()
-		return "", nil, fmt.Errorf("lock Git default branch: %w", err)
+		return githttp.PushPolicy{}, nil, fmt.Errorf("lock Git default branch: %w", err)
 	}
-	return branch, release, nil
+	return policy, release, nil
+}
+
+func (s *Store) ListGitCredentials(ctx context.Context, organizationID, repository, actorID string) ([]githttp.CredentialSummary, error) {
+	rows, err := s.pool.Query(ctx, `
+        SELECT id, scope, expires_at FROM git_http_credentials
+        WHERE organization_id = $1 AND repository = $2 AND actor_id = $3
+          AND revoked_at IS NULL AND expires_at > now()
+        ORDER BY expires_at DESC, id
+    `, organizationID, repository, actorID)
+	if err != nil {
+		return nil, fmt.Errorf("list Git credentials: %w", err)
+	}
+	defer rows.Close()
+	items := make([]githttp.CredentialSummary, 0)
+	for rows.Next() {
+		var item githttp.CredentialSummary
+		if err := rows.Scan(&item.ID, &item.Scope, &item.ExpiresAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }

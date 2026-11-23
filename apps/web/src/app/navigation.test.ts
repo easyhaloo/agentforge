@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import en from "../locales/en-US/navigation.json";
 import zh from "../locales/zh-CN/navigation.json";
 import { groupToNavKey, labelToNavKey } from "./navigation-labels";
-import { itemHref, navigationGroups, navigationItems } from "./navigation";
+import { itemHref, navigationGroups, navigationItems, repositorySectionForPath } from "./navigation";
+
+it("selects the Settings repository tab for its panels and omits the former Branches tab", () => {
+  const repository = "/orgs/demo/repositories/team/repo";
+  expect(repositorySectionForPath(`${repository}/settings/branches`)).toBe("settings");
+  expect(repositorySectionForPath(`${repository}/branches`)).toBeUndefined();
+});
 
 // Deliberately independent of the code under test so changes in copy or order fail here.
 const expectedGroups = [

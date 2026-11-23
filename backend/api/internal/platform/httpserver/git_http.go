@@ -23,8 +23,8 @@ const gitTokenPrefix = "afgit_"
 type GitCredentialStore interface {
 	CreateGitCredential(ctx context.Context, id, organizationID, repository, actorID, scope string, hash []byte, expiresAt time.Time) error
 	RevokeGitCredential(ctx context.Context, id, organizationID, repository, actorID string) error
-	AuthorizeGitCredential(ctx context.Context, hash []byte, organization, repository string, write bool) (organizationID, actorID string, err error)
-	LockGitDefaultBranch(ctx context.Context, organization, repository string) (branch string, release func(), err error)
+	AuthorizeGitCredential(ctx context.Context, hash []byte, organization, repository string, write bool) (organizationID, actorID, defaultBranch string, err error)
+	LockGitPolicy(ctx context.Context, organization, repository string) (githttp.PushPolicy, func(), error)
 }
 
 func (d DeliveryDependencies) gitHTTPRoutes(mux *http.ServeMux) {
@@ -33,6 +33,7 @@ func (d DeliveryDependencies) gitHTTPRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+gitPath+"/git-upload-pack", d.gitHTTP)
 	mux.HandleFunc("POST "+gitPath+"/git-receive-pack", d.gitHTTP)
 	const credentials = "/api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/git-credentials"
+	mux.HandleFunc("GET "+credentials, d.listGitCredentials)
 	mux.HandleFunc("POST "+credentials, d.createGitCredential)
 	mux.HandleFunc("DELETE "+credentials+"/{credentialID}", d.revokeGitCredential)
 }
@@ -87,7 +88,7 @@ func (d DeliveryDependencies) gitHTTP(w http.ResponseWriter, r *http.Request) {
 	repository := owner + "/" + name
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	organization, actor, err := d.GitCredentials.AuthorizeGitCredential(ctx, hash[:], org, repository, service == githttp.ReceivePack)
+	organization, actor, defaultBranch, err := d.GitCredentials.AuthorizeGitCredential(ctx, hash[:], org, repository, service == githttp.ReceivePack)
 	if errors.Is(err, identity.ErrUnauthenticated) {
 		unauthorized()
 		return
@@ -96,17 +97,59 @@ func (d DeliveryDependencies) gitHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Git authentication unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	var defaultBranch string
+	if service == githttp.UploadPack && r.Method == http.MethodGet && !d.GitHTTP.DefaultBranchMatches(organization, repository, defaultBranch) {
+		policy, release, err := d.GitCredentials.LockGitPolicy(ctx, organization, repository)
+		if err != nil {
+			http.Error(w, "Clone policy unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		err = d.GitHTTP.SyncDefaultBranch(ctx, organization, repository, policy.DefaultBranch)
+		release()
+		if err != nil {
+			http.Error(w, "Clone policy unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	var policy githttp.PushPolicy
 	if service == githttp.ReceivePack && r.Method == http.MethodPost {
-		branch, release, err := d.GitCredentials.LockGitDefaultBranch(ctx, organization, repository)
+		lockedPolicy, release, err := d.GitCredentials.LockGitPolicy(ctx, organization, repository)
 		if err != nil {
 			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		defer release()
-		defaultBranch = branch
+		if err := d.GitHTTP.SyncDefaultBranch(ctx, organization, repository, lockedPolicy.DefaultBranch); err != nil {
+			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		policy = lockedPolicy
 	}
-	d.GitHTTP.Serve(w, r, service, organization, repository, actor, defaultBranch)
+	d.GitHTTP.Serve(w, r, service, organization, repository, actor, policy)
+}
+
+func (d DeliveryDependencies) listGitCredentials(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	repository, ok := d.registeredRepository(w, r, principal)
+	if !ok {
+		return
+	}
+	store, ok := d.GitCredentials.(interface {
+		ListGitCredentials(context.Context, string, string, string) ([]githttp.CredentialSummary, error)
+	})
+	if !ok || d.GitHTTP == nil || !d.GitHTTP.Available(principal.OrganizationID, repository.Slug) {
+		writeProblem(w, http.StatusServiceUnavailable, "Git credentials unavailable", "Managed Git credential storage is unavailable")
+		return
+	}
+	items, err := store.ListGitCredentials(r.Context(), principal.OrganizationID, repository.Slug, principal.UserID)
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Git credentials unavailable", "Credentials could not be listed")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (d DeliveryDependencies) createGitCredential(w http.ResponseWriter, r *http.Request) {

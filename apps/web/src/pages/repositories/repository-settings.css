@@ -1,0 +1,82 @@
+.repo-settings {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+  max-width: 1152px;
+  padding-block: 12px 36px;
+}
+
+.repo-settings-nav {
+  padding: 12px;
+  border: 1px solid var(--af-color-border);
+  border-radius: 10px;
+  background: var(--af-color-surface);
+}
+
+.repo-settings-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--af-color-text);
+  text-decoration: none;
+}
+
+.repo-settings-nav svg { flex: none; }
+.repo-settings-nav a:hover { background: var(--af-color-row-hover); }
+.repo-settings-nav a[aria-current="page"] {
+  background: var(--af-color-row-hover);
+  box-shadow: inset 3px 0 var(--af-color-primary);
+  font-weight: 600;
+}
+
+.repo-settings-nav-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--af-color-border);
+}
+
+.repo-settings-nav-group p {
+  margin: 0 10px 4px;
+  color: var(--af-color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.repo-settings-content { display: grid; gap: 16px; min-width: 0; }
+.repo-settings-heading { padding-bottom: 12px; border-bottom: 1px solid var(--af-color-border); }
+.repo-settings-heading h1 { margin: 0; font-size: 26px; line-height: 1.25; }
+.repo-settings-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--af-color-border);
+  border-radius: 10px;
+  background: var(--af-color-surface);
+}
+
+.repo-settings-card h2, .repo-settings-subheading { margin: 0; font-size: 16px; }
+.repo-settings-card p { margin: 0; color: var(--af-color-text-secondary); }
+.repo-settings-card > .repo-link, .repo-settings-card > button { justify-self: start; }
+.repo-settings-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.repo-settings-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border: 1px solid var(--af-color-border);
+  border-radius: 6px;
+  background: var(--af-color-row-hover);
+  overflow-wrap: anywhere;
+}
+
+.repo-settings-refs:has(ul) { padding-block: 0; }
+.repo-settings-refs li:first-child { border-top: 0; }
+.repo-settings .repo-section-list button { margin-inline-start: auto; }
+
+@media (max-width: 680px) {
+  .repo-settings { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block-start: 0; }
+  .repo-settings-card { padding-inline: 14px; }
+}

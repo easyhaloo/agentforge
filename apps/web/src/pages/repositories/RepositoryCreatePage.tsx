@@ -32,6 +32,8 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
   const [branch, setBranch] = useState("main");
   const [visibility, setVisibility] = useState<RepositoryVisibility>();
   const [fork, setFork] = useState(false);
+  const [templateSelection, setTemplateSelection] = useState<{ ownerID: string; slug: string }>();
+  const [allBranchesSelection, setAllBranchesSelection] = useState<string>();
   const [readme, setReadme] = useState(false);
   const [gitignore, setGitignore] = useState("");
   const [license, setLicense] = useState("");
@@ -39,9 +41,15 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
   const [conflict, setConflict] = useState("");
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [snapshot, setSnapshot] = useState<{ ownerID: string; slugs: Set<string> }>();
+  const [snapshot, setSnapshot] = useState<{ ownerID: string; slugs: Set<string>; templates: string[] }>();
   const target = registering ? organization : owner;
   const targetID = target?.id;
+  const template = registering ? "" : templateSelection && templateSelection.ownerID === targetID
+    ? templateSelection.slug : targetID === organization.id ? (params.get("template") ?? "") : "";
+  const templateKey = `${targetID}:${template}`;
+  const allBranches = allBranchesSelection === templateKey;
+  const templates = snapshot?.ownerID === targetID ? (snapshot?.templates ?? []) : [];
+  const templateAvailable = !template || templates.includes(template);
   const prefix = registering ? namespace.trim() : owner ? organizationHandle(owner) : "";
   const nameTrim = name.trim();
   const slug = `${prefix}/${nameTrim}`;
@@ -58,7 +66,8 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
     if (!targetID) return;
     let active = true;
     repositoryAPI.list(targetID).then(({ items }) => {
-      if (active) setSnapshot({ ownerID: targetID, slugs: new Set((items ?? []).map(item => item.slug)) });
+      if (active) setSnapshot({ ownerID: targetID, slugs: new Set((items ?? []).map(item => item.slug)),
+        templates: (items ?? []).filter(item => item.is_template).map(item => item.slug) });
     }).catch(() => { /* The server still checks conflicts on submission. */ });
     return () => { active = false; };
   }, [targetID]);
@@ -66,13 +75,13 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setAttempted(true);
-    if (!target || !canSubmit || !namespaceValid || !nameValid || duplicate || !branch.trim() || submitting) return;
+    if (!target || !canSubmit || !namespaceValid || !nameValid || !templateAvailable || duplicate || !branch.trim() || submitting) return;
     setError("");
     setSubmitting(true);
     try {
       const result = registering
         ? await repositoryAPI.register(target.id, slug, branch.trim(), { visibility, fork })
-        : await repositoryAPI.create(target.id, slug, description, { readme, gitignore, license });
+        : await repositoryAPI.create(target.id, slug, description, template ? { template, include_all_branches: allBranches } : { readme, gitignore, license });
       onNotify(registering ? t("feedback.registered") : t("create.created"));
       navigate(repositoryPath(organizationHandle(target), result.slug));
     } catch (cause) {
@@ -145,7 +154,15 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
                         { value: "public", label: t("create.public"), icon: <Globe size={16}/>, description: t("create.publicUnavailable"), disabled: true },
                       ]} />
                   </div>
-                  <div className="repo-create-options">
+                  {(templates.length > 0 || template) && <Select label={t("create.repositoryTemplate")} value={template}
+                    onChange={event => { if (targetID) setTemplateSelection({ ownerID: targetID, slug: event.target.value }); }}
+                    options={[{ value: "", label: t("create.noRepositoryTemplate") },
+                      ...(!templateAvailable ? [{ value: template, label: template }] : []),
+                      ...templates.map(slug => ({ value: slug, label: slug }))]} />}
+                  {!templateAvailable && snapshot?.ownerID === targetID && <p className="org-error" role="alert">{t("create.templateUnavailable")}</p>}
+                  {template && templateAvailable && <Checkbox label={t("create.includeAllBranches")} checked={allBranches}
+                    onChange={event => setAllBranchesSelection(event.target.checked ? templateKey : undefined)} />}
+                  {!template && <div className="repo-create-options">
                     <Switch className="repo-create-option" label={t("create.readmeLabel")} description={t("create.readmeHelp")}
                       checked={readme} onChange={event => setReadme(event.target.checked)} />
                     <div className="repo-create-option">
@@ -160,7 +177,7 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
                       <RepositoryCreatePicker align="end" label={t("create.licenseLabel")} value={license} onChange={setLicense}
                         options={[{ value: "", label: t("create.noLicense") }, { value: "mit", label: "MIT" }]} />
                     </div>
-                  </div>
+                  </div>}
                 </div>}
             </section>
           </fieldset>
@@ -168,7 +185,7 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
           <div className="repo-create-actions">
             <Link className="repo-create-mode-link" to={registering ? "." : "?mode=register"}>{t(registering ? "create.title" : "create.registerExisting")}</Link>
             <Link to={repositoriesPath}>{t("create.cancel")}</Link>
-            <Button variant="primary" type="submit" disabled={submitting || Boolean(duplicate)}>{t(registering ? "create.registerButton" : "create.createButton")}</Button>
+            <Button variant="primary" type="submit" disabled={submitting || Boolean(duplicate) || !templateAvailable}>{t(registering ? "create.registerButton" : "create.createButton")}</Button>
           </div>
         </form>}
     </div>

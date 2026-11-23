@@ -32,12 +32,37 @@ func (d DeliveryDependencies) initializeRepository(w http.ResponseWriter, r *htt
 			return
 		}
 	}
-	_, err = initializer.InitializeRepository(r.Context(), principal.OrganizationID, input.Slug, delivery.RepositoryInitialization{
+	init := delivery.RepositoryInitialization{
 		Description: input.Description, Readme: input.Initialize.Readme, Gitignore: input.Initialize.Gitignore, License: input.Initialize.License,
-	})
+		IncludeAllBranches: input.Initialize.IncludeAllBranches,
+	}
+	if init.IncludeAllBranches && input.Initialize.Template == "" {
+		writeProblem(w, 422, "Invalid template configuration", "Select a template repository to include all branches")
+		return
+	}
+	if input.Initialize.Template != "" {
+		if init.Readme || init.Gitignore != "" || init.License != "" || input.Initialize.Template == input.Slug {
+			writeProblem(w, 422, "Invalid template configuration", "Choose a template repository or starter files")
+			return
+		}
+		template, found := d.resolveRegisteredRepository(w, r, principal, input.Initialize.Template)
+		if !found {
+			return
+		}
+		if !template.IsTemplate || d.repositoryHostingKind(r.Context(), template) != "hosted" {
+			writeProblem(w, 422, "Template repository unavailable", "Select an enabled native Git template in this organization")
+			return
+		}
+		init.Template = template
+		input.DefaultBranch = template.DefaultBranch
+	}
+	_, err = initializer.InitializeRepository(r.Context(), principal.OrganizationID, input.Slug, init)
 	switch {
 	case errors.Is(err, delivery.ErrVersionConflict):
 		writeProblem(w, 409, "Repository path already exists", "A repository already exists at that path")
+		return
+	case errors.Is(err, delivery.ErrPreviewTooLarge):
+		writeProblem(w, 422, "Template has too many branches", "Choose the default branch or a template with at most 1000 branches")
 		return
 	case errors.Is(err, delivery.ErrRepositoryInvalid):
 		writeProblem(w, 422, "Invalid repository configuration", "Check the repository name and starter files")
