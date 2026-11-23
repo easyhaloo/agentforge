@@ -1,45 +1,41 @@
-import type { ReactNode } from "react";
+import { Sparkles } from "lucide-react";
+import { useId, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { itemHref, navigationGroups } from "../navigation";
 import { groupToNavKey, labelToNavKey } from "../navigation-labels";
 import { Drawer } from "../../shared/ui";
-
-// Links reuse the shared ghost Button classes, so navigation looks exactly like the buttons it replaced.
-// Every item uses `end`: NavLink otherwise matches by prefix and would highlight an item for unknown paths below it
-// (/projects/extra). An item must drop `end` once its section has nested routes (e.g. a changeset detail page).
-const linkButton="af-button af-button--ghost af-button--middle";
+import "./Sidebar.css";
 
 type Props = { open: boolean; linkHandle: string; onClose: () => void; controls?: ReactNode };
 
 export function Sidebar({ open, linkHandle, onClose, controls }: Props) {
- const { t } = useTranslation("navigation");
+  const { t } = useTranslation("navigation");
+  const groupId = useId();
+  const title = t("sidebar.navigation");
 
- return <Drawer open={open} title={t("sidebar.navigation")} placement="left" width="min(296px, 90vw)" onClose={onClose}>
-  <nav className="workspace-navigation" aria-label={t("sidebar.navigation")}>
-    {controls}
-    {navigationGroups.map(group=>(
-      <section className="nav-group" key={group.label}>
-        <div className="nav-label">{t(groupToNavKey(group.label))}</div>
-        {group.items.map(item=>{
-          const href=itemHref(item,linkHandle);
+  return (
+    <Drawer open={open} title={title} placement="left" width="min(320px, calc(100vw - 32px))" onClose={onClose}
+      className="workspace-navigation-overlay"
+      leadingIcon={<span className="brand-mark" aria-hidden="true"><Sparkles size={16} /></span>}>
+      <nav className="workspace-navigation" aria-label={title}>
+        {controls}
+        {navigationGroups.map(group => {
+          const headingId = `${groupId}-${group.label.replaceAll(" ", "-")}`;
           return (
-            <NavLink
-              key={item.label}
-              to={href}
-              onClick={onClose}
-              aria-label={t(labelToNavKey(item.label))}
-              title={t(labelToNavKey(item.label))}
-              end
-              className={({isActive})=>`${linkButton} nav-item${isActive?" active":""}`}
-            >
-              <item.icon size={16}/>
-              <span>{t(labelToNavKey(item.label))}</span>
-            </NavLink>
+            <section className="workspace-navigation__group" key={group.label} aria-labelledby={headingId}>
+              <h3 id={headingId}>{t(groupToNavKey(group.label))}</h3>
+              {group.items.map(item => (
+                <NavLink key={item.label} to={itemHref(item, linkHandle)} onClick={onClose} end
+                  className="af-button af-button--ghost af-action-row workspace-navigation__row">
+                  <item.icon size={16} aria-hidden="true" />
+                  {t(labelToNavKey(item.label))}
+                </NavLink>
+              ))}
+            </section>
           );
         })}
-      </section>
-    ))}
-  </nav>
- </Drawer>;
+      </nav>
+    </Drawer>
+  );
 }

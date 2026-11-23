@@ -121,11 +121,11 @@ function App() {
           organizationHandle={selectedOrganization ? linkHandle : undefined}
           organization={<div className="workspace-organization">{organizationSelect}</div>} />
         {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} />}
-        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} controls={<>
+        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} controls={<div className="workspace-navigation__controls">
           <div className="workspace-navigation__compact">{organizationSelect}</div>
-          {selectedOrganization && <Link className="af-button af-button--ghost af-button--middle nav-item" to={orgPath(linkHandle, "settings")}
+          {selectedOrganization && <Link className="af-button af-button--ghost af-action-row workspace-navigation__row" to={orgPath(linkHandle, "settings")}
             onClick={() => setNavigationOpen(false)}><Building2 size={16} aria-hidden="true" />{t("navigation:sidebar.organizationSettings")}</Link>}
-        </>} />
+        </div>} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && !isRepositoryCatalog && !isRepositoryDetail && (label !== "CI / CD" || accountState !== "ready" || !urlOrganization) &&
