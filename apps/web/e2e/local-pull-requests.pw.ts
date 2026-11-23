@@ -599,9 +599,34 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.goto(`${base.origin}${repositoryPath}/settings/rulesets`);
     await page.getByRole("button", { name: "Edit Release merge methods", exact: true }).click();
     await requireChecks.uncheck();
+    const requireResolution = page.getByRole("checkbox", { name: "Require conversation resolution before merging" });
+    await requireResolution.check();
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Rulesets saved.")).toBeVisible();
+    await page.reload();
+    await page.getByRole("button", { name: "Edit Release merge methods", exact: true }).click();
+    await expect(requireResolution).toBeChecked();
+    await capture("ruleset-conversation-resolution");
     await page.goto(detail);
+    await expect(merge).toBeDisabled();
+    const resolutionBlock = "resolve all inline pull request conversations before merging";
+    expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toEqual({
+      status: 409, detail: resolutionBlock,
+    });
+    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    const resolve = page.getByRole("button", { name: "Resolve conversation", exact: true });
+    const reopenConversation = page.getByRole("button", { name: "Reopen conversation", exact: true });
+    await expect(page.getByText("This comment was made on an older revision", { exact: true })).toBeVisible();
+    await capture("unresolved-review-thread");
+    await resolve.click();
+    await expect(merge).toBeEnabled();
+    await page.reload();
+    await expect(reopenConversation).toBeVisible();
+    await capture("resolved-review-thread");
+    await reopenConversation.click();
+    await expect(merge).toBeDisabled();
+    await resolve.click();
+    await expect(merge).toBeEnabled();
     expect(await post("merge", { target_ref: "release", merge_method: "rebase" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
     });
