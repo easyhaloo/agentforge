@@ -79,7 +79,10 @@
 | Projects | `/projects` | Resource workspace (mock) |
 | Repositories | `/orgs/:org/repositories` | Repository directory (live API) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |
-| | `/orgs/:org/repositories/:owner/:repo/{branches,actions,settings}` | Repository sections |
+| | `/orgs/:org/repositories/:owner/:repo/{issues,branches,actions,settings}` | Repository sections |
+| | `/orgs/:org/repositories/:owner/:repo/issues/:number` | Issue detail |
+| | `/orgs/:org/repositories/:repositorySlug` | Legacy repository view with a link to the canonical Issues section |
+| Issues | `/orgs/:org/issues` | Issues across the current organization, with links to repository issue details (live API) |
 | Workspaces | `/workspaces` | Resource workspace (mock) |
 | Stacks | `/stacks` | Delivery flow (mock) |
 | Self-healing | `/self-healing` | Delivery flow (mock) |
