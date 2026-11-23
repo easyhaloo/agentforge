@@ -239,7 +239,7 @@ const (
 	maxWorkspaceRevisionBytes = 32 << 20
 )
 
-func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organizationID, repository, baseSHA, changesetID, revisionID, actor string, files []WorkspaceRevisionFile) (GitRevision, error) {
+func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organizationID, repository, baseSHA, changesetID, revisionID, actor string, files []WorkspaceRevisionFile, signoff WebCommitSignoff) (GitRevision, error) {
 	repositoryPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return GitRevision{}, err
@@ -304,10 +304,17 @@ func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organiza
 		return GitRevision{}, ErrRepositoryInvalid
 	}
 	message := "Workspace changeset " + changesetID
-	commitSHA, err := p.runWithEnvInput(ctx, repositoryPath, map[string]string{
-		"GIT_AUTHOR_NAME": actor, "GIT_AUTHOR_EMAIL": "agentforge@localhost",
-		"GIT_COMMITTER_NAME": actor, "GIT_COMMITTER_EMAIL": "agentforge@localhost",
-	}, []byte(message+"\n"), "commit-tree", treeSHA, "-p", baseSHA)
+	var commitSHA string
+	if signoff.email != "" {
+		var raw []byte
+		raw, err = writeWebCommit(ctx, repositoryPath, message, treeSHA, baseSHA, signoff)
+		commitSHA = strings.TrimSpace(string(raw))
+	} else {
+		commitSHA, err = p.runWithEnvInput(ctx, repositoryPath, map[string]string{
+			"GIT_AUTHOR_NAME": actor, "GIT_AUTHOR_EMAIL": "agentforge@localhost",
+			"GIT_COMMITTER_NAME": actor, "GIT_COMMITTER_EMAIL": "agentforge@localhost",
+		}, []byte(message+"\n"), "commit-tree", treeSHA, "-p", baseSHA)
+	}
 	if err != nil || !validCommitObjectID(commitSHA) {
 		return GitRevision{}, errors.Join(err, ErrRepositoryInvalid)
 	}

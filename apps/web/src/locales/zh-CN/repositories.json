@@ -352,6 +352,9 @@
     "copied": "已复制"
   },
   "webide": {
+    "signoffConsent": "我根据《开发者原创声明》确认本次贡献",
+    "signoffRequired": "此仓库要求签署确认。请确认《开发者原创声明》后重试。",
+    "readDco": "阅读《开发者原创声明》",
     "noRepositoryHint": "组织注册代码仓库后，即可在 WebIDE 中浏览文件。",
     "openRepositories": "前往代码仓库",
     "eyebrow": "开发者工作区",
@@ -859,6 +862,8 @@
     "templateRepository": "模板仓库",
     "features": "功能",
     "pullRequests": "拉取请求",
+    "requireWebSignoff": "要求贡献者对 Web 提交签署确认",
+    "requireWebSignoffHelp": "贡献者在 WebIDE 创建提交前，必须根据《开发者原创声明》确认其贡献。",
     "deleteMergedBranches": "自动删除已合并的源分支",
     "deleteMergedBranchesHelp": "合并后删除引用未变化、未受保护且没有被其他开放拉取请求使用的源分支。",
     "issuesHelp": "关闭 Issues 会隐藏此仓库的问题跟踪。重新启用后可恢复访问。",

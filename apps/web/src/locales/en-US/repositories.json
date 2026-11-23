@@ -352,6 +352,9 @@
     "copied": "Copied"
   },
   "webide": {
+    "signoffConsent": "I certify this contribution under the Developer Certificate of Origin",
+    "signoffRequired": "This repository requires sign-off. Confirm the Developer Certificate of Origin and try again.",
+    "readDco": "Read the Developer Certificate of Origin",
     "noRepositoryHint": "Once your organization registers a repository, you can browse its files in WebIDE.",
     "openRepositories": "Go to repositories",
     "eyebrow": "DEVELOPER WORKSPACE",
@@ -859,6 +862,8 @@
     "templateRepository": "Template repository",
     "features": "Features",
     "pullRequests": "Pull Requests",
+    "requireWebSignoff": "Require contributors to sign off on web commits",
+    "requireWebSignoffHelp": "Contributors must certify their changes under the Developer Certificate of Origin before creating commits in WebIDE.",
     "deleteMergedBranches": "Automatically delete head branches",
     "deleteMergedBranchesHelp": "Delete the source branch after merging when it has not moved, is not protected, and is not used by an open pull request.",
     "issuesHelp": "Disabling Issues hides this repository’s issue tracker. Re-enable Issues to restore access.",

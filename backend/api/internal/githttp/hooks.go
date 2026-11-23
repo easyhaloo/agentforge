@@ -23,10 +23,11 @@ const MaxPushRefs = 128
 
 // PushPolicy is loaded while holding the repository row lock for a Git receive.
 type PushPolicy struct {
-	DefaultBranch string
-	RefLimit      int
-	ProtectedRefs []string
-	RefRules      []RefRule
+	DefaultBranch            string
+	RefLimit                 int
+	ProtectedRefs            []string
+	RefRules                 []RefRule
+	WebCommitSignoffRequired bool
 }
 
 func (policy PushPolicy) AllowsBranchDeletion(branch string) bool {

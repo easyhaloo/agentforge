@@ -20,7 +20,7 @@ var ErrWriteInvalid = errors.New("repository write input is invalid")
 type BranchWriteCheck func(ref string, creating bool) error
 
 type RepositoryFileWriter interface {
-	SaveTextFile(context.Context, string, string, string, string, string, string, []byte, BranchWriteCheck) (GitFileWrite, error)
+	SaveTextFile(context.Context, string, string, string, string, string, string, []byte, BranchWriteCheck, WebCommitSignoff) (GitFileWrite, error)
 }
 
 type GitFileWrite struct {
@@ -50,7 +50,7 @@ func validEditablePath(path string) bool {
 	return true
 }
 
-func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte, check BranchWriteCheck) (GitFileWrite, error) {
+func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte, check BranchWriteCheck, signoff WebCommitSignoff) (GitFileWrite, error) {
 	var result GitFileWrite
 	branch, err := ChangesetBranch(changesetID)
 	if err != nil || !objectID.MatchString(baseCommit) || !objectID.MatchString(baseBlob) || !validEditablePath(filePath) || len(content) > 1<<20 || !utf8.Valid(content) {
@@ -125,7 +125,7 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 		return result, ErrProviderUnavailable
 	}
 	tree := strings.TrimSpace(string(treeRaw))
-	commitRaw, err := isolatedGit(ctx, repo, strings.NewReader("Update "+filePath+" via AgentForge WebIDE\n"), nil, "commit-tree", tree, "-p", baseCommit)
+	commitRaw, err := writeWebCommit(ctx, repo, "Update "+filePath+" via AgentForge WebIDE", tree, baseCommit, signoff)
 	if err != nil {
 		return result, ErrProviderUnavailable
 	}
@@ -139,7 +139,7 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	return GitFileWrite{Branch: branch, CommitSHA: commit, BlobSHA: blob}, nil
 }
 
-func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte, check BranchWriteCheck) (GitFileWrite, error) {
+func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte, check BranchWriteCheck, signoff WebCommitSignoff) (GitFileWrite, error) {
 	var result GitFileWrite
 	branch, err := ChangesetBranch(changesetID)
 	if err != nil || !objectID.MatchString(baseCommit) || !objectID.MatchString(baseBlob) || !validEditablePath(filePath) || len(content) > 1<<20 || !utf8.Valid(content) {
@@ -232,7 +232,7 @@ func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, c
 		return result, ErrProviderUnavailable
 	}
 	tree := strings.TrimSpace(string(treeRaw))
-	commitRaw, err := isolatedGit(w.ctx, w.dir, strings.NewReader("Update "+filePath+" via AgentForge WebIDE\n"), nil, "commit-tree", tree, "-p", baseCommit)
+	commitRaw, err := writeWebCommit(w.ctx, w.dir, "Update "+filePath+" via AgentForge WebIDE", tree, baseCommit, signoff)
 	if err != nil {
 		return result, ErrProviderUnavailable
 	}

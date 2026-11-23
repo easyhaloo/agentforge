@@ -89,7 +89,7 @@ func (d DeliveryDependencies) createWorkspace(w http.ResponseWriter, r *http.Req
 		writeProblem(w, http.StatusInternalServerError, "Workspace creation failed", "The workspace could not be persisted")
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"workspace": created})
+	writeJSON(w, http.StatusCreated, map[string]any{"workspace": created, "web_commit_signoff_required": registered.WebCommitSignoffRequired})
 }
 
 func (d DeliveryDependencies) getWorkspace(w http.ResponseWriter, r *http.Request) (workspace.Workspace, Principal, bool) {

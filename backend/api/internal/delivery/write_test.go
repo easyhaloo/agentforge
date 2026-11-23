@@ -44,9 +44,13 @@ func TestLocalGitProviderSaveTextFileUsesChangesetBranchAndCAS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("after\n"), allowBranchWrite)
+	signoff := NewWebCommitSignoff("user-123", "Contributor")
+	result, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("after\n"), allowBranchWrite, signoff)
 	if err != nil {
 		t.Fatalf("save: %v", err)
+	}
+	if got := runTestGit(t, repo, "show", "-s", "--format=%(trailers:key=Signed-off-by)", result.CommitSHA); got != "Signed-off-by: Contributor <"+signoff.email+">" {
+		t.Fatalf("unexpected sign-off: %q", got)
 	}
 	if result.Branch != "agentforge/changesets/cs-123" {
 		t.Fatalf("unexpected branch: %s", result.Branch)
@@ -65,7 +69,7 @@ func TestLocalGitProviderSaveTextFileUsesChangesetBranchAndCAS(t *testing.T) {
 		t.Fatalf("read saved blob: %q %s %v", content, gotBlob, err)
 	}
 
-	_, err = provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("stale\n"), allowBranchWrite)
+	_, err = provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("stale\n"), allowBranchWrite, WebCommitSignoff{})
 	if err != ErrWriteConflict {
 		t.Fatalf("expected CAS conflict, got %v", err)
 	}
@@ -79,7 +83,7 @@ func TestLocalGitProviderSaveTextFileUsesChangesetBranchAndCAS(t *testing.T) {
 		}
 		runTestGit(t, repo, "update-ref", raceRef, base)
 		return nil
-	})
+	}, WebCommitSignoff{})
 	if err != ErrWriteConflict {
 		t.Fatalf("expected CAS conflict after concurrent creation, got %v", err)
 	}
@@ -112,12 +116,12 @@ func TestLocalGitProviderSaveTextFileRejectsUnsafePathsAndSymlinks(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, path := range []string{"../escape", "/absolute", "a//b", "a\\b"} {
-		if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, blob, path, []byte("x"), allowBranchWrite); err != ErrWriteInvalid {
+		if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, blob, path, []byte("x"), allowBranchWrite, WebCommitSignoff{}); err != ErrWriteInvalid {
 			t.Fatalf("path %q: expected invalid input, got %v", path, err)
 		}
 	}
 	linkBlob := runTestGit(t, repo, "rev-parse", "HEAD:link.txt")
-	if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, linkBlob, "link.txt", []byte("x"), allowBranchWrite); err != ErrWriteInvalid {
+	if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, linkBlob, "link.txt", []byte("x"), allowBranchWrite, WebCommitSignoff{}); err != ErrWriteInvalid {
 		t.Fatalf("expected symlink rejection, got %v", err)
 	}
 }

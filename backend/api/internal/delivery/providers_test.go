@@ -161,13 +161,17 @@ func TestLocalGitProviderCreatesImmutableWorkspaceRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	signoff := NewWebCommitSignoff("user-123", "Contributor")
 	revision, err := provider.CreateWorkspaceRevision(context.Background(), "org-a", "team/repo", base,
 		"changeset123", "revision123", "user-123", []WorkspaceRevisionFile{
 			{Path: "README.md", Content: []byte("updated\n")},
 			{Path: "src/main.go", Content: []byte("package main\n")},
-		})
+		}, signoff)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got := stringTrim(gitTest(t, repository, "show", "-s", "--format=%an <%ae>%n%(trailers:key=Signed-off-by)", revision.CommitSHA)); got != "Contributor <"+signoff.email+">\nSigned-off-by: Contributor <"+signoff.email+">" {
+		t.Fatalf("unexpected signed commit: %q", got)
 	}
 	if revision.ParentSHA != base || len(revision.CommitSHA) != 40 {
 		t.Fatalf("revision = %#v, base = %s", revision, base)

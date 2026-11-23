@@ -7,6 +7,7 @@ import { expect, test } from "@playwright/test";
 import { selectOption } from "./support/select-option";
 
 const origin = process.env.AGENTFORGE_TEST_ORIGIN;
+const gitRoot = process.env.GIT_REPOSITORY_ROOT ?? join(process.env.RUN_DIR ?? "/tmp/agentforge-dev", "git");
 test.skip(!origin || process.env.GIT_SMART_HTTP_ENABLED !== "1", "Requires a local API, PostgreSQL, and managed Git transport");
 test.use({ trace: "off", screenshot: "off", actionTimeout: 8000, viewport: { width: 1440, height: 1000 } });
 
@@ -50,6 +51,9 @@ test("repository settings persist and update the native Git endpoint", async ({ 
   const deleteMergedBranches = content.getByRole("checkbox", { name: "Automatically delete head branches" });
   await expect(deleteMergedBranches).not.toBeChecked();
   await deleteMergedBranches.check();
+  const webSignoff = content.getByRole("checkbox", { name: "Require contributors to sign off on web commits" });
+  await expect(webSignoff).not.toBeChecked();
+  await webSignoff.check();
   await content.getByRole("checkbox", { name: "Limit branch and tag updates per push" }).check();
   await content.getByRole("spinbutton", { name: "Maximum updates per push" }).fill("2");
   await content.getByRole("button", { name: "Save", exact: true }).click();
@@ -59,6 +63,8 @@ test("repository settings persist and update the native Git endpoint", async ({ 
   await expect(content.getByRole("checkbox", { name: "Template repository" })).toBeChecked();
   await expect(deleteMergedBranches).toBeChecked();
   await capture("auto-delete-head-branches");
+  await expect(webSignoff).toBeChecked();
+  await capture("web-commit-signoff");
   const issuesToggle = content.getByRole("checkbox", { name: "Issues", exact: true });
   const issuesTab = repoNav.getByRole("link", { name: "Issues", exact: true });
   await expect(issuesToggle).toBeChecked();
@@ -112,6 +118,66 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     };
     const worktree = join(folder, "worktree");
     checkedGit(folder, "clone", "--quiet", gitURL, worktree);
+
+    const account = await page.evaluate(async () => {
+      const response = await fetch("/api/v1/me");
+      if (!response.ok) throw new Error(`Account lookup failed (${response.status})`);
+      return await response.json() as { organizations: { id: string; slug: string }[] };
+    });
+    const orgID = account.organizations.find(item => item.slug === org)!.id;
+    const apiBase = `/api/v1/organizations/${orgID}`;
+    const repoAPI = `${apiBase}/repositories/${org}/settings-example`;
+    const apiWrite = <T,>(path: string, method: "POST" | "PUT", body: object) => page.evaluate(async ({ path, method, body }) => {
+      const prefix = "__Host-agentforge_csrf=";
+      const token = document.cookie.split("; ").find(entry => entry.startsWith(prefix))?.slice(prefix.length) ?? "";
+      const response = await fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": decodeURIComponent(token) },
+        body: JSON.stringify(body),
+      });
+      return { status: response.status, body: await response.json() as T };
+    }, { path, method, body });
+    const bare = join(gitRoot, orgID, org, "settings-example");
+    const refsBefore = checkedGit(bare, "show-ref");
+    const workspace = await apiWrite<{ workspace: { id: string }; web_commit_signoff_required: boolean }>(`${repoAPI}/workspaces`, "POST", {});
+    expect(workspace.status).toBe(201);
+    expect(workspace.body.web_commit_signoff_required).toBe(true);
+    const workspacePath = `${apiBase}/workspaces/${workspace.body.workspace.id}`;
+    const saved = await apiWrite(`${workspacePath}/files`, "PUT", {
+      path: "README.md", content: "Workspace WebIDE sign-off\n", expected_version: 0,
+    });
+    expect(saved.status).toBe(200);
+    const changesetInput = { title: "Workspace sign-off check" };
+    const rejectedWorkspace = await apiWrite<{ title: string }>(`${workspacePath}/changesets`, "POST", changesetInput);
+    expect(rejectedWorkspace.status).toBe(422);
+    expect(rejectedWorkspace.body.title).toBe("Web commit sign-off required");
+    expect(checkedGit(bare, "show-ref")).toBe(refsBefore);
+    const handoff = await apiWrite<{ changeset: { changeset: { id: string } }; revision_commit_sha: string }>(
+      `${workspacePath}/changesets`, "POST", { ...changesetInput, signoff: true },
+    );
+    expect(handoff.status).toBe(201);
+    const assertSignoff = (commit: string) => {
+      const [author, trailer] = checkedGit(bare, "show", "-s", "--format=%an <%ae>%n%(trailers:key=Signed-off-by)", commit).trim().split("\n");
+      expect(author).toMatch(/ <[a-f0-9]{64}@users\.agentforge\.invalid>$/);
+      expect(trailer).toBe(`Signed-off-by: ${author}`);
+    };
+    assertSignoff(handoff.body.revision_commit_sha);
+    const baseCommit = handoff.body.revision_commit_sha;
+    const changesetFiles = `${apiBase}/changesets/${handoff.body.changeset.changeset.id}/files`;
+    const fileInput = {
+      path: "README.md", base_commit_sha: baseCommit,
+      base_blob_sha: checkedGit(bare, "rev-parse", `${baseCommit}:README.md`).trim(),
+      content: "Direct WebIDE sign-off\n",
+    };
+    const refsBeforeEdit = checkedGit(bare, "show-ref");
+    const rejectedEdit = await apiWrite<{ title: string }>(changesetFiles, "PUT", fileInput);
+    expect(rejectedEdit.status).toBe(422);
+    expect(rejectedEdit.body.title).toBe("Web commit sign-off required");
+    expect(checkedGit(bare, "show-ref")).toBe(refsBeforeEdit);
+    const edit = await apiWrite<{ commit_sha: string }>(changesetFiles, "PUT", { ...fileInput, signoff: true });
+    expect(edit.status).toBe(200);
+    assertSignoff(edit.body.commit_sha);
+
     expect(git(worktree, "push", "origin", "HEAD:refs/heads/release", "HEAD:refs/tags/v0.1.0", "HEAD:refs/tags/v0.2.0").stderr)
       .toContain("push exceeds the repository limit of 2 branch and tag updates");
     expect(checkedGit(folder, "ls-remote", gitURL, "refs/heads/release", "refs/tags/*")).toBe("");

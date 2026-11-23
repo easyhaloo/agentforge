@@ -168,22 +168,23 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		return
 	}
 	var input struct {
-		DefaultBranch        string             `json:"default_branch"`
-		PreviousBranch       string             `json:"previous_branch"`
-		Description          *string            `json:"description"`
-		DeleteMergedBranches *bool              `json:"delete_merged_branches"`
-		IssuesDisabled       *bool              `json:"issues_disabled"`
-		ActionsDisabled      *bool              `json:"actions_disabled"`
-		IsTemplate           *bool              `json:"is_template"`
-		PushRefLimit         *int               `json:"push_ref_limit"`
-		ProtectedRefs        *[]string          `json:"protected_refs"`
-		RefRules             *[]githttp.RefRule `json:"ref_rules"`
-		UpdatedAt            time.Time          `json:"updated_at"`
+		DefaultBranch            string             `json:"default_branch"`
+		PreviousBranch           string             `json:"previous_branch"`
+		Description              *string            `json:"description"`
+		WebCommitSignoffRequired *bool              `json:"web_commit_signoff_required"`
+		DeleteMergedBranches     *bool              `json:"delete_merged_branches"`
+		IssuesDisabled           *bool              `json:"issues_disabled"`
+		ActionsDisabled          *bool              `json:"actions_disabled"`
+		IsTemplate               *bool              `json:"is_template"`
+		PushRefLimit             *int               `json:"push_ref_limit"`
+		ProtectedRefs            *[]string          `json:"protected_refs"`
+		RefRules                 *[]githttp.RefRule `json:"ref_rules"`
+		UpdatedAt                time.Time          `json:"updated_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.DeleteMergedBranches != nil || input.RefRules != nil {
+	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -241,6 +242,9 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				return
 			}
 			repository.DeleteMergedBranches = *input.DeleteMergedBranches
+		}
+		if input.WebCommitSignoffRequired != nil {
+			repository.WebCommitSignoffRequired = *input.WebCommitSignoffRequired
 		}
 		if input.IssuesDisabled != nil {
 			repository.IssuesDisabled = *input.IssuesDisabled

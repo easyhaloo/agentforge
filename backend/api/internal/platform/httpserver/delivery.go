@@ -749,6 +749,7 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 		Path          string `json:"path"`
 		BaseCommitSHA string `json:"base_commit_sha"`
 		BaseBlobSHA   string `json:"base_blob_sha"`
+		Signoff       bool   `json:"signoff"`
 		Content       string `json:"content"`
 	}
 	if !decodeJSON(w, r, &input) {
@@ -784,13 +785,17 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 		writeProblem(w, http.StatusConflict, "Stale file content", "The file changed or is not a regular text blob at the current changeset revision")
 		return
 	}
-	check, release, err := d.lockBranchWritePolicy(r.Context(), principal.OrganizationID, stored.Changeset.Repository)
+	policy, release, err := d.lockBranchWritePolicy(r.Context(), principal.OrganizationID, stored.Changeset.Repository)
 	if err != nil {
 		writeProblem(w, http.StatusServiceUnavailable, "Repository policy lock unavailable", "The repository policy could not be safely locked for the file update")
 		return
 	}
 	defer release()
-	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content), check)
+	signoff, ok := d.webCommitSignoff(w, r, principal, policy.WebCommitSignoffRequired, input.Signoff)
+	if !ok {
+		return
+	}
+	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content), policy.CheckBranchWrite, signoff)
 	if writeBranchRuleConflict(w, err) {
 		return
 	}
