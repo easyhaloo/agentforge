@@ -30,9 +30,9 @@ vi.mock("react-i18next", () => ({
         "ssoButton": "Continue with SSO",
         "loading": "Signing in...",
         "providers.oidc": "SSO",
-        "providers.github": "GitHub",
-        "providers.google": "Google",
-        "providers.apple": "Apple",
+        "providers.github": "Continue with GitHub",
+        "providers.google": "Continue with Google",
+        "providers.unavailable": "Single sign-on options are temporarily unavailable.",
         "error.invalidCredentials": "Invalid email or password.",
         "error.networkError": "Network error. Please check your connection and try again.",
         "error.generic": "An error occurred. Please try again.",
@@ -68,9 +68,7 @@ describe("LoginPage", () => {
     mockGetEnabledProviders.mockResolvedValue([
       {
         id: "oidc",
-        name: "SSO",
         loginUrl: "/auth/oidc/login",
-        enabled: true,
       },
     ] as SSOProvider[]);
   });
@@ -142,9 +140,7 @@ describe("LoginPage", () => {
       mockGetEnabledProviders.mockResolvedValue([
         {
           id: "oidc",
-          name: "SSO",
           loginUrl: "/auth/oidc/login",
-          enabled: true,
         },
       ] as SSOProvider[]);
 
@@ -162,33 +158,22 @@ describe("LoginPage", () => {
       mockGetEnabledProviders.mockResolvedValue([
         {
           id: "github",
-          name: "GitHub",
-          loginUrl: "/auth/oidc/login?provider=github",
-          enabled: true,
+          loginUrl: "/auth/github/login",
         },
         {
           id: "google",
-          name: "Google",
-          loginUrl: "/auth/oidc/login?provider=google",
-          enabled: true,
-        },
-        {
-          id: "apple",
-          name: "Apple",
-          loginUrl: "/auth/oidc/login?provider=apple",
-          enabled: true,
+          loginUrl: "/auth/google/login",
         },
       ] as SSOProvider[]);
 
       renderLoginPage();
 
       await waitFor(() => {
-        expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Continue with GitHub" })).toBeInTheDocument();
       });
 
-      expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "/auth/oidc/login?provider=github");
-      expect(screen.getByRole("link", { name: "Google" })).toHaveAttribute("href", "/auth/oidc/login?provider=google");
-      expect(screen.getByRole("link", { name: "Apple" })).toHaveAttribute("href", "/auth/oidc/login?provider=apple");
+      expect(screen.getByRole("link", { name: "Continue with GitHub" })).toHaveAttribute("href", "/auth/github/login");
+      expect(screen.getByRole("link", { name: "Continue with Google" })).toHaveAttribute("href", "/auth/google/login");
       expect(screen.getByText("or sign in with")).toBeInTheDocument();
     });
 
@@ -201,12 +186,8 @@ describe("LoginPage", () => {
         expect(screen.getByLabelText("Email address")).toBeInTheDocument();
       });
 
-      // Wait for provider loading to complete
-      await waitFor(() => {
-        expect(mockGetEnabledProviders).toHaveBeenCalled();
-      });
-
-      // Should not show SSO section when API fails
+      expect(await screen.findByRole("status")).toHaveTextContent("Single sign-on options are temporarily unavailable.");
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
       expect(screen.queryByText("or sign in with")).not.toBeInTheDocument();
     });
 
@@ -231,9 +212,7 @@ describe("LoginPage", () => {
       resolveProviders!([
         {
           id: "oidc",
-          name: "SSO",
           loginUrl: "/auth/oidc/login",
-          enabled: true,
         },
       ]);
 
@@ -248,20 +227,18 @@ describe("LoginPage", () => {
       mockGetEnabledProviders.mockResolvedValue([
         {
           id: "github",
-          name: "GitHub",
-          loginUrl: "/auth/oidc/login?provider=github",
-          enabled: true,
+          loginUrl: "/auth/github/login",
         },
       ] as SSOProvider[]);
 
       renderLoginPage();
 
       await waitFor(() => {
-        expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Continue with GitHub" })).toBeInTheDocument();
       });
 
-      const githubLink = screen.getByRole("link", { name: "GitHub" });
-      expect(githubLink).toHaveAttribute("href", "/auth/oidc/login?provider=github");
+      const githubLink = screen.getByRole("link", { name: "Continue with GitHub" });
+      expect(githubLink).toHaveAttribute("href", "/auth/github/login");
       // Check that SVG icon exists
       expect(githubLink.querySelector("svg")).toBeInTheDocument();
     });

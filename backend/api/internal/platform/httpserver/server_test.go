@@ -4,7 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 )
 
 func TestHealthEndpoints(t *testing.T) {
@@ -89,11 +92,46 @@ func (f *fakeOIDCHandler) AcceptInvitation(w http.ResponseWriter, r *http.Reques
 
 func TestInvitationAcceptanceRouteDelegatesToOIDC(t *testing.T) {
 	oidc := &fakeOIDCHandler{}
-	handler := NewHandlerWithDependencies(DeliveryDependencies{OIDC: oidc, AllowedOrigin: "https://app.example.test"})
+	handler := NewHandlerWithDependencies(DeliveryDependencies{SSO: map[string]identity.OIDCHandler{"oidc": oidc}, AllowedOrigin: "https://app.example.test"})
 	request := httptest.NewRequest(http.MethodGet, "/auth/invitations/accept?token=opaque-invitation-token", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusSeeOther || !oidc.accepted {
 		t.Fatalf("invitation acceptance status=%d accepted=%v", response.Code, oidc.accepted)
+	}
+}
+
+func TestSSOProviderDiscoveryAndInvitationChoice(t *testing.T) {
+	legacy := &fakeOIDCHandler{}
+	handler := NewHandlerWithDependencies(DeliveryDependencies{
+		SSO: map[string]identity.OIDCHandler{"github": &fakeOIDCHandler{}, "oidc": legacy},
+	})
+	for _, tc := range []struct {
+		method, path, body, location string
+		status                       int
+	}{
+		{"GET", "/auth/providers", `{"providers":[{"id":"github","login_url":"/auth/github/login"},{"id":"oidc","login_url":"/auth/oidc/login"}]}` + "\n", "", 200},
+		{"GET", "/auth/google/login", "", "", 503},
+		{"HEAD", "/auth/github/callback", "", "", 405},
+		{"GET", "/auth/invitations/accept?token=" + strings.Repeat("a", 43), "", "/login?invitation=1", 303},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, httptest.NewRequest(tc.method, tc.path, nil))
+			if res.Code != tc.status || res.Header().Get("Location") != tc.location || (tc.body != "" && res.Body.String() != tc.body) {
+				t.Fatalf("status=%d location=%q body=%q", res.Code, res.Header().Get("Location"), res.Body.String())
+			}
+			if tc.location != "" {
+				cookies := res.Result().Cookies()
+				if len(cookies) != 1 || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode || legacy.accepted {
+					t.Fatal("named SSO did not bind the invitation to the browser and route to the chooser")
+				}
+			}
+		})
+	}
+	res := httptest.NewRecorder()
+	NewHandler().ServeHTTP(res, httptest.NewRequest("GET", "/auth/providers", nil))
+	if res.Code != 200 || res.Body.String() != "{\"providers\":[]}\n" {
+		t.Fatalf("disabled discovery: status=%d body=%q", res.Code, res.Body.String())
 	}
 }

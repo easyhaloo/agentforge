@@ -13,29 +13,47 @@ import (
 )
 
 type oidcTestRepository struct {
-	stateHash string
-	nonceHash string
+	stateHash   string
+	nonceHash   string
+	expiresAt   time.Time
+	profile     externalProfile
+	inactive    bool
+	sessions    int
+	revoked     []string
+	invitations int
+	inviteError error
+	createError error
 }
 
-func (r *oidcTestRepository) CreateOIDCAuthTransaction(_ context.Context, stateHash, nonceHash string, _ time.Time) error {
-	r.stateHash, r.nonceHash = stateHash, nonceHash
-	return nil
+func (r *oidcTestRepository) CreateOIDCAuthTransaction(_ context.Context, stateHash, nonceHash string, expiresAt time.Time) error {
+	r.stateHash, r.nonceHash, r.expiresAt = stateHash, nonceHash, expiresAt
+	return r.createError
 }
-func (r *oidcTestRepository) ConsumeOIDCAuthTransaction(context.Context, string) (string, error) {
+func (r *oidcTestRepository) ConsumeOIDCAuthTransaction(_ context.Context, stateHash string) (string, error) {
+	if stateHash != r.stateHash || !r.expiresAt.After(time.Now()) {
+		return "", ErrUnauthenticated
+	}
+	r.stateHash = ""
 	return r.nonceHash, nil
 }
-func (r *oidcTestRepository) UpsertExternalIdentity(context.Context, string, string, string, string) (string, error) {
+func (r *oidcTestRepository) UpsertExternalIdentity(_ context.Context, issuer, subject, email, name string) (string, error) {
+	r.profile = externalProfile{issuer: issuer, subject: subject, email: email, name: name}
 	return "user-1", nil
 }
 func (r *oidcTestRepository) HasActiveMembership(context.Context, string) (bool, error) {
-	return true, nil
+	return !r.inactive, nil
 }
 func (r *oidcTestRepository) CreateSession(context.Context, string, string, string, time.Time) (string, error) {
+	r.sessions++
 	return "session-1", nil
 }
-func (r *oidcTestRepository) RevokeSession(context.Context, string) error { return nil }
+func (r *oidcTestRepository) RevokeSession(_ context.Context, token string) error {
+	r.revoked = append(r.revoked, token)
+	return nil
+}
 func (r *oidcTestRepository) AcceptInvitation(context.Context, string, string, string) (string, error) {
-	return "org-1", nil
+	r.invitations++
+	return "org-1", r.inviteError
 }
 
 func TestOIDCLoginStartsPKCEFlowAndPersistsHashedState(t *testing.T) {
@@ -102,14 +120,14 @@ func TestOIDCLoginStartsPKCEFlowAndPersistsHashedState(t *testing.T) {
 			t.Fatalf("unsafe OIDC flow cookie: %#v", cookie)
 		}
 	}
-	pkceCookie := values[oidcPKCECookieName]
+	pkceCookie := values["__Host-agentforge_oidc_pkce"]
 	if pkceCookie == nil {
 		t.Fatal("PKCE verifier cookie missing")
 	}
 	if got := oidcChallenge(pkceCookie.Value); got != challenge {
 		t.Fatalf("PKCE challenge=%q, want %q", challenge, got)
 	}
-	if values[oidcStateCookieName].Value != state || values[oidcNonceCookieName].Value != nonce {
+	if values["__Host-agentforge_oidc_state"].Value != state || values["__Host-agentforge_oidc_nonce"].Value != nonce {
 		t.Fatal("state and nonce cookies must match authorization request")
 	}
 }

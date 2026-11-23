@@ -36,27 +36,43 @@ func main() {
 	}
 	defer store.Close()
 
-	var oidcHandler identity.OIDCHandler
-	if configuration.OIDC != nil {
-		authenticator, authErr := identity.NewOIDCAuthenticator(ctx, identity.OIDCConfig{
-			IssuerURL:    configuration.OIDC.IssuerURL,
-			ClientID:     configuration.OIDC.ClientID,
-			ClientSecret: configuration.OIDC.ClientSecret,
-			RedirectURL:  configuration.OIDC.RedirectURL,
-			SessionTTL:   configuration.SessionTTL,
-			AppOrigin:    configuration.AppOrigin,
-		}, store)
-		if authErr != nil {
-			logger.Error("OIDC provider initialization failed; SSO remains unavailable", "error", authErr)
-		} else {
-			oidcHandler = authenticator
+	providers := make(map[string]identity.OIDCHandler)
+	for _, provider := range []struct {
+		id     string
+		config *config.OIDCConfig
+	}{
+		{"oidc", configuration.OIDC}, {"google", configuration.Google}, {"github", configuration.GitHub},
+	} {
+		if provider.config == nil {
+			continue
 		}
+		authConfig := identity.OIDCConfig{
+			ProviderID: provider.id, IssuerURL: provider.config.IssuerURL,
+			ClientID: provider.config.ClientID, ClientSecret: provider.config.ClientSecret,
+			RedirectURL: provider.config.RedirectURL, SessionTTL: configuration.SessionTTL,
+			AppOrigin: configuration.AppOrigin,
+		}
+		var authenticator *identity.OIDCAuthenticator
+		var authErr error
+		if provider.id == "github" {
+			authenticator, authErr = identity.NewGitHubAuthenticator(authConfig, store)
+		} else {
+			if provider.id == "oidc" {
+				authConfig.ProviderID = ""
+			}
+			authenticator, authErr = identity.NewOIDCAuthenticator(ctx, authConfig, store)
+		}
+		if authErr != nil {
+			logger.Error("SSO provider initialization failed", "provider", provider.id, "error", authErr)
+			continue
+		}
+		providers[provider.id] = authenticator
 	}
 
 	issueRepo := postgres.NewIssueRepository(store)
 	deps := httpserver.DeliveryDependencies{
 		Repository: store, Identity: store, RevokeSession: store.RevokeSession, CSRF: store, Membership: store, Account: store, Settings: store,
-		AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store, Workspaces: store, Tasks: tasks.NewPostgresStore(store.Pool()),
+		AllowedOrigin: configuration.AppOrigin, SSO: providers, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store, Workspaces: store, Tasks: tasks.NewPostgresStore(store.Pool()),
 		IssueRepo:        issueRepo,
 		IssueDetailRepo:  issueRepo,
 		ProjectRepo:      store,

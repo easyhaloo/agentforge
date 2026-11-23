@@ -92,7 +92,22 @@ Set both `GIT_REPOSITORY_ROOT` and `EVIDENCE_ROOT` to enable revision, evaluatio
 
 The PostgreSQL store owns organization-scoped changesets and repository metadata. Every state update uses an expected version; a concurrent update returns `409` and must be reloaded. The API enforces session identity, active organization membership, role checks, exact Origin, and session-bound CSRF for all writes.
 
-## OIDC authentication
+## Single sign-on
+
+Google and GitHub are independently optional. Set each enabled provider's Client ID and Client Secret in the API environment using secret-managed values. Register the exact callback URL with the provider.
+
+| Provider registration | API environment variables | Callback path on `APP_ORIGIN` |
+| --- | --- | --- |
+| Google OAuth web application | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | `/auth/google/callback` |
+| GitHub OAuth App | `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` | `/auth/github/callback` |
+
+Proxy `/auth/*` through the same public origin as the web UI. The provider must allow that origin's callback URL, including the exact scheme and port. Use HTTPS outside loopback development. GitHub requests only `user:email`. An invitation must match the GitHub account's verified primary email or a verified Google email.
+
+`GET /auth/providers` lists the configured providers that initialized successfully. Login and registration read this list and leave password authentication available. For a rollout, restart the API after injecting the desired credentials, check the list through the web origin, and verify a member login and a new invitation for each provider. Removing a provider's credential pair and restarting hides its entry and disables its login and callback routes.
+
+External identities use the provider's immutable account ID. Existing `(issuer, subject)` mappings are preserved. New external identities with a matching profile email get a separate AgentForge account, including when a password account already uses that email. The new identity needs its own membership or a matching invitation. Password sign-in remains available to its original account.
+
+### Generic OIDC
 
 OIDC login is optional during local foundation work. When enabled, configure all four values together:
 
@@ -109,7 +124,7 @@ Routes:
 - `GET /auth/oidc/callback` validates the provider response and creates the application session.
 - `POST /api/v1/auth/logout` revokes the current session and clears both session cookies. It requires the configured Origin and session-bound CSRF header/cookie.
 
-If OIDC configuration is absent or provider discovery fails, SSO login returns `503`. Local sessions can access their organizations and sign out. A successful OIDC login creates or updates a local user by the immutable `(issuer, subject)` pair; it does not grant organization membership. An operator-controlled first-owner/bootstrap step is still required before the user can access tenant-scoped delivery resources.
+A disabled provider or a provider whose discovery failed returns `503` at its own login route. A successful OIDC login creates or updates a local user by the immutable `(issuer, subject)` pair; it does not grant organization membership. An operator-controlled first-owner/bootstrap step is still required before the user can access tenant-scoped delivery resources.
 
 ### Production OIDC Configuration
 
@@ -126,9 +141,9 @@ The guide includes:
 
 ## First-owner bootstrap (operator-only)
 
-A successful OIDC login creates a local user but never grants organization access. Provision the first owner from a trusted operator environment with direct database access; there is no public bootstrap HTTP endpoint.
+A verified SSO identity requires active membership or a matching invitation before the API creates a session. Provision the first owner from a trusted operator environment with direct database access.
 
-Set the exact issuer and immutable `sub` claim from the configured OIDC provider, then run:
+For Google use issuer `https://accounts.google.com` and the account’s OIDC `sub`. For GitHub use issuer `https://github.com` and the decimal account `id` from GitHub’s user API. For generic OIDC use its exact issuer and `sub`.
 
 ```sh
 export DATABASE_URL='postgres://agentforge:agentforge@localhost:5432/agentforge?sslmode=disable'

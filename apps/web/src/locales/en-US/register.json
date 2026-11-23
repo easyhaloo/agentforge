@@ -10,7 +10,6 @@
   "signInLink": "Sign in",
   "orDivider": "or sign up with",
   "ssoButton": "Continue with SSO",
-  "trustMessage": "Secure authentication via OpenID Connect",
   "passwordStrength": {
     "weak": "Weak",
     "medium": "Medium",

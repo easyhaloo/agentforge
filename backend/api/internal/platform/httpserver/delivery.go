@@ -121,7 +121,7 @@ type DeliveryDependencies struct {
 	RevokeSession    func(context.Context, string) error
 	CSRF             identity.CSRFValidator
 	AllowedOrigin    string
-	OIDC             identity.OIDCHandler
+	SSO              map[string]identity.OIDCHandler
 	LocalAuth        LocalAuthHandler
 	Membership       MembershipRepository
 	Account          AccountRepository
