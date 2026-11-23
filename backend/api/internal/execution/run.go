@@ -12,6 +12,7 @@ import (
 
 var ErrInputs = errors.New("invalid run inputs")
 var ErrQuota = errors.New("active run quota reached")
+var ErrRepositoryActionsDisabled = errors.New("repository actions disabled")
 
 type Webhook struct {
 	Ref          string `json:"ref,omitempty"`

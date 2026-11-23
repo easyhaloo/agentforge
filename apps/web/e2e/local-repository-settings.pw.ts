@@ -152,6 +152,23 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await expect(content.getByRole("link", { name: "main", exact: true })).toBeVisible();
     await expect(content.getByRole("link", { name: "release", exact: true }).locator("..")).toContainText("Default");
 
+    await settingsNav.getByRole("link", { name: "Actions", exact: true }).click();
+    const availability = content.getByRole("combobox", { name: "Actions availability" });
+    await expect(availability).toHaveText(/Enable Actions/);
+    await selectOption(page, availability, "Disable Actions");
+    await content.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(content.getByText("Actions settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(availability).toHaveText(/Disable Actions/);
+    await capture("actions");
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await capture("actions-mobile");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await selectOption(page, availability, "Enable Actions");
+    await content.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(content.getByText("Actions settings saved.")).toBeVisible();
+
     await page.goto(`${repositoryURL}/settings/git-tokens`);
     await content.getByRole("button", { name: "Revoke credential" }).click();
     await expect(content.getByText("No active Git tokens.")).toBeVisible();

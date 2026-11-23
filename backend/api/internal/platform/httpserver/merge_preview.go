@@ -121,6 +121,8 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 			switch {
 			case runErr == nil:
 				writeJSON(w, 201, run)
+			case errors.Is(runErr, execution.ErrRepositoryActionsDisabled):
+				writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 			case errors.Is(runErr, execution.ErrInputs):
 				writeProblem(w, 422, "Invalid integration workflow", runErr.Error())
 			case errors.Is(runErr, pipeline.ErrMissing):
@@ -193,6 +195,8 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 
 func writeQueueError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
+		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 	case errors.Is(err, execution.ErrTriggerDenied):
 		writeProblem(w, 403, "Queue admission denied", "An active organization membership is required")
 	case errors.Is(err, pipeline.ErrMissing):

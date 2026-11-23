@@ -4,11 +4,11 @@ import type { TFunction } from "i18next";
  * The error a failed request raises.
  *
  * The message is the API's own English prose. The interface never shows it: `translateError`
- * picks a translated message from the status code instead, so a Chinese user never reads an
+ * picks a translated message from the problem title or status code, so a Chinese user never reads an
  * English sentence from the backend.
  */
 export class APIError extends Error {
-  constructor(message: string, readonly status: number, readonly detail?: string) {
+  constructor(message: string, readonly status: number, readonly detail?: string, readonly title?: string) {
     super(message);
     this.name = "APIError";
   }
@@ -35,11 +35,12 @@ export const errorKeyByStatus: Record<number, string> = {
 /**
  * The message a failed request shows.
  *
- * A request that reached the API is described by its status; anything else (a network failure, a
- * response that could not be parsed) falls back to the caller's own message for that action.
+ * A request that reached the API is described by its recognized problem title or status. Other
+ * failures fall back to the caller's own message for that action.
  */
 export function translateError(cause: unknown, t: TFunction, fallbackKey: string): string {
   if (cause instanceof APIError) {
+    if (cause.title === "Repository Actions disabled") return t("errors:repositoryActionsDisabled");
     return t(errorKeyByStatus[cause.status] ?? "errors:unknown");
   }
   return t(fallbackKey);

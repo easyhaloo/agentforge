@@ -136,6 +136,19 @@ func (d DeliveryDependencies) listRepositoryWorkflows(w http.ResponseWriter, r *
 	writeJSON(w, 200, map[string]any{"items": items})
 }
 
+func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	repository, ok := d.registeredRepository(w, r, principal)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(w, http.StatusOK, repository)
+}
+
 func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true)
 	if !ok {
@@ -150,18 +163,19 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		return
 	}
 	var input struct {
-		DefaultBranch  string    `json:"default_branch"`
-		PreviousBranch string    `json:"previous_branch"`
-		Description    *string   `json:"description"`
-		IsTemplate     *bool     `json:"is_template"`
-		PushRefLimit   *int      `json:"push_ref_limit"`
-		ProtectedRefs  *[]string `json:"protected_refs"`
-		UpdatedAt      time.Time `json:"updated_at"`
+		DefaultBranch   string    `json:"default_branch"`
+		PreviousBranch  string    `json:"previous_branch"`
+		Description     *string   `json:"description"`
+		ActionsDisabled *bool     `json:"actions_disabled"`
+		IsTemplate      *bool     `json:"is_template"`
+		PushRefLimit    *int      `json:"push_ref_limit"`
+		ProtectedRefs   *[]string `json:"protected_refs"`
+		UpdatedAt       time.Time `json:"updated_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil {
+	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -199,6 +213,9 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				return
 			}
 			repository.ProtectedRefs = *input.ProtectedRefs
+		}
+		if input.ActionsDisabled != nil {
+			repository.ActionsDisabled = *input.ActionsDisabled
 		}
 		repository.UpdatedAt = input.UpdatedAt
 		d.updateRepositoryGeneralSettings(w, r, repository)

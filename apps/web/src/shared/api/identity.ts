@@ -27,13 +27,15 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const response = await fetch(API_BASE + path, { ...init, headers, credentials: "include" });
   if (!response.ok) {
     // The API answers with RFC 7807 problem details. Its prose is English, so it is kept on the
-    // error for the console and the interface shows a message chosen from the status instead.
+    // error for diagnostics and the interface uses a translated message keyed by title or status.
     let detail: string | undefined;
+    let title: string | undefined;
     try {
       const problem = await response.json() as { detail?: string; title?: string };
-      detail = problem.detail || problem.title;
+      title = problem.title;
+      detail = problem.detail || title;
     } catch { /* response may not contain JSON */ }
-    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail);
+    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail, title);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -153,7 +155,7 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
-export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
 export type RepositoryPreviewRefs = { description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
@@ -248,7 +250,9 @@ export const repositoryAPI = {
     request<operations["listRepositoryActions"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions?${filters}`, { signal }),
   workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
-  updateGeneralSettings: (organizationID: string, repository: string, settings: Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "updated_at">) =>
+  settings: (organizationID: string, repository: string) =>
+    request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`),
+  updateGeneralSettings: (organizationID: string, repository: string, settings: Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "updated_at">) =>
     request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
     }),

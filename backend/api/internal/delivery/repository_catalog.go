@@ -6,18 +6,19 @@ import (
 )
 
 type RepositoryMetadata struct {
-	OrganizationID string    `json:"organization_id"`
-	Slug           string    `json:"slug"`
-	Description    string    `json:"description,omitempty"`
-	DefaultBranch  string    `json:"default_branch"`
-	Visibility     string    `json:"visibility,omitempty"`
-	Fork           bool      `json:"fork"`
-	IsTemplate     bool      `json:"is_template"`
-	PushRefLimit   int       `json:"push_ref_limit"`
-	ProtectedRefs  []string  `json:"protected_refs,omitempty"`
-	CreatedBy      string    `json:"created_by"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	OrganizationID  string    `json:"organization_id"`
+	Slug            string    `json:"slug"`
+	Description     string    `json:"description,omitempty"`
+	DefaultBranch   string    `json:"default_branch"`
+	Visibility      string    `json:"visibility,omitempty"`
+	Fork            bool      `json:"fork"`
+	ActionsDisabled bool      `json:"actions_disabled"`
+	IsTemplate      bool      `json:"is_template"`
+	PushRefLimit    int       `json:"push_ref_limit"`
+	ProtectedRefs   []string  `json:"protected_refs,omitempty"`
+	CreatedBy       string    `json:"created_by"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type RepositoryActivity struct {

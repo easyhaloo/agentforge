@@ -57,6 +57,9 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	if _, err = runDefinition(ctx, tx, org, pipelineID, version, inputs, true); err != nil {
 		return entry, err
 	}
+	if err = checkRepositoryActions(ctx, tx, org, pipelineID, repo); err != nil {
+		return entry, err
+	}
 	var id int64
 	err = tx.QueryRow(ctx, `INSERT INTO merge_queue_entries(organization_id,repository,target,pipeline_id,version,actor_id,source_ref,source_sha,inputs) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9 FROM delivery_repositories WHERE organization_id=$1 AND slug=$2 AND default_branch=$3 RETURNING id`, org, repo, target, pipelineID, version, actor, candidate.Sources[0].Ref, candidate.Sources[0].SHA, inputs).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -275,7 +278,7 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		return tx.Commit(ctx)
 	}
 	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: candidate, QueueEntry: id}, nil)
-	if errors.Is(err, execution.ErrQuota) {
+	if errors.Is(err, execution.ErrQuota) || errors.Is(err, execution.ErrRepositoryActionsDisabled) {
 		return tx.Commit(ctx)
 	}
 	if errors.Is(err, pipeline.ErrConflict) || errors.Is(err, execution.ErrInputs) || errors.Is(err, execution.ErrTriggerDenied) {

@@ -88,6 +88,15 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 	if err != nil {
 		return empty, err
 	}
+	var target string
+	if integration != nil {
+		target = integration.Repository
+	} else if source != nil {
+		target = source.Repository
+	}
+	if err = checkRepositoryActions(ctx, tx, org, id, target); err != nil {
+		return empty, err
+	}
 	snapshot := map[string]json.RawMessage{}
 	for _, p := range def.Parameters {
 		value := p.Default
@@ -160,6 +169,25 @@ func (s *Store) Events(ctx context.Context, org, id string, after int64) ([]exec
 		return nil, err
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[execution.Event])
+}
+
+// A run can use a repository workflow to check another repository. Both policies apply.
+// Lock the matched settings rows until admission commits so a concurrent disable
+// and a run admission are ordered even when the repository is currently enabled.
+func checkRepositoryActions(ctx context.Context, tx pgx.Tx, org, pipelineID, target string) error {
+	var disabled bool
+	err := tx.QueryRow(ctx, `SELECT COALESCE(bool_or(actions_disabled), false) FROM (
+		SELECT actions_disabled FROM delivery_repositories
+		WHERE organization_id=$1 AND (slug=$3 OR slug=(SELECT repository FROM pipelines WHERE organization_id=$1 AND id=$2))
+		ORDER BY slug FOR SHARE
+	) settings`, org, pipelineID, target).Scan(&disabled)
+	if err != nil {
+		return fmt.Errorf("check repository actions settings: %w", err)
+	}
+	if disabled {
+		return execution.ErrRepositoryActionsDisabled
+	}
+	return nil
 }
 
 func runDefinition(ctx context.Context, tx pgx.Tx, org, id string, number int, inputs map[string]json.RawMessage, needsCheck bool) (pipeline.Definition, error) {

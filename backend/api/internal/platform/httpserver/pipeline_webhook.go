@@ -131,6 +131,8 @@ func (d DeliveryDependencies) githubPipelineHook(w http.ResponseWriter, r *http.
 	switch {
 	case err == nil:
 		w.WriteHeader(http.StatusAccepted)
+	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
+		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 	case errors.Is(err, execution.ErrTriggerDenied):
 		writeProblem(w, 403, "Trigger denied", "The configured actor cannot run this workflow")
 	case errors.Is(err, execution.ErrQuota):

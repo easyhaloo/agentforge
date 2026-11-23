@@ -208,6 +208,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs", deps.listRepositoryRefs)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/settings", deps.repositorySettings)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/settings", deps.updateRepositorySettings)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions", deps.listRepositoryActions)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions/workflows", deps.listRepositoryWorkflows)

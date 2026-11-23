@@ -5,6 +5,7 @@
   "notFound": "That resource does not exist.",
   "methodNotAllowed": "That action is not allowed here.",
   "conflict": "That conflicts with the current state.",
+  "repositoryActionsDisabled": "Actions are disabled for this repository. New workflow runs cannot start.",
   "payloadTooLarge": "The request was too large.",
   "invalidRequest": "Some of the details were not accepted.",
   "tooManyRequests": "Too many attempts. Please wait a moment.",

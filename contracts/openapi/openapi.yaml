@@ -670,6 +670,18 @@ paths:
       - { in: path, name: organizationID, required: true, schema: { type: string } }
       - { in: path, name: owner, required: true, schema: { type: string } }
       - { in: path, name: repo, required: true, schema: { type: string } }
+    get:
+      operationId: getRepositorySettings
+      summary: Read repository settings from the catalog
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Repository settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateRepositorySettings
       summary: Update general repository settings or the default branch
@@ -695,6 +707,7 @@ paths:
                     updated_at: { type: string, format: date-time }
                     description: { type: string, maxLength: 350 }
                     is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
+                    actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
                     push_ref_limit:
                       description: Optional branch and tag update cap for native Git pushes. Zero uses the server maximum of 128.
@@ -2117,9 +2130,10 @@ components:
         maxLength: 139
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
+        actions_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
         push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
         organization_id: { type: string }

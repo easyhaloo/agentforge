@@ -13,14 +13,15 @@ import (
 // transactions so admission pressure cannot lose a tick or hold a schedule row lock.
 func (s *Store) AdvanceTriggers(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `WITH due AS (
- SELECT b.id,date_bin(make_interval(secs=>every_seconds),now(),next_due) AS slot FROM pipeline_trigger_bindings b
+ SELECT b.id,date_bin(make_interval(secs=>every_seconds),now(),next_due) AS slot,COALESCE(r.actions_disabled,false) AS actions_disabled FROM pipeline_trigger_bindings b
  JOIN pipelines p ON (p.organization_id,p.id)=(b.organization_id,b.pipeline_id)
+ LEFT JOIN delivery_repositories r ON (r.organization_id,r.slug)=(p.organization_id,p.repository)
  WHERE enabled AND NOT p.disabled AND p.status<>'archived' AND next_due<=now()
  AND NOT EXISTS(SELECT FROM pipeline_trigger_events e WHERE e.binding_id=b.id AND e.outcome IS NULL)
  ORDER BY next_due,b.id LIMIT 1 FOR UPDATE OF b SKIP LOCKED
  ), advanced AS (
- UPDATE pipeline_trigger_bindings b SET next_due=due.slot+make_interval(secs=>every_seconds) FROM due WHERE b.id=due.id RETURNING b.id,due.slot
- ) INSERT INTO pipeline_trigger_events(binding_id,source) SELECT id,jsonb_build_object('kind','schedule','bindingId',id,'scheduledAt',slot) FROM advanced`)
+ UPDATE pipeline_trigger_bindings b SET next_due=due.slot+make_interval(secs=>every_seconds) FROM due WHERE b.id=due.id RETURNING b.id,due.slot,due.actions_disabled
+ ) INSERT INTO pipeline_trigger_events(binding_id,source) SELECT id,jsonb_build_object('kind','schedule','bindingId',id,'scheduledAt',slot) FROM advanced WHERE NOT actions_disabled`)
 	if err != nil {
 		return err
 	}
@@ -55,6 +56,8 @@ func (s *Store) AdvanceTriggers(ctx context.Context) error {
 				return err
 			}
 			return tx.Commit(ctx)
+		case errors.Is(err, execution.ErrRepositoryActionsDisabled):
+			outcome = "disabled"
 		case errors.Is(err, execution.ErrTriggerDenied):
 			outcome = "denied"
 		case errors.Is(err, execution.ErrInputs), errors.Is(err, pipeline.ErrConflict), errors.Is(err, pipeline.ErrMissing):

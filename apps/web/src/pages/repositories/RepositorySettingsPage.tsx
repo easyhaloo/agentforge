@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GitBranch, KeyRound, Settings, Tag } from "lucide-react";
+import { GitBranch, KeyRound, Play, Settings, Tag } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
@@ -19,6 +19,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
   const [refs, setRefs] = useState<RepositoryPreviewRefs>();
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const isActions = section === "actions";
   const handle = organizationHandle(organization);
   const path = (panel: RepositorySettingsSection) => repositorySettingsPath(handle, repository, panel);
 
@@ -30,7 +31,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
     return () => { active = false; };
   }, [organization.id, repository, t, attempt]);
 
-  const title = t({ general: "settings.general", branches: "sections.branches", tags: "settings.tags", "git-tokens": "git.tokens" }[section]);
+  const title = t({ general: "settings.general", branches: "sections.branches", tags: "settings.tags", actions: "sections.actions", "git-tokens": "git.tokens" }[section]);
   return <div className="repo-layout repo-browser repo-settings">
     <nav className="repo-settings-nav" aria-label={t("sections.settingsFor", { repository })}>
       <NavLink to={path("general")} end><Settings size={16} aria-hidden="true"/>{t("settings.general")}</NavLink>
@@ -43,16 +44,19 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
         <NavLink to={path("branches")} end><GitBranch size={16} aria-hidden="true"/>{t("sections.branches")}</NavLink>
         <NavLink to={path("tags")} end><Tag size={16} aria-hidden="true"/>{t("settings.tags")}</NavLink>
       </div>
+      <div className="repo-settings-nav-group">
+        <NavLink to={path("actions")} end><Play size={16} aria-hidden="true"/>{t("sections.actions")}</NavLink>
+      </div>
     </nav>
     <section className="repo-settings-content" aria-labelledby="repository-settings-title">
       <header className="repo-settings-heading">
         <h1 id="repository-settings-title">{title}</h1>
       </header>
-      {error && <div className="repo-settings-card">
+      {!isActions && error && <div className="repo-settings-card">
         <p role="alert" className="org-error">{error}</p>
         <Button onClick={() => { setError(""); setAttempt(attempt + 1); }}>{t("app:organizationGate.retry")}</Button>
       </div>}
-      {!refs && !error && <p role="status">{t("common:components.loading")}</p>}
+      {!isActions && !refs && !error && <p role="status">{t("common:components.loading")}</p>}
       {refs && section === "general" && <>
         <section className="repo-settings-card">
           <h2>{t("settings.repositoryName")}</h2>
@@ -72,12 +76,84 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
           onSave={item => setRefs(current => current && { ...current, protected_refs: item.protected_refs, updated_at: item.updated_at })} />}
         <RepositoryRefList kind={section === "branches" ? "branch" : "tag"} refs={refs} codePath={repositoryPath(handle, repository)} />
       </>}
+      {isActions && <ActionsSettings organization={organization} repository={repository} onSave={() => {
+        setRefs(undefined);
+        setError("");
+        setAttempt(current => current + 1);
+      }} />}
       {refs && section === "git-tokens" && <div className="repo-settings-card">
         {refs.git_credentials_available ? <RepositoryCredentials organization={organization} repository={repository} />
           : <p>{t("settings.tokensUnavailable")}</p>}
       </div>}
     </section>
   </div>;
+}
+
+function ActionsSettings({ organization, repository, onSave }: {
+  organization: OrganizationSummary; repository: string; onSave: () => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const [draft, setDraft] = useState<boolean>();
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [settings, setSettings] = useState<RepositoryMetadata>();
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    void repositoryAPI.settings(organization.id, repository)
+      .then(result => { if (active) setSettings(result); })
+      .catch(cause => { if (active) setLoadError(translateError(cause, t, "sections.settingsFailed")); });
+    return () => { active = false; };
+  }, [organization.id, repository, retry, t]);
+
+  const actionsDisabled = settings?.actions_disabled ?? false;
+  const selected = draft ?? actionsDisabled;
+  const canManage = canManageRepository(organization);
+  const canSave = canManage && !busy && Boolean(settings) && selected !== actionsDisabled;
+
+  async function save() {
+    if (!canSave || !settings) return;
+    setBusy(true);
+    setSaved(false);
+    setError("");
+    try {
+      setSettings(await repositoryAPI.updateGeneralSettings(organization.id, repository, {
+        actions_disabled: selected, updated_at: settings.updated_at,
+      }));
+      onSave();
+      setDraft(undefined);
+      setSaved(true);
+    } catch (cause) {
+      setError(translateError(cause, t, "repositories:sections.settingsFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loadError) return <div className="repo-settings-card">
+    <p role="alert" className="org-error">{loadError}</p>
+    <Button onClick={() => { setLoadError(""); setRetry(current => current + 1); }}>{t("app:organizationGate.retry")}</Button>
+  </div>;
+  if (!settings) return <p role="status">{t("common:components.loading")}</p>;
+
+  return <section className="repo-settings-card">
+    <h2>{t("settings.actionsRuns")}</h2>
+    <form className="repo-settings-form" aria-busy={busy} onSubmit={event => { event.preventDefault(); void save(); }}>
+      <Select label={t("settings.actionsAvailability")} value={selected ? "disabled" : "enabled"}
+        options={[
+          { value: "enabled", label: t("settings.actionsEnabled") },
+          { value: "disabled", label: t("settings.actionsDisabled") },
+        ]} hint={t("settings.actionsHelp")} disabled={!canManage || busy}
+        onChange={event => { setDraft(event.target.value === "disabled"); setSaved(false); setError(""); }} />
+      {canManage ? <Button type="submit" variant="primary" disabled={!canSave}>{t("common:actions.save")}</Button>
+        : <p>{t("sections.settingsDenied")}</p>}
+      {saved && <p role="status">{t("settings.actionsSaved")}</p>}
+      {error && <p role="alert" className="org-error">{error}</p>}
+    </form>
+  </section>;
 }
 
 function GeneralSettings({ organization, refs, onSave }: {

@@ -81,7 +81,7 @@
 | Repositories | `/orgs/:org/repositories/new` | Repository create form (live API, label reused, no duplicate sidebar item) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |
 | | `/orgs/:org/repositories/:owner/:repo/{issues,pulls,actions,settings}` | Repository sections |
-| | `/orgs/:org/repositories/:owner/:repo/settings/{branches,tags,git-tokens}` | Repository settings panels |
+| | `/orgs/:org/repositories/:owner/:repo/settings/{branches,tags,git-tokens,actions}` | Repository settings panels |
 | | `/orgs/:org/repositories/:owner/:repo/branches` | Redirects to the Branches settings panel |
 | | `/orgs/:org/repositories/:owner/:repo/issues/new/choose` | Choose a repository issue template |
 | | `/orgs/:org/repositories/:owner/:repo/issues/new` | Create new issue |

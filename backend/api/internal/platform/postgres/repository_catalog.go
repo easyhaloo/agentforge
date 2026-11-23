@@ -42,7 +42,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		return nil, delivery.ErrInvalidInput
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description,is_template,push_ref_limit,protected_refs
+		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description,is_template,push_ref_limit,protected_refs,actions_disabled
 		FROM delivery_repositories WHERE organization_id=$1 ORDER BY slug ASC
 	`, organizationID)
 	if err != nil {
@@ -54,7 +54,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		var item delivery.RepositoryMetadata
 		if err := rows.Scan(
 			&item.OrganizationID, &item.Slug, &item.DefaultBranch, &item.CreatedBy,
-			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description, &item.IsTemplate, &item.PushRefLimit, &item.ProtectedRefs,
+			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description, &item.IsTemplate, &item.PushRefLimit, &item.ProtectedRefs, &item.ActionsDisabled,
 		); err != nil {
 			return nil, err
 		}
@@ -91,9 +91,9 @@ func (s *Store) SetRepositoryDefaultBranch(ctx context.Context, org, slug, branc
 
 func (s *Store) SetRepositoryGeneralSettings(ctx context.Context, repository delivery.RepositoryMetadata) (time.Time, error) {
 	var updated time.Time
-	err := s.pool.QueryRow(ctx, `UPDATE delivery_repositories SET description=$3, is_template=$4, push_ref_limit=$6, protected_refs=COALESCE($7, '{}'::text[]), updated_at=clock_timestamp()
+	err := s.pool.QueryRow(ctx, `UPDATE delivery_repositories SET description=$3, is_template=$4, push_ref_limit=$6, protected_refs=COALESCE($7, '{}'::text[]), actions_disabled=$8, updated_at=clock_timestamp()
   WHERE organization_id=$1 AND slug=$2 AND updated_at=$5
-  RETURNING updated_at`, repository.OrganizationID, repository.Slug, repository.Description, repository.IsTemplate, repository.UpdatedAt, repository.PushRefLimit, repository.ProtectedRefs).Scan(&updated)
+  RETURNING updated_at`, repository.OrganizationID, repository.Slug, repository.Description, repository.IsTemplate, repository.UpdatedAt, repository.PushRefLimit, repository.ProtectedRefs, repository.ActionsDisabled).Scan(&updated)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return time.Time{}, delivery.ErrVersionConflict
 	}
