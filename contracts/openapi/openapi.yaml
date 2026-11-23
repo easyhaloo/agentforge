@@ -707,6 +707,7 @@ paths:
                     updated_at: { type: string, format: date-time }
                     description: { type: string, maxLength: 350 }
                     is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
+                    issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
                     actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
                     ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
@@ -753,12 +754,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, push_ref_limit, updated_at]
+                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, issues_disabled, push_ref_limit, updated_at]
                 properties:
                   repository: { type: string }
                   default_branch: { type: string }
                   hosting_kind: { type: string, enum: [hosted, registered] }
                   git_credentials_available: { type: boolean }
+                  issues_disabled: { type: boolean }
                   description: { type: string }
                   is_template: { type: boolean }
                   protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
@@ -2189,10 +2191,11 @@ components:
             hosting_kind: { type: string, enum: [hosted, registered] }
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, issues_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
         actions_disabled: { type: boolean }
+        issues_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
         ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
         push_ref_limit: { type: integer, minimum: 0, maximum: 128 }

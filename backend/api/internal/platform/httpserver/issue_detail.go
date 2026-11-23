@@ -46,6 +46,10 @@ func (d DeliveryDependencies) issueDetailScope(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return issues.DetailScope{}, false
 	}
+	if repository.IssuesDisabled {
+		issueDetailError(w, issues.ErrDetailNotFound)
+		return issues.DetailScope{}, false
+	}
 	return issues.DetailScope{
 		OrganizationID: principal.OrganizationID, Repository: repository.Slug, Number: int(number),
 		UserID: principal.UserID, CanManage: principal.Role == "owner" || principal.Role == "admin",

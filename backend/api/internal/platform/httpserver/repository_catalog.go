@@ -171,6 +171,7 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		DefaultBranch   string             `json:"default_branch"`
 		PreviousBranch  string             `json:"previous_branch"`
 		Description     *string            `json:"description"`
+		IssuesDisabled  *bool              `json:"issues_disabled"`
 		ActionsDisabled *bool              `json:"actions_disabled"`
 		IsTemplate      *bool              `json:"is_template"`
 		PushRefLimit    *int               `json:"push_ref_limit"`
@@ -181,7 +182,7 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.RefRules != nil {
+	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -232,6 +233,9 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				}
 			}
 			repository.RefRules = *input.RefRules
+		}
+		if input.IssuesDisabled != nil {
+			repository.IssuesDisabled = *input.IssuesDisabled
 		}
 		if input.ActionsDisabled != nil {
 			repository.ActionsDisabled = *input.ActionsDisabled

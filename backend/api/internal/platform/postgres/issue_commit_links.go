@@ -20,7 +20,7 @@ func (r *IssueRepository) listLinkedCommits(ctx context.Context, org, repo strin
 
 func (r *IssueRepository) IssuesForCommit(ctx context.Context, org, repo, sha string) ([]int, error) {
 	rows, err := r.store.pool.Query(ctx, `SELECT i.number FROM issue_commit_links l
-		JOIN issues i ON (i.organization_id,i.repository,i.id)=(l.organization_id,l.repository,l.issue_id)
+		JOIN enabled_repository_issues i ON (i.organization_id,i.repository,i.id)=(l.organization_id,l.repository,l.issue_id)
 		WHERE l.organization_id=$1 AND l.repository=$2 AND l.commit_sha=$3
 		ORDER BY i.number LIMIT 100`, org, repo, sha)
 	if err != nil {
@@ -37,7 +37,7 @@ func (r *IssueRepository) LinkCommitIssues(ctx context.Context, org, repo, sha, 
 		return nil
 	}
 	_, err := r.store.pool.Exec(ctx, `INSERT INTO issue_commit_links (organization_id, repository, issue_id, commit_sha, subject)
-		SELECT organization_id, repository, id, $4, $5 FROM issues
+		SELECT organization_id, repository, id, $4, $5 FROM enabled_repository_issues
 		WHERE organization_id=$1 AND repository=$2 AND number=ANY($3)
 		ORDER BY id FOR SHARE
 		ON CONFLICT DO NOTHING`, org, repo, numbers, sha, subject)

@@ -7,7 +7,7 @@ import { useDateFormatting } from "../../shared/i18n/format";
 import { translateError } from "../../shared/api/errors";
 import { organizationHandle, repositoryNewPath, repositoryPath, repositorySettingsPath, type RepositorySettingsSection } from "../../shared/routing";
 import { Button, Checkbox, Input, Modal, Select, TextArea } from "../../shared/ui";
-import { canManageRepository } from "./repositoryPermissions";
+import { canManageRepository, repositoryIssuesSettingChanged } from "./repositoryPermissions";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import { RepositoryRulesetsSettings } from "./RepositoryRulesetsSettings";
 import "./repositories.css";
@@ -65,7 +65,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
           <h2>{t("settings.repositoryName")}</h2>
           <Link className="repo-link" to={repositoryPath(handle, repository)}>{refs.repository}</Link>
           <GeneralSettings organization={organization} refs={refs} onSave={item => setRefs(current => current && {
-            ...current, description: item.description, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
+            ...current, description: item.description, issues_disabled: item.issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
           })} />
         </section>
         <DefaultBranchSettings organization={organization} repository={repository} refs={refs}
@@ -167,16 +167,18 @@ function GeneralSettings({ organization, refs, onSave }: {
   const [draft, setDraft] = useState<string>();
   const [pushLimitDraft, setPushLimitDraft] = useState<string>();
   const [template, setTemplate] = useState<boolean>();
+  const [issuesDraft, setIssuesDraft] = useState<boolean>();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const description = draft ?? refs.description ?? "";
   const isTemplate = template ?? Boolean(refs.is_template);
+  const issuesEnabled = issuesDraft ?? !refs.issues_disabled;
   const pushLimit = pushLimitDraft ?? String(refs.push_ref_limit ?? 0);
   const pushLimitValue = Number(pushLimit);
   const validPushLimit = pushLimit !== "" && (pushLimitValue === 0 ||
     (Number.isInteger(pushLimitValue) && pushLimitValue >= 2 && pushLimitValue <= 128));
-  const changed = description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0);
+  const changed = description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled);
   const canEdit = canManageRepository(organization) && Boolean(refs.updated_at);
   const useTemplate = `${repositoryNewPath(organizationHandle(organization))}?${new URLSearchParams({ template: refs.repository })}`;
 
@@ -187,10 +189,12 @@ function GeneralSettings({ organization, refs, onSave }: {
     setError("");
     try {
       const item = await repositoryAPI.updateGeneralSettings(organization.id, refs.repository, {
-        description: description.trim(), is_template: isTemplate, updated_at: refs.updated_at,
+        description: description.trim(), is_template: isTemplate, issues_disabled: !issuesEnabled, updated_at: refs.updated_at,
         ...(refs.git_credentials_available ? { push_ref_limit: pushLimitValue } : {}),
       });
       onSave(item);
+      if (item.issues_disabled !== refs.issues_disabled) window.dispatchEvent(new Event(repositoryIssuesSettingChanged));
+      setIssuesDraft(undefined);
       setDraft(undefined);
       setTemplate(undefined);
       setPushLimitDraft(undefined);
@@ -211,6 +215,10 @@ function GeneralSettings({ organization, refs, onSave }: {
         onChange={event => { setTemplate(event.target.checked); setSaved(false); }} />
       <p>{t("settings.templateHelp")}</p>
     </>}
+    <h3 className="repo-settings-subheading">{t("settings.features")}</h3>
+    <Checkbox label={t("sections.issues")} checked={issuesEnabled} disabled={busy}
+      onChange={event => { setIssuesDraft(event.target.checked); setSaved(false); }} />
+    <p>{t("settings.issuesHelp")}</p>
     {refs.git_credentials_available && <>
       <h3 className="repo-settings-subheading">{t("settings.pushes")}</h3>
       <Checkbox label={t("settings.limitPushRefs")} checked={pushLimit !== "0"} disabled={busy} onChange={event => {

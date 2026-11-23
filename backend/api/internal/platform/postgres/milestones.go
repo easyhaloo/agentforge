@@ -238,7 +238,7 @@ func (r *MilestoneRepository) GetProgress(ctx context.Context, organizationID st
 		SELECT
 			COUNT(*) FILTER (WHERE state = 'open') as open_issues,
 			COUNT(*) FILTER (WHERE state = 'closed') as closed_issues
-		FROM issues
+		FROM enabled_repository_issues
 		WHERE organization_id = $1 AND milestone_id = $2
 	`, organizationID, milestoneID).Scan(&openCount, &closedCount)
 
