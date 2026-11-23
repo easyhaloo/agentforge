@@ -11,7 +11,7 @@ import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, repositoryChangesetsPath, repositoryPath, repositoryNewPath } from "../../shared/routing";
 import { Button, Input, Modal, Select } from "../../shared/ui";
-import { canManageRepository } from "./RepositoryMasthead";
+import { canManageRepository } from "./repositoryPermissions";
 import "./repositories.css";
 
 const languageColors: Record<string, string> = {

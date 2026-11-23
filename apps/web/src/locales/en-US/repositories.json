@@ -199,7 +199,6 @@
     "branchLabel": "Default branch"
   },
   "columns": {
-    "repository": "REPOSITORY",
     "branch": "DEFAULT BRANCH",
     "registeredBy": "REGISTERED BY",
     "registered": "REGISTERED"

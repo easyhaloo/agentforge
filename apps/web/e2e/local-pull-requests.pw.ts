@@ -85,8 +85,26 @@ test("reviews an updated pull request and merges only its verified revision", as
       await page.getByRole("button", { name: "Register repository", exact: true }).click();
       await expect(page).toHaveURL(`${base.origin}${orgPath}/repositories/pulls-qa/${basename(directory)}`);
     }
-    await page.getByRole("link", { name: "Pull requests", exact: true }).click();
-    const pullsPath = `${orgPath}/repositories/${repository}/pulls`;
+    const banner = page.getByRole("banner");
+    const repoNav = page.getByRole("navigation", { name: "Repository sections" });
+    const currentSection = repoNav.locator('[aria-current="page"]');
+    const repositoryPath = `${orgPath}/repositories/${repository}`;
+    await expect(banner.locator(".topbar-repository").getByRole("link", { name: basename(repositoryDir), exact: true })).toHaveAttribute("href", repositoryPath);
+    await expect(currentSection).toHaveText("Code");
+    await expect(page.getByRole("main").getByRole("heading", { name: repository, exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Open WebIDE" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "README.md", exact: true })).toBeVisible();
+    await capture("repository-code", false);
+    const bannerBox = (await banner.boundingBox())!;
+    expect((await repoNav.boundingBox())!.y).toBe(bannerBox.y + bannerBox.height);
+    await repoNav.getByRole("link", { name: "Issues", exact: true }).click();
+    await expect(page).toHaveURL(`${base.origin}${repositoryPath}/issues`);
+    await expect(currentSection).toHaveText("Issues");
+    await expect(page.getByRole("main").getByRole("heading", { name: repository, exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "New issue" })).toBeVisible();
+    await capture("repository-issues", false);
+    await repoNav.getByRole("link", { name: "Pull requests", exact: true }).click();
+    const pullsPath = `${repositoryPath}/pulls`;
     await expect(page).toHaveURL(`${base.origin}${pullsPath}`);
     await page.getByRole("link", { name: "New pull request" }).click();
     await expect(page).toHaveURL(`${base.origin}${pullsPath}/new`);
@@ -108,7 +126,10 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(changeset.revisions[0].commit_sha).toBe(firstHead);
     const detail = `${base.origin}${pullsPath}/${changeset.id}`;
     await expect(page).toHaveURL(detail);
+    await expect(currentSection).toHaveText("Pull requests");
+    await expect(page.getByRole("main").getByRole("heading", { name: repository, exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
+    await capture("repository-pr-desktop", false);
     const editTitle = page.getByRole("button", { name: "Edit title" });
     const titleInput = page.getByRole("textbox", { name: "Title", exact: true });
     const cancelTitle = page.getByRole("button", { name: "Cancel", exact: true });
@@ -392,6 +413,14 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     await conversationTab.click();
     await capture("mobile");
+    await expect(currentSection).toHaveText("Pull requests");
+    await capture("repository-pr-mobile", false);
+    const settings = repoNav.getByRole("link", { name: "Settings", exact: true });
+    await settings.focus();
+    await expect(settings).toBeInViewport({ ratio: 1 });
+    await settings.press("Enter");
+    await expect(page).toHaveURL(`${base.origin}${repositoryPath}/settings`);
+    await expect(currentSection).toHaveText("Settings");
   } finally {
     await reviewerContext.close();
     rmSync(repositoryDir, { recursive: true, force: true });
