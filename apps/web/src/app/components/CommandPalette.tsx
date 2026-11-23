@@ -192,8 +192,8 @@ function SearchPanel({ onClose, repository, linkHandle }: PanelProps) {
                 onScroll={event => { if (highlightRef.current) highlightRef.current.scrollLeft = event.currentTarget.scrollLeft; }}
                 onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} />
             </div>
-            {query && <Button variant="ghost" size="small" className="command-palette__clear" aria-label={t("commandPalette.clear")}
-              onClick={() => { changeQuery(""); inputRef.current?.focus(); }}><X size={15} aria-hidden="true" /></Button>}
+            {query && <Button variant="ghost" size="small" className="icon-button command-palette__clear" aria-label={t("commandPalette.clear")}
+              onClick={() => { changeQuery(""); inputRef.current?.focus(); }}><X size={16} strokeWidth={3} aria-hidden="true" /></Button>}
           </div>
         </div>
         <div className="command-palette__results">

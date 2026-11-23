@@ -73,7 +73,22 @@ test("completes a repo qualifier, clears it, and opens a scoped result with Ente
   await expect(panel.getByRole("option", { name: `repo:${repository} Use this repository` })).toBeVisible();
   await search.press("Enter");
   await expect(search).toHaveValue(`repo:${repository} `);
-  await panel.getByRole("button", { name: "Clear search" }).click();
+  const clear = panel.getByRole("button", { name: "Clear search" });
+  const field = panel.locator(".command-palette__search");
+  await expect(field).toHaveCSS("outline-style", "solid");
+  await search.press("Tab");
+  await expect(clear).toBeFocused();
+  await expect(clear).toHaveCSS("outline-style", "solid");
+  await expect(clear).toHaveCSS("width", "28px");
+  await expect(clear).toHaveCSS("height", "28px");
+  await expect(field).toHaveCSS("outline-style", "none");
+  await clear.press("Space");
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+  await expect(clear).toBeHidden();
+
+  await search.fill("documentation");
+  await clear.click();
   await expect(search).toHaveValue("");
   await expect(search).toBeFocused();
 
