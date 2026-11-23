@@ -2,11 +2,13 @@ package githttp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -15,16 +17,17 @@ import (
 
 // RefRule restricts writes to matching branches or tags.
 type RefRule struct {
-	Name               string   `json:"name"`
-	Target             string   `json:"target"`
-	Enabled            bool     `json:"enabled"`
-	Include            []string `json:"include"`
-	Exclude            []string `json:"exclude"`
-	RestrictCreation   bool     `json:"restrict_creation"`
-	RestrictUpdate     bool     `json:"restrict_update"`
-	RestrictDeletion   bool     `json:"restrict_deletion"`
-	BlockForcePush     bool     `json:"block_force_push"`
-	RequirePullRequest bool     `json:"require_pull_request"`
+	Name               string           `json:"name"`
+	Target             string           `json:"target"`
+	Enabled            bool             `json:"enabled"`
+	Include            []string         `json:"include"`
+	Exclude            []string         `json:"exclude"`
+	RestrictCreation   bool             `json:"restrict_creation"`
+	RestrictUpdate     bool             `json:"restrict_update"`
+	RestrictDeletion   bool             `json:"restrict_deletion"`
+	BlockForcePush     bool             `json:"block_force_push"`
+	RequirePullRequest bool             `json:"require_pull_request"`
+	NamePatterns       []RefNamePattern `json:"name_patterns,omitempty"`
 }
 
 func ValidRefRules(rules []RefRule) bool {
@@ -34,8 +37,8 @@ func ValidRefRules(rules []RefRule) bool {
 	for i, rule := range rules {
 		if rule.Name == "" || strings.TrimSpace(rule.Name) != rule.Name || utf8.RuneCountInString(rule.Name) > 80 || strings.ContainsFunc(rule.Name, unicode.IsControl) ||
 			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.BlockForcePush || rule.RequirePullRequest)) ||
-			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest) ||
-			len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
+			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || len(rule.NamePatterns) > 0) ||
+			!validNamePatterns(rule.NamePatterns) || len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
 			return false
 		}
 		for _, other := range rules[:i] {
@@ -44,7 +47,65 @@ func ValidRefRules(rules []RefRule) bool {
 			}
 		}
 	}
+	// The complete policy is passed as one environment variable to receive-pack.
+	encoded, err := json.Marshal(rules)
+	return err == nil && len(encoded) <= 64<<10
+}
+
+// RefNamePattern matches the short name of a branch or tag.
+type RefNamePattern struct {
+	Operator string `json:"operator"`
+	Pattern  string `json:"pattern"`
+	Negate   bool   `json:"negate,omitempty"`
+	Name     string `json:"name,omitempty"`
+}
+
+func validNamePatterns(patterns []RefNamePattern) bool {
+	if len(patterns) > 10 {
+		return false
+	}
+	for _, pattern := range patterns {
+		if pattern.Pattern == "" || len(pattern.Pattern) > 1024 || strings.ContainsFunc(pattern.Pattern, unicode.IsControl) ||
+			utf8.RuneCountInString(pattern.Name) > 80 || strings.ContainsFunc(pattern.Name, unicode.IsControl) {
+			return false
+		}
+		switch pattern.Operator {
+		case "starts_with", "ends_with", "contains":
+		case "regex":
+			if _, err := regexp.Compile(pattern.Pattern); err != nil {
+				return false
+			}
+		default:
+			return false
+		}
+	}
 	return true
+}
+
+func (rule RefRule) checkName(name string) error {
+	for _, pattern := range rule.NamePatterns {
+		var matches bool
+		switch pattern.Operator {
+		case "starts_with":
+			matches = strings.HasPrefix(name, pattern.Pattern)
+		case "ends_with":
+			matches = strings.HasSuffix(name, pattern.Pattern)
+		case "contains":
+			matches = strings.Contains(name, pattern.Pattern)
+		case "regex":
+			var err error
+			matches, err = regexp.MatchString(pattern.Pattern, name)
+			if err != nil {
+				return fmt.Errorf("ruleset %q has an invalid name pattern: %w", rule.Name, ErrRefNameRestricted)
+			}
+		default:
+			return fmt.Errorf("ruleset %q has an invalid name pattern operator: %w", rule.Name, ErrRefNameRestricted)
+		}
+		if matches == pattern.Negate {
+			return fmt.Errorf("ruleset %q: %w: %s", rule.Name, ErrRefNameRestricted, name)
+		}
+	}
+	return nil
 }
 
 func validRulePatterns(target string, patterns []string) bool {
@@ -113,6 +174,7 @@ func (rule RefRule) matches(target, name, defaultBranch string) bool {
 }
 
 var (
+	ErrRefNameRestricted         = errors.New("ref name does not match the required pattern")
 	ErrBranchUpdatesRestricted   = errors.New("branch updates are restricted")
 	ErrBranchPullRequestRequired = errors.New("a verified pull request is required")
 )
@@ -124,6 +186,9 @@ func CheckBranchMerge(rules []RefRule, branch, defaultBranch string, linkedPullR
 	for _, rule := range rules {
 		if !rule.matches("branch", branch, defaultBranch) {
 			continue
+		}
+		if err := rule.checkName(branch); err != nil {
+			return err
 		}
 		if rule.RestrictUpdate {
 			return fmt.Errorf("ruleset %q blocks updates to %s: %w", rule.Name, branch, ErrBranchUpdatesRestricted)
@@ -152,6 +217,11 @@ func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) erro
 	for _, rule := range rules {
 		if !rule.matches(target, name, defaultBranch) {
 			continue
+		}
+		if !isDeletion {
+			if err := rule.checkName(name); err != nil {
+				return err
+			}
 		}
 		switch {
 		case isCreation && rule.RestrictCreation:

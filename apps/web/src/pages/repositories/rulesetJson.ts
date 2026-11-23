@@ -1,7 +1,8 @@
-import type { RepositoryRefRule } from "../../shared/api/identity";
+import type { RefNamePattern, RepositoryRefRule } from "../../shared/api/identity";
 
 export const maxRulesetFileBytes = 64 * 1024;
 const format = "agentforge-repository-ruleset-v1";
+export const namePatternOperators = ["starts_with", "ends_with", "contains", "regex"] as const;
 const ruleTypes = {
   restrict_creation: "creation",
   restrict_update: "update",
@@ -16,6 +17,15 @@ function record(value: unknown): value is Record<string, unknown> {
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: string[]) {
   return Object.keys(value).every(key => keys.includes(key));
+}
+
+function readNamePattern(value: unknown): RefNamePattern | undefined {
+  if (!record(value) || !hasOnlyKeys(value, ["operator", "pattern", "negate", "name"])) return undefined;
+  const { operator, pattern, negate, name } = value;
+  const allowedOperator = namePatternOperators.find(item => item === operator);
+  if (!allowedOperator || typeof pattern !== "string" || !pattern ||
+    (negate !== undefined && typeof negate !== "boolean") || (name !== undefined && typeof name !== "string")) return undefined;
+  return { operator: allowedOperator, pattern, ...(negate && { negate }), ...(name && { name }) };
 }
 
 function readPatterns(value: unknown, target: RepositoryRefRule["target"], native: boolean): string[] | undefined {
@@ -65,9 +75,16 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
   const exclude = readPatterns(conditions.ref_name.exclude ?? [], target, schema === format);
   if (!include?.length || !exclude) return undefined;
   const types = new Set<string>();
+  const namePatterns: RefNamePattern[] = [];
   for (const rule of rules as unknown[]) {
-    if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string" ||
-      !Object.values<string>(ruleTypes).includes(rule.type) || types.has(rule.type)) return undefined;
+    if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string") return undefined;
+    if (rule.type === `${target}_name_pattern`) {
+      const pattern = readNamePattern(rule.parameters);
+      if (!pattern) return undefined;
+      namePatterns.push(pattern);
+      continue;
+    }
+    if (!Object.values<string>(ruleTypes).includes(rule.type) || types.has(rule.type)) return undefined;
     if (rule.parameters !== undefined && (!record(rule.parameters) ||
       !hasOnlyKeys(rule.parameters, rule.type === "update" ? ["update_allows_fetch_and_merge"] : []) ||
       (rule.parameters.update_allows_fetch_and_merge !== undefined && rule.parameters.update_allows_fetch_and_merge !== false))) return undefined;
@@ -79,6 +96,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     restrict_creation: types.has("creation"), restrict_update: types.has("update"),
     restrict_deletion: types.has("deletion"), block_force_push: types.has("non_fast_forward"),
     ...(types.has("pull_request") && { require_pull_request: true }),
+    ...(namePatterns.length > 0 && { name_patterns: namePatterns }),
   };
 }
 
@@ -89,6 +107,9 @@ export function serializeRulesetJson(rule: RepositoryRefRule): string {
     target: rule.target,
     enforcement: rule.enabled ? "active" : "disabled",
     conditions: { ref_name: { include: rule.include, exclude: rule.exclude } },
-    rules: Object.entries(ruleTypes).flatMap(([key, type]) => rule[key as keyof typeof ruleTypes] ? [{ type }] : []),
+    rules: [
+      ...Object.entries(ruleTypes).flatMap(([key, type]) => rule[key as keyof typeof ruleTypes] ? [{ type }] : []),
+      ...(rule.name_patterns ?? []).map(parameters => ({ type: `${rule.target}_name_pattern`, parameters })),
+    ],
   }, null, 2) + "\n";
 }

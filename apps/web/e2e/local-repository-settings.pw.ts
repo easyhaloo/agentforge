@@ -180,11 +180,17 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await content.getByRole("textbox", { name: "Exclude patterns" }).fill("shipping/scratch/**");
     await content.getByRole("checkbox", { name: "Restrict deletion" }).check();
     await content.getByRole("checkbox", { name: "Block force pushes" }).check();
+    await content.getByRole("button", { name: "Add name restriction" }).click();
+    await selectOption(page, content.getByRole("combobox", { name: "Requirement" }), "Matches regex");
+    await content.getByRole("textbox", { name: "Name pattern", exact: true }).fill("^shipping/[a-z]+/next$");
+    await content.getByRole("textbox", { name: "Description (optional)" }).fill("Use a lowercase shipping region");
     await saveRulesets();
     await page.reload();
     await expect(content.getByText("Release history", { exact: true })).toBeVisible();
     await content.getByRole("button", { name: "Edit Release history" }).click();
     await expect(content.getByRole("textbox", { name: "Exclude patterns" })).toHaveValue("shipping/scratch/**");
+    await expect(content.getByRole("textbox", { name: "Name pattern", exact: true })).toHaveValue("^shipping/[a-z]+/next$");
+    await capture("rulesets-name-patterns");
     await capture("rulesets");
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -192,13 +198,16 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await page.setViewportSize({ width: 1440, height: 1000 });
 
     const shipping = "refs/heads/shipping/eu/next";
-    const scratch = "refs/heads/shipping/scratch/next";
+    const scratch = "refs/heads/shipping/scratch/local";
+    const wrongName = "refs/heads/shipping/EU/next";
+    expect(git(worktree, "push", "origin", `HEAD:${wrongName}`).stderr).toContain("ref name does not match the required pattern");
+    expect(checkedGit(folder, "ls-remote", gitURL, wrongName)).toBe("");
     checkedGit(worktree, "push", "origin", `HEAD:${shipping}`, `HEAD:${scratch}`);
     checkedGit(worktree, "-c", "user.name=Settings QA", "-c", "user.email=qa@example.test", "commit", "--allow-empty", "-m", "Fast-forward to a quarantined commit");
     checkedGit(worktree, "push", "origin", `HEAD:${shipping}`, `HEAD:${scratch}`);
     checkedGit(worktree, "push", "origin", `+HEAD^:${scratch}`);
     expect(git(worktree, "push", "origin", `+HEAD^:${shipping}`).stderr).toContain(`blocks non-fast-forward updates to ${shipping}`);
-    expect(git(worktree, "push", "origin", `:${shipping}`, ":refs/heads/shipping/scratch/next").stderr).toContain(`blocks deletion of ${shipping}`);
+    expect(git(worktree, "push", "origin", `:${shipping}`, `:${scratch}`).stderr).toContain(`blocks deletion of ${shipping}`);
     expect(checkedGit(folder, "ls-remote", gitURL, scratch)).toContain(scratch);
 
     await content.getByRole("checkbox", { name: "Require a pull request before merging" }).check();
@@ -214,7 +223,10 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     const tagRule = {
       name: "Release tags", target: "tag", enforcement: "active",
       conditions: { ref_name: { include: ["refs/tags/locked-*"], exclude: [] } },
-      rules: [{ type: "update", parameters: { update_allows_fetch_and_merge: false } }],
+      rules: [
+        { type: "update", parameters: { update_allows_fetch_and_merge: false } },
+        { type: "tag_name_pattern", parameters: { operator: "ends_with", pattern: "-draft", negate: true } },
+      ],
     };
     async function importRuleset(value: object) {
       const picker = page.waitForEvent("filechooser");
@@ -240,8 +252,9 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     expect(JSON.parse(readFileSync((await exported.path())!, "utf8"))).toMatchObject({
       name: "Release tags", target: "tag", enforcement: "active",
       conditions: { ref_name: { include: ["locked-*"], exclude: [] } },
-      rules: [{ type: "update" }],
+      rules: [{ type: "update" }, tagRule.rules[1]],
     });
+    expect(git(worktree, "push", "origin", "HEAD:refs/tags/locked-draft").stderr).toContain("ref name does not match the required pattern");
     const lockedTag = "refs/tags/locked-release";
     checkedGit(worktree, "push", "origin", `HEAD:${lockedTag}`);
     expect(git(worktree, "push", "origin", `+HEAD^:${lockedTag}`).stderr).toContain(`blocks updates to ${lockedTag}`);

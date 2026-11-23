@@ -38,6 +38,17 @@ describe("ruleset JSON portability", () => {
     expect(githubImport({ rules: [{ type: "pull_request", parameters: {} }] })).toMatchObject({ require_pull_request: true });
   });
 
+  it("round trips GitHub tag name patterns with literal and negative requirements", () => {
+    const rules = [
+      { type: "tag_name_pattern", parameters: { operator: "starts_with", pattern: "v", name: "Version prefix" } },
+      { type: "tag_name_pattern", parameters: { operator: "regex", pattern: "-draft$", negate: true } },
+    ];
+    const rule = githubImport({ target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules });
+    expect(rule?.name_patterns).toEqual(rules.map(({ parameters }) => parameters));
+    expect(rule && parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
+    expect(githubImport({ rules })).toBeUndefined();
+  });
+
   it.each([
     { rules: [{ type: "pull_request", parameters: { required_approving_review_count: 2 } }] },
     { target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules: [{ type: "pull_request" }] },

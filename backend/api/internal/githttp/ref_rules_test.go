@@ -61,3 +61,38 @@ func TestBranchMergeRulesStack(t *testing.T) {
 		}
 	}
 }
+
+func TestRulesetNamePatterns(t *testing.T) {
+	rule := RefRule{Name: "Naming", Target: "branch", Enabled: true, Include: []string{"~ALL"}, Exclude: []string{"legacy/**"}, NamePatterns: []RefNamePattern{
+		{Operator: "starts_with", Pattern: "release/"},
+		{Operator: "ends_with", Pattern: "/candidate"},
+		{Operator: "contains", Pattern: "/draft/", Negate: true},
+		{Operator: "regex", Pattern: `^release/[a-z]+/candidate$`},
+	}}
+	if !ValidRefRules([]RefRule{rule}) {
+		t.Fatal("a name-only ruleset must be valid")
+	}
+	for _, tc := range []struct {
+		branch string
+		denied bool
+	}{
+		{"release/eu/candidate", false}, {"shipping/eu/candidate", true}, {"release/eu/next", true},
+		{"release/draft/candidate", true}, {"release/EU/candidate", true}, {"legacy/invalid", false},
+	} {
+		err := checkRefRules([]RefRule{rule}, RefUpdate{Ref: "refs/heads/" + tc.branch, Old: "0", New: "a"}, "main")
+		if errors.Is(err, ErrRefNameRestricted) != tc.denied {
+			t.Errorf("push of %s denied=%v, want %t", tc.branch, err, tc.denied)
+		}
+		err = CheckBranchMerge([]RefRule{rule}, tc.branch, "main", true)
+		if errors.Is(err, ErrRefNameRestricted) != tc.denied {
+			t.Errorf("merge into %s denied=%v, want %t", tc.branch, err, tc.denied)
+		}
+	}
+	if err := checkRefRules([]RefRule{rule}, RefUpdate{Ref: "refs/heads/invalid", Old: "a", New: "0"}, "main"); err != nil {
+		t.Fatalf("name rule blocked cleanup of an existing invalid ref: %v", err)
+	}
+	rule.NamePatterns[3].Pattern = `(?=unsupported)`
+	if ValidRefRules([]RefRule{rule}) {
+		t.Fatal("invalid RE2 syntax was accepted")
+	}
+}

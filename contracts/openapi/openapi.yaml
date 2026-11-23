@@ -2131,7 +2131,7 @@ components:
         maxLength: 139
     RepositoryRefRules:
       type: array
-      description: Rulesets for writes to a native Git repository. Every matching enabled rule applies. Exclusions take precedence within a ruleset. Each ruleset requires at least one restriction and allows at most 10 patterns across include and exclude.
+      description: Rulesets for writes to a native Git repository. Every matching enabled rule applies. Exclusions take precedence within a ruleset. Each ruleset requires at least one restriction and allows at most 10 patterns across include and exclude. The serialized ruleset list is limited to 64 KiB.
       maxItems: 10
       items:
         type: object
@@ -2154,6 +2154,19 @@ components:
             description: >-
               Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
               Integration promotion requires each candidate source branch and commit to match a current, verified pull request into the target.
+          name_patterns:
+            type: array
+            maxItems: 10
+            description: Every listed restriction applies to the short name of a matching branch or tag on creation or update. Deletion does not evaluate the name.
+            items:
+              type: object
+              additionalProperties: false
+              required: [operator, pattern]
+              properties:
+                operator: { type: string, enum: [starts_with, ends_with, contains, regex] }
+                pattern: { type: string, minLength: 1, maxLength: 1024, description: Literal text or an RE2 expression. Limited to 1024 bytes. }
+                negate: { type: boolean, default: false }
+                name: { type: string, maxLength: 80, description: Optional description of this restriction. }
     RepositoryRefRulePatterns:
       type: array
       description: Ref names or globs without the refs/heads/ or refs/tags/ prefix. Use ~ALL for every ref or ~DEFAULT_BRANCH for the current default branch.

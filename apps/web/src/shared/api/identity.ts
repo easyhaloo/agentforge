@@ -155,6 +155,12 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
+export type RefNamePattern = {
+  operator: "starts_with" | "ends_with" | "contains" | "regex";
+  pattern: string;
+  negate?: boolean;
+  name?: string;
+};
 export type RepositoryRefRule = {
   name: string;
   target: "branch" | "tag";
@@ -166,6 +172,7 @@ export type RepositoryRefRule = {
   restrict_deletion: boolean;
   block_force_push: boolean;
   require_pull_request?: boolean;
+  name_patterns?: RefNamePattern[];
 };
 export type RepositoryMetadata = { ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered" };

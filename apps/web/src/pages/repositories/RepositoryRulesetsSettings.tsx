@@ -1,14 +1,16 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { repositoryAPI, type OrganizationSummary, type RepositorySettings, type RepositoryRefRule } from "../../shared/api/identity";
+import { repositoryAPI, type RefNamePattern, type OrganizationSummary, type RepositorySettings, type RepositoryRefRule } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
-import { maxRulesetFileBytes, parseRulesetJson, serializeRulesetJson } from "./rulesetJson";
+import { maxRulesetFileBytes, namePatternOperators, parseRulesetJson, serializeRulesetJson } from "./rulesetJson";
 
 const maxRules = 10;
 const maxNameLength = 80;
 const maxPatterns = 10;
+const maxNamePatterns = 10;
+const maxNamePatternBytes = 1024;
 const restrictionLabels = {
   restrict_creation: "settings.rulesets.restrictCreation",
   restrict_update: "settings.rulesets.restrictUpdate",
@@ -32,9 +34,12 @@ function patterns(value: string) {
   return value.split(/\r?\n/).map(pattern => pattern.trim()).filter(Boolean);
 }
 
-function toRule({ id: _id, name, include, exclude, require_pull_request, ...rule }: RuleDraft): RepositoryRefRule {
+function toRule({ id: _id, name, include, exclude, require_pull_request, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
   return { ...rule, name: name.trim(), include: patterns(include), exclude: patterns(exclude),
     ...(require_pull_request && { require_pull_request }),
+    ...(name_patterns?.length && { name_patterns: name_patterns.map(({ operator, pattern, name, negate }) => ({
+      operator, pattern, ...(name && { name }), ...(negate && { negate }),
+    })) }),
   };
 }
 
@@ -113,7 +118,9 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     if (!rule.include.length) return t("settings.rulesets.includeRequired");
     if (rule.include.length + rule.exclude.length > maxPatterns) return t("settings.rulesets.tooManyPatterns", { max: maxPatterns });
     if (rule.target === "tag" && (rule.block_force_push || rule.require_pull_request)) return t("settings.rulesets.tagBranchRestrictions");
-    if (!restrictions.some(restriction => rule[restriction])) return t("settings.rulesets.restrictionRequired");
+    if (rule.name_patterns?.some(({ pattern, name }) => !pattern || new TextEncoder().encode(pattern).length > maxNamePatternBytes ||
+      (name && [...name].length > maxNameLength)) || (rule.name_patterns?.length ?? 0) > maxNamePatterns) return t("settings.rulesets.namePatternInvalid");
+    if (!rule.name_patterns?.length && !restrictions.some(restriction => rule[restriction])) return t("settings.rulesets.restrictionRequired");
     return "";
   }
 
@@ -259,6 +266,13 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
           <dt>{t("settings.rulesets.exclude")}</dt><dd>{patterns(rule.exclude).join(", ") || t("settings.rulesets.none")}</dd>
           <dt>{t("settings.rulesets.restrictions")}</dt>
           <dd>{restrictions.filter(key => rule[key]).map(key => t(restrictionLabels[key])).join(", ") || t("settings.rulesets.none")}</dd>
+          {Boolean(rule.name_patterns?.length) && <>
+            <dt>{t("settings.rulesets.namePatterns")}</dt>
+            <dd>{rule.name_patterns?.map(({ operator, pattern, name, negate }) => t(
+              negate ? "settings.rulesets.namePatternNegativeSummary" : "settings.rulesets.namePatternSummary",
+              { operator: t(`settings.rulesets.nameOperators.${operator}`), pattern, description: name ? ` (${name})` : "" },
+            )).join(", ")}</dd>
+          </>}
         </dl>}
       </section>;
     })}
@@ -300,6 +314,38 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
       {restrictions.map(key => rule.target === "tag" && (key === "block_force_push" || key === "require_pull_request") ? null :
         <Checkbox key={key} label={t(restrictionLabels[key])} checked={Boolean(rule[key])} disabled={busy}
           onChange={event => onChange({ [key]: event.target.checked })} />)}
+    </fieldset>
+    <fieldset className="repo-settings-rule-restrictions">
+      <legend>{t("settings.rulesets.namePatterns")}</legend>
+      {(rule.name_patterns ?? []).map((pattern, index, patterns) => {
+        const update = (patch: Partial<RefNamePattern>) => onChange({
+          name_patterns: patterns.map((item, i) => i === index ? { ...item, ...patch } : item),
+        });
+        return <div key={index} className="repo-settings-card" role="group" aria-label={t("settings.rulesets.namePatternItem", { number: index + 1 })}>
+          <div className="repo-settings-rule-fields">
+            <Select label={t("settings.rulesets.namePatternOperator")} value={pattern.operator} disabled={busy}
+              options={namePatternOperators.map(operator => ({ value: operator, label: t(`settings.rulesets.nameOperators.${operator}`) }))}
+              onChange={event => {
+                const operator = namePatternOperators.find(item => item === event.target.value);
+                if (operator) update({ operator });
+              }} />
+            <Input label={t("settings.rulesets.namePatternValue")} aria-label={t("settings.rulesets.namePatternValue")} value={pattern.pattern} maxLength={maxNamePatternBytes} disabled={busy}
+              hint={t(pattern.operator === "regex" ? "settings.rulesets.namePatternRegexHint" : "settings.rulesets.namePatternLiteralHint")}
+              onChange={event => update({ pattern: event.target.value })} />
+          </div>
+          <Input label={t("settings.rulesets.namePatternDescription")} value={pattern.name ?? ""} maxLength={maxNameLength} disabled={busy}
+            onChange={event => update({ name: event.target.value })} />
+          <Checkbox label={t("settings.rulesets.namePatternNegate")} checked={Boolean(pattern.negate)} disabled={busy}
+            onChange={event => update({ negate: event.target.checked })} />
+          <Button type="button" disabled={busy} onClick={() => onChange({ name_patterns: patterns.filter((_, i) => i !== index) })}>
+            {t("settings.rulesets.removeNamePattern")}
+          </Button>
+        </div>;
+      })}
+      <div className="repo-settings-controls"><Button type="button" disabled={busy || (rule.name_patterns?.length ?? 0) >= maxNamePatterns}
+        onClick={() => onChange({ name_patterns: [...(rule.name_patterns ?? []), { operator: "starts_with", pattern: "" }] })}>
+        {t("settings.rulesets.addNamePattern")}
+      </Button></div>
     </fieldset>
   </div>;
 }
