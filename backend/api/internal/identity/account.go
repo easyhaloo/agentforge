@@ -18,10 +18,9 @@ type AccountContext struct {
 }
 
 // UserProfile represents a user's profile information for settings pages.
-// Fields not yet in database schema (bio, location, avatar_url, username) return empty values.
 type UserProfile struct {
 	UserID      string    `json:"user_id"`
-	Username    string    `json:"username"` // TODO: Not in DB schema yet
+	Username    string    `json:"username"`
 	DisplayName string    `json:"display_name"`
 	Email       string    `json:"email"`
 	AvatarURL   *string   `json:"avatar_url"` // TODO: Not in DB schema yet

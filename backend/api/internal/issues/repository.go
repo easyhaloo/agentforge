@@ -10,8 +10,12 @@ type Repository interface {
 	// Create persists a new issue and allocates a sequential number
 	Create(ctx context.Context, organizationID string, issue *Issue) (*Issue, error)
 
+	StageAttachment(ctx context.Context, organizationID string, file AttachmentDraft) error
+	GetAttachment(ctx context.Context, organizationID, userID, id string) (AttachmentDraft, error)
+
 	// Get retrieves an issue by repository and number
 	Get(ctx context.Context, organizationID, repository string, number int) (*Issue, error)
+	ExistingNumbers(ctx context.Context, organizationID, repository string, numbers []int32) ([]int32, error)
 
 	// List retrieves issues with filtering, pagination, and sorting
 	List(ctx context.Context, organizationID string, filter ListFilter, limit, offset int) ([]*Issue, ListCounts, error)
@@ -26,7 +30,7 @@ type Repository interface {
 	Close(ctx context.Context, organizationID string, issueID ID, reason StateReason, closedBy string, closedAt time.Time) (*Issue, error)
 
 	// Reopen clears the closure metadata and returns the open issue.
-	Reopen(ctx context.Context, organizationID string, issueID ID, updatedAt time.Time) (*Issue, error)
+	Reopen(ctx context.Context, organizationID string, issueID ID, actorID string, updatedAt time.Time) (*Issue, error)
 
 	// AddAssignee assigns a user to an issue (idempotent)
 	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
@@ -41,5 +45,5 @@ type Repository interface {
 	Lock(ctx context.Context, organizationID string, issueID ID, reason LockReason, lockedBy string, lockedAt time.Time) (*Issue, error)
 
 	// Unlock unlocks an issue to allow new comments
-	Unlock(ctx context.Context, organizationID string, issueID ID) (*Issue, error)
+	Unlock(ctx context.Context, organizationID string, issueID ID, actorID string) (*Issue, error)
 }

@@ -1,6 +1,7 @@
 package comments
 
 import (
+	"errors"
 	"time"
 )
 
@@ -25,17 +26,21 @@ const (
 	ReasonResolved MinimizedReason = "resolved"
 )
 
+var ErrLocked = errors.New("issue conversation locked")
+var ErrVersionConflict = errors.New("comment version conflict")
+
 // Comment represents a comment on an Issue or Changeset
 type Comment struct {
-	ID              ID
-	ResourceType    ResourceType
-	ResourceID      ID // ID of the parent resource (Issue or Changeset)
-	Body            string
-	AuthorID        string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	EditedAt        *time.Time
-	Minimized       bool
-	MinimizedReason MinimizedReason
-	Version         int64 // Optimistic locking version
+	ID              ID              `json:"id"`
+	ResourceType    ResourceType    `json:"resource_type"`
+	ResourceID      ID              `json:"resource_id"` // ID of the parent resource (Issue or Changeset)
+	Body            string          `json:"body"`
+	AuthorID        string          `json:"author_id"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+	EditedAt        *time.Time      `json:"edited_at,omitempty"`
+	Minimized       bool            `json:"minimized"`
+	MinimizedReason MinimizedReason `json:"minimized_reason,omitempty"`
+	Version         int64           `json:"version"` // Optimistic locking version
+	AllowLocked     bool            `json:"-"`
 }

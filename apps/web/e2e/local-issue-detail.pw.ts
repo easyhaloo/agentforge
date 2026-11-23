@@ -1,0 +1,372 @@
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { expect, test, type Page } from "@playwright/test";
+import { selectOption } from "./support/select-option";
+
+const origin = process.env.AGENTFORGE_TEST_ORIGIN;
+const psql = process.env.AGENTFORGE_TEST_PSQL;
+test.skip(!origin || !psql, "Requires the real local API and PostgreSQL membership fixture");
+
+test.use({ actionTimeout: 8_000 });
+
+async function register(page: Page, name: string) {
+  const password = randomUUID();
+  await page.goto(`${origin}/register`);
+  await page.locator('[name=email]').fill(`${randomUUID()}@example.test`);
+  await page.locator('[name=displayName]').fill(name);
+  await page.locator('[name=password]').fill(password);
+  await page.locator('[name=confirmPassword]').fill(password);
+  await page.locator('button[type=submit]').click();
+  await expect(page).toHaveURL(/\/orgs\/(?!current\/)[^/]+\/changesets$/);
+  return page.evaluate(async () => await (await fetch("/api/v1/me")).json() as { user_id: string; organizations: { id: string; slug: string }[] });
+}
+
+test("DETAIL: edit, collaborate and manage a persisted issue in independent sessions", async ({ page, browser, context }) => {
+  test.setTimeout(100_000);
+  const second = await browser.newContext({ locale: "en-US" });
+  const member = await second.newPage();
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+  try {
+    const [owner, other] = await Promise.all([register(page, "Issue Owner"), register(member, "Issue Collaborator")]);
+    const org = owner.organizations[0];
+    expect(other.user_id).toMatch(/^[a-f0-9]{32}$/);
+    expect(org.id).toMatch(/^[a-f0-9]{32}$/);
+    execFileSync(psql!, ["-X", "-v", "ON_ERROR_STOP=1"], { input: `INSERT INTO organization_memberships (organization_id, user_id, role, status)
+      VALUES ('${org.id}', '${other.user_id}', 'member', 'active');` });
+    const orgPath = new URL(page.url()).pathname.replace(/\/changesets$/, "");
+    await page.goto(`${origin}${orgPath}/repositories/new`);
+    await page.getByLabel("Repository name", { exact: true }).fill("issue-detail");
+    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await expect(page).toHaveURL(/\/repositories\/[^/]+\/issue-detail$/);
+    const repository = page.url();
+    const detail = `${repository}/issues/1`;
+    const description = (tab: Page) => tab.getByRole("region", { name: "Description", exact: true });
+    const button = (tab: Page, name: string) => tab.getByRole("button", { name, exact: true });
+    const dialog = (tab: Page) => tab.getByRole("dialog");
+    const confirm = (tab: Page, name: string) => dialog(tab).getByRole("button", { name, exact: true });
+    const postMenu = (tab: Page) => description(tab).getByRole("button", { name: "Post options", exact: true }).click();
+    const body = "## Detail walkthrough\n\nA persisted issue.";
+    await page.goto(`${repository}/issues/new`);
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill("Verify issue details");
+    await page.getByRole("textbox", { name: "Description", exact: true }).fill(body);
+    await button(page, "Create issue").click();
+    await expect(page).toHaveURL(detail);
+
+    await test.step("DETAIL-14: members cannot create issue branches", async () => {
+      await member.goto(detail);
+      await expect(description(member)).toBeVisible();
+      await expect(button(member, "Create a branch")).toHaveCount(0);
+    });
+
+    await test.step("DETAIL-01/02: deep link, clipboard and quote preview", async () => {
+      await expect(description(page).getByRole("heading", { name: "Detail walkthrough" })).toBeVisible();
+      await postMenu(page);
+      await button(page, "Copy link").click();
+      const copied = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copied).toBe(`${detail}#issue-description`);
+      await member.goto(copied);
+      await expect(description(member)).toContainText("A persisted issue.");
+      await member.setViewportSize({ width: 390, height: 844 });
+      await expect(description(member)).toBeVisible();
+      await expect(member.getByRole("link", { name: "New issue" })).toBeVisible();
+      await postMenu(page);
+      await button(page, "Copy Markdown").click();
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(body);
+      const composer = page.getByRole("textbox", { name: "Comment text" });
+      await composer.fill("My reply");
+      await postMenu(page);
+      await button(page, "Quote reply").click();
+      await expect(composer).toBeFocused();
+      await expect(composer).toHaveValue(/My reply\n\n> ## Detail walkthrough/);
+      await page.getByRole("button", { name: "Preview", exact: true }).click();
+      await expect(page.locator("blockquote")).toContainText("A persisted issue.");
+      await page.getByRole("button", { name: "Write", exact: true }).click();
+      await composer.clear();
+      await expect(button(page, "Comment")).toBeDisabled();
+    });
+
+    await test.step("DETAIL-03: stale title retains its draft, latest description persists", async () => {
+      const stale = await context.newPage();
+      try {
+        await stale.goto(detail);
+        await stale.getByTitle("Edit title", { exact: true }).click();
+        await dialog(stale).getByRole("textbox", { name: "Title" }).fill("Stale draft");
+        await page.getByTitle("Edit title", { exact: true }).click();
+        await dialog(page).getByRole("textbox", { name: "Title" }).fill("Updated issue title");
+        await confirm(page, "Update issue").click();
+        await expect(page.getByRole("heading", { name: /Updated issue title/ })).toBeVisible();
+        const rejected = stale.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes("/issues/1?"));
+        await confirm(stale, "Update issue").click();
+        expect((await rejected).status()).toBe(409);
+        await expect(dialog(stale).getByRole("textbox", { name: "Title" })).toHaveValue("Stale draft");
+      } finally { await stale.close(); }
+      await postMenu(page);
+      await description(page).getByRole("button", { name: "Edit", exact: true }).click();
+      await dialog(page).getByRole("textbox", { name: "Description" }).fill("Updated **description**");
+      await confirm(page, "Update issue").click();
+      await expect(description(page).locator("strong").last()).toHaveText("description");
+      await member.reload();
+      await expect(description(member)).toContainText("Updated description");
+      await expect(member.getByTitle("Edit title", { exact: true })).toHaveCount(0);
+    });
+
+    await test.step("DETAIL-04/05/06/11: comment, report, subscribe, react, close and lock", async () => {
+      await button(page, "Subscribe").click();
+      await expect(button(page, "Unsubscribe")).toBeVisible();
+      const editor = member.getByRole("textbox", { name: "Comment text" });
+      await editor.fill("## Collaborator comment");
+      await member.getByRole("button", { name: "Preview", exact: true }).click();
+      await expect(member.getByRole("heading", { name: "Collaborator comment" })).toBeVisible();
+      await button(member, "Comment").click();
+      await page.reload();
+      const comment = page.getByRole("article").filter({ hasText: "Collaborator comment" });
+      await expect(comment).toBeVisible();
+      await expect(button(page, "Unsubscribe")).toBeVisible();
+      const inbox = await context.newPage();
+      try {
+        await inbox.goto(`${origin}${orgPath}/notifications`);
+        await inbox.getByRole("link", { name: "Updated issue title", exact: true }).click();
+        await expect(inbox).toHaveURL(detail);
+      } finally { await inbox.close(); }
+      await comment.getByRole("button", { name: "Add reaction" }).click();
+      await button(page, "Thumbs up").click();
+      await expect(comment.getByRole("button", { name: "Thumbs up (1)" })).toHaveAttribute("aria-pressed", "true");
+      await member.reload();
+      await expect(button(member, "Thumbs up (1)")).toHaveAttribute("aria-pressed", "false");
+      await button(member, "Thumbs up (1)").click();
+      await expect(button(member, "Thumbs up (2)")).toBeVisible();
+      await button(member, "Thumbs up (2)").click();
+      await expect(button(member, "Thumbs up (1)")).toBeVisible();
+      await comment.getByRole("button", { name: "Post options" }).click();
+      await button(page, "Report content").click();
+      await confirm(page, "Cancel").click();
+      await comment.getByRole("button", { name: "Post options" }).click();
+      await button(page, "Report content").click();
+      await confirm(page, "Report content").click();
+      await expect(page.getByText("Report submitted.")).toBeVisible();
+      await expect(comment).toContainText("Collaborator comment");
+      await comment.getByRole("button", { name: "Post options" }).click();
+      await button(page, "Report content").click();
+      const duplicate = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/reports?"));
+      await confirm(page, "Report content").click();
+      expect((await duplicate).status()).toBe(409);
+      await expect(dialog(page).getByRole("alert")).toBeVisible();
+      await confirm(page, "Cancel").click();
+      await member.getByRole("article").filter({ hasText: "Collaborator comment" }).getByRole("button", { name: "Post options" }).click();
+      await member.getByRole("article").getByRole("button", { name: "Edit", exact: true }).click();
+      await dialog(member).getByRole("textbox", { name: "Description" }).fill("Edited collaborator comment");
+      await confirm(member, "Update issue").click();
+      const edited = member.getByRole("article").filter({ hasText: "Edited collaborator comment" });
+      await expect(edited).toBeVisible();
+      await edited.getByRole("button", { name: "Post options" }).click();
+      await button(member, "Delete comment").click();
+      await confirm(member, "Cancel").click();
+      await expect(edited).toBeVisible();
+      await edited.getByRole("button", { name: "Post options" }).click();
+      await button(member, "Delete comment").click();
+      await confirm(member, "Delete comment").click();
+      await expect(edited).toHaveCount(0);
+      await button(page, "Close issue").click();
+      await selectOption(page, dialog(page).getByRole("combobox", { name: "Reason" }), "Not planned");
+      await confirm(page, "Close issue").click();
+      await expect(button(page, "Reopen issue")).toBeVisible();
+      await button(page, "Reopen issue").click();
+      await expect(button(page, "Close issue")).toBeVisible();
+      await button(page, "Lock conversation").click();
+      await confirm(page, "Lock conversation").click();
+      await member.reload();
+      await expect(editor).toHaveCount(0);
+      await expect(member.getByText("Only maintainers can comment while this conversation is locked.")).toBeVisible();
+      await button(page, "Unlock conversation").click();
+      await confirm(page, "Unlock conversation").click();
+      await member.reload();
+      await expect(editor).toBeVisible();
+      await expect(page.getByRole("region", { name: "Issue timeline" })).toContainText("unlocked the conversation");
+    });
+
+    await test.step("DETAIL-08/09: sub-issue scopes, artifact download and cleanup", async () => {
+      await button(page, "Add existing issue").click();
+      await dialog(page).getByLabel("Issue number in this repository").fill("1");
+      await confirm(page, "Add existing issue").click();
+      await expect(dialog(page).getByRole("alert")).toBeVisible();
+      await confirm(page, "Cancel").click();
+      await button(page, "Create sub-issue").click();
+      await dialog(page).getByLabel("Title").fill("Child issue QA");
+      await confirm(page, "Create sub-issue").click();
+      const child = page.getByRole("link", { name: "#2 Child issue QA" });
+      await child.click();
+      await expect(page.getByRole("link", { name: "#1 Updated issue title" })).toBeVisible();
+      await button(page, "Add existing issue").click();
+      await dialog(page).getByLabel("Issue number in this repository").fill("1");
+      await confirm(page, "Add existing issue").click();
+      await expect(dialog(page).getByRole("alert")).toBeVisible();
+      await confirm(page, "Cancel").click();
+      await page.getByRole("link", { name: "#1 Updated issue title" }).click();
+      await expect(child).toBeVisible();
+      await button(page, "Remove sub-issue link").click();
+      await confirm(page, "Remove sub-issue link").click();
+      await expect(child).toHaveCount(0);
+      await button(page, "Add existing issue").click();
+      await dialog(page).getByLabel("Issue number in this repository").fill("2");
+      await confirm(page, "Add existing issue").click();
+      await expect(child).toBeVisible();
+      await member.reload();
+      await expect(description(member)).toContainText("Updated description");
+      await expect(button(member, "Add existing issue")).toHaveCount(0);
+      await expect(button(member, "Add artifact")).toHaveCount(0);
+      await button(page, "Add artifact").click();
+      const file = dialog(page).getByLabel("Choose artifact file", { exact: true });
+      await file.setInputFiles({ name: "oversized.txt", mimeType: "text/plain", buffer: Buffer.alloc(25 * 1024 * 1024 + 1) });
+      await confirm(page, "Add artifact").click();
+      await expect(dialog(page).getByRole("alert")).toHaveText("oversized.txt exceeds the attachment size limit.");
+      await expect(page.getByRole("link", { name: "oversized.txt" })).toHaveCount(0);
+      await file.setInputFiles({ name: "evidence.txt", mimeType: "text/plain", buffer: Buffer.from("Persistent artifact") });
+      await confirm(page, "Add artifact").click();
+      const artifact = page.getByRole("link", { name: "evidence.txt" });
+      await expect(artifact).toBeVisible();
+      await page.reload();
+      const downloaded = page.waitForEvent("download");
+      await artifact.click();
+      expect(readFileSync((await (await downloaded).path())!, "utf8")).toBe("Persistent artifact");
+      await button(page, "Remove artifact").click();
+      await confirm(page, "Remove artifact").click();
+      await expect(artifact).toHaveCount(0);
+    });
+
+    await test.step("DETAIL-07/10: clear metadata, edit fields and link a real Changeset", async () => {
+      await button(page, "Assign yourself").click();
+      await expect(page.locator("aside").getByText("Issue Owner", { exact: true }).first()).toBeVisible();
+      await button(page, "Edit Fields").click();
+      await dialog(page).getByLabel("Field name").fill("Priority");
+      await dialog(page).getByLabel("Field value").fill("High");
+      await confirm(page, "Save").click();
+      await expect(page.locator("aside").getByText("Priority", { exact: true })).toBeVisible();
+      await member.reload();
+      await expect(member.locator("aside").getByText("High", { exact: true })).toBeVisible();
+      await expect(button(member, "Edit Fields")).toHaveCount(0);
+      await button(page, "Edit Fields").click();
+      await dialog(page).getByLabel("Field value").fill("Low");
+      await confirm(page, "Save").click();
+      await expect(page.locator("aside").getByText("Low", { exact: true })).toBeVisible();
+      await button(page, "Edit Fields").click();
+      await confirm(page, "Remove field").click();
+      await confirm(page, "Save").click();
+      await expect(page.getByText("No custom fields")).toBeVisible();
+
+      const changes = await context.newPage();
+      try {
+        await changes.goto(`${origin}${orgPath}/changesets`);
+        const create = changes.locator("form.changeset-create");
+        await create.getByLabel("Title", { exact: true }).fill("Linked delivery QA");
+        await selectOption(changes, create.getByRole("combobox", { name: "Repository", exact: true }), /\/issue-detail · /);
+        await create.getByRole("button", { name: "Create", exact: true }).click();
+        await changes.getByRole("link", { name: "Linked delivery QA", exact: true }).click();
+        await expect(changes).toHaveURL(/\/changesets\/[^/]+$/);
+        await button(page, "Edit Development").click();
+        await dialog(page).getByRole("checkbox", { name: "Linked delivery QA" }).check();
+        await confirm(page, "Save").click();
+        const linked = page.locator("aside").getByRole("link", { name: "Linked delivery QA" });
+        await expect(linked).toHaveAttribute("href", new URL(changes.url()).pathname);
+        await member.reload();
+        await expect(member.locator("aside").getByRole("link", { name: "Linked delivery QA" })).toBeVisible();
+        await button(page, "Edit Development").click();
+        await dialog(page).getByRole("checkbox", { name: "Linked delivery QA" }).uncheck();
+        await confirm(page, "Save").click();
+        await expect(linked).toHaveCount(0);
+        await expect(page.getByRole("region", { name: "Issue timeline" })).toContainText("unlinked a changeset");
+      } finally { await changes.close(); }
+    });
+    if (process.env.AGENTFORGE_TEST_GITHUB_SOURCE === "1") {
+      await test.step("DETAIL-15: sync a real public GitHub issue and its incoming PR mention", async () => {
+        const url = "https://github.com/easyhaloo/agentforge/issues/8";
+        const pr = "https://github.com/easyhaloo/agentforge/pull/9";
+        const openSource = (tab: Page) => tab.getByRole("link", { name: "Open in GitHub" });
+        await button(page, "Link a GitHub issue").click();
+        const field = dialog(page).getByLabel("GitHub issue URL");
+        await field.fill(pr);
+        await confirm(page, "Sync from GitHub").click();
+        await expect(dialog(page).getByRole("alert")).toBeVisible();
+        await expect(field).toHaveValue(pr);
+        await field.fill(url);
+        await confirm(page, "Cancel").click();
+        await expect(openSource(page)).toHaveCount(0);
+        await button(page, "Link a GitHub issue").click();
+        await field.fill(url);
+        await confirm(page, "Sync from GitHub").click();
+        await expect(openSource(page)).toHaveAttribute("href", url, { timeout: 12_000 });
+        await member.reload();
+        await expect(openSource(member)).toHaveAttribute("href", url);
+        await expect(member.getByRole("link", { name: "feat(web): add typed API client foundation #9", exact: true })).toHaveAttribute("href", pr);
+        await expect(button(member, "Manage GitHub issue link")).toHaveCount(0);
+        await button(page, "Manage GitHub issue link").click();
+        await field.clear();
+        await confirm(page, "Unlink GitHub issue").click();
+        await expect(openSource(page)).toHaveCount(0);
+        await member.reload();
+        await expect(button(page, "Link a GitHub issue")).toBeVisible();
+        await expect(openSource(member)).toHaveCount(0);
+      });
+    }
+    await test.step("DETAIL-12: check transfer permissions, conflicts, and the old link", async () => {
+      const target = await context.newPage();
+      try {
+        await target.goto(`${origin}${orgPath}/repositories/new`);
+        await target.getByLabel("Repository name", { exact: true }).fill("issue-transfer-target");
+        await button(target, "Create repository").click();
+        await expect(target).toHaveURL(/\/repositories\/[^/]+\/issue-transfer-target$/);
+        const destination = target.url();
+        const openTransfer = async () => {
+          await button(page, "Transfer issue").click();
+          await selectOption(page, dialog(page).getByRole("combobox", { name: "Destination repository" }), /\/issue-transfer-target$/);
+        };
+        await expect(button(member, "Transfer issue")).toHaveCount(0);
+        await openTransfer();
+        await confirm(page, "Cancel").click();
+        await expect(page).toHaveURL(detail);
+        await openTransfer();
+        const blocked = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/transfer?"));
+        await confirm(page, "Transfer issue").click();
+        expect((await blocked).status()).toBe(409);
+        await expect(dialog(page).getByRole("alert")).toBeVisible();
+        await confirm(page, "Cancel").click();
+        await button(page, "Remove sub-issue link").click();
+        await confirm(page, "Remove sub-issue link").click();
+        await expect(page.getByRole("link", { name: "#2 Child issue QA" })).toHaveCount(0);
+        await button(page, "Add artifact").click();
+        await dialog(page).getByLabel("Choose artifact file", { exact: true }).setInputFiles({ name: "retained.txt", mimeType: "text/plain", buffer: Buffer.from("Retained on transfer") });
+        await confirm(page, "Add artifact").click();
+        await expect(page.getByRole("link", { name: "retained.txt" })).toBeVisible();
+        await member.getByRole("textbox", { name: "Comment text" }).fill("Comment survives transfer");
+        await button(member, "Comment").click();
+        await expect(member.getByText("Comment survives transfer", { exact: true })).toBeVisible();
+        await page.reload();
+        await openTransfer();
+        await target.goto(detail);
+        await target.getByTitle("Edit title", { exact: true }).click();
+        await dialog(target).getByRole("textbox", { name: "Title" }).fill("Updated before transfer");
+        await confirm(target, "Update issue").click();
+        await expect(target.getByRole("heading", { name: /Updated before transfer/ })).toBeVisible();
+        const stale = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/transfer?"));
+        await confirm(page, "Transfer issue").click();
+        expect((await stale).status()).toBe(409);
+        await expect(dialog(page).getByRole("alert")).toBeVisible();
+        await expect(page).toHaveURL(detail);
+        await page.reload();
+        await openTransfer();
+        await confirm(page, "Transfer issue").click();
+        await expect(page).toHaveURL(`${destination}/issues/1`);
+        await expect(page.getByRole("heading", { name: /Updated before transfer/ })).toBeVisible();
+        await expect(page.getByRole("region", { name: "Issue timeline" })).toContainText("transferred the issue");
+        await member.goto(`${origin}${orgPath}/issues`);
+        await member.goto(`${detail}#issue-description`);
+        await expect(member).toHaveURL(`${destination}/issues/1#issue-description`);
+        await expect(description(member)).toContainText("Updated description");
+        await expect(member.getByText("Comment survives transfer", { exact: true })).toBeVisible();
+        const download = member.waitForEvent("download");
+        await member.getByRole("link", { name: "retained.txt" }).click();
+        expect(readFileSync((await (await download).path())!, "utf8")).toBe("Retained on transfer");
+      } finally { await target.close(); }
+    });
+  } finally { await second.close(); }
+});

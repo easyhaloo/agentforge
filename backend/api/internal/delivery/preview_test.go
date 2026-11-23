@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -137,6 +138,10 @@ func TestLocalGitPreviewComparesImmutableCommits(t *testing.T) {
 	}
 	if !bytes.Contains([]byte(patch), []byte("-before")) || !bytes.Contains([]byte(patch), []byte("+after")) {
 		t.Fatalf("compare patch missing expected changes: %s", patch)
+	}
+	initialPatch, err := provider.Compare(context.Background(), "org-a", "team/compare", "", base)
+	if err != nil || !strings.Contains(initialPatch, "+++ b/README.md") || !strings.Contains(initialPatch, "+before") {
+		t.Fatalf("compare to empty tree: %v, patch %q", err, initialPatch)
 	}
 	if _, err := provider.Compare(context.Background(), "org-a", "team/compare", "invalid", head); err != ErrPreviewPathInvalid {
 		t.Fatalf("expected invalid commit rejection, got %v", err)

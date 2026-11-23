@@ -18,6 +18,24 @@ var (
 	ErrInvalidMembershipChange = identity.ErrInvalidMembershipChange
 )
 
+func (s *Store) FindMemberMentions(ctx context.Context, organizationID, query string) ([]identity.MemberMention, error) {
+	rows, err := s.pool.Query(ctx, `SELECT u.username, u.display_name
+		FROM organization_memberships m JOIN users u ON u.id = m.user_id
+		WHERE m.organization_id = $1 AND m.status = 'active'
+		AND ($2 = '' OR strpos(lower(u.username), lower($2)) > 0 OR strpos(lower(u.display_name), lower($2)) > 0)
+		ORDER BY CASE WHEN lower(u.username) = lower($2) THEN 0 ELSE 1 END,
+		         lower(u.display_name), u.username
+		LIMIT 6`, organizationID, query)
+	if err != nil {
+		return nil, fmt.Errorf("query member mentions: %w", err)
+	}
+	items, err := pgx.AppendRows(make([]identity.MemberMention, 0, 6), rows, pgx.RowToStructByPos[identity.MemberMention])
+	if err != nil {
+		return nil, fmt.Errorf("read member mentions: %w", err)
+	}
+	return items, nil
+}
+
 func (s *Store) ListMembers(ctx context.Context, organizationID string, limit, offset int) ([]identity.OrganizationMember, error) {
 	if strings.TrimSpace(organizationID) == "" || limit < 1 || limit > 100 || offset < 0 {
 		return nil, ErrInvalidMembershipChange

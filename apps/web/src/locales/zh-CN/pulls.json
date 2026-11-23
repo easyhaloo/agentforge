@@ -44,6 +44,8 @@
     "createPullRequest": "创建拉取请求"
   },
   "create": {
+    "linkIssue": "关联议题 #{{number}}",
+    "invalidIssue": "关联的议题编号无效。",
     "title": "创建拉取请求",
     "description": "从 {{source}} 提议变更到 {{base}}",
     "titleLabel": "标题",

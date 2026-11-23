@@ -81,7 +81,7 @@ func (r *NotificationRepository) List(ctx context.Context, organizationID string
 		query += ` AND unread = true`
 	}
 
-	query += ` ORDER BY created_at DESC LIMIT $3 OFFSET $4`
+	query += ` ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`
 	args = append(args, limit, offset)
 
 	rows, err := r.store.pool.Query(ctx, query, args...)
@@ -90,7 +90,7 @@ func (r *NotificationRepository) List(ctx context.Context, organizationID string
 	}
 	defer rows.Close()
 
-	var result []*notifications.Notification
+	result := make([]*notifications.Notification, 0)
 	for rows.Next() {
 		var n notifications.Notification
 		var commentID, actorID sql.NullString
@@ -130,8 +130,8 @@ func (r *NotificationRepository) MarkAsRead(ctx context.Context, organizationID 
 
 	result, err := r.store.pool.Exec(ctx, `
 		UPDATE notifications
-		SET unread = false, read_at = $1
-		WHERE organization_id = $2 AND id = $3 AND user_id = $4 AND unread = true
+		SET unread = false, read_at = COALESCE(read_at, $1)
+		WHERE organization_id = $2 AND id = $3 AND user_id = $4
 	`, now, organizationID, notificationID, userID)
 
 	if err != nil {
@@ -139,7 +139,7 @@ func (r *NotificationRepository) MarkAsRead(ctx context.Context, organizationID 
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("notification not found or already read")
+		return fmt.Errorf("notification not found")
 	}
 
 	return nil

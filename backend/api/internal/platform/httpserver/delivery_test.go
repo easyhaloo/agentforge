@@ -199,6 +199,10 @@ type fakeMembershipRepository struct {
 	createdTokenHash string
 }
 
+func (f *fakeMembershipRepository) FindMemberMentions(context.Context, string, string) ([]identity.MemberMention, error) {
+	return []identity.MemberMention{}, nil
+}
+
 func (f *fakeMembershipRepository) ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error) {
 	return f.members, nil
 }

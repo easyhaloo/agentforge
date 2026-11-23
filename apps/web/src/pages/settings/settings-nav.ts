@@ -1,4 +1,4 @@
-import { Bell, Bot, Key, Lock, Radio, Paintbrush, Settings, User, type LucideIcon } from "lucide-react";
+import { Bell, Bot, Key, Lock, Radio, Paintbrush, Settings, Bookmark, User, type LucideIcon } from "lucide-react";
 
 /**
  * The settings navigation.
@@ -39,6 +39,7 @@ export const settingsNavGroups: SettingsNavGroup[] = [
   {
     titleKey: "nav.groupCode",
     items: [
+      { to: "/settings/saved-replies", labelKey: "nav.savedReplies", icon: Bookmark },
       { to: "/settings/agents", labelKey: "nav.agents", icon: Bot },
     ],
   },

@@ -171,7 +171,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 	}
 
 	// Test 6: Remove a reaction
-	err = reactionRepo.Remove(ctx, orgID, reactions.ID(reaction1.ID))
+	err = reactionRepo.RemoveOwn(ctx, orgID, reaction1.ReactableType, reaction1.ReactableID, reaction1.ID, reaction1.UserID)
 	if err != nil {
 		t.Fatalf("failed to remove reaction: %v", err)
 	}

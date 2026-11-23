@@ -136,6 +136,12 @@ func (s *Store) Migrate(ctx context.Context) error {
 }
 
 func (s *Store) Create(ctx context.Context, organizationID string, changeset *delivery.Changeset) (delivery.StoredChangeset, error) {
+	return createChangeset(ctx, s.pool, organizationID, changeset)
+}
+
+func createChangeset(ctx context.Context, db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, organizationID string, changeset *delivery.Changeset) (delivery.StoredChangeset, error) {
 	if strings.TrimSpace(organizationID) == "" || changeset == nil || changeset.ID == "" {
 		return delivery.StoredChangeset{}, delivery.ErrInvalidInput
 	}
@@ -145,7 +151,7 @@ func (s *Store) Create(ctx context.Context, organizationID string, changeset *de
 	}
 	var stored delivery.StoredChangeset
 	stored.Changeset = changeset
-	err = s.pool.QueryRow(ctx, `
+	err = db.QueryRow(ctx, `
 		INSERT INTO delivery_changesets (organization_id, id, repository, title, state)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING version, created_at, updated_at
