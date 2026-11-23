@@ -7,30 +7,28 @@ import { translateError } from "../../shared/api/errors";
 import { formatDateTime } from "../../shared/i18n/format";
 import { organizationHandle, pipelineRunPath, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Button, Select } from "../../shared/ui";
+import { RepositoryMasthead, canManageRepository } from "./RepositoryMasthead";
 import { RepositoryIssues } from "./RepositoryIssues";
 import "./repositories.css";
 
-export function canManageRepository(organization: OrganizationSummary) {
-  return organization.role === "owner" || organization.role === "admin";
-}
-
 type Props = { organization: OrganizationSummary; repository: string; section: RepositorySection; onNotify: (message: string) => void };
 
-export function RepositorySectionPage({ organization, repository, section, onNotify }: Props) {
+export function RepositorySectionPage({ organization, repository, section, currentUser, onNotify }: Props & { currentUser: string }) {
   const { t } = useTranslation("repositories");
   const props = { organization, repository, section, onNotify };
   const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
-    <header className="repo-masthead">
-      <div className="repo-browser-heading"><h1>{repository}</h1></div>
-    </header>
-    <div className="repo-panel repo-section-content">
-      <h2>{t(`sections.${section}`)}</h2>
-      {section === "issues" ? <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} onNotify={onNotify} />
-        : section === "actions" ? <RepositoryActions {...props}/>
-        : section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
-        : <RepositoryBranches {...props}/>}
-    </div>
+    <RepositoryMasthead organization={organization} repository={repository} />
+    {section === "issues" ? (
+      <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} currentUser={currentUser} onNotify={onNotify} />
+    ) : (
+      <div className="repo-panel repo-section-content">
+        <h2>{t(`sections.${section}`)}</h2>
+        {section === "actions" ? <RepositoryActions {...props}/>
+          : section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
+          : <RepositoryBranches {...props}/>}
+      </div>
+    )}
   </section>;
 }
 

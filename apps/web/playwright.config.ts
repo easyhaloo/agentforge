@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:4173";
+const port = Number(process.env.AGENTFORGE_WEB_TEST_PORT ?? 4173);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("AGENTFORGE_WEB_TEST_PORT must be an integer between 1 and 65535");
+}
+const baseURL = `http://127.0.0.1:${port}`;
 const startTestStack = process.env.CI && process.env.AGENTFORGE_TEST_ORIGIN === baseURL;
 
 export default defineConfig({
@@ -25,8 +29,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: startTestStack
-      ? "WEB_PORT=4173 exec bash ../../scripts/dev-stack.sh up"
-      : "npm run dev -- --host 127.0.0.1 --port 4173 --strictPort",
+      ? `WEB_PORT=${port} exec bash ../../scripts/dev-stack.sh up`
+      : `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     // Let the dev stack stop the API and Vite process groups it started.

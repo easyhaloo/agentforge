@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, Edit, XCircle, RotateCcw, User, Tag, Milestone, Calendar, MessageSquare } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button, Modal, Select } from "../../shared/ui";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { issuesAPI, type Issue, type IssueStateReason, type IssueUpdate } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
 import { formatDateTime } from "../../shared/i18n/format";
-import { repositoryPath, issueDetailPath } from "../../shared/routing";
+import { organizationHandle, repositoryPath } from "../../shared/routing";
 import { RepositoryReadme } from "./RepositoryReadme";
 import { IssueForm } from "./IssueForm";
 import "./repositories.css";
@@ -21,9 +21,7 @@ interface IssueDetailPageProps {
 
 export function IssueDetailPage({ organization, repository, issueNumber, onNotify }: IssueDetailPageProps) {
   const { t } = useTranslation("repositories");
-  const { org } = useParams();
-  const navigate = useNavigate();
-  const handle = org || organization.slug;
+  const handle = organizationHandle(organization);
 
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +30,7 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [closeError, setCloseError] = useState("");
   const [closeReason, setCloseReason] = useState<IssueStateReason>("completed");
 
   const load = useCallback(async () => {
@@ -72,13 +71,14 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
     if (!issue) return;
     setBusy(true);
     setError("");
+    setCloseError("");
     try {
       const updated = await issuesAPI.close(organization.id, issueNumber, repository, closeReason);
       setIssue(updated);
       setShowCloseDialog(false);
       onNotify(t("issues.detail.closeSuccess"));
     } catch (cause) {
-      setError(translateError(cause, t, "repositories:issues.detail.closeFailed"));
+      setCloseError(translateError(cause, t, "repositories:issues.detail.closeFailed"));
     } finally {
       setBusy(false);
     }
@@ -114,7 +114,7 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
           {error || t("issues.detail.loadFailed")}
         </div>
         <Link
-          className="button secondary"
+          className="af-button af-button--secondary af-button--small"
           to={repositoryPath(handle, repository, "issues")}
         >
           {t("issues.detail.backToList")}
@@ -125,33 +125,32 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
 
   return (
     <>
-      <section className="issue-detail card">
-        {/* Header */}
-        <div className="issue-detail__header">
+      <section className="issue-detail">
+        <header className="issue-detail__header">
+          <Link className="issue-detail__back" to={repositoryPath(handle, repository, "issues")}>
+            {t("issues.detail.backToList")}
+          </Link>
           <div className="issue-detail__title-row">
             <h2 className="issue-detail__title">
-              {issue.title}
-              <span className="issue-number">#{issue.number}</span>
+              {issue.title}{" "}<span className="issue-number">#{issue.number}</span>
             </h2>
+            <Button variant="secondary" size="small" onClick={() => setShowEditModal(true)} disabled={busy}>
+              {t("common:actions.edit")}
+            </Button>
+          </div>
+          <div className="issue-detail__meta">
             <span className={`issue-state-badge issue-state-${issue.state}`}>
               {issue.state === "open" ? (
                 <>
-                  <AlertCircle size={14} /> {t("issues.state.open")}
+                  <AlertCircle size={14} aria-hidden="true" /> {t("issues.state.open")}
                 </>
               ) : (
                 <>
-                  <CheckCircle2 size={14} /> {t("issues.state.closed")}
+                  <CheckCircle2 size={14} aria-hidden="true" /> {t("issues.state.closed")}
                 </>
               )}
             </span>
-          </div>
-          <div className="issue-detail__meta">
-            <span>
-              {t("issues.detail.createdBy", {
-                author: issue.created_by,
-                date: formatDateTime(issue.created_at),
-              })}
-            </span>
+            <span>{t("issues.detail.commentCount", { count: issue.comments })}</span>
             {issue.closed_at && issue.closed_by && (
               <span>
                 {t("issues.detail.closedBy", {
@@ -161,7 +160,7 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
               </span>
             )}
           </div>
-        </div>
+        </header>
 
         {error && (
           <div className="org-error" role="alert">
@@ -169,64 +168,45 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
           </div>
         )}
 
-        {/* Actions */}
-        <div className="issue-detail__actions">
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => setShowEditModal(true)}
-            disabled={busy}
-          >
-            <Edit size={14} /> {t("common:actions.edit")}
-          </Button>
-          {issue.state === "open" ? (
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={() => setShowCloseDialog(true)}
-              disabled={busy}
-            >
-              <XCircle size={14} /> {t("issues.detail.closeIssue")}
-            </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={handleReopen}
-              disabled={busy}
-            >
-              <RotateCcw size={14} /> {t("issues.detail.reopenIssue")}
-            </Button>
-          )}
-          <Link
-            className="button secondary"
-            to={repositoryPath(handle, repository, "issues")}
-          >
-            {t("issues.detail.backToList")}
-          </Link>
-        </div>
-
-        {/* Main content layout */}
         <div className="issue-detail__layout">
-          {/* Body */}
-          <div className="issue-detail__body">
-            <h3>{t("issues.detail.description")}</h3>
-            {issue.body ? (
-              <RepositoryReadme content={issue.body} sourcePath="issue.md" />
-            ) : (
-              <p className="issue-detail__no-description">
-                {t("issues.detail.noDescription")}
-              </p>
-            )}
+          <div className="issue-detail__conversation">
+            <section className="issue-detail__description" aria-label={t("issues.detail.description")}>
+              <header>{t("issues.detail.createdBy", { author: issue.created_by, date: formatDateTime(issue.created_at) })}</header>
+              <div className="issue-detail__body">
+                {issue.body ? (
+                  <RepositoryReadme content={issue.body} sourcePath="issue.md" />
+                ) : (
+                  <p className="issue-detail__no-description">{t("issues.detail.noDescription")}</p>
+                )}
+              </div>
+            </section>
+            <div className="issue-detail__actions">
+              {issue.state === "open" ? (
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => {
+                    setCloseError("");
+                    setCloseReason("completed");
+                    setShowCloseDialog(true);
+                  }}
+                  disabled={busy}
+                >
+                  {t("issues.detail.closeIssue")}
+                </Button>
+              ) : (
+                <Button variant="secondary" size="small" onClick={handleReopen} disabled={busy}>
+                  {t("issues.detail.reopenIssue")}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Sidebar with metadata */}
           <aside className="issue-detail__sidebar">
             {/* Assignees */}
             <div className="issue-sidebar-section">
-              <h4>
-                <User size={14} /> {t("issues.assignees")}
-              </h4>
+              <h3>{t("issues.assignees")}</h3>
               {issue.assignees.length > 0 ? (
                 <ul className="issue-assignee-list">
                   {issue.assignees.map((assignee) => (
@@ -240,16 +220,14 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
 
             {/* Labels */}
             <div className="issue-sidebar-section">
-              <h4>
-                <Tag size={14} /> {t("issues.labels")}
-              </h4>
+              <h3>{t("issues.labels")}</h3>
               {issue.labels.length > 0 ? (
                 <div className="issue-label-list">
                   {issue.labels.map((label) => (
                     <span
                       key={label.id}
                       className="issue-label-badge"
-                      style={{ backgroundColor: `#${label.color}` }}
+                      style={{ borderColor: `#${label.color}` }}
                     >
                       {label.name}
                     </span>
@@ -262,9 +240,7 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
 
             {/* Milestone */}
             <div className="issue-sidebar-section">
-              <h4>
-                <Milestone size={14} /> {t("issues.milestone")}
-              </h4>
+              <h3>{t("issues.milestone")}</h3>
               {issue.milestone_id ? (
                 <p>{issue.milestone_id}</p>
               ) : (
@@ -274,9 +250,7 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
 
             {/* Metadata */}
             <div className="issue-sidebar-section">
-              <h4>
-                <Calendar size={14} /> {t("issues.detail.metadata")}
-              </h4>
+              <h3>{t("issues.detail.metadata")}</h3>
               <dl className="issue-metadata">
                 <dt>{t("issues.detail.created")}</dt>
                 <dd>{formatDateTime(issue.created_at)}</dd>
@@ -290,16 +264,6 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
                 )}
               </dl>
             </div>
-
-            {/* Comments count */}
-            <div className="issue-sidebar-section">
-              <h4>
-                <MessageSquare size={14} /> {t("issues.comments")}
-              </h4>
-              <p>
-                {t("issues.detail.commentCount", { count: issue.comments })}
-              </p>
-            </div>
           </aside>
         </div>
       </section>
@@ -310,10 +274,10 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
           open={showEditModal}
           onCancel={() => setShowEditModal(false)}
           title={t("issues.detail.editIssue")}
+          confirmLoading={busy}
         >
           <IssueForm
             mode="edit"
-            repository={repository}
             issue={issue}
             onSubmit={handleUpdate}
             onCancel={() => setShowEditModal(false)}
@@ -328,9 +292,11 @@ export function IssueDetailPage({ organization, repository, issueNumber, onNotif
           open={showCloseDialog}
           onCancel={() => setShowCloseDialog(false)}
           title={t("issues.detail.closeIssue")}
+          confirmLoading={busy}
         >
           <div className="issue-close-dialog">
             <p>{t("issues.detail.closeDialogMessage")}</p>
+            {closeError && <p className="org-error" role="alert">{closeError}</p>}
             <div className="issue-form-field">
               <label htmlFor="close-reason">{t("issues.detail.closeReason")}</label>
               <Select

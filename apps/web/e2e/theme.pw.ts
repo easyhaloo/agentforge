@@ -41,7 +41,7 @@ test("settings and shell render the saved palette, and Auto follows the system",
   const pending = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/api/v1/me", async route => { await pending; await route.fallback(); });
   await page.goto("/projects");
-  await page.getByRole("button", { name: /Search anything/ }).click();
+  await page.getByRole("button", { name: "Search pages" }).click();
   const search = page.getByRole("textbox", { name: "Search pages" });
   await search.fill("changes");
   release();
@@ -51,4 +51,32 @@ test("settings and shell render the saved palette, and Auto follows the system",
   await page.locator(".user-menu-trigger").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(body).toHaveCSS("background-color", dark);
+});
+
+test("the account language is saved through Appearance and applied across the workspace", async ({ page }) => {
+  await installApiMocks(page);
+  let language = "en-US";
+  await page.route("**/api/v1/users/me/preferences", route => {
+    if (route.request().method() === "PATCH") language = route.request().postDataJSON().language;
+    return route.fulfill({ json: { theme: "auto", language, timezone: "UTC" } });
+  });
+  await page.goto("/orgs/demo/repositories");
+  const header = page.getByRole("banner");
+  await expect(header.getByTitle("Switch language")).toHaveCount(0);
+  await header.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.getByRole("dialog", { name: "Global navigation" }).getByTitle("Switch language")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await header.getByRole("button", { name: "User menu" }).click();
+  await page.getByRole("link", { name: "Appearance", exact: true }).click();
+  await page.getByRole("combobox", { name: "Language" }).click();
+  await page.getByRole("option", { name: "简体中文" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  expect(language).toBe("en-US");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect.poll(() => language).toBe("zh-CN");
+
+  await page.evaluate(() => localStorage.removeItem("agentforge-language"));
+  await page.goto("/orgs/demo/repositories");
+  await expect(header.getByRole("link", { name: "全部仓库" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
 });

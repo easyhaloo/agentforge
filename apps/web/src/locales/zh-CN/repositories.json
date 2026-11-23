@@ -141,7 +141,14 @@
     "restrictedNotice": "只有组织所有者和管理员可以注册代码仓库。",
     "openWebide": "打开 WebIDE"
   },
+  "types": {
+    "public": "公开仓库",
+    "private": "私有仓库",
+    "fork": "派生仓库"
+  },
   "form": {
+    "visibility": "可见性",
+    "visibilityUnknown": "未指定",
     "slugLabel": "代码仓库标识",
     "slugPlaceholder": "team/repository",
     "branchLabel": "默认分支",
@@ -271,6 +278,9 @@
     }
   },
   "issues": {
+    "views": "视图",
+    "allIssues": "所有议题",
+    "results": "议题结果",
     "title": "标题",
     "author": "作者",
     "assignee": "受理人",
@@ -343,7 +353,7 @@
       "created": "创建于",
       "updated": "更新于",
       "closed": "关闭于",
-      "commentCount": "{{count}} 条评论",
+      "commentCount_one": "{{count}} 条评论",
       "commentCount_other": "{{count}} 条评论",
       "updateSuccess": "议题更新成功。",
       "updateFailed": "无法更新议题。",

@@ -33,9 +33,11 @@ test("workbench uses the selected organization and keeps navigation usable on mo
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({ path: testInfo.outputPath("mobile.png"), animations: "disabled", fullPage: true });
 
-  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
+  const mobileNavigation = await openNavigation(page);
+  await selectOption(page, mobileNavigation.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
+  await expect(mobileNavigation).toBeHidden();
   await expect(page.getByText("No changesets are waiting for your review.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Main branch build/ })).toHaveCount(0);
   await expect(repositories.getByRole("link", { name: "easyhaloo/agentforge" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
+  await expect((await openNavigation(page)).getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
 });

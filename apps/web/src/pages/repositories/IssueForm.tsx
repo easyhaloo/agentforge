@@ -1,19 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, TextArea, Input } from "../../shared/ui";
-import type { Issue, IssueCreate, IssueUpdate } from "../../shared/api/issues";
+import type { Issue } from "../../shared/api/issues";
 import "./repositories.css";
 
 interface IssueFormProps {
   mode: "create" | "edit";
-  repository: string;
   issue?: Issue;
-  onSubmit: (data: IssueCreate | IssueUpdate) => Promise<void>;
+  onSubmit: (data: { title: string; body: string }) => Promise<void>;
   onCancel: () => void;
   busy?: boolean;
 }
 
-export function IssueForm({ mode, repository, issue, onSubmit, onCancel, busy = false }: IssueFormProps) {
+export function IssueForm({ mode, issue, onSubmit, onCancel, busy = false }: IssueFormProps) {
   const { t } = useTranslation("repositories");
 
   const [title, setTitle] = useState(issue?.title || "");
@@ -30,18 +29,7 @@ export function IssueForm({ mode, repository, issue, onSubmit, onCancel, busy = 
     }
 
     try {
-      if (mode === "create") {
-        await onSubmit({
-          repository,
-          title: title.trim(),
-          body: body.trim(),
-        } as IssueCreate);
-      } else {
-        await onSubmit({
-          title: title.trim(),
-          body: body.trim(),
-        } as IssueUpdate);
-      }
+      await onSubmit({ title: title.trim(), body: body.trim() });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }

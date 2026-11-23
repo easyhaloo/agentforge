@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, Plus, User, MessageSquare } from "lucide-react";
-import { Button, SearchInput, Select, DataTable, Modal } from "../../shared/ui";
-import type { DataTableColumn } from "../../shared/ui";
+import { AlertCircle, CheckCircle2, List, User, MessageSquare } from "lucide-react";
+import { Button, SearchInput, Select, Modal } from "../../shared/ui";
 import type { OrganizationSummary } from "../../shared/api/identity";
-import { issuesAPI, type Issue, type IssueListParams, type IssueCreate, type IssueUpdate, type Assignee } from "../../shared/api/issues";
+import { issuesAPI, type IssueListParams, type IssuePage } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
+import { formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
 import { issueDetailPath } from "../../shared/routing";
 import { IssueForm } from "./IssueForm";
 import "./repositories.css";
@@ -15,133 +15,94 @@ type IssueFilterType = "open" | "closed" | "assigned" | "created";
 
 interface RepositoryIssuesProps {
   organization: OrganizationSummary;
-  repository: string;
+  repository?: string;
   organizationHandle: string;
+  currentUser: string;
   onNotify: (message: string) => void;
 }
 
-export function RepositoryIssues({ organization, repository, organizationHandle, onNotify }: RepositoryIssuesProps) {
+export function RepositoryIssues({ organization, repository, organizationHandle, currentUser, onNotify }: RepositoryIssuesProps) {
   const { t } = useTranslation("repositories");
   const navigate = useNavigate();
-  const currentUser = ""; // TODO: Get from account context
+  const [searchParams, setSearchParams] = useSearchParams();
+  const state = searchParams.get("state");
+  const activeFilter: IssueFilterType = state === "closed" || state === "assigned" || state === "created" ? state : "open";
 
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [result, setResult] = useState<IssuePage>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [totalIssues, setTotalIssues] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const [activeFilter, setActiveFilter] = useState<IssueFilterType>("open");
   const [searchQuery, setSearchQuery] = useState("");
   const [authorFilter, setAuthorFilter] = useState("");
   const [labelFilter, setLabelFilter] = useState("");
   const [milestoneFilter, setMilestoneFilter] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"created" | "updated" | "comments">("updated");
-  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const [sort, setSort] = useState("updated-desc");
   const [page, setPage] = useState(1);
   const perPage = 30;
 
-  // Fetch issues from API
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
 
+    const [sortBy, direction] = sort.split("-") as [IssueListParams["sort"], IssueListParams["direction"]];
     const params: IssueListParams = {
       repository,
-      state: activeFilter === "open" ? "open" : activeFilter === "closed" ? "closed" : "all",
+      include_filter_options: Boolean(repository),
+      state: activeFilter === "open" || activeFilter === "closed" ? activeFilter : undefined,
+      created_by: activeFilter === "created" ? currentUser : authorFilter,
+      assignee: activeFilter === "assigned" ? currentUser : assigneeFilter,
+      labels: labelFilter,
+      milestone: milestoneFilter,
+      q: searchQuery.trim(),
       sort: sortBy,
       direction,
-      page,
-      per_page: perPage,
+      limit: perPage,
+      offset: (page - 1) * perPage,
     };
 
-    // Apply filters
-    if (searchQuery.trim()) params.q = searchQuery.trim();
-    if (authorFilter) params.creator = authorFilter;
-    if (labelFilter) params.labels = labelFilter;
-    if (milestoneFilter) params.milestone = milestoneFilter;
-    if (assigneeFilter) params.assignee = assigneeFilter;
+    void issuesAPI.list(organization.id, params).then((data) => {
+      if (active) setResult(data);
+    }).catch((cause) => {
+      if (!active) return;
+      setResult(undefined);
+      setError(translateError(cause, t, "repositories:issues.loadFailed"));
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
 
-    // Handle special filters
-    if (activeFilter === "assigned" && currentUser) {
-      params.assignee = currentUser;
-      params.state = "all";
-    } else if (activeFilter === "created" && currentUser) {
-      params.creator = currentUser;
-      params.state = "all";
-    }
+    return () => { active = false; };
+  }, [organization.id, repository, activeFilter, searchQuery, authorFilter, labelFilter, milestoneFilter, assigneeFilter, sort, page, currentUser, t]);
 
-    void issuesAPI
-      .list(organization.id, params)
-      .then((result) => {
-        if (!active) return;
-        setIssues(result.items);
-        setTotalIssues(result.total);
-        setLoading(false);
-      })
-      .catch((cause) => {
-        if (!active) return;
-        setError(translateError(cause, t, "repositories:issues.loadFailed"));
-        setLoading(false);
-      });
+  const issues = result?.items ?? [];
+  const totalIssues = result?.total ?? 0;
+  const openCount = result?.open_total ?? 0;
+  const closedCount = result?.closed_total ?? 0;
 
-    return () => {
-      active = false;
-    };
-  }, [
-    organization.id,
-    repository,
-    activeFilter,
-    searchQuery,
-    authorFilter,
-    labelFilter,
-    milestoneFilter,
-    assigneeFilter,
-    sortBy,
-    direction,
-    page,
-    currentUser,
-    t,
-  ]);
+  function options(placeholder: string, values: string[], selected: string) {
+    const unique = [...new Set([...values, selected].filter(Boolean))].sort();
+    return [{ label: placeholder, value: "" }, ...unique.map((value) => ({ label: value, value }))];
+  }
 
-  // Extract unique filter values from loaded issues
-  const allAuthors = useMemo(
-    () => Array.from(new Set(issues.map((issue) => issue.created_by))).sort(),
-    [issues]
-  );
-  const allLabels = useMemo(
-    () => Array.from(new Set(issues.flatMap((issue) => issue.labels.map((l) => l.name)))).sort(),
-    [issues]
-  );
-  const allMilestones = useMemo(
-    () =>
-      Array.from(
-        new Set(issues.map((issue) => issue.milestone_id).filter((m): m is string => m !== undefined))
-      ).sort(),
-    [issues]
-  );
-  const allAssignees = useMemo(
-    () =>
-      Array.from(
-        new Set(issues.flatMap((issue) => issue.assignees.map((a) => a.user_id)))
-      ).sort(),
-    [issues]
-  );
+  function changeFilter(update: (value: string) => void, value: string) {
+    setPage(1);
+    update(value);
+  }
 
-  const openCount = issues.filter((issue) => issue.state === "open").length;
-  const closedCount = issues.filter((issue) => issue.state === "closed").length;
+  function changeState(next: IssueFilterType) {
+    setPage(1);
+    setSearchParams(next === "open" ? {} : { state: next });
+  }
 
-  const handleCreateIssue = async (data: IssueCreate | IssueUpdate) => {
+  const handleCreateIssue = async (fields: { title: string; body: string }) => {
+    if (!repository) return;
     setBusy(true);
-    setError("");
     try {
-      const newIssue = await issuesAPI.create(organization.id, data as IssueCreate);
+      const newIssue = await issuesAPI.create(organization.id, { repository, ...fields });
       setShowCreateModal(false);
       onNotify(t("issues.createSuccess"));
-      // Navigate to the new issue
       navigate(issueDetailPath(organizationHandle, repository, newIssue.number));
     } catch (cause) {
       throw new Error(translateError(cause, t, "repositories:issues.createFailed"));
@@ -150,248 +111,159 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
     }
   };
 
-  const handleRowClick = (issue: Issue) => {
-    navigate(issueDetailPath(organizationHandle, repository, issue.number));
-  };
-
-  const columns: DataTableColumn<Issue>[] = [
-    {
-      key: "title",
-      title: t("issues.title"),
-      render: (_value, row) => (
-        <div
-          className="issue-title-cell issue-title-clickable"
-          onClick={() => handleRowClick(row)}
-          style={{ cursor: "pointer" }}
-        >
-          <div className="issue-title-row">
-            {row.state === "open" ? (
-              <AlertCircle size={16} className="issue-icon-open" />
-            ) : (
-              <CheckCircle2 size={16} className="issue-icon-closed" />
-            )}
-            <strong>{row.title}</strong>
-          </div>
-          <div className="issue-meta-row">
-            <span className="issue-number">#{row.number}</span>
-            {row.labels.length > 0 && (
-              <div className="issue-labels">
-                {row.labels.map((label) => (
-                  <span
-                    key={label.id}
-                    className="issue-label"
-                    style={{ backgroundColor: `#${label.color}` }}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "created_by",
-      title: t("issues.author"),
-      render: (value) => (
-        <div className="issue-author">
-          <User size={14} />
-          <span>{String(value)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "assignees",
-      title: t("issues.assignee"),
-      render: (value) => {
-        const assignees = value as Assignee[];
-        return (
-          <div className="issue-assignee">
-            {assignees.length > 0 ? (
-              <>
-                <User size={14} />
-                <span>{assignees[0].user_id}</span>
-                {assignees.length > 1 && <span> +{assignees.length - 1}</span>}
-              </>
-            ) : (
-              <span className="issue-unassigned">{t("issues.unassigned")}</span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      key: "comments",
-      title: t("issues.comments"),
-      render: (value) => (
-        <div className="issue-comments">
-          <MessageSquare size={14} />
-          <span>{String(value)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "updated_at",
-      title: t("issues.updated"),
-      render: (value) => {
-        const date = new Date(String(value));
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        let timeAgo = "";
-        if (diffMins < 1) {
-          timeAgo = t("issues.justNow");
-        } else if (diffMins < 60) {
-          timeAgo = t("issues.minutesAgo", { count: diffMins });
-        } else if (diffHours < 24) {
-          timeAgo = t("issues.hoursAgo", { count: diffHours });
-        } else if (diffDays < 30) {
-          timeAgo = t("issues.daysAgo", { count: diffDays });
-        } else {
-          timeAgo = date.toLocaleDateString();
-        }
-
-        return <span className="issue-date">{timeAgo}</span>;
-      },
-    },
-  ];
-
-  if (error) {
-    return (
-      <div className="issues-tab-content">
-        <p role="alert" className="org-error">
-          {error}
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="issues-tab-content">
       <div className="issues-tab-layout">
         <aside className="issues-sidebar">
-          <h3>{t("issues.filters")}</h3>
-          <nav className="issues-nav">
+          <nav className="issues-nav" aria-label={t("issues.views")}>
             <Button
-              onClick={() => setActiveFilter("open")}
-              className={`issues-nav-item ${activeFilter === "open" ? "active" : ""}`}
+              onClick={() => changeState("open")}
+              aria-pressed={activeFilter === "open" || activeFilter === "closed"}
+              variant="ghost"
+              className="af-action-row issues-nav-item"
             >
-              <AlertCircle size={14} />
-              <span>{t("issues.openIssues")}</span>
-              <span className="issue-count">{openCount}</span>
-            </Button>
-            <Button
-              onClick={() => setActiveFilter("closed")}
-              className={`issues-nav-item ${activeFilter === "closed" ? "active" : ""}`}
-            >
-              <CheckCircle2 size={14} />
-              <span>{t("issues.closedIssues")}</span>
-              <span className="issue-count">{closedCount}</span>
+              <List size={16} aria-hidden="true" />
+              {t("issues.allIssues")}
             </Button>
             {currentUser && (
               <>
                 <Button
-                  onClick={() => setActiveFilter("assigned")}
-                  className={`issues-nav-item ${activeFilter === "assigned" ? "active" : ""}`}
+                  onClick={() => changeState("assigned")}
+                  aria-pressed={activeFilter === "assigned"}
+                  variant="ghost"
+                  className="af-action-row issues-nav-item"
                 >
-                  <User size={14} />
+                  <User size={16} aria-hidden="true" />
                   <span>{t("issues.assignedToMe")}</span>
                 </Button>
                 <Button
-                  onClick={() => setActiveFilter("created")}
-                  className={`issues-nav-item ${activeFilter === "created" ? "active" : ""}`}
+                  onClick={() => changeState("created")}
+                  aria-pressed={activeFilter === "created"}
+                  variant="ghost"
+                  className="af-action-row issues-nav-item"
                 >
-                  <User size={14} />
+                  <User size={16} aria-hidden="true" />
                   <span>{t("issues.createdByMe")}</span>
                 </Button>
               </>
             )}
           </nav>
         </aside>
-        <main className="issues-main">
+        <div className="issues-main">
           <div className="issues-header">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSearch={setSearchQuery}
-              placeholder={t("issues.searchPlaceholder")}
-              className="issues-search"
-            />
-            <Button
-              variant="primary"
-              size="small"
-              onClick={() => setShowCreateModal(true)}
-            >
-              <Plus size={14} />
+            {repository && <h2>{t("sections.issues")}</h2>}
+            {repository && <Button variant="primary" onClick={() => setShowCreateModal(true)}>
               {t("issues.newIssue")}
-            </Button>
+            </Button>}
           </div>
-          <div className="issues-filters">
-            <Select
-              aria-label={t("issues.filterByAuthor")}
-              placeholder={t("issues.author")}
-              value={authorFilter}
-              onChange={(event) => setAuthorFilter(event.target.value)}
-              options={allAuthors.map((author) => ({ label: author, value: author }))}
-            />
-            <Select
-              aria-label={t("issues.filterByLabel")}
-              placeholder={t("issues.label")}
-              value={labelFilter}
-              onChange={(event) => setLabelFilter(event.target.value)}
-              options={allLabels.map((label) => ({ label, value: label }))}
-            />
-            <Select
-              aria-label={t("issues.filterByMilestone")}
-              placeholder={t("issues.milestone")}
-              value={milestoneFilter}
-              onChange={(event) => setMilestoneFilter(event.target.value)}
-              options={allMilestones.map((milestone) => ({ label: milestone, value: milestone }))}
-            />
-            <Select
-              aria-label={t("issues.filterByAssignee")}
-              placeholder={t("issues.assignee")}
-              value={assigneeFilter}
-              onChange={(event) => setAssigneeFilter(event.target.value)}
-              options={allAssignees.map((assignee) => ({ label: assignee, value: assignee }))}
-            />
-            <Select
-              aria-label={t("issues.sortBy")}
-              value={`${sortBy}-${direction}`}
-              onChange={(event) => {
-                const [newSort, newDir] = event.target.value.split("-") as [
-                  "created" | "updated" | "comments",
-                  "asc" | "desc"
-                ];
-                setSortBy(newSort);
-                setDirection(newDir);
-              }}
-              options={[
-                { label: t("issues.recentlyUpdated"), value: "updated-desc" },
-                { label: t("issues.newest"), value: "created-desc" },
-                { label: t("issues.oldest"), value: "created-asc" },
-                { label: t("issues.mostCommented"), value: "comments-desc" },
-              ]}
-            />
-          </div>
-          <div className="issues-table-wrap">
+          <SearchInput
+            value={searchQuery}
+            onChange={(value) => changeFilter(setSearchQuery, value)}
+            onSearch={(value) => changeFilter(setSearchQuery, value)}
+            placeholder={t("issues.searchPlaceholder")}
+          />
+          <section className="issues-results" aria-label={t("issues.results")} aria-busy={loading}>
+            <div className="issues-toolbar">
+              <div className="issues-states">
+                <Button className="issues-state" size="small" aria-pressed={activeFilter === "open"} onClick={() => changeState("open")}>
+                  <AlertCircle size={16} aria-hidden="true" />
+                  {t("issues.openIssues")} <span className="issue-count">{openCount}</span>
+                </Button>
+                <Button className="issues-state" size="small" aria-pressed={activeFilter === "closed"} onClick={() => changeState("closed")}>
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  {t("issues.closedIssues")} <span className="issue-count">{closedCount}</span>
+                </Button>
+              </div>
+              <div className="issues-filters">
+                {repository && <>
+                  <Select
+                    aria-label={t("issues.filterByAuthor")}
+                    placeholder={t("issues.author")}
+                    value={activeFilter === "created" ? currentUser : authorFilter}
+                    disabled={activeFilter === "created"}
+                    onChange={(event) => changeFilter(setAuthorFilter, event.target.value)}
+                    options={options(t("issues.author"), result?.filter_options?.authors ?? [], activeFilter === "created" ? currentUser : authorFilter)}
+                  />
+                  <Select
+                    aria-label={t("issues.filterByLabel")}
+                    placeholder={t("issues.label")}
+                    value={labelFilter}
+                    onChange={(event) => changeFilter(setLabelFilter, event.target.value)}
+                    options={options(t("issues.label"), result?.filter_options?.labels ?? [], labelFilter)}
+                  />
+                  <Select
+                    aria-label={t("issues.filterByMilestone")}
+                    placeholder={t("issues.milestone")}
+                    value={milestoneFilter}
+                    onChange={(event) => changeFilter(setMilestoneFilter, event.target.value)}
+                    options={options(t("issues.milestone"), result?.filter_options?.milestones ?? [], milestoneFilter)}
+                  />
+                  <Select
+                    aria-label={t("issues.filterByAssignee")}
+                    placeholder={t("issues.assignee")}
+                    value={activeFilter === "assigned" ? currentUser : assigneeFilter}
+                    disabled={activeFilter === "assigned"}
+                    onChange={(event) => changeFilter(setAssigneeFilter, event.target.value)}
+                    options={options(t("issues.assignee"), result?.filter_options?.assignees ?? [], activeFilter === "assigned" ? currentUser : assigneeFilter)}
+                  />
+                </>}
+                <Select
+                  aria-label={t("issues.sortBy")}
+                  value={sort}
+                  onChange={(event) => changeFilter(setSort, event.target.value)}
+                  options={[
+                    { label: t("issues.recentlyUpdated"), value: "updated-desc" },
+                    { label: t("issues.newest"), value: "created-desc" },
+                    { label: t("issues.oldest"), value: "created-asc" },
+                    { label: t("issues.mostCommented"), value: "comments-desc" },
+                  ]}
+                />
+              </div>
+            </div>
             {loading ? (
-              <p role="status">{t("common:components.loading")}</p>
+              <p role="status" className="issues-message">{t("common:components.loading")}</p>
+            ) : error ? (
+              <p role="alert" className="issues-message org-error">{error}</p>
+            ) : issues.length === 0 ? (
+              <p className="issues-message">{t("issues.noIssues")}</p>
             ) : (
-              <DataTable
-                columns={columns}
-                data={issues}
-                rowKey="id"
-                showColumnVisibility={false}
-                emptyText={t("issues.noIssues")}
-              />
+              <ul className="issues-list" role="list">
+                {issues.map((issue) => (
+                  <li key={issue.id} className="issue-list-item">
+                    {issue.state === "open" ? (
+                      <AlertCircle size={16} className="issue-icon-open" role="img" aria-label={t("issues.state.open")} />
+                    ) : (
+                      <CheckCircle2 size={16} className="issue-icon-closed" role="img" aria-label={t("issues.state.closed")} />
+                    )}
+                    <div className="issue-title-cell">
+                      <div className="issue-title-row">
+                        <Link className="repo-link issue-title-link" to={issueDetailPath(organizationHandle, issue.repository, issue.number)}>{issue.title}</Link>
+                        {issue.labels.map((label) => (
+                          <span key={label.id} className="issue-label" style={{ borderColor: `#${label.color}` }}>{label.name}</span>
+                        ))}
+                      </div>
+                      <div className="issue-meta-row">
+                        <span>{!repository && issue.repository}#{issue.number}</span>
+                        <span>{issue.created_by}</span>
+                        <time dateTime={issue.updated_at} title={formatDateTime(issue.updated_at)}>{formatRelativeTime(issue.updated_at)}</time>
+                        {issue.assignees.length > 0 && (
+                          <span className="issue-assignee" title={t("issues.assignees")}>
+                            <User size={14} aria-hidden="true" />
+                            {issue.assignees[0].user_id}{issue.assignees.length > 1 && ` +${issue.assignees.length - 1}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="issue-comments" role="img" aria-label={t("issues.detail.commentCount", { count: issue.comments })}>
+                      <MessageSquare size={14} aria-hidden="true" />
+                      {issue.comments}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-          <div className="issues-footer">
+          </section>
+          {!loading && !error && <div className="issues-footer">
             <span>
               {t("issues.showingCount", { count: issues.length, total: totalIssues })}
             </span>
@@ -411,8 +283,8 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
                 </Button>
               </div>
             )}
-          </div>
-        </main>
+          </div>}
+        </div>
       </div>
 
       {/* Create Issue Modal */}
@@ -421,10 +293,10 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
           open={showCreateModal}
           onCancel={() => setShowCreateModal(false)}
           title={t("issues.createIssue")}
+          confirmLoading={busy}
         >
           <IssueForm
             mode="create"
-            repository={repository}
             onSubmit={handleCreateIssue}
             onCancel={() => setShowCreateModal(false)}
             busy={busy}

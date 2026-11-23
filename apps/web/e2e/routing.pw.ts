@@ -336,3 +336,85 @@ test("signing out while already on / does not add a history entry", async ({ pag
   await expect(page).toHaveURL("/login");
   expect(await entries()).toBe(before);
 });
+
+test("the Topbar switches repositories within the current section", async ({ page }) => {
+  await installApiMocks(page);
+  await page.route("**/api/v1/organizations/org-demo/repositories", route => route.fulfill({ json: {
+    items: [
+      { slug: "easyhaloo/agentforge", visibility: "public" },
+      { slug: "easyhaloo/a-long-repository-for-topbar-testing", visibility: "private" },
+      { slug: "team/fork", visibility: "public", fork: true },
+    ],
+  } }));
+  await page.route("**/api/v1/organizations/org-demo/repositories/*/*/actions?*", route => route.fulfill({ json: { items: [] } }));
+  await page.goto("/orgs/demo/repositories/easyhaloo/agentforge/actions");
+
+  const header = page.getByRole("banner");
+  const toggle = header.getByRole("button", { name: "Switch repository" });
+  const menu = header.getByRole("dialog", { name: "Switch repository" });
+  await expect(header.getByRole("link", { name: "agentforge", exact: true }).filter({ hasText: "agentforge" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "agentforge", exact: true }).filter({ has: page.locator("svg") })).toHaveAttribute("href", "/");
+  await toggle.click();
+  const search = menu.getByRole("textbox", { name: "Search repositories" });
+  await expect(search).toBeFocused();
+  const selected = menu.locator('[aria-current="true"]');
+  await expect(selected).toContainText("agentforge");
+  const icons = await Promise.all(["Public", "Private", "Forked"].map(type =>
+    menu.getByRole("img", { name: `${type} repository` }).locator("path").first().getAttribute("d")));
+  expect(new Set(icons).size).toBe(3);
+  await expect(selected.getByRole("img", { name: "Public repository" })).toBeVisible();
+  await search.fill("missing-repo");
+  await expect(menu.getByRole("status")).toHaveText("No matching repositories");
+  await search.press("Escape");
+  await expect(toggle).toBeFocused();
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  await toggle.click();
+  await search.fill("LONG-REPOSITORY");
+  await menu.getByRole("link", { name: "a-long-repository-for-topbar-testing" }).click();
+  await expect(page).toHaveURL(/\/easyhaloo\/a-long-repository-for-topbar-testing\/actions$/);
+  await expect(menu).toBeHidden();
+  const repo = header.getByRole("link", { name: "a-long-repository-for-topbar-testing" });
+  await expect(repo).toHaveAttribute("href", "/orgs/demo/repositories/easyhaloo/a-long-repository-for-topbar-testing");
+  expect(await header.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(375);
+});
+
+test("the Topbar shortcuts open organization-wide lists and preserve issue repository links", async ({ page }, testInfo) => {
+  await installApiMocks(page);
+  await page.route("**/api/v1/organizations/org-demo/repositories/*/*/actions?*", route => route.fulfill({ json: { items: [] } }));
+  await page.setViewportSize({ width: 320, height: 750 });
+  await page.goto("/orgs/demo/repositories/easyhaloo/agentforge/actions");
+  const created = await page.evaluate(async () => {
+    const response = await fetch("/api/v1/organizations/org-demo/issues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repository: "team/other-repo", title: "Cross-repository issue", body: "From another repository" }),
+    });
+    return response.status;
+  });
+  expect(created).toBe(201);
+  const header = page.getByRole("banner");
+  const shortcuts = header.locator(".topbar-shortcuts").getByRole("link");
+  const names = ["All issues", "All pull requests", "All repositories"];
+  for (const [index, name] of names.entries()) {
+    await expect(shortcuts.nth(index)).toHaveAccessibleName(name);
+    await expect(shortcuts.nth(index)).toBeInViewport({ ratio: 1 });
+  }
+  await expect(header.getByRole("button", { name: "Switch repository" })).toBeInViewport({ ratio: 1 });
+  const repoName = header.getByRole("link", { name: "agentforge", exact: true }).filter({ hasText: "agentforge" });
+  expect(await repoName.evaluate(element => element.clientWidth)).toBeGreaterThanOrEqual(await repoName.evaluate(element => element.scrollWidth));
+  expect(await header.evaluate(element => element.scrollWidth)).toBe(320);
+  await page.screenshot({ path: testInfo.outputPath("topbar-mobile.png"), animations: "disabled" });
+
+  await header.getByRole("link", { name: names[0] }).click();
+  await expect(page).toHaveURL("/orgs/demo/issues");
+  await expect(page.getByRole("link", { name: "Add user authentication" })).toBeVisible();
+  const issue = page.getByRole("link", { name: "Cross-repository issue" });
+  await expect(issue).toHaveAttribute("href", "/orgs/demo/repositories/team/other-repo/issues/1");
+  await issue.click();
+  await expect(page).toHaveURL("/orgs/demo/repositories/team/other-repo/issues/1");
+  await header.getByRole("link", { name: names[1] }).click();
+  await expect(page).toHaveURL("/orgs/demo/changesets");
+  await header.getByRole("link", { name: names[2] }).click();
+  await expect(page).toHaveURL("/orgs/demo/repositories");
+});

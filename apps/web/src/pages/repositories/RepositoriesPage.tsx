@@ -6,12 +6,12 @@ import {
   Settings, Star, UserRound, UsersRound, Workflow, X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { repositoryAPI, type OrganizationSummary, type RepositorySummary } from "../../shared/api/identity";
+import { repositoryAPI, type OrganizationSummary, type RepositorySummary, type RepositoryVisibility } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { formatDateTime, formatRelativeTime } from "../../shared/i18n/format";
 import { organizationHandle, repositoryChangesetsPath, repositoryPath } from "../../shared/routing";
-import { Button, Input, Modal, Select } from "../../shared/ui";
-import { canManageRepository } from "./RepositorySectionPage";
+import { Button, Checkbox, Input, Modal, Select } from "../../shared/ui";
+import { canManageRepository } from "./RepositoryMasthead";
 import "./repositories.css";
 
 const languageColors: Record<string, string> = {
@@ -89,6 +89,8 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
   const [registrationError, setRegistrationError] = useState("");
   const [slug, setSlug] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("main");
+  const [visibility, setVisibility] = useState<RepositoryVisibility>();
+  const [fork, setFork] = useState(false);
   const canRegister = canManageRepository(organization);
   const handle = organizationHandle(organization);
   const filtered = useMemo(() => {
@@ -146,13 +148,15 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
   const register = async () => {
     setRegistrationError("");
     try {
-      const added = await repositoryAPI.register(organization.id, slug.trim(), defaultBranch.trim());
+      const added = await repositoryAPI.register(organization.id, slug.trim(), defaultBranch.trim(), { visibility, fork });
       setItems(current => [...current.filter(item => item.slug !== added.slug), added]);
       const next = new URLSearchParams(search);
       next.delete("q");
       next.delete("view");
       next.delete("register");
       setSearch(next, { replace: true });
+      setVisibility(undefined);
+      setFork(false);
       onNotify(t("repositories:feedback.registered"));
       void load();
     } catch (cause) {
@@ -193,7 +197,7 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
             <Button variant="ghost" size="small" aria-label={t("repositories:catalog.saveView")} title={t("repositories:catalog.saveView")}
               onClick={() => { setViewName(""); setSaveOpen(true); }}><Plus size={16} aria-hidden="true"/></Button>
           </div>
-          {views.length ? <ul>{views.map(view => <li key={view.name}>
+          {views.length ? <ul>{views.map(view => <li className="af-action-row" key={view.name}>
             <Button variant="ghost" aria-pressed={view.filters === filters.toString()} onClick={() => setSearch(view.filters)}>{view.name}</Button>
             <Button variant="ghost" size="small" aria-label={t("repositories:catalog.removeView", { name: view.name })}
               title={t("repositories:catalog.removeView", { name: view.name })}
@@ -299,6 +303,17 @@ export function RepositoriesPage({ organization, onNotify, userID }: Props) {
           <p className="repo-meta">{t("repositories:catalog.registerHelp")}</p>
           <Input label={t("repositories:form.slugLabel")} required value={slug} onChange={event => setSlug(event.target.value)} placeholder={t("repositories:form.slugPlaceholder")}/>
           <Input label={t("repositories:form.branchLabel")} required value={defaultBranch} onChange={event => setDefaultBranch(event.target.value)} placeholder={t("repositories:form.branchPlaceholder")}/>
+          <Select label={t("repositories:form.visibility")} value={visibility ?? ""}
+            onChange={event => {
+              const value = event.target.value;
+              setVisibility(value === "public" || value === "private" ? value : undefined);
+            }}
+            options={[
+              { label: t("repositories:form.visibilityUnknown"), value: "" },
+              { label: t("repositories:types.public"), value: "public" },
+              { label: t("repositories:types.private"), value: "private" },
+            ]} />
+          <Checkbox label={t("repositories:types.fork")} checked={fork} onChange={event => setFork(event.target.checked)} />
           {registrationError && <p className="org-error" role="alert">{registrationError}</p>}
         </div>
       </Modal>}

@@ -141,7 +141,14 @@
     "restrictedNotice": "Only organization owners and admins can register a repository.",
     "openWebide": "Open WebIDE"
   },
+  "types": {
+    "public": "Public repository",
+    "private": "Private repository",
+    "fork": "Forked repository"
+  },
   "form": {
+    "visibility": "Visibility",
+    "visibilityUnknown": "Not specified",
     "slugLabel": "Repository slug",
     "slugPlaceholder": "team/repository",
     "branchLabel": "Default branch",
@@ -271,6 +278,9 @@
     }
   },
   "issues": {
+    "views": "Views",
+    "allIssues": "All issues",
+    "results": "Issue results",
     "title": "Title",
     "author": "Author",
     "assignee": "Assignee",
@@ -343,7 +353,7 @@
       "created": "Created",
       "updated": "Updated",
       "closed": "Closed",
-      "commentCount": "{{count}} comment",
+      "commentCount_one": "{{count}} comment",
       "commentCount_other": "{{count}} comments",
       "updateSuccess": "Issue updated successfully.",
       "updateFailed": "Unable to update issue.",

@@ -79,6 +79,7 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
   type MockIssue = {
     id: string;
     number: number;
+    orgID: string;
     repository: string;
     title: string;
     body: string;
@@ -96,45 +97,45 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     closed_by?: string;
   };
 
+  const issueResponse = ({ orgID: _orgID, ...issue }: MockIssue) => issue;
   let issues: MockIssue[] = [
     {
-      id: "issue-1", number: 1, repository: "easyhaloo/agentforge",
+      orgID: demoOrganization.id, id: "issue-1", number: 1, repository: "easyhaloo/agentforge",
       title: "Add user authentication", body: "We need to implement user authentication with OAuth2 support.",
       state: "open", locked: false, comments: 5,
-      labels: [{ id: "label-1", name: "enhancement", description: "New feature", color: "#a2eeef", created_at: now }],
+      labels: [{ id: "label-1", name: "enhancement", description: "New feature", color: "a2eeef", created_at: now }],
       assignees: [{ user_id: "user-owner" }],
       created_by: "user-owner", created_at: "2026-11-15T10:00:00.000Z", updated_at: "2026-11-16T14:30:00.000Z",
     },
     {
-      id: "issue-2", number: 2, repository: "easyhaloo/agentforge",
+      orgID: demoOrganization.id, id: "issue-2", number: 2, repository: "easyhaloo/agentforge",
       title: "Fix login redirect bug", body: "Users are being redirected to the wrong page after login.",
       state: "open", locked: false, comments: 3,
-      labels: [{ id: "label-2", name: "bug", description: "Bug report", color: "#d73a4a", created_at: now }],
+      labels: [{ id: "label-2", name: "bug", description: "Bug report", color: "d73a4a", created_at: now }],
       assignees: [{ user_id: "user-member" }],
       created_by: "user-member", created_at: "2026-11-16T09:00:00.000Z", updated_at: "2026-11-17T08:00:00.000Z",
     },
     {
-      id: "issue-3", number: 3, repository: "easyhaloo/agentforge",
+      orgID: demoOrganization.id, id: "issue-3", number: 3, repository: "easyhaloo/agentforge",
       title: "Update documentation", body: "The API documentation needs to be updated with new endpoints.",
       state: "closed", state_reason: "completed", locked: false, comments: 2,
-      labels: [{ id: "label-3", name: "documentation", description: "Documentation", color: "#0075ca", created_at: now }],
+      labels: [{ id: "label-3", name: "documentation", description: "Documentation", color: "0075ca", created_at: now }],
       assignees: [],
       created_by: "user-owner", created_at: "2026-11-14T12:00:00.000Z", updated_at: "2026-11-15T16:00:00.000Z",
       closed_at: "2026-11-15T16:00:00.000Z", closed_by: "user-owner",
     },
     {
-      id: "issue-4", number: 4, repository: "easyhaloo/agentforge",
+      orgID: demoOrganization.id, id: "issue-4", number: 4, repository: "easyhaloo/agentforge",
       title: "Improve performance", body: "Database queries are slow and need optimization.",
       state: "open", locked: false, comments: 8,
       labels: [
-        { id: "label-1", name: "enhancement", description: "New feature", color: "#a2eeef", created_at: now },
-        { id: "label-4", name: "performance", description: "Performance improvement", color: "#fbca04", created_at: now },
+        { id: "label-1", name: "enhancement", description: "New feature", color: "a2eeef", created_at: now },
+        { id: "label-4", name: "performance", description: "Performance improvement", color: "fbca04", created_at: now },
       ],
       assignees: [{ user_id: "user-owner" }, { user_id: "user-member" }],
       created_by: "user-member", created_at: "2026-11-10T08:00:00.000Z", updated_at: "2026-11-17T09:00:00.000Z",
     },
   ];
-  let nextIssueNumber = 5;
 
   // Track authentication state dynamically - changes after login/register
   let isAuthenticated = !signedOut;
@@ -232,9 +233,10 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return json({ items: repositories });
     }
     if (path.endsWith("/repositories") && method === "POST") {
-      const body = request.postDataJSON() as { slug: string; default_branch: string };
+      const body = request.postDataJSON() as { slug: string; default_branch: string; visibility?: string; fork?: boolean };
       const added = {
         id: `repo-${repositories.length + 1}`, organization_id: "org-demo", slug: body.slug, default_branch: body.default_branch,
+        visibility: body.visibility, fork: body.fork ?? false,
         created_by: "user-owner", created_at: now, updated_at: now,
       };
       repositories = [...repositories, added];
@@ -412,32 +414,37 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       return json(user, 201);
     }
     // Issue tracking endpoints
-    if (path.match(/\/api\/v1\/organizations\/[^/]+\/issues\/\d+/)) {
-      const match = path.match(/\/api\/v1\/organizations\/([^/]+)\/issues\/(\d+)(\/.*)?/);
-      if (!match) return json({ title: "Invalid issue path", detail: path }, 400);
-      const [, , numberStr, action = ""] = match;
+    const issuePath = path.match(/^\/api\/v1\/organizations\/([^/]+)\/issues(?:\/(\d+)(\/[^/]+)?)?$/);
+    if (issuePath && !currentUser?.organizations.some(org => org.id === issuePath[1])) {
+      return json({ title: "Organization membership required", detail: path }, 401);
+    }
+    if (issuePath?.[2]) {
+      const [, orgID, numberStr, action = ""] = issuePath;
       const number = Number(numberStr);
       const repository = url.searchParams.get("repository") ?? "";
-      const issue = issues.find((item) => item.number === number && item.repository === repository);
+      const issue = issues.find(item => item.orgID === orgID && item.number === number && item.repository === repository);
 
       if (!issue) return json({ title: "Issue not found", detail: "The issue does not exist" }, 404);
 
-      if (method === "GET" && !action) return json(issue);
+      if (method === "GET" && !action) return json(issueResponse(issue));
 
       if (method === "PATCH" && !action) {
         const body = request.postDataJSON() as { title?: string; body?: string; milestone_id?: string };
         Object.assign(issue, { ...body, updated_at: now });
-        return json(issue);
+        return json(issueResponse(issue));
       }
 
       if (method === "POST" && action === "/close") {
-        const body = request.postDataJSON() as { state_reason: "completed" | "not_planned" | "duplicate" };
+        const { reason } = request.postDataJSON() as { reason: MockIssue["state_reason"] };
+        if (!reason || !["completed", "not_planned", "duplicate"].includes(reason)) {
+          return json({ title: "Invalid close reason" }, 400);
+        }
         issue.state = "closed";
-        issue.state_reason = body.state_reason;
+        issue.state_reason = reason;
         issue.closed_at = now;
-        issue.closed_by = "user-owner";
+        issue.closed_by = currentUser?.user_id;
         issue.updated_at = now;
-        return json(issue);
+        return json(issueResponse(issue));
       }
 
       if (method === "POST" && action === "/reopen") {
@@ -446,63 +453,75 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
         issue.closed_at = undefined;
         issue.closed_by = undefined;
         issue.updated_at = now;
-        return json(issue);
+        return json(issueResponse(issue));
       }
 
       // Fallback for unhandled methods on this endpoint
       return json({ title: "Method not allowed", detail: `${method} ${path}` }, 405);
     }
 
-    if (path.match(/\/api\/v1\/organizations\/[^/]+\/issues$/) && method === "GET") {
-      // List issues with filtering
-      const q = (url.searchParams.get("q") ?? "").toLowerCase();
-      const repository = url.searchParams.get("repository") ?? "";
-      const state = url.searchParams.get("state") ?? "open";
-      const creator = url.searchParams.get("creator") ?? "";
-      const assignee = url.searchParams.get("assignee") ?? "";
-      const labels = url.searchParams.get("labels") ?? "";
-      const sort = url.searchParams.get("sort") ?? "created";
-      const direction = url.searchParams.get("direction") ?? "desc";
-      const page = Number(url.searchParams.get("page") ?? 1);
-      const per_page = Number(url.searchParams.get("per_page") ?? 30);
+    if (issuePath && method === "GET") {
+      const query = url.searchParams;
+      const q = (query.get("q") ?? "").trim().toLowerCase();
+      const repository = query.get("repository");
+      const state = query.get("state");
+      const creator = query.get("created_by");
+      const assignee = query.get("assignee");
+      const labels = query.get("labels");
+      const milestone = query.get("milestone");
+      const sort = query.get("sort") ?? "updated";
+      const direction = query.get("direction") ?? "desc";
+      const limit = Number(query.get("limit") ?? 20);
+      const offset = Number(query.get("offset") ?? 0);
+      const includeFilterOptions = query.get("include_filter_options") ?? "false";
+      if (state && state !== "open" && state !== "closed") return json({ title: "Invalid state" }, 400);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) {
+        return json({ title: "Invalid pagination" }, 400);
+      }
 
-      let matched = issues.filter((item) => {
-        if (q && ![item.title, item.body, item.created_by].some((field) => field.toLowerCase().includes(q))) return false;
-        if (repository && item.repository !== repository) return false;
-        if (state !== "all" && item.state !== state) return false;
+      if (includeFilterOptions !== "true" && includeFilterOptions !== "false") {
+        return json({ title: "Invalid include_filter_options" }, 400);
+      }
+      if (includeFilterOptions === "true" && !repository) return json({ title: "Repository required" }, 400);
+
+      const number = /^#\d+$/.test(q) ? Number(q.slice(1)) : 0;
+      const scope = issues.filter(item => item.orgID === issuePath[1] && (!repository || item.repository === repository));
+      const unique = (values: string[]) => [...new Set(values)].sort();
+      const filtered = scope.filter(item => {
+        if (number > 0 ? item.number !== number : q && ![item.title, item.body].some(field => field.toLowerCase().includes(q))) return false;
         if (creator && item.created_by !== creator) return false;
-        if (assignee && !item.assignees.some((a) => a.user_id === assignee)) return false;
-        if (labels && !item.labels.some((l) => l.name === labels)) return false;
-        return true;
+        if (assignee && !item.assignees.some(a => a.user_id === assignee)) return false;
+        if (labels && !item.labels.some(l => l.name === labels)) return false;
+        return !milestone || item.milestone_id === milestone;
       });
-
-      // Sort issues
+      const matched = filtered.filter(item => !state || item.state === state);
       matched.sort((a, b) => {
-        let comparison = 0;
-        if (sort === "created") {
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        } else if (sort === "updated") {
-          comparison = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
-        } else if (sort === "comments") {
-          comparison = a.comments - b.comments;
-        }
-        return direction === "asc" ? comparison : -comparison;
+        const comparison = sort === "comments" ? a.comments - b.comments
+          : sort === "updated" ? a.updated_at.localeCompare(b.updated_at)
+          : a.created_at.localeCompare(b.created_at);
+        const order = comparison || a.number - b.number;
+        return direction === "asc" ? order : -order;
       });
-
-      const offset = (page - 1) * per_page;
-      return json({ items: matched.slice(offset, offset + per_page), total: matched.length, limit: per_page, offset });
+      return json({
+        items: matched.slice(offset, offset + limit).map(issueResponse), total: matched.length, limit, offset,
+        open_total: filtered.filter(item => item.state === "open").length,
+        closed_total: filtered.filter(item => item.state === "closed").length,
+        ...(includeFilterOptions === "true" && { filter_options: {
+          authors: unique(scope.map(item => item.created_by)),
+          labels: unique(scope.flatMap(item => item.labels.map(label => label.name))),
+          assignees: unique(scope.flatMap(item => item.assignees.map(assignee => assignee.user_id))),
+          milestones: unique(scope.flatMap(item => item.milestone_id ? [item.milestone_id] : [])),
+        } }),
+      });
     }
 
-    if (path.match(/\/api\/v1\/organizations\/[^/]+\/issues$/) && method === "POST") {
-      const body = request.postDataJSON() as {
-        repository: string;
-        title: string;
-        body: string;
-        assignees?: string[];
-        labels?: string[];
-      };
+    if (issuePath && method === "POST") {
+      const body = request.postDataJSON() as { repository: string; title: string; body: string };
+      const scope = issues.filter(issue => issue.orgID === issuePath[1] && issue.repository === body.repository);
+      const nextIssueNumber = Math.max(0, ...scope.map(issue => issue.number)) + 1;
       const newIssue: MockIssue = {
-        id: `issue-${nextIssueNumber}`,
+        id: `issue-${issuePath[1]}-${body.repository}-${nextIssueNumber}`,
+        orgID: issuePath[1],
         number: nextIssueNumber,
         repository: body.repository,
         title: body.title,
@@ -511,14 +530,13 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
         locked: false,
         comments: 0,
         labels: [],
-        assignees: (body.assignees ?? []).map((user_id) => ({ user_id })),
-        created_by: "user-owner",
+        assignees: [],
+        created_by: currentUser!.user_id,
         created_at: now,
         updated_at: now,
       };
-      nextIssueNumber += 1;
       issues = [newIssue, ...issues];
-      return json(newIssue, 201);
+      return json(issueResponse(newIssue), 201);
     }
 
     return json({ title: "Unexpected test API request", detail: method + " " + path }, 404);

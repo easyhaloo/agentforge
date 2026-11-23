@@ -41,7 +41,19 @@ test("filters, sorts, and restores a saved repository view on desktop and mobile
   await expect(page.getByRole("button", { name: "My forks" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "My contributions" })).toBeDisabled();
   await filter.fill("  language:GO branch:main  ");
-  await page.getByRole("button", { name: "Search repositories" }).click();
+  await expect(filter).toHaveCSS("outline-offset", "-2px");
+  await expect(filter).toHaveCSS("box-shadow", "none");
+  await expect(filter).toHaveCSS("outline-style", "solid");
+  const clear = page.getByRole("button", { name: "Clear", exact: true });
+  const search = page.getByRole("button", { name: "Search repositories" });
+  await expect(search).toHaveCSS("outline-style", "none");
+  await filter.press("Tab");
+  await expect(clear).toBeFocused();
+  await expect(clear).toHaveCSS("outline-style", "solid");
+  await clear.press("Tab");
+  await expect(search).toBeFocused();
+  await expect(search).toHaveCSS("outline-style", "solid");
+  await search.press("Enter");
   await expect(filter).toHaveValue("language:GO branch:main");
   await expect(names).toHaveText(["agentforge/api-gateway"]);
   await filter.fill("repo:agentforge/workflow-engine");
@@ -95,11 +107,27 @@ test("filters, sorts, and restores a saved repository view on desktop and mobile
   const dialog = page.getByRole("dialog", { name: "Save current view" });
   await dialog.getByLabel("View name").fill("Main branches");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await clear.click();
+  await expect(filter).toBeFocused();
   await expect(list.locator(".repo-catalog-name")).toHaveCount(3);
   await page.getByRole("button", { name: "Detailed list" }).click();
   await page.reload();
-  await page.getByRole("button", { name: "Main branches", exact: true }).click();
+  const savedView = page.getByRole("button", { name: "Main branches", exact: true });
+  const removeView = page.getByRole("button", { name: "Remove Main branches" });
+  const savedRow = page.getByRole("listitem").filter({ has: savedView });
+  await expect(savedRow).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  const restBounds = await savedRow.boundingBox();
+  await savedView.hover();
+  await expect(savedRow).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await removeView.hover();
+  await expect(savedRow).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  expect(await savedRow.boundingBox()).toEqual(restBounds);
+  await savedRow.screenshot({ path: testInfo.outputPath("repository-view-hover.png"), animations: "disabled" });
+  await expect(removeView).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await savedView.click();
+  await page.keyboard.press("Tab");
+  await expect(removeView).toBeFocused();
+  await expect(removeView).toHaveCSS("outline-style", "solid");
   await expect(filter).toHaveValue("agentforge branch:main");
   await expect(list.locator(".repo-catalog-name")).toHaveCount(2);
   await expect(compact).toHaveAttribute("aria-pressed", "true");
@@ -123,11 +151,14 @@ test("an owner registers a repository on that page", async ({ page }) => {
   await page.getByRole("button", { name: "Register repository" }).click();
   const dialog = page.getByRole("dialog", { name: "Register repository" });
   await dialog.getByLabel("Repository slug").fill("team/new-repository");
+  await dialog.getByRole("combobox", { name: "Visibility" }).click();
+  await dialog.getByRole("option", { name: "Private repository" }).click();
+  await dialog.getByRole("checkbox", { name: "Forked repository" }).check();
   const sent = page.waitForRequest((request) => request.url().endsWith("/api/v1/organizations/org-demo/repositories") && request.method() === "POST");
 
   await dialog.getByRole("button", { name: "Register", exact: true }).click();
 
-  expect((await sent).postDataJSON()).toEqual({ slug: "team/new-repository", default_branch: "main" });
+  expect((await sent).postDataJSON()).toEqual({ slug: "team/new-repository", default_branch: "main", visibility: "private", fork: true });
   await expect(page.getByRole("link", { exact: true, name: "team/new-repository" })).toBeVisible();
 });
 
