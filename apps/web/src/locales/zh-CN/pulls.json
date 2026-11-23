@@ -1,4 +1,16 @@
 {
+  "development": {
+    "title": "开发",
+    "empty": "没有手动关联的议题。",
+    "open": "关联议题",
+    "number": "议题编号",
+    "link": "关联议题",
+    "unlinkAction": "解除关联",
+    "unlink": "解除议题 #{{number}} 的关联",
+    "loadFailed": "无法加载已关联的议题。",
+    "saveFailed": "无法更新议题关联。",
+    "missing": "此仓库中找不到该议题。"
+  },
   "list": {
     "title": "拉取请求",
     "description": "等待审查和合并的变更提案",

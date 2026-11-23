@@ -146,16 +146,17 @@ type Issue struct {
 }
 
 type ListFilter struct {
-	State      State
-	CreatedBy  string
-	Repository string
-	Assignee   string
-	Label      string
-	Milestone  string
-	Query      string
-	Since      *time.Time
-	Sort       string
-	Direction  string
+	LinkedChangeset string
+	State           State
+	CreatedBy       string
+	Repository      string
+	Assignee        string
+	Label           string
+	Milestone       string
+	Query           string
+	Since           *time.Time
+	Sort            string
+	Direction       string
 }
 
 type ListCounts struct {

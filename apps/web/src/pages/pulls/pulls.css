@@ -37,6 +37,8 @@
   gap: 16px;
   align-items: start;
 }
+.pull-issue-links { list-style: none; padding: 0; margin: 0; }
+.pull-issue-links li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pull-review-sidebar form, .pull-comment-form, .pull-inline-composer {
   display: grid;
   gap: 12px;

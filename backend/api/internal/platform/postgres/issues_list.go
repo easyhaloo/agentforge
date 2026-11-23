@@ -22,6 +22,12 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 	if filter.Repository != "" {
 		conditions = append(conditions, "repository = "+bind(filter.Repository))
 	}
+	if filter.LinkedChangeset != "" {
+		conditions = append(conditions, `EXISTS (SELECT 1 FROM issue_changeset_links l
+			JOIN delivery_changesets c ON (c.organization_id,c.id)=(l.organization_id,l.changeset_id)
+			WHERE (l.organization_id,l.issue_id,c.repository)=(issues.organization_id,issues.id,issues.repository)
+			AND l.changeset_id = `+bind(filter.LinkedChangeset)+`)`)
+	}
 	if filter.CreatedBy != "" {
 		conditions = append(conditions, "created_by = "+bind(filter.CreatedBy))
 	}

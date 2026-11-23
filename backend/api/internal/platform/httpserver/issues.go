@@ -84,15 +84,20 @@ func (d DeliveryDependencies) listIssues(w http.ResponseWriter, r *http.Request)
 	}
 
 	filter := issues.ListFilter{
-		Repository: query.Get("repository"),
-		State:      issues.State(query.Get("state")),
-		CreatedBy:  query.Get("created_by"),
-		Assignee:   query.Get("assignee"),
-		Label:      query.Get("labels"),
-		Milestone:  query.Get("milestone"),
-		Query:      strings.TrimSpace(query.Get("q")),
-		Sort:       query.Get("sort"),
-		Direction:  query.Get("direction"),
+		LinkedChangeset: query.Get("linked_changeset"),
+		Repository:      query.Get("repository"),
+		State:           issues.State(query.Get("state")),
+		CreatedBy:       query.Get("created_by"),
+		Assignee:        query.Get("assignee"),
+		Label:           query.Get("labels"),
+		Milestone:       query.Get("milestone"),
+		Query:           strings.TrimSpace(query.Get("q")),
+		Sort:            query.Get("sort"),
+		Direction:       query.Get("direction"),
+	}
+	if filter.LinkedChangeset != "" && (filter.Repository == "" || len(filter.LinkedChangeset) > 128 || !wellFormedText(filter.LinkedChangeset)) {
+		writeProblem(w, http.StatusBadRequest, "Invalid linked changeset filter", "Provide a repository and a valid changeset ID")
+		return
 	}
 	if filter.State != "" && filter.State != issues.StateOpen && filter.State != issues.StateClosed {
 		writeProblem(w, http.StatusBadRequest, "Invalid state", "state must be 'open' or 'closed'")

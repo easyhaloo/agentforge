@@ -1,4 +1,16 @@
 {
+  "development": {
+    "title": "Development",
+    "empty": "No manually linked issues.",
+    "open": "Link an issue",
+    "number": "Issue number",
+    "link": "Link issue",
+    "unlinkAction": "Unlink",
+    "unlink": "Unlink issue #{{number}}",
+    "loadFailed": "Could not load linked issues.",
+    "saveFailed": "Could not update the issue link.",
+    "missing": "That issue could not be found in this repository."
+  },
   "list": {
     "title": "Pull requests",
     "description": "Proposed changes awaiting review and merge",

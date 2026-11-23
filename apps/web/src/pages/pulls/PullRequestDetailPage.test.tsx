@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "../../locales";
 import { APIError, changesetAPI, organizationAPI, repositoryAPI, type OrganizationSummary, type RepositorySettings, type StoredChangeset } from "../../shared/api/identity";
+import { issuesAPI } from "../../shared/api/issues";
 import { pullRequestPath } from "../../shared/routing";
 import { PullRequestDetailPage } from "./PullRequestDetailPage";
 
@@ -41,6 +42,7 @@ describe("required repository workflows", () => {
   beforeAll(async () => { await i18n.changeLanguage("en-US"); });
   beforeEach(() => {
     vi.spyOn(changesetAPI, "get").mockResolvedValue(changeset);
+    vi.spyOn(issuesAPI, "list").mockResolvedValue({ items: [], total: 0, open_total: 0, closed_total: 0, limit: 20, offset: 0 });
     vi.spyOn(changesetAPI, "getComparison").mockRejectedValue(new Error("Unused in these tabs"));
     vi.spyOn(repositoryAPI, "settings").mockResolvedValue(settings);
     vi.spyOn(organizationAPI, "members").mockResolvedValue({ items: [], limit: 20, offset: 0 });
