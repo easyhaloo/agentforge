@@ -480,6 +480,20 @@ Review changes in light and dark themes, on desktop and narrow screens, and with
 
 For the new-repository form, check that steps 1 and 2 share the rail's centerline and align vertically with their section headings. Use 20 px for the page title, 16 px for section headings, 14 px for labels and control text, and 12 px for helper text. The Owner picker and repository-name field are both 32 px high. Verify that the form and its menus fit at 320 px.
 
+### Organization settings
+
+Use GitHub Primer as a reference for buttons, labels, and anchored action menus. Keep the AgentForge organization header, typography, and theme tokens. Reuse the shared `Button`, `Tabs`, `Select`, `Popover`, and `ConfirmDialog` components, with overrides scoped to organization settings. [Page styles](../../apps/web/src/pages/organization/organization-settings.css)
+
+| Control | Standard |
+| --- | --- |
+| Buttons | Use the green primary button for Invite member and Create invitation in their respective panels. Use neutral controls for refresh and copy, and give icon-only actions a descriptive accessible name. Use 32 px height, 14 px text, and 6 px corners for standard controls. |
+| Tabs | Mark the active tab with an underline, stronger text, and `aria-selected`. Show neutral count pills for Members and Invitations after data loads. Let tabs wrap on narrow screens to keep every label fully visible. Move focus to the email field when Invite member opens the Invitations tab. |
+| Status labels | Use a compact outline pill with localized text. Use success for Active and Accepted, warning for Invited and Pending, danger for Suspended, Removed, and Revoked, and neutral for Expired and other statuses. Keep read-only roles visibly distinct from editable role controls. |
+| Role picker | Use an anchored single-select with a chevron and a checkmark beside the current role. Offer only roles the actor can assign. Support arrow keys and Enter, and close on Escape with focus returned to the trigger. |
+| Row actions | Group suspend or reactivate and remove in a trailing ellipsis popover. Give the trigger a name that identifies the member. Focus the first action on open and return focus to the trigger on Escape. Style Remove member as a danger action and require explicit confirmation. |
+
+Use semantic theme tokens for surfaces, borders, hover, and status colors. Check visible focus and text contrast in both themes, and localize labels and feedback in `en-US` and `zh-CN`. At 320 px, keep the role picker and row actions reachable without horizontal page scrolling. Move status and date into the identity cell and stack the invitation form. Review loading, empty, error, and restricted states alongside the populated layout. [Organization settings browser tests](../../apps/web/e2e/organization-settings.pw.ts)
+
 ### Repository header
 
 Show the repository owner and name once in the Topbar. Place the repository navigation on the same surface directly below it, with a divider under the navigation. Keep page titles and page-specific actions in the page body. Use route links with `aria-current="page"` and a visible underline for the active section, including on nested issue and pull request URLs. Keep the row horizontally scrollable on narrow screens and every link reachable by keyboard.
