@@ -89,6 +89,10 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 				writeProblem(w, 409, "Repository ruleset blocks queue admission", err.Error())
 				return
 			}
+			if err := repo.MergeMethods.CheckBranch(input.Strategy, repo.RefRules, target, repo.DefaultBranch); err != nil {
+				writeQueueError(w, err)
+				return
+			}
 		} else if input.Strategy == "squash" || input.Strategy == "rebase" {
 			writeProblem(w, 422, "Invalid integration strategy", "Configure that merge method in the merge queue ruleset")
 			return

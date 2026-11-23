@@ -28,6 +28,7 @@ type RefRule struct {
 	RestrictDeletion     bool             `json:"restrict_deletion"`
 	BlockForcePush       bool             `json:"block_force_push"`
 	RequirePullRequest   bool             `json:"require_pull_request"`
+	AllowedMergeMethods  []string         `json:"allowed_merge_methods,omitempty"`
 	RequireLinearHistory bool             `json:"require_linear_history,omitempty"`
 	RequireMergeQueue    bool             `json:"require_merge_queue,omitempty"`
 	MergeQueueMethod     string           `json:"merge_queue_method,omitempty"`
@@ -45,6 +46,16 @@ func ValidRefRules(rules []RefRule) bool {
 			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || len(rule.NamePatterns) > 0) ||
 			!validNamePatterns(rule.NamePatterns) || len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
 			return false
+		}
+		if rule.AllowedMergeMethods != nil {
+			if !rule.RequirePullRequest || len(rule.AllowedMergeMethods) == 0 || len(rule.AllowedMergeMethods) > len(pullRequestMethods) {
+				return false
+			}
+			for i, method := range rule.AllowedMergeMethods {
+				if !slices.Contains(pullRequestMethods[:], method) || slices.Contains(rule.AllowedMergeMethods[:i], method) {
+					return false
+				}
+			}
 		}
 		if rule.RequireMergeQueue && (!slices.Equal(rule.Include, []string{"~DEFAULT_BRANCH"}) || len(rule.Exclude) != 0) {
 			return false

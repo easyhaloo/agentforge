@@ -2,6 +2,7 @@ package githttp
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -140,5 +141,27 @@ func TestMergeQueueRequirement(t *testing.T) {
 	rules[0].Include = []string{"~ALL"}
 	if ValidRefRules(rules) {
 		t.Fatal("non-default queue rule accepted")
+	}
+}
+
+func TestPullRequestMethodsCombineBranchPolicies(t *testing.T) {
+	rules := []RefRule{
+		{Name: "default", Target: "branch", Enabled: true, Include: []string{"~DEFAULT_BRANCH"}, RequirePullRequest: true, AllowedMergeMethods: []string{"merge", "squash"}},
+		{Name: "all except topic", Target: "branch", Enabled: true, Include: []string{"~ALL"}, Exclude: []string{"topic"}, RequirePullRequest: true, AllowedMergeMethods: []string{"merge", "rebase"}},
+		{Name: "ignored", Target: "branch", Include: []string{"~ALL"}, RequirePullRequest: true, AllowedMergeMethods: []string{"squash"}},
+	}
+	methods := MergeMethods{}
+	if got := methods.PullRequestMethods(rules, "main", "main"); !slices.Equal(got, []string{"merge"}) {
+		t.Fatalf("intersected methods = %v", got)
+	}
+	rules[0].RequireLinearHistory = true
+	if got := methods.PullRequestMethods(rules, "main", "main"); len(got) != 0 {
+		t.Fatalf("linear history should exclude the only common method: %v", got)
+	}
+	if got := methods.PullRequestMethods(rules, "topic", "main"); !slices.Equal(got, []string{"merge", "squash", "rebase"}) {
+		t.Fatalf("excluded branch methods = %v", got)
+	}
+	if err := methods.CheckBranch("ff-only", rules, "main", "main"); !errors.Is(err, ErrMergeMethodDisabled) {
+		t.Fatalf("fast-forward bypassed named methods: %v", err)
 	}
 }

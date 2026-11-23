@@ -818,6 +818,7 @@
       "restrictDeletion": "Restrict deletion",
       "blockForcePush": "Block force pushes",
       "requirePullRequest": "Require a pull request before merging",
+      "allowedMergeMethods": "Allowed merge methods",
       "requireLinearHistory": "Require linear history",
       "linearHistoryHelp": "Block merge commits from entering matching branches. Pull requests must fast-forward or use a linear integration candidate.",
       "requireMergeQueue": "Require merge queue",

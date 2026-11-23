@@ -18,6 +18,7 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
     name: "Release refs", target: "branch", enabled: true, include: ["release/**", "~DEFAULT_BRANCH"],
     exclude: ["release/internal/*"], restrict_creation: false, restrict_update: false, restrict_deletion: true, block_force_push: true,
   };
+  const protectedBranch: RepositoryRefRule = { ...branchRule, require_pull_request: true, allowed_merge_methods: ["squash"] };
   const tagRule: RepositoryRefRule = {
     ...branchRule, name: "Release tags", target: "tag", include: ["release/**"], enabled: false, block_force_push: false,
   };
@@ -30,7 +31,7 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
     }
     expect(request.method()).toBe("PATCH");
     const body = request.postDataJSON();
-    const expected = writes < 2 ? [branchRule] : writes === 2 ? [tagRule] : [];
+    const expected = [[protectedBranch], [protectedBranch], [branchRule], [tagRule], []][writes];
     expect(body).toEqual({ ref_rules: expected, updated_at: updatedAt });
     if (++writes === 1) {
       await route.fulfill({ status: 500 });
@@ -75,6 +76,24 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
   await expect(panel.getByRole("alert")).toHaveText("Select at least one restriction.");
   await panel.getByRole("checkbox", { name: "Restrict deletion" }).check();
   await panel.getByRole("checkbox", { name: "Block force pushes" }).check();
+  const requirePullRequest = panel.getByRole("checkbox", { name: "Require a pull request before merging" });
+  const methods = panel.getByRole("group", { name: "Allowed merge methods" });
+  const merge = methods.getByRole("checkbox", { name: "Merge commit" });
+  const squash = methods.getByRole("checkbox", { name: "Squash" });
+  const rebase = methods.getByRole("checkbox", { name: "Rebase" });
+  await expect(methods).toHaveCount(0);
+  await requirePullRequest.check();
+  await expect(merge).toBeChecked();
+  await expect(squash).toBeChecked();
+  await expect(rebase).toBeChecked();
+  await merge.uncheck();
+  await squash.uncheck();
+  await rebase.uncheck();
+  await save.press("Enter");
+  await expect(panel.getByRole("alert")).toHaveText("Enable at least one pull request merge method.");
+  await expect(methods).toHaveAccessibleDescription("Enable at least one pull request merge method.");
+  expect(writes).toBe(0);
+  await squash.press("Space");
   await save.press("Enter");
   await expect(panel.getByRole("alert")).toHaveText("The server ran into a problem.");
   await expect(name).toHaveValue(" Release refs ");
@@ -92,11 +111,30 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
   await expect(add).toBeFocused();
   await panel.getByRole("button", { name: "Edit Release refs", exact: true }).click();
   await expect(name).toHaveValue("Release refs");
+  await expect(requirePullRequest).toBeChecked();
+  await expect(merge).not.toBeChecked();
+  await expect(squash).toBeChecked();
+  await expect(rebase).not.toBeChecked();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: testInfo.outputPath("repository-ruleset-allowed-merge-methods.png"), animations: "disabled", fullPage: true });
+  await requirePullRequest.uncheck();
+  await expect(methods).toHaveCount(0);
+  await save.click();
+  await expect(panel.getByRole("status")).toHaveText("Rulesets saved.");
+  await panel.getByRole("button", { name: "Edit Release refs", exact: true }).click();
+  await requirePullRequest.check();
+  await expect(merge).toBeChecked();
+  await expect(squash).toBeChecked();
+  await expect(rebase).toBeChecked();
+  await merge.uncheck();
+  await rebase.uncheck();
   await page.screenshot({ path: testInfo.outputPath("repo-settings-rulesets.png"), animations: "disabled", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath("repo-settings-rulesets-mobile.png"), animations: "disabled", fullPage: true });
   await selectOption(page, panel.getByRole("combobox", { name: "Target" }), "Tags");
+  await expect(requirePullRequest).toHaveCount(0);
+  await expect(methods).toHaveCount(0);
   const blockForcePushes = panel.getByRole("checkbox", { name: "Block force pushes" });
   await expect(blockForcePushes).toBeChecked();
   await blockForcePushes.uncheck();
@@ -112,7 +150,7 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
   await expect(panel.getByRole("status")).toHaveText("Rulesets saved.");
   await page.reload();
   await expect(panel.getByText("No rulesets configured.")).toBeVisible();
-  expect(writes).toBe(4);
+  expect(writes).toBe(5);
 });
 
 test("a registered repository shows its hosting eligibility", async ({ page }) => {

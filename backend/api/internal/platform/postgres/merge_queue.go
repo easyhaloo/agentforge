@@ -51,7 +51,7 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	if err != nil || strategy != candidate.Strategy || target != policy.DefaultBranch {
 		return entry, pipeline.ErrConflict
 	}
-	if err := policy.MergeMethods.Check(candidate.Strategy); err != nil {
+	if err := policy.MergeMethods.CheckBranch(candidate.Strategy, policy.RefRules, target, policy.DefaultBranch); err != nil {
 		return entry, err
 	}
 	var count int
@@ -249,7 +249,7 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		return err
 	}
 	strategy, err := githttp.QueueMergeStrategy(rules, target, defaultBranch)
-	if err != nil || target != defaultBranch || methods.Check(strategy) != nil {
+	if err != nil || target != defaultBranch || methods.CheckBranch(strategy, rules, target, defaultBranch) != nil {
 		return tx.Commit(ctx)
 	}
 

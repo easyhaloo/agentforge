@@ -3,7 +3,10 @@ package githttp
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
+
+var pullRequestMethods = [...]string{"merge", "squash", "rebase"}
 
 var ErrMergeMethodDisabled = errors.New("repository does not allow this merge method")
 
@@ -41,11 +44,29 @@ func (m MergeMethods) Check(strategy string) error {
 	return nil
 }
 
+// CheckBranch checks the repository setting and all matching PR rulesets.
+func (m MergeMethods) CheckBranch(strategy string, rules []RefRule, branch, defaultBranch string) error {
+	if err := m.Check(strategy); err != nil {
+		return err
+	}
+	method := strategy
+	if strategy == "merge-commit" {
+		method = "merge"
+	}
+	for _, rule := range rules {
+		if rule.RequirePullRequest && len(rule.AllowedMergeMethods) > 0 && rule.matches("branch", branch, defaultBranch) && !slices.Contains(rule.AllowedMergeMethods, method) {
+			return fmt.Errorf("ruleset %q: %w: %s", rule.Name, ErrMergeMethodDisabled, method)
+		}
+	}
+	return nil
+}
+
 // PullRequestMethods lists available native PR methods in default selection order.
-func (m MergeMethods) PullRequestMethods(linear bool) []string {
-	methods := make([]string, 0, 3)
-	for _, method := range []string{"merge", "squash", "rebase"} {
-		if (!linear || method != "merge") && m.Check(PullRequestMergeStrategy(method)) == nil {
+func (m MergeMethods) PullRequestMethods(rules []RefRule, branch, defaultBranch string) []string {
+	linear := LinearHistoryRule(rules, branch, defaultBranch) != ""
+	methods := make([]string, 0, len(pullRequestMethods))
+	for _, method := range pullRequestMethods {
+		if (!linear || method != "merge") && m.CheckBranch(PullRequestMergeStrategy(method), rules, branch, defaultBranch) == nil {
 			methods = append(methods, method)
 		}
 	}

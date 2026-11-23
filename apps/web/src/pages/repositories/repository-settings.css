@@ -91,6 +91,7 @@
 .repo-settings-rule-summary dd { margin: 0; }
 .repo-settings-rule-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .repo-settings-rule-restrictions { display: grid; gap: 8px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.repo-settings-rule-restrictions .repo-settings-rule-restrictions { margin-inline-start: 24px; }
 .repo-settings-rule-restrictions legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
 
 @media (max-width: 680px) {

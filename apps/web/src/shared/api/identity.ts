@@ -172,6 +172,7 @@ export type RepositoryRefRule = {
   restrict_deletion: boolean;
   block_force_push: boolean;
   require_pull_request?: boolean;
+  allowed_merge_methods?: PullRequestMergeMethod[];
   require_merge_queue?: boolean;
   merge_queue_method?: "merge" | "squash" | "rebase";
   require_linear_history?: boolean;

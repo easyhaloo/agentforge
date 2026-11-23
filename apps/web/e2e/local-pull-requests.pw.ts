@@ -525,6 +525,30 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(methods.nth(1)).toHaveAccessibleName("Rebase and merge");
     await method.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath("pull-request-merge-methods.png"), animations: "disabled" });
+    await page.goto(`${base.origin}${repositoryPath}/settings/rulesets`);
+    await page.getByRole("button", { name: "New ruleset" }).click();
+    await page.getByRole("textbox", { name: "Ruleset name" }).fill("Release merge methods");
+    await page.getByRole("textbox", { name: "Include patterns" }).fill("release");
+    await page.getByRole("checkbox", { name: "Require a pull request before merging" }).check();
+    const allowedMethods = page.getByRole("group", { name: "Allowed merge methods" });
+    await allowedMethods.getByRole("checkbox", { name: "Rebase", exact: true }).uncheck();
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("Rulesets saved.")).toBeVisible();
+    await page.reload();
+    await page.getByRole("button", { name: "Edit Release merge methods", exact: true }).click();
+    await expect(allowedMethods.getByRole("checkbox", { name: "Rebase", exact: true })).not.toBeChecked();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath("repository-ruleset-allowed-merge-methods-live.png"), animations: "disabled", fullPage: true });
+    await page.goto(detail);
+    expect(await post("merge", { target_ref: "release", merge_method: "rebase" })).toEqual({
+      status: 409, detail: "Choose an enabled method for this target branch",
+    });
+    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    await method.click();
+    await expect(methods).toHaveCount(1);
+    await expect(methods.first()).toHaveAccessibleName("Squash and merge");
+    await method.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("pull-request-ruleset-merge-methods.png"), animations: "disabled" });
     await page.getByRole("option", { name: "Squash and merge" }).click();
     await merge.click();
     await expect(page.getByRole("dialog")).toContainText("Squash and merge");

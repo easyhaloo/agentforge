@@ -73,7 +73,7 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	}
 	var pullRequestRule error
 	if !recorded {
-		if err := methods.Check(candidate.Strategy); err != nil {
+		if err := methods.CheckBranch(candidate.Strategy, rules, candidate.Target.Ref, candidate.Target.Ref); err != nil {
 			return err
 		}
 		if candidate.QueueEntry != 0 {

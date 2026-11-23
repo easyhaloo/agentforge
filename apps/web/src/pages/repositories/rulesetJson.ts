@@ -1,8 +1,8 @@
-import type { RefNamePattern, RepositoryRefRule } from "../../shared/api/identity";
+import type { PullRequestMergeMethod, RefNamePattern, RepositoryRefRule } from "../../shared/api/identity";
 
 export const maxRulesetFileBytes = 64 * 1024;
 const format = "agentforge-repository-ruleset-v1";
-export const queueMergeMethods = ["merge", "squash", "rebase"] as const;
+export const mergeMethods = ["merge", "squash", "rebase"] as const;
 export const namePatternOperators = ["starts_with", "ends_with", "contains", "regex"] as const;
 const ruleTypes = {
   restrict_creation: "creation",
@@ -29,7 +29,12 @@ function supportedRuleParameters(type: string, value: unknown): boolean {
     return hasOnlyKeys(value, ["update_allows_fetch_and_merge"]) &&
       (value.update_allows_fetch_and_merge === undefined || value.update_allows_fetch_and_merge === false);
   }
-  if (type !== "pull_request") return hasOnlyKeys(value, []);
+  return hasOnlyKeys(value, []);
+}
+
+function readPullRequestParameters(value: unknown): Pick<RepositoryRefRule, "allowed_merge_methods"> | undefined {
+  if (value === undefined) return {};
+  if (!record(value)) return undefined;
 
   // AgentForge requires approval on the active revision, even when the source
   // ruleset permits zero approvals or allows approvals from older revisions.
@@ -37,15 +42,18 @@ function supportedRuleParameters(type: string, value: unknown): boolean {
     require_code_owner_review: codeOwners, require_last_push_approval: lastPush,
     required_review_thread_resolution: resolveThreads, allowed_merge_methods: methods,
     required_reviewers: reviewers, require_extra_approval_for_unattributed_changes: extraApproval } = value;
-  return hasOnlyKeys(value, ["required_approving_review_count", "dismiss_stale_reviews_on_push", "require_code_owner_review",
+  const supported = hasOnlyKeys(value, ["required_approving_review_count", "dismiss_stale_reviews_on_push", "require_code_owner_review",
     "require_last_push_approval", "required_review_thread_resolution", "allowed_merge_methods", "required_reviewers",
     "require_extra_approval_for_unattributed_changes"]) &&
     (count === undefined || count === 0 || count === 1) &&
     (dismissStale === undefined || typeof dismissStale === "boolean") &&
     [codeOwners, lastPush, resolveThreads, extraApproval].every(setting => setting === undefined || setting === false) &&
-    (reviewers === undefined || (Array.isArray(reviewers) && reviewers.length === 0)) &&
-    (methods === undefined || (Array.isArray(methods) && methods.length === 3 &&
-      ["merge", "squash", "rebase"].every(method => methods.includes(method))));
+    (reviewers === undefined || (Array.isArray(reviewers) && reviewers.length === 0));
+  if (!supported) return undefined;
+  if (methods === undefined) return {};
+  if (!Array.isArray(methods) || methods.length === 0 || new Set(methods).size !== methods.length ||
+    !methods.every((method: unknown): method is PullRequestMergeMethod => mergeMethods.some(option => option === method))) return undefined;
+  return { allowed_merge_methods: methods };
 }
 
 function readNamePattern(value: unknown): RefNamePattern | undefined {
@@ -106,6 +114,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
   const types = new Set<string>();
   const namePatterns: RefNamePattern[] = [];
   let queueMethod: RepositoryRefRule["merge_queue_method"];
+  let pullRequestParameters: Pick<RepositoryRefRule, "allowed_merge_methods"> | undefined;
   for (const rule of rules as unknown[]) {
     if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string") return undefined;
     if (rule.type === `${target}_name_pattern`) {
@@ -120,9 +129,12 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
       if (!record(parameters) || !hasOnlyKeys(parameters, ["merge_method"])) return undefined;
       const method = parameters.merge_method;
       if (method !== undefined) {
-        queueMethod = queueMergeMethods.find(option => option.toUpperCase() === method);
+        queueMethod = mergeMethods.find(option => option.toUpperCase() === method);
         if (!queueMethod) return undefined;
       }
+    } else if (rule.type === "pull_request") {
+      pullRequestParameters = readPullRequestParameters(rule.parameters);
+      if (!pullRequestParameters) return undefined;
     } else if (!supportedRuleParameters(rule.type, rule.parameters)) return undefined;
     types.add(rule.type);
   }
@@ -133,7 +145,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     restrict_creation: types.has("creation"), restrict_update: types.has("update"),
     restrict_deletion: types.has("deletion"), block_force_push: types.has("non_fast_forward"),
     ...(types.has("required_linear_history") && { require_linear_history: true }),
-    ...(types.has("pull_request") && { require_pull_request: true }),
+    ...(pullRequestParameters && { require_pull_request: true, ...pullRequestParameters }),
     ...(types.has("merge_queue") && { require_merge_queue: true }),
     ...(queueMethod && { merge_queue_method: queueMethod }),
     ...(namePatterns.length > 0 && { name_patterns: namePatterns }),
@@ -150,6 +162,7 @@ export function serializeRulesetJson(rule: RepositoryRefRule): string {
     rules: [
       ...Object.entries(ruleTypes).flatMap(([key, type]) => rule[key as keyof typeof ruleTypes] ? [{
         type,
+        ...(type === "pull_request" && rule.target === "branch" && rule.allowed_merge_methods && { parameters: { allowed_merge_methods: rule.allowed_merge_methods } }),
         ...(type === "merge_queue" && rule.merge_queue_method && { parameters: { merge_method: rule.merge_queue_method.toUpperCase() } }),
       }] : []),
       ...(rule.name_patterns ?? []).map(parameters => ({ type: `${rule.target}_name_pattern`, parameters })),

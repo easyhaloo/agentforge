@@ -818,6 +818,7 @@
       "restrictDeletion": "限制删除",
       "blockForcePush": "禁止强制推送",
       "requirePullRequest": "合并前要求提交拉取请求",
+      "allowedMergeMethods": "允许的合并方式",
       "requireLinearHistory": "要求线性历史",
       "linearHistoryHelp": "禁止把合并提交引入匹配的分支。拉取请求必须能快进，或使用线性的集成候选提交。",
       "requireMergeQueue": "要求使用合并队列",

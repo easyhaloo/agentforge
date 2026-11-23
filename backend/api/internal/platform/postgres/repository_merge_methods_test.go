@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -56,6 +57,18 @@ func TestRepositoryMergeMethodsSettingsAndWebMerge(t *testing.T) {
 	patch(current.UpdatedAt, `"description":"preserve merge methods"`, 200, `"allow_merge_commit":false`)
 	assertMethods(read("/refs"), false, true, true)
 
+	rule := `"ref_rules":[{"name":"Squash only","target":"branch","enabled":true,"include":["~DEFAULT_BRANCH"],"require_pull_request":true,"allowed_merge_methods":%s}]`
+	for _, invalid := range []string{`[]`, `["squash","squash"]`, `["ff-only"]`} {
+		patch(read("/settings").UpdatedAt, fmt.Sprintf(rule, invalid), 422, "Invalid rulesets")
+	}
+	patch(read("/settings").UpdatedAt, fmt.Sprintf(rule, `["merge","squash"]`), 200, `"allowed_merge_methods":["merge","squash"]`)
+	for branch, want := range map[string]string{"main": `["squash"]`, "topic": `["squash","rebase"]`} {
+		resp := h.do(ctx, http.MethodGet, path+"/settings?target_branch="+branch, "")
+		if resp.Code != 200 || !strings.Contains(resp.Body.String(), `"pull_request_merge_methods":`+want) {
+			t.Fatalf("methods for %s: %d %s", branch, resp.Code, resp.Body)
+		}
+	}
+
 	base, err := git.ResolveRevision(ctx, org, repo, "refs/heads/main")
 	lockMust(t, err)
 	source, err := git.ResolveRevision(ctx, org, repo, "refs/heads/topic")
@@ -81,7 +94,7 @@ func TestRepositoryMergeMethodsSettingsAndWebMerge(t *testing.T) {
 	if after.CommitSHA != base.CommitSHA || h.stored(t, string(pr.ID)).Changeset.Merge != nil {
 		t.Fatal("disabled web merge changed the branch or PR")
 	}
-	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireLinearHistory: true})
+	merge(`{"target_ref":"main","merge_method":"rebase"}`, 409, "Merge method unavailable")
 	merge(`{"target_ref":"main"}`, 200, `"status":"merged"`)
 	merged, err := git.ResolveRevision(ctx, org, repo, "refs/heads/main")
 	lockMust(t, err)
@@ -128,6 +141,10 @@ func TestRepositoryMergeMethodsQueueAdmissionAndPromotion(t *testing.T) {
 		t.Fatal("denied admission inserted a queue entry")
 	}
 	setMergeCommit(true)
+	squashOnly := githttp.RefRule{RequirePullRequest: true, AllowedMergeMethods: []string{"squash"}}
+	setMainMergeRuleset(t, s, org, squashOnly)
+	enqueue(409)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true, AllowedMergeMethods: []string{"merge"}})
 	entry := enqueue(201)
 	task, err := s.ClaimTask(ctx, registerTestRunner(t, s, org, pipeline.ContainerCheck))
 	lockMust(t, err)
@@ -137,7 +154,7 @@ func TestRepositoryMergeMethodsQueueAdmissionAndPromotion(t *testing.T) {
 	lockMust(t, s.FinishTask(ctx, *task, "succeeded", "passed"))
 	base, err := git.ResolveRevision(ctx, org, repo, "refs/heads/main")
 	lockMust(t, err)
-	setMergeCommit(false)
+	setMainMergeRuleset(t, s, org, squashOnly)
 	resp := h.do(ctx, http.MethodPost, api+"/pipeline-runs/"+entry.RunID+"/promote", `{"candidateSHA":"`+entry.CandidateSHA+`"}`)
 	if resp.Code != 409 || !strings.Contains(resp.Body.String(), "Merge method disabled") {
 		t.Fatalf("promotion: %d %s", resp.Code, resp.Body)

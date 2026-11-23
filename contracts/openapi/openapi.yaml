@@ -2223,6 +2223,13 @@ components:
             description: >-
               Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
               Integration promotion requires each candidate source branch and commit to match a current, verified pull request into the target.
+          allowed_merge_methods:
+            type: array
+            minItems: 1
+            maxItems: 3
+            uniqueItems: true
+            items: { type: string, enum: [merge, squash, rebase] }
+            description: Valid with require_pull_request on branch rulesets. Intersected with repository settings and other matching rulesets. Omit to add no restriction.
           require_merge_queue:
             type: boolean
             default: false

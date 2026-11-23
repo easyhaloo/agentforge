@@ -23,7 +23,9 @@ describe("ruleset JSON portability", () => {
       exclude: ["releases/scratch/**"], restrict_creation: true, restrict_update: false,
       restrict_deletion: false, block_force_push: true, require_pull_request: true,
     };
-    expect(parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
+    const exported = serializeRulesetJson(rule);
+    expect(exported).not.toContain("allowed_merge_methods");
+    expect(parseRulesetJson(exported)).toEqual(rule);
   });
 
   it("imports equivalent GitHub ref conditions and restrictions", () => {
@@ -41,8 +43,28 @@ describe("ruleset JSON portability", () => {
       allowed_merge_methods: ["merge", "squash", "rebase"], required_reviewers: [],
       require_extra_approval_for_unattributed_changes: false,
     };
-    expect(githubImport({ rules: [{ type: "pull_request", parameters }] })).toMatchObject({ require_pull_request: true });
+    expect(githubImport({ rules: [{ type: "pull_request", parameters }] })).toMatchObject({
+      require_pull_request: true, allowed_merge_methods: parameters.allowed_merge_methods,
+    });
   });
+
+  it.each([["squash"], ["rebase", "merge"]].map(methods => ({ methods })))(
+    "round trips GitHub pull requests limited to $methods", ({ methods }) => {
+      const pullRequest = { type: "pull_request", parameters: { allowed_merge_methods: methods } };
+      const rule = githubImport({ rules: [pullRequest] });
+      expect(rule).toMatchObject({ require_pull_request: true, allowed_merge_methods: methods });
+      if (!rule) throw new Error("Expected supported ruleset");
+      const exported = serializeRulesetJson(rule);
+      expect(JSON.parse(exported).rules).toEqual([pullRequest]);
+      expect(parseRulesetJson(exported)).toEqual(rule);
+    },
+  );
+
+  it.each([[], ["merge", "merge"], ["fast-forward"], ["squash", null], "squash", null].map(methods => ({ methods })))(
+    "rejects invalid allowed merge methods $methods", ({ methods }) => {
+      expect(githubImport({ rules: [{ type: "pull_request", parameters: { allowed_merge_methods: methods } }] })).toBeUndefined();
+    },
+  );
 
   it("imports and exports only parameterless linear history rules on branches", () => {
     const rules = [{ type: "required_linear_history", parameters: {} }];
@@ -81,8 +103,9 @@ describe("ruleset JSON portability", () => {
     { rules: [{ type: "pull_request", parameters: { require_last_push_approval: true } }] },
     { rules: [{ type: "pull_request", parameters: { require_extra_approval_for_unattributed_changes: true } }] },
     { rules: [{ type: "pull_request", parameters: { required_review_thread_resolution: true } }] },
-    { rules: [{ type: "pull_request", parameters: { allowed_merge_methods: ["squash"] } }] },
-    { target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules: [{ type: "pull_request" }] },
+    { rules: [{ type: "pull_request", parameters: { allowed_merge_methods: ["squash"], unexpected: true } }] },
+    { rules: [{ type: "deletion", parameters: { allowed_merge_methods: ["squash"] } }] },
+    { target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules: [{ type: "pull_request", parameters: { allowed_merge_methods: ["squash"] } }] },
     { bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] },
     { enforcement: "evaluate" },
     { conditions: { ...githubRuleset.conditions, repository_name: { include: ["restricted-*"], exclude: [] } } },

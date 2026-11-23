@@ -1162,7 +1162,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	}
 	hostedPull := pull != nil && d.repositoryHostingKind(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: repo}) == "hosted"
 	if hostedPull {
-		methods := policy.MergeMethods.PullRequestMethods(linear)
+		methods := policy.MergeMethods.PullRequestMethods(policy.RefRules, allowedTarget, policy.DefaultBranch)
 		method := input.MergeMethod
 		if method == "" && len(methods) > 0 {
 			method = methods[0]
@@ -1228,7 +1228,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		merge = git.FastForwardRevision
 		strategy = "ff-only"
 	}
-	if err := policy.MergeMethods.Check(strategy); err != nil {
+	if err := policy.MergeMethods.CheckBranch(strategy, policy.RefRules, allowedTarget, policy.DefaultBranch); err != nil {
 		writeProblem(w, 409, "Merge method disabled", err.Error())
 		return
 	}
