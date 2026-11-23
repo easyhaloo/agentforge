@@ -222,6 +222,8 @@ func writeQueueError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, githttp.ErrMergeMethodDisabled):
 		writeProblem(w, 409, "Merge method disabled", err.Error())
+	case errors.Is(err, githttp.ErrBranchPullRequestRequired), errors.Is(err, githttp.ErrRequiredWorkflows):
+		writeProblem(w, http.StatusConflict, "Repository ruleset blocks queue admission", err.Error())
 	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
 		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 	case errors.Is(err, execution.ErrTriggerDenied):

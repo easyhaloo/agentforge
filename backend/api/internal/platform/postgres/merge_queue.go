@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
@@ -75,6 +76,11 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	if err = checkRepositoryActions(ctx, tx, org, pipelineID, repo); err != nil {
 		return entry, err
 	}
+	if checks := githttp.BranchRequiredWorkflows(policy.RefRules, target, policy.DefaultBranch); len(checks) > 0 {
+		if err = checkQueueRequiredWorkflows(ctx, tx, org, candidate, checks); err != nil {
+			return entry, err
+		}
+	}
 	var id int64
 	err = tx.QueryRow(ctx, `INSERT INTO merge_queue_entries(organization_id,repository,target,pipeline_id,version,actor_id,source_ref,source_sha,inputs) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9 FROM delivery_repositories WHERE organization_id=$1 AND slug=$2 AND default_branch=$3 RETURNING id`, org, repo, target, pipelineID, version, actor, candidate.Sources[0].Ref, candidate.Sources[0].SHA, inputs).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -107,6 +113,38 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	}
 	return entry, tx.Commit(ctx)
 }
+
+func checkQueueRequiredWorkflows(ctx context.Context, tx pgx.Tx, org string, candidate execution.Integration, checks map[string]bool) error {
+	source := candidate.Sources[0]
+	noPull := fmt.Errorf("%w: expected exactly one open pull request matching the candidate branches and source commit", githttp.ErrBranchPullRequestRequired)
+	if source.SHA == "" || candidate.Target.SHA == "" {
+		return execution.ErrInputs
+	}
+	rows, err := tx.Query(ctx, `SELECT state FROM delivery_changesets
+		WHERE organization_id=$1 AND repository=$2
+		  AND state->'pull_request'->>'base_branch'=$3 AND state->'pull_request'->>'source_branch'=$4
+		  AND state->'pull_request'->>'closed'='false' AND state->>'merge' IS NULL
+		  AND state->'revisions'->-1->>'commit_sha'=$5
+		LIMIT 2 FOR SHARE`, org, candidate.Repository, candidate.Target.Ref, source.Ref, source.SHA)
+	if err != nil {
+		return fmt.Errorf("find pull request for queue admission: %w", err)
+	}
+	pull, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[delivery.Changeset])
+	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, pgx.ErrTooManyRows) {
+		return noPull
+	}
+	if err != nil {
+		return fmt.Errorf("read pull request for queue admission: %w", err)
+	}
+	revision, ok := pull.CurrentRevision()
+	if !ok || revision.ID == "" || revision.Ref != source.Ref || revision.CommitSHA != source.SHA {
+		return noPull
+	}
+	// Strict status provenance must match the candidate target SHA. This store has
+	// no Git provider, so promotion still checks actual target ancestry.
+	return checkRequiredWorkflows(ctx, tx, org, &pull, revision, candidate.Target.SHA, checks)
+}
+
 func attachTrainRun(ctx context.Context, tx pgx.Tx, id int64, run execution.Run) error {
 	_, err := tx.Exec(ctx, `UPDATE merge_queue_entries SET status='building',run_id=$2,candidate_sha=$3,checked_at=now() WHERE id=$1`, id, run.ID, run.Integration.CandidateSHA)
 	if err != nil {
