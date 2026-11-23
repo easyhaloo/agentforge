@@ -18,21 +18,22 @@ import (
 
 // RefRule restricts writes to matching branches or tags.
 type RefRule struct {
-	Name                 string           `json:"name"`
-	Target               string           `json:"target"`
-	Enabled              bool             `json:"enabled"`
-	Include              []string         `json:"include"`
-	Exclude              []string         `json:"exclude"`
-	RestrictCreation     bool             `json:"restrict_creation"`
-	RestrictUpdate       bool             `json:"restrict_update"`
-	RestrictDeletion     bool             `json:"restrict_deletion"`
-	BlockForcePush       bool             `json:"block_force_push"`
-	RequirePullRequest   bool             `json:"require_pull_request"`
-	AllowedMergeMethods  []string         `json:"allowed_merge_methods,omitempty"`
-	RequireLinearHistory bool             `json:"require_linear_history,omitempty"`
-	RequireMergeQueue    bool             `json:"require_merge_queue,omitempty"`
-	MergeQueueMethod     string           `json:"merge_queue_method,omitempty"`
-	NamePatterns         []RefNamePattern `json:"name_patterns,omitempty"`
+	Name                 string             `json:"name"`
+	Target               string             `json:"target"`
+	Enabled              bool               `json:"enabled"`
+	Include              []string           `json:"include"`
+	Exclude              []string           `json:"exclude"`
+	RestrictCreation     bool               `json:"restrict_creation"`
+	RestrictUpdate       bool               `json:"restrict_update"`
+	RestrictDeletion     bool               `json:"restrict_deletion"`
+	BlockForcePush       bool               `json:"block_force_push"`
+	RequirePullRequest   bool               `json:"require_pull_request"`
+	AllowedMergeMethods  []string           `json:"allowed_merge_methods,omitempty"`
+	RequireLinearHistory bool               `json:"require_linear_history,omitempty"`
+	RequireMergeQueue    bool               `json:"require_merge_queue,omitempty"`
+	MergeQueueMethod     string             `json:"merge_queue_method,omitempty"`
+	RequiredWorkflows    *RequiredWorkflows `json:"required_workflows,omitempty"`
+	NamePatterns         []RefNamePattern   `json:"name_patterns,omitempty"`
 }
 
 func ValidRefRules(rules []RefRule) bool {
@@ -42,9 +43,12 @@ func ValidRefRules(rules []RefRule) bool {
 	}
 	for i, rule := range rules {
 		if rule.Name == "" || strings.TrimSpace(rule.Name) != rule.Name || utf8.RuneCountInString(rule.Name) > 80 || strings.ContainsFunc(rule.Name, unicode.IsControl) ||
-			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory)) ||
-			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || len(rule.NamePatterns) > 0) ||
+			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || rule.RequiredWorkflows != nil)) ||
+			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || rule.RequiredWorkflows != nil || len(rule.NamePatterns) > 0) ||
 			!validNamePatterns(rule.NamePatterns) || len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
+			return false
+		}
+		if rule.RequiredWorkflows != nil && !rule.RequiredWorkflows.valid() {
 			return false
 		}
 		if rule.AllowedMergeMethods != nil {
@@ -266,6 +270,9 @@ func (policy PushPolicy) CheckBranchWrite(ref string, creating bool) error {
 		if rule.RestrictCreation {
 			return fmt.Errorf("ruleset %q blocks creation of %s: %w", rule.Name, ref, ErrBranchCreationRestricted)
 		}
+		if rule.RequiredWorkflows != nil && !rule.RequiredWorkflows.SkipCreation {
+			return fmt.Errorf("ruleset %q blocks creation of %s: %w", rule.Name, ref, ErrRequiredWorkflows)
+		}
 	}
 	return nil
 }
@@ -308,7 +315,7 @@ func CheckBranchMerge(rules []RefRule, branch, defaultBranch string, linkedPullR
 		if rule.RequireMergeQueue && !queued {
 			queueRule = rule.Name
 		}
-		if (rule.RequirePullRequest || rule.RequireMergeQueue) && !linkedPullRequest {
+		if (rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequiredWorkflows != nil) && !linkedPullRequest {
 			pullRequestRule = rule.Name
 		}
 	}
@@ -344,6 +351,8 @@ func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) erro
 		switch {
 		case isCreation && rule.RestrictCreation:
 			return fmt.Errorf("ruleset %q blocks creation of %s", rule.Name, update.Ref)
+		case !isDeletion && rule.RequiredWorkflows != nil && (!isCreation || !rule.RequiredWorkflows.SkipCreation):
+			return fmt.Errorf("ruleset %q requires verified workflows to write %s", rule.Name, update.Ref)
 		case isDeletion && rule.RestrictDeletion:
 			return fmt.Errorf("ruleset %q blocks deletion of %s", rule.Name, update.Ref)
 		case !isCreation && !isDeletion && rule.RestrictUpdate:

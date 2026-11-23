@@ -177,6 +177,7 @@ export type RepositoryRefRule = {
   merge_queue_method?: "merge" | "squash" | "rebase";
   require_linear_history?: boolean;
   name_patterns?: RefNamePattern[];
+  required_workflows?: { pipeline_ids: string[]; strict: boolean; skip_creation: boolean };
 };
 export type RepositoryMergeMessageFormat = "default" | "title" | "description";
 type RepositoryMergeMethods = {

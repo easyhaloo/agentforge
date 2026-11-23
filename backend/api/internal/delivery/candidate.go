@@ -17,6 +17,15 @@ func candidateRef(sha string) string { return "refs/agentforge/integration/" + s
 // CheckoutCandidate materializes the retained commit in a private build directory.
 // Only its files are exposed to the container. No source Git metadata is mounted.
 func (p *LocalGitProvider) CheckoutCandidate(ctx context.Context, org, repository, sha string) (string, func(), error) {
+	return p.checkoutCommit(ctx, org, repository, sha, candidateRef(sha))
+}
+
+// CheckoutRevision materializes the exact source commit captured by a revision trigger.
+func (p *LocalGitProvider) CheckoutRevision(ctx context.Context, org, repository, sha string) (string, func(), error) {
+	return p.checkoutCommit(ctx, org, repository, sha, sha)
+}
+
+func (p *LocalGitProvider) checkoutCommit(ctx context.Context, org, repository, sha, ref string) (string, func(), error) {
 	if !objectID.MatchString(sha) {
 		return "", nil, ErrRepositoryInvalid
 	}
@@ -30,7 +39,6 @@ func (p *LocalGitProvider) CheckoutCandidate(ctx context.Context, org, repositor
 	}
 	cleanup := func() { os.RemoveAll(temp) }
 	work := filepath.Join(temp, "src")
-	ref := candidateRef(sha)
 	for _, args := range [][]string{{"init", "--template=", work}, {"-C", work, "-c", "protocol.file.allow=always", "fetch", "--depth=1", "--no-tags", "--", path, ref}, {"-C", work, "checkout", "--detach", "FETCH_HEAD"}} {
 		if _, err := previewGit(ctx, temp, args...); err != nil {
 			cleanup()

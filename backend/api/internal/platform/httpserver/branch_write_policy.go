@@ -29,7 +29,7 @@ func (d DeliveryDependencies) lockBranchWritePolicy(ctx context.Context, org, re
 }
 
 func writeBranchRuleConflict(w http.ResponseWriter, err error) bool {
-	if !errors.Is(err, githttp.ErrBranchCreationRestricted) && !errors.Is(err, githttp.ErrBranchUpdatesRestricted) && !errors.Is(err, githttp.ErrBranchPullRequestRequired) && !errors.Is(err, githttp.ErrBranchMergeQueueRequired) && !errors.Is(err, githttp.ErrRefNameRestricted) && !errors.Is(err, githttp.ErrLinearHistoryRequired) {
+	if !errors.Is(err, githttp.ErrRequiredWorkflows) && !errors.Is(err, githttp.ErrBranchCreationRestricted) && !errors.Is(err, githttp.ErrBranchUpdatesRestricted) && !errors.Is(err, githttp.ErrBranchPullRequestRequired) && !errors.Is(err, githttp.ErrBranchMergeQueueRequired) && !errors.Is(err, githttp.ErrRefNameRestricted) && !errors.Is(err, githttp.ErrLinearHistoryRequired) {
 		return false
 	}
 	writeProblem(w, http.StatusConflict, "Repository rule blocks branch write", err.Error())

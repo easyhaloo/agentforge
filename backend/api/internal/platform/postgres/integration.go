@@ -191,11 +191,20 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 			}
 		}
 	}
+	checks := githttp.BranchRequiredWorkflows(rules, candidate.Target.Ref, candidate.Target.Ref)
 	for i := range changesets {
 		c := &changesets[i]
 		revision, ok := c.CurrentRevision()
 		if !ok || !slices.Contains(commits, revision.CommitSHA) {
 			return pipeline.ErrConflict
+		}
+		if !recorded {
+			if err = local.CheckRequiredWorkflowBase(ctx, org, c.Repository, candidate.Target.SHA, revision.CommitSHA, checks); err != nil {
+				return err
+			}
+			if err = checkRequiredWorkflows(ctx, tx, org, c, revision, candidate.Target.SHA, checks); err != nil {
+				return err
+			}
 		}
 		evaluation, ok := c.LatestEvaluation(revision.ID)
 		if !ok || evaluation.BaseSHA != candidate.Target.SHA {

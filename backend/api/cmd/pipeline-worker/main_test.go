@@ -129,8 +129,16 @@ fi
 			if exec.Command("docker", "inspect", "af-"+image+"-check-1").Run() == nil {
 				t.Fatal("cancelled container still exists")
 			}
-		} else if err != nil || capture.text() != "" {
-			t.Fatalf("isolation or log suppression failed: %v", err)
+		} else {
+			if err != nil || capture.text() != "" {
+				t.Fatalf("isolation or log suppression failed: %v", err)
+			}
+			candidate := task.Integration
+			task.Integration = nil
+			task.Trigger = &execution.TriggerSource{Kind: "changeset_revision", Repository: candidate.Repository, SHA: candidate.Sources[0].SHA, BaseSHA: candidate.Target.SHA}
+			if err := containerCheck(ctx, task, image, &capture); err != nil || capture.text() != "" {
+				t.Fatalf("revision checkout isolation or log suppression failed: %v", err)
+			}
 		}
 	}
 }

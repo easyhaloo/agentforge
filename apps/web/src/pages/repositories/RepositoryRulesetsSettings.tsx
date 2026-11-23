@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, type RefNamePattern, type OrganizationSummary, type RepositorySettings, type RepositoryRefRule } from "../../shared/api/identity";
+import { pipelines } from "../../shared/api/pipelines";
 import { translateError } from "../../shared/api/errors";
 import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
@@ -123,7 +124,8 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     }
     if (!rule.include.length) return t("settings.rulesets.includeRequired");
     if (rule.include.length + rule.exclude.length > maxPatterns) return t("settings.rulesets.tooManyPatterns", { max: maxPatterns });
-    if (rule.target === "tag" && (rule.require_pull_request || rule.require_merge_queue || rule.require_linear_history)) return t("settings.rulesets.tagBranchRestrictions");
+    if (rule.target === "tag" && (rule.require_pull_request || rule.require_merge_queue || rule.require_linear_history || rule.required_workflows)) return t("settings.rulesets.tagBranchRestrictions");
+    if (rule.required_workflows && (rule.required_workflows.pipeline_ids.length === 0 || rule.required_workflows.pipeline_ids.length > 20)) return t("settings.rulesets.workflowsRequired");
     if (rule.allowed_merge_methods?.length === 0) return t("settings.mergeMethods.required");
     if (rule.require_merge_queue && (rule.include.length !== 1 || rule.include[0] !== "~DEFAULT_BRANCH" || rule.exclude.length)) {
       return t("settings.rulesets.mergeQueueTarget");
@@ -134,7 +136,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     }
     if (rule.name_patterns?.some(({ pattern, name }) => !pattern || new TextEncoder().encode(pattern).length > maxNamePatternBytes ||
       (name && [...name].length > maxNameLength)) || (rule.name_patterns?.length ?? 0) > maxNamePatterns) return t("settings.rulesets.namePatternInvalid");
-    if (!rule.name_patterns?.length && !restrictions.some(restriction => rule[restriction])) return t("settings.rulesets.restrictionRequired");
+    if (!rule.name_patterns?.length && !rule.required_workflows && !restrictions.some(restriction => rule[restriction])) return t("settings.rulesets.restrictionRequired");
     return "";
   }
 
@@ -273,7 +275,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
         </div>
         {isEditing ? <>
           {isInvalid && <p id={errorId} ref={validationAlert} role="alert" tabIndex={-1} className="org-error">{error}</p>}
-          <RulesetEditor rule={rule} busy={busy} errorId={isInvalid ? errorId : undefined}
+          <RulesetEditor rule={rule} organization={organization.id} repository={repository} busy={busy} errorId={isInvalid ? errorId : undefined}
             onChange={patch => changeRules(rules.map(item => item.id === rule.id ? { ...item, ...patch } : item))} />
         </> : <dl className="repo-settings-rule-summary">
           <dt>{t("settings.rulesets.include")}</dt><dd>{patterns(rule.include).join(", ") || t("settings.rulesets.none")}</dd>
@@ -283,6 +285,10 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
           {rule.target === "branch" && rule.require_pull_request && <>
             <dt>{t("settings.rulesets.allowedMergeMethods")}</dt>
             <dd>{(rule.allowed_merge_methods ?? mergeMethods).map(method => t(`settings.rulesets.mergeQueueMethods.${method}`)).join(", ")}</dd>
+          </>}
+          {rule.required_workflows && <>
+            <dt>{t("settings.rulesets.requiredWorkflows")}</dt>
+            <dd>{rule.required_workflows.pipeline_ids.join(", ")}</dd>
           </>}
           {Boolean(rule.name_patterns?.length) && <>
             <dt>{t("settings.rulesets.namePatterns")}</dt>
@@ -302,8 +308,10 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
   </form>;
 }
 
-function RulesetEditor({ rule, busy, errorId, onChange }: {
+function RulesetEditor({ rule, busy, errorId, organization, repository, onChange }: {
   rule: RuleDraft;
+  organization: string;
+  repository: string;
   busy: boolean;
   errorId?: string;
   onChange: (patch: Partial<Omit<RuleDraft, "id">>) => void;
@@ -319,7 +327,7 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
           { value: "branch", label: t("settings.rulesets.branch") },
           { value: "tag", label: t("settings.rulesets.tag") },
         ]}
-        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", require_pull_request: false, allowed_merge_methods: undefined, require_merge_queue: false, require_linear_history: false } : { target: "branch" })} />
+        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", require_pull_request: false, allowed_merge_methods: undefined, require_merge_queue: false, require_linear_history: false, required_workflows: undefined } : { target: "branch" })} />
     </div>
     <Checkbox label={t("settings.rulesets.active")} checked={rule.enabled} disabled={busy} onChange={event => onChange({ enabled: event.target.checked })} />
     <div className="repo-settings-rule-fields">
@@ -346,6 +354,12 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
               }} />)}
           </fieldset>}
         </Fragment>)}
+      {rule.target === "branch" && <>
+        <Checkbox label={t("settings.rulesets.requiredWorkflows")} checked={Boolean(rule.required_workflows)} disabled={busy}
+          onChange={event => onChange({ required_workflows: event.target.checked ? { pipeline_ids: [], strict: false, skip_creation: true } : undefined })} />
+        {rule.required_workflows && <RequiredWorkflowEditor checks={rule.required_workflows} organization={organization} repository={repository} busy={busy}
+          onChange={required_workflows => onChange({ required_workflows })} />}
+      </>}
       {rule.require_linear_history && <p>{t("settings.rulesets.linearHistoryHelp")}</p>}
       {rule.require_merge_queue && <>
         <p>{t("settings.rulesets.mergeQueueHelp")}</p>
@@ -390,4 +404,42 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
       </Button></div>
     </fieldset>
   </div>;
+}
+
+function RequiredWorkflowEditor({ checks, organization, repository, busy, onChange }: {
+  checks: NonNullable<RepositoryRefRule["required_workflows"]>;
+  organization: string;
+  repository: string;
+  busy: boolean;
+  onChange: (checks: NonNullable<RepositoryRefRule["required_workflows"]>) => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const [options, setOptions] = useState<{ id: string; name: string }[]>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void repositoryAPI.workflows(organization, repository, controller.signal).then(async ({ items }) => {
+      const published = items.filter(workflow => workflow.repository === repository && workflow.version > 0 && !workflow.disabled && workflow.status !== "archived");
+      const eligible = await Promise.all(published.map(async workflow => {
+        const { items: triggers } = await pipelines.triggers(organization, workflow.id, controller.signal);
+        return triggers.some(trigger => trigger.kind === "changeset_revision") ? [workflow] : [];
+      }));
+      if (!controller.signal.aborted) setOptions(eligible.flat());
+    }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
+    return () => controller.abort();
+  }, [organization, repository]);
+  return <fieldset className="repo-settings-rule-restrictions" disabled={busy}>
+    <legend>{t("settings.rulesets.workflowSelection")}</legend>
+    <p>{t("settings.rulesets.workflowHelp")}</p>
+    <Select label={t("settings.rulesets.addWorkflow")} value="" disabled={!options?.length || checks.pipeline_ids.length >= 20}
+      options={[{ value: "", label: t("settings.rulesets.selectWorkflow") }, ...((options ?? [])
+        .filter(({ id }) => !checks.pipeline_ids.includes(id)).map(({ id, name }) => ({ value: id, label: `${name} (${id})` })))]}
+      onChange={event => { if (event.target.value) onChange({ ...checks, pipeline_ids: [...checks.pipeline_ids, event.target.value] }); }} />
+    {failed ? <p role="alert">{t("settings.rulesets.workflowsFailed")}</p> : !options ? <p role="status">{t("settings.rulesets.workflowsLoading")}</p> :
+      options.length === 0 && <p>{t("settings.rulesets.noWorkflows")}</p>}
+    {checks.pipeline_ids.map(id => <Checkbox key={id} label={options?.find(workflow => workflow.id === id)?.name ?? id} checked
+      onChange={() => onChange({ ...checks, pipeline_ids: checks.pipeline_ids.filter(workflow => workflow !== id) })} />)}
+    <Checkbox label={t("settings.rulesets.strictWorkflows")} checked={checks.strict} onChange={event => onChange({ ...checks, strict: event.target.checked })} />
+    <Checkbox label={t("settings.rulesets.skipWorkflowCreation")} checked={checks.skip_creation} onChange={event => onChange({ ...checks, skip_creation: event.target.checked })} />
+  </fieldset>;
 }

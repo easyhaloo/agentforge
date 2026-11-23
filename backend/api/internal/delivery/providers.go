@@ -188,6 +188,30 @@ func (p *LocalGitProvider) FastForwardRevision(ctx context.Context, organization
 	return p.mergeRevision(ctx, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA, true)
 }
 
+// CheckRequiredWorkflowBase ensures strict workflows tested a source containing the target.
+func (p *LocalGitProvider) CheckRequiredWorkflowBase(ctx context.Context, org, repo, base, source string, checks map[string]bool) error {
+	strict := false
+	for _, required := range checks {
+		strict = strict || required
+	}
+	if !strict {
+		return nil
+	}
+	if p == nil || !validGitObjectID(base) || !validGitObjectID(source) {
+		return ErrProviderUnavailable
+	}
+	path, err := p.repositoryPath(ctx, org, repo)
+	if err != nil {
+		return err
+	}
+	_, err = p.run(ctx, path, "merge-base", "--is-ancestor", base, source)
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return githttp.ErrStrictWorkflowBase
+	}
+	return err
+}
+
 func (p *LocalGitProvider) CheckLinearHistory(ctx context.Context, org, repo, old, next string) error {
 	path, err := p.repositoryPath(ctx, org, repo)
 	if err != nil {

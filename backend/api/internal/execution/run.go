@@ -42,6 +42,7 @@ type TriggerSource struct {
 	ChangesetID string     `json:"changesetId,omitempty"`
 	RevisionID  string     `json:"revisionId,omitempty"`
 	SHA         string     `json:"sha,omitempty"`
+	BaseSHA     string     `json:"baseSha,omitempty"`
 }
 
 type Run struct {
@@ -77,20 +78,22 @@ type Store interface {
 }
 
 type Task struct {
-	Script         string
-	OutputNames    []string
-	Env            map[string]string
-	Exports        map[string]string
-	Integration    *Integration
-	OrganizationID string
-	PipelineID     string
-	SecretRefs     map[string]string
-	RunID          string
-	StepID         string
-	WorkerID       string
-	Attempt        int
-	Capability     string
-	Deadline       time.Time
+	Script           string
+	OutputNames      []string
+	Env              map[string]string
+	Exports          map[string]string
+	Integration      *Integration
+	Trigger          *TriggerSource
+	CheckedSourceSHA string
+	OrganizationID   string
+	PipelineID       string
+	SecretRefs       map[string]string
+	RunID            string
+	StepID           string
+	WorkerID         string
+	Attempt          int
+	Capability       string
+	Deadline         time.Time
 }
 
 var ErrLease = errors.New("task lease lost")

@@ -265,6 +265,24 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				writeProblem(w, 422, "Invalid merge queue method", err.Error())
 				return
 			}
+			if slices.ContainsFunc(*input.RefRules, func(rule githttp.RefRule) bool { return rule.RequiredWorkflows != nil }) {
+				store, ok := d.Catalog.(interface {
+					ValidateRequiredWorkflows(context.Context, string, string, []githttp.RefRule) error
+				})
+				if !ok {
+					writeProblem(w, 503, "Required workflows unavailable", "The repository workflow configuration could not be verified")
+					return
+				}
+				err := store.ValidateRequiredWorkflows(r.Context(), principal.OrganizationID, repository.Slug, *input.RefRules)
+				if errors.Is(err, githttp.ErrIneligibleRequiredWorkflow) {
+					writeProblem(w, 422, "Invalid required workflows", err.Error())
+					return
+				}
+				if err != nil {
+					writeProblem(w, 503, "Required workflows unavailable", "The repository workflow configuration could not be verified")
+					return
+				}
+			}
 			repository.RefRules = *input.RefRules
 		}
 		if input.DeleteMergedBranches != nil {

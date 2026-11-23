@@ -97,6 +97,19 @@ describe("ruleset JSON portability", () => {
     expect(rule && parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
   });
 
+  it("round trips required workflow IDs without trusting GitHub check publishers", () => {
+    const rule = githubImport({ rules: [{ type: "deletion" }] });
+    if (!rule) throw new Error("Expected supported ruleset");
+    const checks = { pipeline_ids: ["ci", "integration"], strict: true, skip_creation: false };
+    const settings = { ...rule, required_workflows: checks };
+    expect(parseRulesetJson(serializeRulesetJson(settings))).toEqual(settings);
+    expect(githubImport({ rules: [{ type: "required_status_checks", parameters: {
+      strict_required_status_checks_policy: true,
+      do_not_enforce_on_create: false,
+      required_status_checks: [{ context: "ci", integration_id: 15368 }],
+    } }] })).toBeUndefined();
+  });
+
   it.each([
     { rules: [{ type: "pull_request", parameters: { required_approving_review_count: 2 } }] },
     { rules: [{ type: "pull_request", parameters: { require_code_owner_review: true } }] },

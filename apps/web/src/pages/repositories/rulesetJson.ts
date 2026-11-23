@@ -12,6 +12,7 @@ const ruleTypes = {
   require_linear_history: "required_linear_history",
   require_pull_request: "pull_request",
   require_merge_queue: "merge_queue",
+  required_workflows: "required_status_checks",
 } as const;
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -114,6 +115,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
   const types = new Set<string>();
   const namePatterns: RefNamePattern[] = [];
   let queueMethod: RepositoryRefRule["merge_queue_method"];
+  let workflowChecks: RepositoryRefRule["required_workflows"];
   let pullRequestParameters: Pick<RepositoryRefRule, "allowed_merge_methods"> | undefined;
   for (const rule of rules as unknown[]) {
     if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string") return undefined;
@@ -132,6 +134,16 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
         queueMethod = mergeMethods.find(option => option.toUpperCase() === method);
         if (!queueMethod) return undefined;
       }
+    } else if (rule.type === "required_status_checks") {
+      // GitHub App identities cannot authorize AgentForge workflows. Accept only native exports here.
+      const parameters = rule.parameters;
+      if (schema !== format || target !== "branch" || !record(parameters) ||
+        !hasOnlyKeys(parameters, ["pipeline_ids", "strict", "skip_creation"]) ||
+        typeof parameters.strict !== "boolean" || typeof parameters.skip_creation !== "boolean" ||
+        !Array.isArray(parameters.pipeline_ids) || !parameters.pipeline_ids.length || parameters.pipeline_ids.length > 20 ||
+        new Set(parameters.pipeline_ids).size !== parameters.pipeline_ids.length ||
+        !parameters.pipeline_ids.every((id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length <= 128 && id.trim() === id)) return undefined;
+      workflowChecks = { pipeline_ids: parameters.pipeline_ids, strict: parameters.strict, skip_creation: parameters.skip_creation };
     } else if (rule.type === "pull_request") {
       pullRequestParameters = readPullRequestParameters(rule.parameters);
       if (!pullRequestParameters) return undefined;
@@ -147,6 +159,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     ...(types.has("required_linear_history") && { require_linear_history: true }),
     ...(pullRequestParameters && { require_pull_request: true, ...pullRequestParameters }),
     ...(types.has("merge_queue") && { require_merge_queue: true }),
+    ...(workflowChecks && { required_workflows: workflowChecks }),
     ...(queueMethod && { merge_queue_method: queueMethod }),
     ...(namePatterns.length > 0 && { name_patterns: namePatterns }),
   };
@@ -164,6 +177,7 @@ export function serializeRulesetJson(rule: RepositoryRefRule): string {
         type,
         ...(type === "pull_request" && rule.target === "branch" && rule.allowed_merge_methods && { parameters: { allowed_merge_methods: rule.allowed_merge_methods } }),
         ...(type === "merge_queue" && rule.merge_queue_method && { parameters: { merge_method: rule.merge_queue_method.toUpperCase() } }),
+        ...(type === "required_status_checks" && { parameters: rule.required_workflows }),
       }] : []),
       ...(rule.name_patterns ?? []).map(parameters => ({ type: `${rule.target}_name_pattern`, parameters })),
     ],

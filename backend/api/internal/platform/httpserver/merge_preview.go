@@ -207,7 +207,7 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 	case errors.Is(err, githttp.ErrMergeMethodDisabled):
 		writeProblem(w, 409, "Merge method disabled", err.Error())
 	case errors.Is(err, githttp.ErrBranchUpdatesRestricted), errors.Is(err, githttp.ErrBranchPullRequestRequired),
-		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRefNameRestricted), errors.Is(err, githttp.ErrLinearHistoryRequired):
+		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRequiredWorkflows), errors.Is(err, githttp.ErrStrictWorkflowBase), errors.Is(err, githttp.ErrRefNameRestricted), errors.Is(err, githttp.ErrLinearHistoryRequired):
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks promotion", err.Error())
 	case errors.Is(err, pipeline.ErrConflict):
 		writeProblem(w, 409, "Merge gate closed", "Check the exact candidate, build, evidence and current revision approvals")

@@ -41,6 +41,9 @@ export const errorKeyByStatus: Record<number, string> = {
 export function translateError(cause: unknown, t: TFunction, fallbackKey: string): string {
   if (cause instanceof APIError) {
     if (cause.title === "Repository Actions disabled") return t("errors:repositoryActionsDisabled");
+    if (cause.title === "Required workflows pending") return t("errors:requiredWorkflowsPending");
+    if (cause.title === "Source branch is behind") return t("errors:strictWorkflowBase");
+    if (cause.title === "Invalid required workflows") return t("errors:ineligibleRequiredWorkflow");
     return t(errorKeyByStatus[cause.status] ?? "errors:unknown");
   }
   return t(fallbackKey);

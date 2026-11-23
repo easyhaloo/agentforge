@@ -1208,6 +1208,35 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, 409, "Evaluation is stale", "The target branch changed after evaluation; rerun trusted evaluation before merging")
 		return
 	}
+	checks := githttp.BranchRequiredWorkflows(policy.RefRules, allowedTarget, policy.DefaultBranch)
+	if len(checks) > 0 {
+		local, _ := d.Git.(*delivery.LocalGitProvider)
+		err := local.CheckRequiredWorkflowBase(r.Context(), principal.OrganizationID, repo, baseRevision.CommitSHA, revision.CommitSHA, checks)
+		if errors.Is(err, githttp.ErrStrictWorkflowBase) {
+			writeProblem(w, 409, "Source branch is behind", err.Error())
+			return
+		}
+		if err != nil {
+			writeProblem(w, 503, "Required workflows unavailable", "The source branch could not be verified")
+			return
+		}
+		store, ok := d.Runs.(interface {
+			CheckRequiredWorkflows(context.Context, string, *delivery.Changeset, delivery.Revision, string, map[string]bool) error
+		})
+		if !ok {
+			writeProblem(w, 503, "Required workflows unavailable", "The repository workflow results could not be verified")
+			return
+		}
+		err = store.CheckRequiredWorkflows(r.Context(), principal.OrganizationID, stored.Changeset, revision, baseRevision.CommitSHA, checks)
+		if errors.Is(err, githttp.ErrRequiredWorkflows) {
+			writeProblem(w, 409, "Required workflows pending", err.Error())
+			return
+		}
+		if err != nil {
+			writeProblem(w, 503, "Required workflows unavailable", "The repository workflow results could not be verified")
+			return
+		}
+	}
 	if strategy != "" {
 		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, policy.MergeMessageFormats, unlockRepository)
 		return
