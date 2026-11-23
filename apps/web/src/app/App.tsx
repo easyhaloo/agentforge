@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Building2, Menu } from "lucide-react";
-import { Link, Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
+import { Menu } from "lucide-react";
+import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
-import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, orgPath, repositorySections, withOrganizationHandle } from "../shared/routing";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, repositorySections, withOrganizationHandle } from "../shared/routing";
 import { Button, Select } from "../shared/ui";
 import { AppAccountContext, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
@@ -122,11 +122,7 @@ function App() {
           organizationHandle={selectedOrganization ? linkHandle : undefined}
           organization={<div className="workspace-organization">{organizationSelect}</div>} />
         {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} />}
-        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} controls={<>
-          <div className="workspace-navigation__compact">{organizationSelect}</div>
-          {selectedOrganization && <Link className="af-button af-button--ghost af-button--middle nav-item" to={orgPath(linkHandle, "settings")}
-            onClick={() => setNavigationOpen(false)}><Building2 size={16} aria-hidden="true" />{t("navigation:sidebar.organizationSettings")}</Link>}
-        </>} />
+        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} organizationPicker={organizationSelect} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&

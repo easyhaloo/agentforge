@@ -438,6 +438,25 @@ Use the shared `af-action-row` pattern for flat sidebar navigation and action li
 - Apply `af-action-row` to a single ghost button, or to the list item when the primary and trailing actions are separate. Use sibling ghost buttons with independent accessible names and visible keyboard focus. Align the trailing action to the end and reserve at least 32 px of width for it.
 - Apply the hover fill only on hover-capable devices. Hover keeps row dimensions, text, and icon colors stable. Enabled actions use the hand cursor. Disabled standalone rows use the unavailable cursor and skip the hover fill. Keep the current item distinguishable during hover and keyboard focus.
 
+#### Global navigation drawer
+
+Use the shared left `Drawer` and compact action rows for workspace navigation. The supplied GitHub screenshot and Primer's [ActionList](https://primer.style/product/components/action-list/) and [Dialog](https://primer.style/product/components/dialog/) informed the row density, group dividers, and dismissal behavior. The values below are AgentForge's implementation standard.
+
+| Element | Standard |
+| --- | --- |
+| Panel | 320 px wide, capped at viewport width minus 32 px so the backdrop remains dismissible. Use a 16 px radius on the exposed edge and a theme surface. |
+| Header | Keep the brand mark and 32 px close target fixed above the scrolling body. Use a 16 px close icon and give the dialog a localized accessible name. |
+| Rows | Use 16 px outer gutters, 32 px minimum height, 8 px icon gap and side padding, 16 px Lucide icons in the secondary text color, and 14 px labels on a 20 px line at weight 400. Let long labels wrap. |
+| Groups | Use localized 12 px labels at weight 600. Separate groups with a 1 px `--af-color-border` line and 8 px on each side. Show the organization picker in the drawer at 720 px and below. |
+| Current page | Use `aria-current="page"`, weight 600, a neutral row fill, and a 3 px primary-color marker on the leading edge. Preserve the keyboard focus outline. |
+| Backdrop and motion | Use a 15% blue-gray scrim in light mode and a 60% dark scrim in dark mode. Pair a 300 ms horizontal slide with a 300 ms opacity transition. Disable both transitions for reduced motion. |
+
+Place the personal and selected-organization settings links in the avatar menu.
+
+Focus the close button on open and keep Tab traversal within the panel. Escape, the close button, and backdrop clicks dismiss it and return focus to the trigger. Close when a navigation link or organization is selected. Keep the page scroll locked while open and let the drawer body scroll independently. During exit, the drawer stops receiving focus and pointer events.
+
+Check the desktop light and 320 px dark layouts, the visible current-page and focus states, and all dismissal paths. For motion timing, record from the click to the panel's `transform` transition end in a browser. [Drawer styles](../../apps/web/src/app/components/Sidebar.css) · [Browser checks](../../apps/web/e2e/workbench.pw.ts)
+
 #### Repository catalog reference
 
 The repository catalog pairs a 248 px desktop sidebar (58 px when collapsed) with a flexible content column. The sidebar uses `--af-color-surface-raised`, 16 px padding, and a 0 px gap between navigation rows. The saved views group has a divider, with 8 px before it and 8 px after it. At 760 px and below, stack the sidebar above the content and let the navigation controls wrap with a 2 px gap. [Repository catalog styles](../../apps/web/src/pages/repositories/repositories.css)

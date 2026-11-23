@@ -73,7 +73,6 @@
     "productName": "AgentForge",
     "openNavigation": "打开导航菜单",
     "navigation": "全局导航",
-    "organizationSettings": "组织设置",
     "brand": "agentforge",
     "tagline": "验证变更平台",
     "noOrganization": "无组织",
@@ -133,6 +132,7 @@
   "userMenu": {
     "profile": "个人主页",
     "settings": "设置",
+    "organizationSettings": "组织设置",
     "organization": "组织",
     "signOut": "退出登录",
     "notSignedIn": "未登录",
