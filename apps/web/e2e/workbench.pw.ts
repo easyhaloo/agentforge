@@ -39,5 +39,65 @@ test("workbench uses the selected organization and keeps navigation usable on mo
   await expect(page.getByText("No changesets are waiting for your review.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Main branch build/ })).toHaveCount(0);
   await expect(repositories.getByRole("link", { name: "easyhaloo/agentforge" })).toHaveCount(0);
-  await expect((await openNavigation(page)).getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
+  await page.getByRole("button", { name: /^User menu,/ }).click();
+  const userMenu = page.getByRole("dialog", { name: "User menu" });
+  await expect(userMenu.getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
+});
+
+test("global navigation uses compact rows and returns focus through each dismissal path", async ({ page }, testInfo) => {
+  await installApiMocks(page);
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/orgs/demo/changesets");
+  const toggle = navigationToggle(page);
+  const drawer = page.getByRole("dialog", { name: "Global navigation" });
+  const nav = await openNavigation(page);
+  const close = drawer.getByRole("button", { name: "Close drawer" });
+  const current = nav.getByRole("link", { name: "Changesets" });
+  const lastLink = nav.getByRole("link", { name: "Cost & Usage", exact: true });
+
+  await expect(drawer).toHaveCSS("width", "320px");
+  await expect(drawer).toHaveCSS("transition-duration", "0.3s");
+  await expect(drawer.getByText("Global navigation", { exact: true })).toHaveCount(0);
+  await expect(nav.locator('a[href$="/settings"]')).toHaveCount(0);
+  await expect(current).toHaveCSS("font-size", "14px");
+  await expect(current).toHaveCSS("height", "32px");
+  await expect(current.locator("svg")).toHaveCSS("width", "16px");
+  await expect(current).toHaveAttribute("aria-current", "page");
+  await expect(nav.locator("section").nth(1)).toHaveCSS("border-top-width", "1px");
+  await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
+  await expect(close).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath("drawer-light-desktop.png") });
+  await page.keyboard.press("Tab");
+  await expect(nav.getByRole("link", { name: "Overview", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(lastLink).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+
+  await close.click();
+  await expect(drawer).toBeHidden();
+  await expect(toggle).toBeFocused();
+  await openNavigation(page);
+  await page.mouse.click(500, 200);
+  await expect(drawer).toBeHidden();
+  await expect(toggle).toBeFocused();
+
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 320, height: 640 });
+  await openNavigation(page);
+  await expect(drawer).toHaveCSS("width", "288px");
+  await expect(drawer).toHaveCSS("transition-duration", "0s");
+  await expect(nav.getByRole("combobox", { name: "Select organization" })).toBeVisible();
+  await expect(close).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath("drawer-dark-mobile.png") });
+  await lastLink.scrollIntoViewIfNeeded();
+  await expect(lastLink).toBeInViewport();
+  await expect(close).toBeInViewport();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(toggle).toBeFocused();
+  await expect(page.locator("body")).not.toHaveCSS("overflow-y", "hidden");
 });

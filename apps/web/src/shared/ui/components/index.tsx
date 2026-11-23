@@ -14,6 +14,7 @@ import {
   type SelectHTMLAttributes,
   type TableHTMLAttributes,
 } from "react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { translateError } from "../../api/errors";
 
@@ -762,12 +763,15 @@ export function DateRangePicker({
 export interface DrawerProps {
   open: boolean;
   title: string;
+  hideTitle?: boolean;
   children: ReactNode;
   onClose: () => void;
   width?: number | string;
   placement?: "left" | "right";
+  className?: string;
+  leadingIcon?: ReactNode;
 }
-export function Drawer({ open, title, children, onClose, width = 480, placement = "right" }: DrawerProps) {
+export function Drawer({ open, title, hideTitle = false, children, onClose, width = 480, placement = "right", className, leadingIcon }: DrawerProps) {
   const { t } = useTranslation("common");
   const drawerRef = useRef<HTMLElement>(null);
   const titleId = useId();
@@ -846,9 +850,15 @@ export function Drawer({ open, title, children, onClose, width = 480, placement 
   const drawerClasses = `af-drawer af-drawer--${placement}${visible ? ' af-drawer--visible' : ''}`;
 
   return (
-    <div className={backdropClasses} inert={closing || undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
-      <aside ref={drawerRef} tabIndex={-1} className={drawerClasses} role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
-        <header className="af-drawer__header"><h2 id={titleId}>{title}</h2><button type="button" aria-label={t("common:components.closeDrawer")} onClick={() => onCloseRef.current()}>×</button></header>
+    <div className={[backdropClasses, className].filter(Boolean).join(" ")} inert={closing || undefined} onClick={(event) => { if (event.target === event.currentTarget) onCloseRef.current(); }}>
+      <aside ref={drawerRef} tabIndex={-1} className={drawerClasses} role="dialog" aria-modal="true"
+        aria-label={hideTitle ? title : undefined} aria-labelledby={hideTitle ? undefined : titleId} style={{ width }}>
+        <header className="af-drawer__header">
+          {hideTitle ? leadingIcon : <h2 id={titleId}>{leadingIcon}{title}</h2>}
+          <button type="button" aria-label={t("common:components.closeDrawer")} onClick={() => onCloseRef.current()}>
+            <X size={16} aria-hidden="true" />
+          </button>
+        </header>
         <div className="af-drawer__body">{children}</div>
       </aside>
     </div>

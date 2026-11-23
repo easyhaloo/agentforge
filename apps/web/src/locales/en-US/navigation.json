@@ -73,7 +73,6 @@
     "productName": "AgentForge",
     "openNavigation": "Open navigation",
     "navigation": "Global navigation",
-    "organizationSettings": "Organization settings",
     "brand": "agentforge",
     "tagline": "VERIFIED CHANGE PLATFORM",
     "noOrganization": "No organization",
@@ -133,6 +132,7 @@
   "userMenu": {
     "profile": "Profile",
     "settings": "Settings",
+    "organizationSettings": "Organization settings",
     "organization": "Organization",
     "signOut": "Sign out",
     "notSignedIn": "Not signed in",
