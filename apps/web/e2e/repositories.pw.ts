@@ -17,6 +17,41 @@ test("the organization has its own repositories page", async ({ page }) => {
   await expect(page.getByRole("link", { exact: true, name: "easyhaloo/agentforge" })).toBeVisible();
 });
 
+test("rejects number-only names and displays the workspace name for new repositories", async ({ page }, testInfo) => {
+  const id = "1e123caae752c71a2bdcee9a4d658ce6";
+  const catalog = `/orgs/${id}/repositories`;
+  const create = `${catalog}/new`;
+  const repo = `${catalog}/${id}/2fa-service`;
+  await installApiMocks(page, { organizations: [
+    { id, slug: "", name: "Delivery Workspace", role: "owner", personal: true },
+  ] });
+  await page.route(`**/api/v1/organizations/${id}/repositories/${id}/2fa-service/refs`, route => route.fulfill({
+    json: { repository: `${id}/2fa-service`, default_branch: "main", items: [] },
+  }));
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(create);
+  const name = page.getByRole("textbox", { name: "Repository name" });
+  const submit = page.getByRole("button", { name: "Create repository", exact: true });
+  await name.fill("12345678");
+  await submit.click();
+  await expect(page).toHaveURL(create);
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText(/at least one letter/i)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("repository-name-validation.png"), animations: "disabled" });
+
+  await name.fill("2fa-service");
+  await submit.click();
+  await expect(page).toHaveURL(repo);
+  const banner = page.getByRole("banner");
+  await expect(banner.locator(".topbar-repository__owner")).toHaveText("Delivery Workspace");
+  await expect(banner.getByRole("link", { name: "2fa-service", exact: true })).toHaveAttribute("href", repo);
+  await page.screenshot({ path: testInfo.outputPath("repository-readable-header.png"), animations: "disabled" });
+
+  await page.goto(catalog);
+  await page.getByRole("textbox", { name: "Find a repository…" }).fill("Delivery Workspace");
+  await expect(page.getByRole("link", { name: "Delivery Workspace/2fa-service", exact: true })).toHaveAttribute("href", repo);
+});
+
 test("filters, sorts, and restores a saved repository view on desktop and mobile", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.setViewportSize({ width: 1440, height: 900 });

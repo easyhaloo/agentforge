@@ -92,6 +92,8 @@ func TestInitializeRepository_ValidationErrors(t *testing.T) {
 		{"slug_no_slash", "org1", "repo", RepositoryInitialization{}},
 		{"slug_three_parts", "org1", "a/b/c", RepositoryInitialization{}},
 		{"owner_empty", "org1", "/repo", RepositoryInitialization{}},
+		{"name_digits_only", "org1", "owner/12345678", RepositoryInitialization{}},
+		{"name_no_letters", "org1", "owner/123-456", RepositoryInitialization{}},
 		{"desc_too_long", "org1", "owner/repo", RepositoryInitialization{Description: strings.Repeat("a", 351)}},
 		{"desc_nul", "org1", "owner/repo", RepositoryInitialization{Description: "test\x00"}},
 		{"gitignore_invalid", "org1", "owner/repo", RepositoryInitialization{Gitignore: "rust"}},

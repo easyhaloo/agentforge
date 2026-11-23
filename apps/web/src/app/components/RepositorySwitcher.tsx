@@ -8,15 +8,16 @@ import { repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Input, Popover } from "../../shared/ui";
 import { TopbarIcon } from "./TopbarIcon";
 
-type Props = { organizationId: string; handle: string; owner: string; repo: string; section?: RepositorySection };
+type Props = { organizationId: string; organizationName: string; handle: string; owner: string; repo: string; section?: RepositorySection };
 
-export function RepositorySwitcher({ owner, repo, ...context }: Props) {
+export function RepositorySwitcher({ owner, repo, organizationName, ...context }: Props) {
   const { t } = useTranslation("navigation");
   const slug = `${owner}/${repo}`;
   const title = t("topbar.switchRepository");
+  const ownerLabel = owner === context.organizationId ? organizationName : owner;
   return (
     <div className="topbar-repository">
-      <span className="topbar-repository__owner" title={owner}>{owner}</span>
+      <span className="topbar-repository__owner" title={ownerLabel}>{ownerLabel}</span>
       <span aria-hidden="true">/</span>
       <Link className="topbar-repository__name" to={repositoryPath(context.handle, slug)} title={repo}>{repo}</Link>
       <Popover ariaLabel={title} trigger={<><ChevronDown size={14} aria-hidden="true" /><span className="topbar-repository__label">{title}</span></>}>
@@ -27,7 +28,7 @@ export function RepositorySwitcher({ owner, repo, ...context }: Props) {
   );
 }
 
-function RepositoryChoices({ organizationId, handle, slug, owner, section }: Omit<Props, "repo"> & { slug: string }) {
+function RepositoryChoices({ organizationId, handle, slug, owner, section }: Omit<Props, "repo" | "organizationName"> & { slug: string }) {
   const { t } = useTranslation("navigation");
   const [query, setQuery] = useState("");
   const [repositories, setRepositories] = useState<RepositoryMetadata[]>();

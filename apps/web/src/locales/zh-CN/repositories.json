@@ -135,7 +135,7 @@
     "noOwners": "没有匹配的所有者。",
     "personalAccount": "个人账号",
     "organizationAccount": "组织",
-    "invalidName": "最多 100 个字母、数字、点、连字符或下划线，并以字母或数字开头。",
+    "invalidName": "名称最多 100 个字符，须包含至少一个英文字母，例如 delivery-api。仅可使用英文字母、数字、点、连字符和下划线，以字母或数字开头，且不能以点结尾。",
     "nameTaken": "该所有者已使用仓库名「{{name}}」。",
     "descriptionLabel": "描述（选填）",
     "descriptionCount": "{{count}} / 350 字符",

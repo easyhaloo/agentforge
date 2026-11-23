@@ -15,6 +15,7 @@ import (
 )
 
 var initializationSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
+var repositoryNameLetter = regexp.MustCompile(`[A-Za-z]`)
 
 var initializationGitignoreTemplates = map[string]string{
 	"node": `node_modules/
@@ -93,6 +94,9 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 		if !initializationSegmentPattern.MatchString(segment) || !filepath.IsLocal(segment) || strings.HasSuffix(segment, ".") {
 			return nil, fmt.Errorf("%w: invalid path segment", ErrRepositoryInvalid)
 		}
+	}
+	if !repositoryNameLetter.MatchString(name) {
+		return nil, fmt.Errorf("%w: repository name must contain at least one ASCII letter", ErrRepositoryInvalid)
 	}
 	ignore := initializationGitignoreTemplates[init.Gitignore]
 	if (init.Gitignore != "" && ignore == "") || (init.License != "" && init.License != "mit") {

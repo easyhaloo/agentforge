@@ -135,7 +135,7 @@
     "noOwners": "No matching owners.",
     "personalAccount": "Personal account",
     "organizationAccount": "Organization",
-    "invalidName": "Use up to 100 letters, numbers, periods, hyphens, or underscores. Start with a letter or number.",
+    "invalidName": "Use up to 100 characters and include at least one letter (A–Z), for example delivery-api. Start with a letter or digit, use only letters, digits, periods, hyphens, or underscores, and do not end with a period.",
     "nameTaken": "The repository name “{{name}}” is already taken for this owner.",
     "descriptionLabel": "Description (optional)",
     "descriptionCount": "{{count}} / 350 characters",
