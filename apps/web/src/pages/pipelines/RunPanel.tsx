@@ -57,7 +57,7 @@ export function RunDialog({ org, pipeline, draft, onCancel, onSubmit, queue = fa
   }
   return <Modal open title={t(queue ? "enqueue" : "runWorkflow")} onCancel={onCancel} okText={t(usingDraft ? (queue ? "publishAndEnqueue" : "publishAndStart") : (queue ? "enqueue" : confirmDiscard ? "discardToRun" : "start"))}
     onOk={submit} okDisabled={!definition || missing || (usingDraft && !draft.publish)}>
-    {error && <p role="alert">{error} <Button onClick={() => { setError(""); setRetry(n => n + 1); }}>{t("common:actions.refresh")}</Button></p>}
+    {error && <p role="alert">{error} <Button onClick={() => { setError(""); setRetry(n => n + 1); }}>{t("common:actions.retry")}</Button></p>}
     {!definition && !error ? <p role="status">{t("common:status.loading")}</p> :
       definition && <form ref={form} className="wf-create-fields" onSubmit={e => e.preventDefault()}>
         <Select label={t(draft ? "configurationVersion" : "version")} value={String(number)} options={[

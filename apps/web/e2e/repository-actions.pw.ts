@@ -92,10 +92,10 @@ test("repository Actions creates and runs a workflow and preserves history filte
   });
   const capture = (name: string) => page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true });
   await page.goto(pagePath);
-  const error = page.getByRole("alert").filter({ has: page.getByRole("button", { name: "Refresh" }) });
+  const error = page.getByRole("alert").filter({ has: page.getByRole("button", { name: "Retry" }) });
   await expect(error).toBeVisible();
   httpError = false;
-  await error.getByRole("button", { name: "Refresh" }).click();
+  await error.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByRole("heading", { name: /no .*runs/i })).toBeVisible();
   const actionsIcon = page.getByRole("link", { name: "Actions", exact: true }).locator("svg");
   await expect(actionsIcon).toHaveAttribute("viewBox", "0 0 16 16");

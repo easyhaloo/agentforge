@@ -153,7 +153,7 @@ test("reviews an updated pull request and merges only its verified revision", as
         await expect(dialog.getByRole("alert")).toContainText("the base branch changed");
         await expect(suffix).toHaveValue("verified-branch");
         expect(git("branch", "--list", "agentforge/issues/*")).toBe("");
-        await dialog.getByRole("button", { name: "Reload branches" }).click();
+        await dialog.getByRole("button", { name: "Retry" }).click();
         await expect(confirm).toBeEnabled();
         await confirm.click();
         const createdBranch = page.getByRole("link", { name: "verified-branch", exact: true });
@@ -457,7 +457,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     git("switch", "--quiet", "feature/docs");
     const secondHead = commit("# Documentation\n\nFirst revision.\nSecond revision.\n", "Clarify revision notes");
     git("switch", "--quiet", "main");
-    await page.getByRole("button", { name: /Refresh (revision|source branch)|Update revision/i }).click();
+    await page.getByRole("button", { name: "Update revision" }).click();
     await expect(merge.filter({ visible: true }).and(page.locator(":enabled"))).toHaveCount(0);
     await expect(page.getByText("This comment was made on an older revision", { exact: true })).toBeVisible();
     await expect(checksTab).toHaveAccessibleName("Checks 0");

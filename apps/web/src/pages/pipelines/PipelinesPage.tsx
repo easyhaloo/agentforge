@@ -41,7 +41,7 @@ const templates = [
 
 export function PipelinesPage({ organization, renderHeader }: {
   organization: OrganizationSummary;
-  renderHeader: (actions: { onCreate?: () => void; onRefresh: () => void; disabled: boolean }) => ReactNode;
+  renderHeader: (actions: { onCreate?: () => void; disabled: boolean }) => ReactNode;
 }) {
   const { t } = useTranslation("pipelines");
   const org = organization.id;
@@ -49,7 +49,6 @@ export function PipelinesPage({ organization, renderHeader }: {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [listRevision, refreshList] = useState(0);
   useEffect(() => {
     let active = true;
     setBusy(true); setError("");
@@ -57,11 +56,11 @@ export function PipelinesPage({ organization, renderHeader }: {
       .catch((cause: unknown) => { if (active) setError(translateError(cause, t, "pipelines:errors.requestFailed")); })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [org, t, listRevision]);
+  }, [org, t]);
   return <>
     {renderHeader({
       onCreate: organization.role === "viewer" ? undefined : () => setCreating(true),
-      onRefresh: () => refreshList(n => n + 1), disabled: busy || creating,
+      disabled: busy || creating,
     })}
     <section className="org-admin wf-workspace">
       {error && <p className="org-error" role="alert">{error}</p>}
@@ -189,7 +188,7 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
         {canEdit && <Button variant="primary" disabled={busy || selected.disabled || (selected.version === 0 && !draftRun?.publish)} onClick={() => setRunDialog(true)}><Play size={14} />{t("runAction")}</Button>}
       </>}
     </header>
-    {error && <p className="org-error" role="alert">{error} {!selected && <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button>}</p>}
+    {error && <p className="org-error" role="alert">{error} {!selected && <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.retry")}</Button>}</p>}
     {!selected && busy && <p role="status">{t("common:status.loading")}</p>}
     {selected && <>
     {canEdit && validShape ? <div className="wf-editor-shell" inert={busy} aria-busy={busy}>

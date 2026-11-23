@@ -424,6 +424,12 @@ Use the [pull request frontend standard](pull-requests.md) for repository change
 - Avoid one-off inline styles when reusable class or design token is appropriate
 - Do not add decorative UI that obscures primary task or makes page look more complete than underlying behavior
 
+### Data loading and recovery
+
+- Keep routine Refresh and Reload controls out of page headers, toolbars, and panels. Fetch when a view opens or its scope changes, and update the affected data after a successful write.
+- For live status such as the merge queue, update automatically while the panel is open. Cancel pending reads and polling when the panel closes or its scope changes. Keep loading, empty, and error states distinct.
+- Offer a localized **Retry** action next to a recoverable error and have it repeat the failed operation. Label writes by their effect. For example, **Update revision** creates a new pull request Revision with its own checks and review requirements.
+
 ### Compact sidebar and action rows
 
 Use the shared `af-action-row` pattern for flat sidebar navigation and action lists. [Shared component styles](../../apps/web/src/shared/ui/components/components.css)

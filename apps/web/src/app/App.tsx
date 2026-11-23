@@ -100,11 +100,6 @@ function App() {
   const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || label === "New Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
   const isOverview = label === "Overview";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
-  // Organization pages are backed by the account API; the mock pages only simulate a refresh.
-  const refresh = () => {
-    if (urlHandle) void loadAccount();
-    else notify("Demo data refreshed.");
-  };
   const organizationSelect = <Select aria-label={t("navigation:sidebar.selectOrganization")} value={selectedOrganization?.id ?? ""}
     placeholder={t("navigation:sidebar.noOrganization")} disabled={!account?.organizations.length}
     onChange={event => { selectOrganization(event.target.value); setNavigationOpen(false); }}
@@ -126,7 +121,7 @@ function App() {
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
-              <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
+              <PageHeader label={label} descriptionKey={item?.descriptionKey} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>

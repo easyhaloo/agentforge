@@ -54,7 +54,7 @@ export function RunJobLogs({ org, run, job }: { org: string; run: Run; job: Defi
       setLogs(new Map());
       setConnected(false);
       setRetry(n => n + 1);
-    }}>{t("common:actions.refresh")}</Button></p>}
+    }}>{t("common:actions.retry")}</Button></p>}
     {query && !steps.length && !failed && <p role="status">{t(connected ? "runOutput.noMatches" : "common:status.loading")}</p>}
     {steps.map(({ id, lines }) => {
       const status = run.stepStatuses?.[id] ?? "queued";
@@ -89,7 +89,7 @@ export function RunArtifacts({ org, run }: { org: string; run: Run }) {
 
   return <section className="wf-run-output" aria-label={t("runOutput.artifacts")}>
     <h2>{t("runOutput.artifacts")}</h2>
-    {failed && <p role="alert">{t("runOutput.unavailable")} <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button></p>}
+    {failed && <p role="alert">{t("runOutput.unavailable")} <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.retry")}</Button></p>}
     {!failed && !outputs?.length && <p>{t(outputs ? "runOutput.noArtifacts" : "common:status.loading")}</p>}
     {!!outputs?.length && <ul>{outputs.map(({ id, provenance, expiresAt, purgedAt }) => {
       const name = t("runOutput.file", { ...provenance });

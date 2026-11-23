@@ -82,7 +82,6 @@
   "mergeQueue": "合并队列",
   "queueRepo": "已注册仓库",
   "queueTarget": "目标分支",
-  "refreshQueue": "刷新队列",
   "queueSource": "源分支或提交",
   "enqueue": "加入队列",
   "queueEmpty": "队列为空。",

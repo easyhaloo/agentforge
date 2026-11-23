@@ -179,7 +179,7 @@
     "cannotMerge": "无法合并：检查未通过或存在冲突",
     "confirmMerge": "将 {{source}} 合并到 {{base}}？",
     "confirmClose": "关闭此拉取请求而不合并？",
-    "refresh": "刷新修订",
+    "updateRevision": "更新修订",
     "mergeRequirements": "需要通过检查并获得批准。",
     "retry": "重试"
   },

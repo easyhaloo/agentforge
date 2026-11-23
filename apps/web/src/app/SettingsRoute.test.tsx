@@ -43,7 +43,7 @@ describe("settings routes", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(error);
     expect(screen.queryByText(empty)).toBeNull();
     expect(read).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "common:actions.refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: "common:actions.retry" }));
     await screen.findByText(empty);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(read).toHaveBeenCalledTimes(2);
