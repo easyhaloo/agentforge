@@ -42,13 +42,17 @@ func (d DeliveryDependencies) previewRepository(w http.ResponseWriter, r *http.R
 }
 
 func (d DeliveryDependencies) registeredRepository(w http.ResponseWriter, r *http.Request, principal Principal) (delivery.RepositoryMetadata, bool) {
-	if d.Catalog == nil {
-		writeProblem(w, http.StatusServiceUnavailable, "Repository catalog unavailable", "Repository metadata storage is not configured")
+	return d.resolveRegisteredRepository(w, r, principal, strings.TrimSpace(r.PathValue("owner"))+"/"+strings.TrimSpace(r.PathValue("repo")))
+}
+
+func (d DeliveryDependencies) resolveRegisteredRepository(w http.ResponseWriter, r *http.Request, principal Principal, slug string) (delivery.RepositoryMetadata, bool) {
+	owner, name, ok := strings.Cut(slug, "/")
+	if !ok || strings.TrimSpace(owner) == "" || strings.TrimSpace(name) == "" || strings.Contains(name, "/") || strings.Contains(slug, "..") || strings.ContainsAny(slug, "\x00\\") {
+		writeProblem(w, http.StatusBadRequest, "Invalid repository", "A valid owner/repository path is required")
 		return delivery.RepositoryMetadata{}, false
 	}
-	slug := strings.TrimSpace(r.PathValue("owner")) + "/" + strings.TrimSpace(r.PathValue("repo"))
-	if strings.Count(slug, "/") != 1 || strings.Contains(slug, "..") || strings.ContainsAny(slug, "\x00\\\\") || strings.TrimSpace(r.PathValue("owner")) == "" || strings.TrimSpace(r.PathValue("repo")) == "" {
-		writeProblem(w, http.StatusBadRequest, "Invalid repository", "A valid owner/repository path is required")
+	if d.Catalog == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository catalog unavailable", "Repository metadata storage is not configured")
 		return delivery.RepositoryMetadata{}, false
 	}
 	repositories, err := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)

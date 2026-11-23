@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -75,8 +76,8 @@ func (s *Store) SetRepositoryDefaultBranch(ctx context.Context, org, slug, branc
 	return err
 }
 
-// Run attribution comes from the explicit repository in an integration or trigger snapshot.
-const runRepository = `COALESCE(integration->>'repository', trigger_source->>'repository')`
+// Explicit integration and trigger attribution takes precedence over the workflow's repository at admission.
+const runRepository = `COALESCE(integration->>'repository', trigger_source->>'repository', repository)`
 
 func (s *Store) RepositoryActivities(ctx context.Context, org string) ([]delivery.RepositoryActivity, error) {
 	rows, err := s.pool.Query(ctx, `WITH changes AS (
@@ -93,12 +94,44 @@ func (s *Store) RepositoryActivities(ctx context.Context, org string) ([]deliver
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[delivery.RepositoryActivity])
 }
 
-func (s *Store) ListRepositoryActions(ctx context.Context, org, slug string, limit, offset int) ([]delivery.RepositoryAction, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id, p.name, r.status, r.version, r.created_at FROM pipeline_runs r
+func (s *Store) ListRepositoryActions(ctx context.Context, org, slug string, filter delivery.RepositoryActionFilter, limit, offset int) ([]delivery.RepositoryAction, error) {
+	rows, err := s.pool.Query(ctx, `SELECT r.id, coalesce(v.definition->>'name', p.name), r.status, r.version, r.created_at, r.pipeline_id,
+		details.event, details.branch, details.sha, u.display_name, r.actor_id,
+		(SELECT e.created_at FROM pipeline_run_events e
+		 WHERE r.status NOT IN ('queued','running') AND e.run_id=r.id AND e.step_id IS NULL AND e.kind=r.status ORDER BY e.seq DESC LIMIT 1)
+	FROM pipeline_runs r
 	JOIN pipelines p ON p.organization_id=r.organization_id AND p.id=r.pipeline_id
-	WHERE r.organization_id=$1 AND `+runRepository+`=$2 ORDER BY r.created_at DESC, r.id DESC LIMIT $3 OFFSET $4`, org, slug, limit, offset)
+	JOIN users u ON u.id=r.actor_id
+	JOIN pipeline_versions v ON v.organization_id=r.organization_id AND v.pipeline_id=r.pipeline_id AND v.number=r.version
+	CROSS JOIN LATERAL (SELECT
+		CASE WHEN r.integration ? 'queueEntry' THEN 'merge_queue'
+		     WHEN r.integration IS NOT NULL THEN 'integration'
+		     WHEN r.webhook IS NOT NULL THEN 'webhook'
+		     ELSE coalesce(r.trigger_source->>'kind', 'manual') END AS event,
+		regexp_replace(coalesce(r.integration#>>'{target,ref}', r.webhook->>'ref', ''), '^refs/heads/', '') AS branch,
+		coalesce(r.integration->>'candidateSHA', r.trigger_source->>'sha', r.webhook->>'sha', '') AS sha
+	) details
+	WHERE r.organization_id=$1 AND COALESCE(r.integration->>'repository', r.trigger_source->>'repository', r.repository)=$2
+		AND ($3='' OR r.pipeline_id=$3) AND ($4='' OR r.status=$4) AND ($5='' OR details.event=$5)
+		AND ($7='' OR lower(details.branch)=lower($7))
+		AND ($8='' OR r.actor_id=$8 OR lower(u.display_name)=lower($8))
+		AND ($6='' OR strpos(lower(concat_ws(' ', p.name, v.definition->>'name', r.id::text, details.branch, details.sha, u.display_name)), lower($6))>0)
+	ORDER BY r.created_at DESC, r.id DESC LIMIT $9 OFFSET $10`, org, slug, filter.Workflow, filter.Status, filter.Event, filter.Query, filter.Branch, filter.Actor, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list repository actions: %w", err)
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[delivery.RepositoryAction])
+}
+
+func (s *Store) ListRepositoryWorkflows(ctx context.Context, org, slug string) ([]pipeline.Summary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT p.disabled,coalesce(p.repository,''),p.id,p.name,p.status,p.revision,p.version FROM pipelines p
+	WHERE p.organization_id=$1 AND (p.repository=$2 OR p.id IN (
+		SELECT pipeline_id FROM pipeline_runs WHERE organization_id=$1 AND `+runRepository+`=$2
+		UNION ALL
+		SELECT pipeline_id FROM pipeline_trigger_bindings WHERE organization_id=$1 AND repository=$2 AND enabled
+	)) ORDER BY p.name,p.id`, org, slug)
+	if err != nil {
+		return nil, fmt.Errorf("list repository workflows: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[pipeline.Summary])
 }

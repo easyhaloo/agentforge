@@ -5,13 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
-	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
-	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 )
 
 func TestPipelineLifecycle(t *testing.T) {
@@ -246,4 +248,76 @@ func TestWorkerLeaseAndApprovalOrdering(t *testing.T) {
 		t.Fatal("cancelled task accepted worker update")
 	}
 	claim("worker1", "")
+}
+
+func TestRepositoryActionsWorkflowLifecycle(t *testing.T) {
+	fx := lockOpenStore(t, lockOptions{})
+	const repository = "team/service"
+	h := newLockHTTP(t, fx, 0, repository, "team/other")
+	h.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+		Identity: fx.store, CSRF: fx.store, Pipelines: fx.store, Runs: fx.store, Catalog: fx.store, AllowedOrigin: lockHTTPOrigin,
+	})
+	org := "/api/v1/organizations/" + h.organizationID
+	actions := org + "/repositories/" + repository + "/actions"
+	otherActions := org + "/repositories/team/other/actions"
+	call := func(method, path, body string, status int, result any) {
+		t.Helper()
+		response := h.do(fx.ctx, method, path, body)
+		if response.Code != status {
+			t.Fatalf("%s %s: %d %s", method, path, response.Code, response.Body.String())
+		}
+		if result != nil {
+			lockMust(t, json.Unmarshal(response.Body.Bytes(), result))
+		}
+	}
+	const definition = `{"apiVersion":"agentforge.dev/v1","name":"release","stages":[{"id":"review","jobs":[{"id":"gate","steps":[{"id":"sign","uses":"control/approval@v1"}]}]}]}`
+	var flow pipeline.Pipeline
+	call("POST", org+"/pipelines?repository=team%2Fmissing", definition, 404, nil)
+	call("POST", org+"/pipelines?repository=team%2Fservice", definition, 201, &flow)
+	if flow.Repository != repository || flow.Status != "draft" {
+		t.Fatalf("created workflow: %+v", flow.Summary)
+	}
+	var workflows struct{ Items []pipeline.Summary }
+	call("GET", actions+"/workflows", "", 200, &workflows)
+	if len(workflows.Items) != 1 || workflows.Items[0].ID != flow.ID {
+		t.Fatalf("draft missing from workflow list: %+v", workflows.Items)
+	}
+	call("GET", otherActions+"/workflows", "", 200, &workflows)
+	if len(workflows.Items) != 0 {
+		t.Fatalf("different repository workflow list: %+v", workflows.Items)
+	}
+	path := org + "/pipelines/" + flow.ID
+	call("POST", path+"/publish", `{"revision":1}`, 200, &flow)
+	var run execution.Run
+	call("POST", path+"/versions/1/runs", `{}`, 201, &run)
+	if run.Repository != repository || run.Version != 1 {
+		t.Fatalf("run repository/version: %s/%d", run.Repository, run.Version)
+	}
+	call("PUT", path+"/draft", `{"revision":2,"definition":`+strings.Replace(definition, `"release"`, `"next"`, 1)+`}`, 200, &flow)
+	var history struct{ Items []delivery.RepositoryAction }
+	call("GET", actions+"?status=queued&event=manual&q=RELEASE&workflow="+flow.ID+"&actor="+h.userID, "", 200, &history)
+	if len(history.Items) != 1 || history.Items[0].ID != run.ID || history.Items[0].Pipeline != "release" || history.Items[0].PipelineID != flow.ID || history.Items[0].ActorID != h.userID {
+		t.Fatalf("run history: %+v", history.Items)
+	}
+	for _, filter := range []string{"?status=failed", "?event=schedule", "?q=%25", "?workflow=missing", "?branch=main", "?offset=20"} {
+		call("GET", actions+filter, "", 200, &history)
+		if len(history.Items) != 0 {
+			t.Errorf("run should not match %s: %+v", filter, history.Items)
+		}
+	}
+	call("GET", actions+"?event=unknown", "", 400, nil)
+	call("GET", otherActions, "", 200, &history)
+	if len(history.Items) != 0 {
+		t.Fatalf("run leaked into other repository: %+v", history.Items)
+	}
+	call("POST", org+"/pipeline-runs/"+run.ID+"/cancel", "", 204, nil)
+	call("GET", actions+"?status=cancelled", "", 200, &history)
+	if len(history.Items) != 1 || history.Items[0].CompletedAt == nil {
+		t.Fatalf("cancelled run missing completion time: %+v", history.Items)
+	}
+	_, err := fx.store.pool.Exec(fx.ctx, "UPDATE organization_memberships SET role='viewer' WHERE organization_id=$1 AND user_id=$2", h.organizationID, h.userID)
+	lockMust(t, err)
+	call("GET", actions+"/workflows", "", 200, &workflows)
+	call("POST", org+"/pipelines?repository=team%2Fservice", definition, 403, nil)
+	call("POST", path+"/versions/1/runs", `{}`, 403, nil)
 }

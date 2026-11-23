@@ -3,6 +3,57 @@ info:
   title: Pipeline API
   version: 1.0.0
 paths:
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+      - {name: owner, in: path, required: true, schema: {type: string}}
+      - {name: repo, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: listRepositoryActions
+      summary: List runs attributed to a registered repository, newest first
+      security: [{sessionCookie: []}]
+      parameters:
+        - {name: workflow, in: query, schema: {type: string, maxLength: 128}}
+        - {name: status, in: query, schema: {$ref: '#/components/schemas/RunStatus'}}
+        - {name: event, in: query, schema: {$ref: '#/components/schemas/RepositoryActionEvent'}}
+        - {name: q, in: query, description: "Literal search over the workflow name, run ID, branch, SHA or actor name.", schema: {type: string, maxLength: 512}}
+        - {name: branch, in: query, schema: {type: string, maxLength: 255}}
+        - {name: actor, in: query, description: Exact user ID or display name., schema: {type: string, maxLength: 255}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      responses:
+        '200':
+          description: Up to 20 runs with a continuation indicator
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, has_more]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/RepositoryAction'}}
+                  has_more: {type: boolean}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions/workflows:
+    parameters:
+      - {name: organizationID, in: path, required: true, schema: {type: string}}
+      - {name: owner, in: path, required: true, schema: {type: string}}
+      - {name: repo, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: listRepositoryWorkflows
+      summary: List workflows owned by the repository or associated through runs or active triggers
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Workflow summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Summary'}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
   /api/v1/organizations/{organizationID}/merge-queue:
     parameters:
       - {name: organizationID, in: path, required: true, schema: {type: string}}
@@ -116,6 +167,11 @@ paths:
     post:
       operationId: createPipeline
       summary: Create a validated draft
+      parameters:
+        - name: repository
+          in: query
+          description: Optional owner/repository slug registered in the organization. Repository ownership is immutable.
+          schema: {type: string}
       security:
       - sessionCookie: []
         csrfCookie: []
@@ -297,6 +353,92 @@ paths:
                   type: integer
                   minimum: 1
               additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/disable:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: disableRepositoryWorkflow
+      summary: Disable launches of a published repository workflow (owner or admin)
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
+  /api/v1/organizations/{organizationID}/pipelines/{id}/enable:
+    parameters:
+    - in: path
+      name: organizationID
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    post:
+      operationId: enableRepositoryWorkflow
+      summary: Re-enable launches of a published repository workflow (owner or admin)
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        4XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+        5XX:
+          $ref: ./openapi.yaml#/components/responses/Problem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - revision
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
   /api/v1/organizations/{organizationID}/pipelines/{id}/versions:
     parameters:
     - &id001
@@ -436,6 +578,88 @@ paths:
           $ref: ./openapi.yaml#/components/responses/Problem
         5XX:
           $ref: ./openapi.yaml#/components/responses/Problem
+  /api/v1/organizations/{organizationID}/pipelines/{id}/triggers:
+    parameters:
+    - {in: path, name: organizationID, required: true, schema: {type: string}}
+    - {in: path, name: id, required: true, schema: {type: string}}
+    get:
+      operationId: listWorkflowTriggers
+      summary: List enabled triggers for a repository workflow
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Enabled workflow triggers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/WorkflowTrigger'}}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+    post:
+      operationId: enableWorkflowTrigger
+      summary: Bind an automatic trigger to a published version as an owner or admin
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, version]
+              properties:
+                kind: {$ref: '#/components/schemas/WorkflowTriggerKind'}
+                version: {type: integer, minimum: 1}
+                everySeconds: {type: integer, minimum: 60, maximum: 31536000, description: Required for schedule triggers only.}
+      responses:
+        '201':
+          description: Enabled
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkflowTrigger'}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipelines/{id}/triggers/{binding}:
+    parameters:
+    - {in: path, name: organizationID, required: true, schema: {type: string}}
+    - {in: path, name: id, required: true, schema: {type: string}}
+    - {in: path, name: binding, required: true, schema: {type: string, format: uuid}}
+    delete:
+      operationId: disableWorkflowTrigger
+      summary: Disable a trigger while retaining its history
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '204': {description: Disabled}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/rerun:
+    parameters:
+    - {in: path, name: organizationID, required: true, schema: {type: string}}
+    - {in: path, name: run, required: true, schema: {type: string}}
+    post:
+      operationId: rerunWorkflow
+      summary: As the original actor, rerun a completed manual repository workflow using its original version and inputs
+      security:
+      - sessionCookie: []
+        csrfCookie: []
+        csrfToken: []
+      responses:
+        '201':
+          description: New run queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Run'}
+        4XX: {$ref: './openapi.yaml#/components/responses/Problem'}
+        5XX: {$ref: './openapi.yaml#/components/responses/Problem'}
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}/cancel:
     parameters:
     - in: path
@@ -552,12 +776,47 @@ components:
         status: {type: string, enum: [queued, building, ready]}
         runId: {type: string}
         candidateSHA: {type: string}
+    RunStatus:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled, timed_out]
+    RepositoryActionEvent:
+      type: string
+      enum: [manual, webhook, changeset_revision, schedule, merge_queue, integration, rerun]
+    RepositoryAction:
+      type: object
+      required: [id, pipeline, pipeline_id, status, version, created_at, event, actor, actor_id]
+      properties:
+        id: {type: string}
+        pipeline: {type: string, description: Workflow name in the published version used by the run.}
+        pipeline_id: {type: string}
+        status: {$ref: '#/components/schemas/RunStatus'}
+        version: {type: integer, minimum: 1}
+        created_at: {type: string, format: date-time}
+        event: {$ref: '#/components/schemas/RepositoryActionEvent'}
+        branch: {type: string}
+        sha: {type: string}
+        actor: {type: string}
+        actor_id: {type: string}
+        completed_at: {type: string, format: date-time}
+      additionalProperties: false
+    WorkflowTriggerKind:
+      type: string
+      enum: [schedule, changeset_revision]
+    WorkflowTrigger:
+      type: object
+      required: [id, kind, version]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {$ref: '#/components/schemas/WorkflowTriggerKind'}
+        version: {type: integer, minimum: 1}
+        everySeconds: {type: integer, minimum: 60}
     Run:
       type: object
       additionalProperties: false
       properties:
         id:
           type: string
+        repository: {type: string, description: Registered repository attributed at admission.}
         integration:
           allOf:
             - {$ref: './merge-preview.yaml#/components/schemas/MergePreview'}
@@ -586,6 +845,12 @@ components:
                 changesetId: {type: string}
                 revisionId: {type: string}
                 sha: {type: string, pattern: '^([a-f0-9]{40}|[a-f0-9]{64})$'}
+            - type: object
+              additionalProperties: false
+              required: [kind, runId]
+              properties:
+                kind: {type: string, enum: [rerun]}
+                runId: {type: string}
         webhook:
           type: object
           additionalProperties: false
@@ -644,6 +909,8 @@ components:
       - revision
       - version
       properties:
+        repository: {type: string, description: "Registered repository that owns the workflow, if present."}
+        disabled: {type: boolean, description: Whether new runs are disabled for this workflow.}
         id:
           type: string
         name:
@@ -671,6 +938,8 @@ components:
       - version
       - definition
       properties:
+        repository: {type: string, description: "Registered repository that owns the workflow, if present."}
+        disabled: {type: boolean, description: Whether new runs are disabled for this workflow.}
         id:
           type: string
         name:

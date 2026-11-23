@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Store) ListPipelines(ctx context.Context, org string) ([]pipeline.Summary, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,status,revision,version FROM pipelines WHERE organization_id=$1 ORDER BY name,id`, org)
+	rows, err := s.pool.Query(ctx, `SELECT disabled,coalesce(repository,''),id,name,status,revision,version FROM pipelines WHERE organization_id=$1 ORDER BY name,id`, org)
 	if err != nil {
 		return nil, err
 	}
@@ -19,20 +19,29 @@ func (s *Store) ListPipelines(ctx context.Context, org string) ([]pipeline.Summa
 }
 func scanPipeline(row pgx.Row) (pipeline.Pipeline, error) {
 	var p pipeline.Pipeline
-	err := row.Scan(&p.ID, &p.Name, &p.Status, &p.Revision, &p.Version, &p.Definition)
+	err := row.Scan(&p.Disabled, &p.Repository, &p.ID, &p.Name, &p.Status, &p.Revision, &p.Version, &p.Definition)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = pipeline.ErrMissing
 	}
 	return p, err
 }
 
-const pipelineQuery = `SELECT id,name,status,revision,version,definition FROM pipelines WHERE organization_id=$1 AND id=$2`
+const pipelineQuery = `SELECT disabled,coalesce(repository,''),id,name,status,revision,version,definition FROM pipelines WHERE organization_id=$1 AND id=$2`
 
 func (s *Store) GetPipeline(ctx context.Context, org, id string) (pipeline.Pipeline, error) {
 	return scanPipeline(s.pool.QueryRow(ctx, pipelineQuery, org, id))
 }
 func (s *Store) ChangePipeline(ctx context.Context, org, id, actor, action string, revision int, definition *pipeline.Definition) (pipeline.Pipeline, error) {
+	return s.changePipeline(ctx, org, id, actor, action, revision, definition, "")
+}
+
+func (s *Store) CreateRepositoryPipeline(ctx context.Context, org, id, actor, repository string, definition *pipeline.Definition) (pipeline.Pipeline, error) {
+	return s.changePipeline(ctx, org, id, actor, "create", 0, definition, repository)
+}
+
+func (s *Store) changePipeline(ctx context.Context, org, id, actor, action string, revision int, definition *pipeline.Definition, repository string) (pipeline.Pipeline, error) {
 	var p pipeline.Pipeline
+	p.Repository = repository
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return p, err
@@ -76,6 +85,11 @@ func (s *Store) ChangePipeline(ctx context.Context, org, id, actor, action strin
 		if err != nil {
 			return p, err
 		}
+	case "disable", "enable":
+		if p.Repository == "" || p.Version == 0 || p.Disabled == (action == "disable") {
+			return p, pipeline.ErrConflict
+		}
+		p.Disabled = action == "disable"
 	case "archive":
 		p.Status = "archived"
 	default:
@@ -83,9 +97,9 @@ func (s *Store) ChangePipeline(ctx context.Context, org, id, actor, action strin
 	}
 	p.Revision++
 	if action == "create" {
-		_, err = tx.Exec(ctx, `INSERT INTO pipelines(organization_id,id,name,status,definition) VALUES($1,$2,$3,$4,$5)`, org, id, p.Name, p.Status, p.Definition)
+		_, err = tx.Exec(ctx, `INSERT INTO pipelines(organization_id,id,name,status,definition,repository) VALUES($1,$2,$3,$4,$5,NULLIF($6,''))`, org, id, p.Name, p.Status, p.Definition, p.Repository)
 	} else {
-		_, err = tx.Exec(ctx, `UPDATE pipelines SET name=$3,status=$4,definition=$5,revision=$6,version=$7 WHERE organization_id=$1 AND id=$2`, org, id, p.Name, p.Status, p.Definition, p.Revision, p.Version)
+		_, err = tx.Exec(ctx, `UPDATE pipelines SET name=$3,status=$4,definition=$5,revision=$6,version=$7,disabled=$8 WHERE organization_id=$1 AND id=$2`, org, id, p.Name, p.Status, p.Definition, p.Revision, p.Version, p.Disabled)
 	}
 	if err != nil {
 		return p, err

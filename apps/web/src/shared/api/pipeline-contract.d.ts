@@ -4,6 +4,48 @@
  */
 
 export interface paths {
+    "/api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        /** List runs attributed to a registered repository, newest first */
+        get: operations["listRepositoryActions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        /** List workflows owned by the repository or associated through runs or active triggers */
+        get: operations["listRepositoryWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{organizationID}/merge-queue": {
         parameters: {
             query?: never;
@@ -181,6 +223,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{organizationID}/pipelines/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable launches of a published repository workflow (owner or admin) */
+        post: operations["disableRepositoryWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipelines/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-enable launches of a published repository workflow (owner or admin) */
+        post: operations["enableRepositoryWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{organizationID}/pipelines/{id}/versions": {
         parameters: {
             query?: never;
@@ -257,6 +339,68 @@ export interface paths {
         get: operations["getRun"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipelines/{id}/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List enabled triggers for a repository workflow */
+        get: operations["listWorkflowTriggers"];
+        put?: never;
+        /** Bind an automatic trigger to a published version as an owner or admin */
+        post: operations["enableWorkflowTrigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipelines/{id}/triggers/{binding}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+                binding: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Disable a trigger while retaining its history */
+        delete: operations["disableWorkflowTrigger"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{organizationID}/pipeline-runs/{run}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** As the original actor, rerun a completed manual repository workflow using its original version and inputs */
+        post: operations["rerunWorkflow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -341,8 +485,40 @@ export interface components {
             runId?: string;
             candidateSHA?: string;
         };
+        /** @enum {string} */
+        RunStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "timed_out";
+        /** @enum {string} */
+        RepositoryActionEvent: "manual" | "webhook" | "changeset_revision" | "schedule" | "merge_queue" | "integration" | "rerun";
+        RepositoryAction: {
+            id: string;
+            /** @description Workflow name in the published version used by the run. */
+            pipeline: string;
+            pipeline_id: string;
+            status: components["schemas"]["RunStatus"];
+            version: number;
+            /** Format: date-time */
+            created_at: string;
+            event: components["schemas"]["RepositoryActionEvent"];
+            branch?: string;
+            sha?: string;
+            actor: string;
+            actor_id: string;
+            /** Format: date-time */
+            completed_at?: string;
+        };
+        /** @enum {string} */
+        WorkflowTriggerKind: "schedule" | "changeset_revision";
+        WorkflowTrigger: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["WorkflowTriggerKind"];
+            version: number;
+            everySeconds?: number;
+        };
         Run: {
             id: string;
+            /** @description Registered repository attributed at admission. */
+            repository?: string;
             integration?: components["schemas"]["MergePreview"] & {
                 queueEntry?: number;
                 repository: string;
@@ -365,6 +541,10 @@ export interface components {
                 changesetId: string;
                 revisionId: string;
                 sha: string;
+            } | {
+                /** @enum {string} */
+                kind: "rerun";
+                runId: string;
             };
             webhook?: {
                 hook: string;
@@ -393,6 +573,10 @@ export interface components {
         };
         Definition: components["schemas"]["workflow.schema"];
         Summary: {
+            /** @description Registered repository that owns the workflow */
+            repository?: string;
+            /** @description Whether new runs are disabled for this workflow. */
+            disabled?: boolean;
             id: string;
             name: string;
             /** @enum {unknown} */
@@ -401,6 +585,10 @@ export interface components {
             version: number;
         };
         Pipeline: {
+            /** @description Registered repository that owns the workflow */
+            repository?: string;
+            /** @description Whether new runs are disabled for this workflow. */
+            disabled?: boolean;
             id: string;
             name: string;
             /** @enum {unknown} */
@@ -485,6 +673,73 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listRepositoryActions: {
+        parameters: {
+            query?: {
+                workflow?: string;
+                status?: components["schemas"]["RunStatus"];
+                event?: components["schemas"]["RepositoryActionEvent"];
+                /** @description Literal search over the workflow name */
+                q?: string;
+                branch?: string;
+                /** @description Exact user ID or display name. */
+                actor?: string;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                organizationID: string;
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to 20 runs with a continuation indicator */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RepositoryAction"][];
+                        has_more: boolean;
+                    };
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    listRepositoryWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow summaries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Summary"][];
+                    };
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
     listMergeQueue: {
         parameters: {
             query: {
@@ -645,7 +900,10 @@ export interface operations {
     };
     createPipeline: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Optional owner/repository slug registered in the organization. Repository ownership is immutable. */
+                repository?: string;
+            };
             header?: never;
             path: {
                 organizationID: string;
@@ -790,6 +1048,68 @@ export interface operations {
             "5XX": components["responses"]["Problem"];
         };
     };
+    disableRepositoryWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pipeline"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    enableRepositoryWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pipeline"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
     getPipelineVersions: {
         parameters: {
             query?: never;
@@ -893,6 +1213,116 @@ export interface operations {
         responses: {
             /** @description Success */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    listWorkflowTriggers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled workflow triggers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["WorkflowTrigger"][];
+                    };
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    enableWorkflowTrigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    kind: components["schemas"]["WorkflowTriggerKind"];
+                    version: number;
+                    /** @description Required for schedule triggers only. */
+                    everySeconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Enabled */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTrigger"];
+                };
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    disableWorkflowTrigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                id: string;
+                binding: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disabled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            "4XX": components["responses"]["Problem"];
+            "5XX": components["responses"]["Problem"];
+        };
+    };
+    rerunWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationID: string;
+                run: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New run queued */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

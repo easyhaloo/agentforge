@@ -1,3 +1,5 @@
+import type { components, operations } from "./pipeline-contract";
+
 // `slug` is the URL handle; the API may not return it yet, so routing falls back to `id` (see shared/routing).
 export type OrganizationSummary = { id: string; slug: string; name: string; personal?: boolean; role: "owner" | "admin" | "member" | "viewer" };
 export type AccountContext = { user_id: string; display_name: string; email?: string; organizations: OrganizationSummary[] };
@@ -218,7 +220,7 @@ export type RepositorySummary = RepositoryMetadata & {
   git?: { branch_count: number; last_commit_at?: string; language?: string };
   activity?: { changeset_count: number; action_count: number };
 };
-export type RepositoryAction = { id: string; pipeline: string; status: string; version: number; created_at: string };
+export type RepositoryAction = components["schemas"]["RepositoryAction"];
 
 export const repositoryAPI = {
   list: (organizationID: string, signal?: AbortSignal) => request<{items: RepositoryMetadata[]}>(repositoryBase(organizationID), { signal }),
@@ -229,8 +231,10 @@ export const repositoryAPI = {
     request<RepositoryMetadata>(repositoryBase(organizationID), {
       method: "POST", body: JSON.stringify({ slug, default_branch: "main", description, initialize }),
     }),
-  actions: (organizationID: string, repository: string, offset: number) =>
-    request<{items: RepositoryAction[]; has_more: boolean}>(`${repositoryBase(organizationID, repository)}/actions?offset=${offset}`),
+  actions: (organizationID: string, repository: string, filters: string, signal?: AbortSignal) =>
+    request<operations["listRepositoryActions"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions?${filters}`, { signal }),
+  workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
+    request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
   updateDefaultBranch: (organizationID: string, repository: string, defaultBranch: string, previousBranch: string) =>
     request<void>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify({ default_branch: defaultBranch, previous_branch: previousBranch }),

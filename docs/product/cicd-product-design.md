@@ -50,7 +50,11 @@ Show queue entries by repository and target branch. Each entry displays order, s
 
 ## Information architecture
 
-The existing `/pipelines` route is currently a mock ResourceRoute. Keep it as a placeholder until the live API exists; when graduating the feature to a real backend-backed page, use organization-scoped routes consistent with ADR-008.
+Repository **Actions** is the repository entry point for CI/CD. The workflow sidebar switches between all runs and a single workflow. Run history supports search, status, event, branch and actor filters. The detail page groups the run graph and artifacts under Summary and exposes searchable step logs under Jobs. Returning to Actions restores the active filters.
+
+**New workflow** opens the template picker. **Workflow settings** opens the shared visual editor for the repository-bound workflow. Manual runs use a published version. Owners and admins can bind a schedule or Changeset Revision trigger to an immutable version. Disabling a workflow blocks new runs without deleting its triggers or history. Republishing leaves existing trigger version bindings in place.
+
+Repository Actions uses the organization-scoped editor and run routes defined by ADR-008. The organization CI/CD workspace provides a cross-repository view.
 
 Proposed navigation within CI/CD:
 - Pipelines

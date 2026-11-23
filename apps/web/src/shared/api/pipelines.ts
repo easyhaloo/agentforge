@@ -9,9 +9,15 @@ export type Summary = components["schemas"]["Summary"];
 const path = (org: string) => `/api/v1/organizations/${encodeURIComponent(org)}/pipelines`;
 const item = (org: string, id: string) => `${path(org)}/${encodeURIComponent(id)}`;
 const orgBase = (org: string) => `/api/v1/organizations/${encodeURIComponent(org)}`;
+export type WorkflowTrigger = components["schemas"]["WorkflowTrigger"];
+export type WorkflowTriggerKind = components["schemas"]["WorkflowTriggerKind"];
 export type QueueEntry = components["schemas"]["QueueEntry"];
 export const pipelines = {
   run: (org: string, id: string, signal: AbortSignal) => request<Run>(`${orgBase(org)}/pipeline-runs/${encodeURIComponent(id)}`, {signal, cache: "no-store"}),
+  rerun: (org: string, id: string) => request<Run>(`${orgBase(org)}/pipeline-runs/${encodeURIComponent(id)}/rerun`, { method: "POST" }),
+  triggers: (org: string, id: string, signal: AbortSignal) => request<{ items: WorkflowTrigger[] }>(`${item(org, id)}/triggers`, { signal }),
+  enableTrigger: (org: string, id: string, binding: Omit<WorkflowTrigger, "id">) => request<WorkflowTrigger>(`${item(org, id)}/triggers`, { method: "POST", body: JSON.stringify(binding) }),
+  disableTrigger: (org: string, id: string, binding: string) => request<void>(`${item(org, id)}/triggers/${encodeURIComponent(binding)}`, { method: "DELETE" }),
   queue: (org:string,repository:string,target:string) => request<{items: QueueEntry[]}>(`${orgBase(org)}/merge-queue?${new URLSearchParams({repository,target})}`),
   enqueue: (org:string,id:string,version:number,body: {repository:string;target:string;sources:string[];inputs:Record<string,unknown>}) => request<QueueEntry>(`${item(org,id)}/versions/${version}/merge-queue`,{method:"POST",body:JSON.stringify(body)}),
   cancelEntry: (org:string,id:number) => request<void>(`${orgBase(org)}/merge-queue/${id}/cancel`,{method:"POST"}),
@@ -20,7 +26,10 @@ export const pipelines = {
   start: (org: string, id: string, number: number, inputs: Record<string, unknown>) => request<Run>(`${item(org, id)}/versions/${number}/runs`, { method: "POST", body: JSON.stringify(inputs) }),
   list: (org: string) => request<{ items: Summary[] }>(path(org)),
   get: (org: string, id: string) => request<Pipeline>(item(org, id)),
-  create: (org: string, definition: Definition) => request<Pipeline>(path(org), { method: "POST", body: JSON.stringify(definition) }),
+  create: (org: string, definition: Definition, repository?: string) => request<Pipeline>(
+    repository ? `${path(org)}?${new URLSearchParams({ repository })}` : path(org),
+    { method: "POST", body: JSON.stringify(definition) },
+  ),
   save: (org: string, p: Pipeline, definition: Definition) => request<Pipeline>(`${item(org, p.id)}/draft`, { method: "PUT", body: JSON.stringify({ revision: p.revision, definition }) }),
-  transition: (org: string, p: Pipeline, action: "publish" | "archive") => request<Pipeline>(`${item(org, p.id)}/${action}`, { method: "POST", body: JSON.stringify({ revision: p.revision }) }),
+  transition: (org: string, p: Pick<Summary, "id" | "revision">, action: "publish" | "archive" | "enable" | "disable") => request<Pipeline>(`${item(org, p.id)}/${action}`, { method: "POST", body: JSON.stringify({ revision: p.revision }) }),
 };

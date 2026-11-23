@@ -34,7 +34,8 @@ type Integration struct {
 
 type TriggerSource struct {
 	Kind        string     `json:"kind"`
-	BindingID   string     `json:"bindingId"`
+	BindingID   string     `json:"bindingId,omitempty"`
+	RunID       string     `json:"runId,omitempty"`
 	ScheduledAt *time.Time `json:"scheduledAt,omitempty"`
 	Repository  string     `json:"repository,omitempty"`
 	ChangesetID string     `json:"changesetId,omitempty"`
@@ -43,6 +44,7 @@ type TriggerSource struct {
 }
 
 type Run struct {
+	Repository   string                     `json:"repository,omitempty"`
 	StepStatuses map[string]string          `json:"stepStatuses,omitempty"`
 	Trigger      *TriggerSource             `json:"trigger,omitempty"`
 	Integration  *Integration               `json:"integration,omitempty"`
@@ -67,6 +69,7 @@ type Store interface {
 	CreateIntegrationRun(context.Context, string, string, int, string, map[string]json.RawMessage, Integration) (Run, error)
 	TriggerRun(context.Context, string, string, int, string, Webhook) (Run, error)
 	CreateRun(context.Context, string, string, int, string, map[string]json.RawMessage) (Run, error)
+	RerunWorkflow(context.Context, string, string, string) (Run, error)
 	GetRun(context.Context, string, string) (Run, error)
 	Events(context.Context, string, string, int64) ([]Event, error)
 	DecideRun(context.Context, string, string, string, string, string) error
