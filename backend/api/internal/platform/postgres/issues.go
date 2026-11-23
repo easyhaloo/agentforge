@@ -248,6 +248,10 @@ func (r *IssueRepository) Get(ctx context.Context, organizationID, repository st
 	if err != nil {
 		return nil, err
 	}
+	issue.ClosingPullRequests, err = r.listClosingPullRequests(ctx, organizationID, issue)
+	if err != nil {
+		return nil, err
+	}
 	return issue, nil
 }
 

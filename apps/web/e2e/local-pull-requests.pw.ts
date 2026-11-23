@@ -220,6 +220,9 @@ test("reviews an updated pull request and merges only its verified revision", as
     const development = reviewer.locator("aside");
     await expect(development.getByRole("link", { name: title, exact: true })).toBeVisible();
     await expect(reviewer.getByRole("region", { name: "Issue timeline" }).getByRole("link", { name: title, exact: true })).toBeVisible();
+    await reviewer.goto(`${repositoryUrl}/issues/2`);
+    await expect(reviewer.getByRole("heading", { name: "Verify closure from a pull request description" })).toBeVisible();
+    await expect(development.getByRole("link", { name: title, exact: true })).toHaveCount(0);
     await test.step("REF-05: select, preview and publish a local pull request reference", async () => {
       await reviewer.goto(`${repositoryUrl}/issues/new`);
       await reviewer.getByRole("textbox", { name: /Title/ }).fill("Reference the verification pull request");
@@ -545,6 +548,11 @@ test("reviews an updated pull request and merges only its verified revision", as
       .getByRole("button", { name: "Save", exact: true }).click();
     await page.getByRole("button", { name: "Update default branch" }).click();
     await expect(page.getByText("Default branch updated.")).toBeVisible();
+    await reviewer.goto(`${repositoryUrl}/issues/2`);
+    const keywordLink = development.getByRole("link", { name: updatedTitle, exact: true });
+    await expect(keywordLink).toBeVisible();
+    await expect(keywordLink).toHaveAttribute("href", `${pullsPath}/${changeset.id}`);
+    await reviewer.screenshot({ path: testInfo.outputPath("issue-pull-request-keyword-development.png"), animations: "disabled" });
     await page.goto(detail);
     expect(await post("merge", { target_ref: "release", merge_method: "merge" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",

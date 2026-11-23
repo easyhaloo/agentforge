@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 	"github.com/jackc/pgx/v5"
@@ -45,4 +46,42 @@ func (r *IssueRepository) LinkCommitIssues(ctx context.Context, org, repo, sha, 
 		return fmt.Errorf("persist commit issue links: %w", err)
 	}
 	return nil
+}
+
+// listClosingPullRequests derives links from the current PR text and default branch.
+// ponytail: prefilter in SQL, then reuse the merge parser. Index reference targets if this read becomes expensive.
+func (r *IssueRepository) listClosingPullRequests(ctx context.Context, org string, issue *issues.Issue) ([]issues.PullRequestLink, error) {
+	rows, err := r.store.pool.Query(ctx, `SELECT c.id, c.title, c.repository, c.state->'pull_request'->>'description'
+		FROM delivery_changesets c
+		JOIN delivery_repositories r ON (r.organization_id,r.slug)=(c.organization_id,c.repository)
+		WHERE c.organization_id=$1 AND c.state->'pull_request'->>'base_branch'=r.default_branch
+		AND position('#' || $3::integer::text IN c.state->'pull_request'->>'description') > 0
+		AND (c.repository=$2 OR EXISTS (
+			SELECT 1 FROM organization_memberships m
+			WHERE m.organization_id=c.organization_id AND m.user_id=c.state->>'created_by' AND m.status='active'
+			AND (m.role IN ('owner','admin') OR m.user_id=$4)
+		)) ORDER BY c.updated_at DESC, c.id`, org, issue.Repository, issue.Number, issue.CreatedBy)
+	if err != nil {
+		return nil, fmt.Errorf("query closing pull requests: %w", err)
+	}
+	defer rows.Close()
+	var links []issues.PullRequestLink
+	for rows.Next() {
+		var link issues.PullRequestLink
+		var description string
+		if err := rows.Scan(&link.ID, &link.Title, &link.Repository, &description); err != nil {
+			return nil, fmt.Errorf("scan closing pull request: %w", err)
+		}
+		for _, ref := range issues.ClosingIssueReferences(description) {
+			if int(ref.Number) == issue.Number && ((ref.Repository == "" && link.Repository == issue.Repository) ||
+				(ref.Repository != "" && strings.EqualFold(ref.Repository, issue.Repository))) {
+				links = append(links, link)
+				break
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read closing pull requests: %w", err)
+	}
+	return links, nil
 }

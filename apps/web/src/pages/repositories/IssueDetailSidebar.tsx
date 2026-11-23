@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Settings } from "lucide-react";
 import { changesetAPI } from "../../shared/api/identity";
 import type { Issue, IssueUpdate } from "../../shared/api/issues";
-import { changesetPath, pullRequestComparePath, repositoryPath } from "../../shared/routing";
+import { changesetPath, pullRequestComparePath, pullRequestPath, repositoryPath } from "../../shared/routing";
 import { Button, Checkbox, Input, Modal } from "../../shared/ui";
 import { IssueBranches } from "./IssueBranches";
 
@@ -89,6 +89,8 @@ export function IssueDevelopment({ issue, context, editable, busy, error, resetE
 
   const label = t("issues.detail.development");
   const linked = issue.changesets ?? [];
+  const closing = issue.closing_pull_requests ?? [];
+  const closingIDs = new Set(closing.map(({ id }) => id));
   const selected = new Set(draft?.selected.map(({ id }) => id));
   const choices = [...(draft?.selected ?? []), ...(status === "ready" ? candidates.filter(({ id }) => !selected.has(id)) : [])];
   return <div className="issue-sidebar-section">
@@ -99,7 +101,10 @@ export function IssueDevelopment({ issue, context, editable, busy, error, resetE
         <Settings size={15} aria-hidden="true" />
       </Button>}
     </div>
-    {linked.length ? <ul>{linked.map(({ id, title }) => <li key={id}><Link to={changesetPath(handle, id)}>{title}</Link></li>)}</ul>
+    {linked.length || closing.length ? <ul>
+      {linked.filter(({ id }) => !closingIDs.has(id)).map(({ id, title }) => <li key={id}><Link to={changesetPath(handle, id)}>{title}</Link></li>)}
+      {closing.map(({ id, title, repository }) => <li key={id}><Link to={pullRequestPath(handle, repository, id)}>{title}</Link></li>)}
+    </ul>
       : <p className="issue-sidebar-empty">{t("issues.detail.noChangesets")}</p>}
     {!!issue.commits?.length && <ul aria-label={t("issues.detail.linkedCommits")}>
       {issue.commits.map(({ sha, subject }) => <li key={sha}>
