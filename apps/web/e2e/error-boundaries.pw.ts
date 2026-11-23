@@ -33,7 +33,7 @@ test("a page that fails to render leaves the shell in place with a friendly mess
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
 });
 
-test("an error thrown by the root layout itself falls back to a minimal page with a way to reload", async ({ page }) => {
+test("an error thrown by the root layout itself falls back to a minimal page with a way to retry", async ({ page }) => {
   const logged = errorLog(page);
   await page.goto(harness("app"));
 
@@ -44,5 +44,5 @@ test("an error thrown by the root layout itself falls back to a minimal page wit
   expect(text).not.toContain("Explode");
   expect(text).not.toContain("Unexpected Application Error");
   expect(logged.some((entry) => entry.includes("AgentForge route error") && entry.includes("KABOOM"))).toBe(true);
-  await expect(page.getByRole("link", { name: "Reload AgentForge" })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("link", { name: "Retry" })).toHaveAttribute("href", "/");
 });

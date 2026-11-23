@@ -54,7 +54,7 @@ export function WorkflowTriggers({ org, workflow, canManage, onClose }: {
       setItems(previous => [...(previous ?? []), binding]);
     }) : undefined}>
     <p>{t("actions.triggers.hint")}</p>
-    {error && <p role="alert">{error} {!items && <Button onClick={() => { setError(""); setRetry(n => n + 1); }}>{t("common:actions.refresh")}</Button>}</p>}
+    {error && <p role="alert">{error} {!items && <Button onClick={() => { setError(""); setRetry(n => n + 1); }}>{t("common:actions.retry")}</Button>}</p>}
     {!items && !error && <p role="status">{t("common:status.loading")}</p>}
     {items?.length === 0 && <p>{t("actions.triggers.empty")}</p>}
     {items && items.length > 0 && <ul className="repo-workflow-triggers">{items.map(item => <li key={item.id}>

@@ -15,6 +15,7 @@ import (
 )
 
 var initializationSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
+var repositoryNameLetter = regexp.MustCompile(`[A-Za-z]`)
 
 var initializationGitignoreTemplates = map[string]string{
 	"node": `node_modules/
@@ -54,7 +55,7 @@ vendor/
 
 // RepositoryInitializer creates new Git repositories with optional initialization templates.
 type RepositoryInitializer interface {
-	// InitializeRepository creates a new Git repository at ROOT/organizationID/owner/name
+	// InitializeRepository creates a new bare Git repository at ROOT/organizationID/owner/name
 	// where slug is "owner/name". The repository is created with exactly one commit on main.
 	//
 	// Returns a cleanup function that removes the created repository directory. The cleanup
@@ -94,6 +95,9 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 			return nil, fmt.Errorf("%w: invalid path segment", ErrRepositoryInvalid)
 		}
 	}
+	if !repositoryNameLetter.MatchString(name) {
+		return nil, fmt.Errorf("%w: repository name must contain at least one ASCII letter", ErrRepositoryInvalid)
+	}
 	ignore := initializationGitignoreTemplates[init.Gitignore]
 	if (init.Gitignore != "" && ignore == "") || (init.License != "" && init.License != "mit") {
 		return nil, fmt.Errorf("%w: unsupported initialization template", ErrRepositoryInvalid)
@@ -131,18 +135,28 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 	}()
 
 	repoPath := filepath.Join(rootPath, organizationID, owner, name)
-	git := func(args ...string) error {
-		_, err := p.runWithEnvInput(ctx, repoPath, map[string]string{"GIT_ATTR_NOSYSTEM": "1"}, nil,
-			append([]string{"--git-dir=.git", "--work-tree=.", "-c", "core.hooksPath=/dev/null"}, args...)...)
-		return err
-	}
-	if err := git("init", "--quiet", "--initial-branch=main", "--template="); err != nil {
+	if _, err := p.runWithEnvInput(ctx, repoPath, nil, nil, "--git-dir=.", "init", "--bare", "--quiet", "--initial-branch=main", "--template="); err != nil {
 		return nil, fmt.Errorf("initialize Git repository: %w", err)
 	}
 	if init.Description != "" {
-		if err := repo.WriteFile(".git/description", []byte(init.Description+"\n"), 0600); err != nil {
+		if err := repo.WriteFile("description", []byte(init.Description+"\n"), 0600); err != nil {
 			return nil, fmt.Errorf("write repository description: %w", err)
 		}
+	}
+	scratch, err := os.MkdirTemp("", "agentforge-git-init-*")
+	if err != nil {
+		return nil, fmt.Errorf("create initialization workspace: %w", err)
+	}
+	defer os.RemoveAll(scratch)
+	workTree := filepath.Join(scratch, "work")
+	if err := os.Mkdir(workTree, 0700); err != nil {
+		return nil, fmt.Errorf("create initialization work tree: %w", err)
+	}
+	env := map[string]string{"GIT_ATTR_NOSYSTEM": "1", "GIT_INDEX_FILE": filepath.Join(scratch, "index")}
+	git := func(args ...string) error {
+		_, err := p.runWithEnvInput(ctx, workTree, env, nil,
+			append([]string{"--git-dir=" + repoPath, "--work-tree=.", "-c", "core.hooksPath=/dev/null"}, args...)...)
+		return err
 	}
 	files := map[string]string{".gitignore": ignore}
 	if init.Readme {
@@ -156,7 +170,7 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 	}
 	for file, content := range files {
 		if content != "" {
-			if err := repo.WriteFile(file, []byte(content), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(workTree, file), []byte(content), 0600); err != nil {
 				return nil, fmt.Errorf("write starter file %s: %w", file, err)
 			}
 		}
@@ -167,7 +181,7 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 	if err := git("-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost", "commit", "--allow-empty", "-m", "Initial commit"); err != nil {
 		return nil, fmt.Errorf("create initial commit: %w", err)
 	}
-	gitInfo, err := repo.Lstat(".git")
+	gitInfo, err := repo.Lstat("objects")
 	if err != nil {
 		return nil, fmt.Errorf("identify Git metadata: %w", err)
 	}
@@ -190,8 +204,8 @@ func (p *LocalGitProvider) InitializeRepository(ctx context.Context, organizatio
 		if !os.SameFile(repoInfo, info) {
 			return
 		}
-		// The metadata identity also guards against reuse of the directory inode.
-		if info, err := repo.Lstat(".git"); err == nil && os.SameFile(gitInfo, info) {
+		// The object directory identity also guards against reuse of the directory inode.
+		if info, err := repo.Lstat("objects"); err == nil && os.SameFile(gitInfo, info) {
 			removeInitializedRepository(parent, name, repoInfo)
 		}
 	}), nil

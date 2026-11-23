@@ -763,6 +763,97 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/git-credentials:
+    parameters:
+      - { in: path, name: organizationID, required: true, schema: { type: string } }
+      - { in: path, name: owner, required: true, schema: { type: string } }
+      - { in: path, name: repo, required: true, schema: { type: string } }
+    post:
+      operationId: createGitCredential
+      summary: Issue a repository-scoped Smart HTTP credential valid for one hour
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scope]
+              properties:
+                scope: { type: string, enum: [read, write] }
+      responses:
+        "201":
+          description: Credential with one-time plaintext token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, username, token, expires_at]
+                properties:
+                  id: { type: string, format: uuid }
+                  username: { type: string, const: git }
+                  token: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/git-credentials/{credentialID}:
+    parameters:
+      - { in: path, name: organizationID, required: true, schema: { type: string } }
+      - { in: path, name: owner, required: true, schema: { type: string } }
+      - { in: path, name: repo, required: true, schema: { type: string } }
+      - { in: path, name: credentialID, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: revokeGitCredential
+      summary: Revoke a Git credential issued to the signed-in user
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204": { description: Credential revoked or already unavailable to the caller }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/commit-issues:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: owner
+        required: true
+        schema: { type: string }
+      - in: path
+        name: repo
+        required: true
+        schema: { type: string }
+      - in: query
+        name: ref
+        description: Branch, tag, or commit resolved to an immutable commit SHA.
+        schema: { type: string }
+    get:
+      operationId: listCommitIssues
+      summary: List the same-repository issues linked to a Git commit
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Linked Issue numbers, up to 100 per commit
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { type: integer, minimum: 1 }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/history:
     parameters:
       - in: path

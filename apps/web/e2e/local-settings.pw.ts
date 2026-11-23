@@ -156,7 +156,7 @@ test("personal settings load real account data and persist edits", async ({ page
   await expect(main).not.toContainText(/No SSH keys yet|暂无 SSH 密钥/i);
   await screenshot("keys-unavailable");
   await page.unroute(keysURL);
-  await main.getByRole("button", { name: /刷新|重试|Refresh|Retry/i }).click();
+  await main.getByRole("button", { name: /重试|Retry/i }).click();
   await expect(main.getByText("Browser QA", { exact: true })).toBeVisible();
   const deleteKey = /删除密钥|Delete key/i;
   await main.getByRole("button", { name: deleteKey }).click();

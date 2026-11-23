@@ -82,7 +82,6 @@
   "mergeQueue": "Merge queue",
   "queueRepo": "Registered repository",
   "queueTarget": "Target branch",
-  "refreshQueue": "Refresh queue",
   "queueSource": "Source branch or commit",
   "enqueue": "Enqueue",
   "queueEmpty": "The queue is empty.",

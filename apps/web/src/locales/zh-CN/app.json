@@ -16,8 +16,7 @@
   },
   "rootError": {
     "title": "出了点问题",
-    "description": "AgentForge 无法显示。请重新加载页面后重试。",
-    "reload": "重新加载 AgentForge"
+    "description": "AgentForge 无法显示。请重新加载页面后重试。"
   },
   "organizationGate": {
     "loading": "正在加载账户与组织…",

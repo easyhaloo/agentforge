@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDownWideNarrow, Book, Bookmark, CaseSensitive, CircleX, GitBranch, GitFork, GitPullRequest,
-  History, Lightbulb, Menu, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Rows2, Search,
+  History, Lightbulb, Menu, PanelLeftClose, PanelLeftOpen, Plus, Rows2, Search,
   Settings, Star, UserRound, UsersRound, Workflow, X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -91,6 +91,7 @@ export function RepositoriesPage({ organization, userID }: Props) {
     const matching = items.flatMap(item => {
       const slug = item.slug.toLowerCase();
       const name = slug.slice(slug.indexOf("/") + 1);
+      const displaySlug = item.slug.startsWith(`${organization.id}/`) ? `${organization.name.toLowerCase()}/${name}` : slug;
       let relevance = 0;
       for (const term of terms) {
         if (term === ownRepositories) {
@@ -104,7 +105,7 @@ export function RepositoriesPage({ organization, userID }: Props) {
         } else if (term.startsWith("repo:")) {
           if (slug !== term.slice(5) && name !== term.slice(5)) return [];
         } else {
-          if (!slug.includes(term)) return [];
+          if (!slug.includes(term) && !displaySlug.includes(term)) return [];
           // ponytail: rank exact and prefix matches in the loaded catalog; move search to the API if the catalog is paginated.
           relevance += slug === term || name === term ? 3 : slug.startsWith(term) || name.startsWith(term) ? 2 : 1;
         }
@@ -118,7 +119,7 @@ export function RepositoriesPage({ organization, userID }: Props) {
       if (sort === "last-commit") return time(b.item.git?.last_commit_at) - time(a.item.git?.last_commit_at) || byName;
       return b.relevance - a.relevance || time(latestActivity(b.item)) - time(latestActivity(a.item)) || byName;
     }).map(({ item }) => item);
-  }, [canRegister, items, sort, terms, userID]);
+  }, [canRegister, items, organization.id, organization.name, sort, terms, userID]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -218,22 +219,26 @@ export function RepositoriesPage({ organization, userID }: Props) {
           </div>
         </div>
         {loading ? <p className="repo-catalog-empty" role="status">{t("common:components.loading")}</p> : error ? (
-          <div className="repo-catalog-empty"><Button onClick={() => void load()}><RefreshCw size={16} aria-hidden="true"/>{t("common:actions.refresh")}</Button></div>
+          <div className="repo-catalog-empty"><Button onClick={() => void load()}>{t("common:actions.retry")}</Button></div>
         ) : filtered.length ? (
           <ul aria-label={t("repositories:page.title")}>
             {filtered.map(item => {
               const separator = item.slug.indexOf("/");
+              const owner = item.slug.slice(0, separator);
+              const ownerLabel = owner === organization.id ? organization.name : owner;
+              const name = item.slug.slice(separator + 1);
+              const displaySlug = separator >= 0 ? `${ownerLabel}/${name}` : name;
               const language = item.git?.language;
               const branchCount = item.git?.branch_count;
               const pullRequests = item.activity?.changeset_count;
               const actions = item.activity?.action_count;
               const updatedAt = latestActivity(item);
-              const settingsLabel = t("sections.settingsFor", { repository: item.slug });
+              const settingsLabel = t("sections.settingsFor", { repository: displaySlug });
               return <li key={item.slug}>
                 <span className="repo-catalog-glyph" aria-hidden="true"><Book size={17}/></span>
                 <div className="repo-catalog-entry">
-                  <Link className="repo-link repo-catalog-name" to={repositoryPath(handle, item.slug)} aria-label={item.slug}>
-                    {separator >= 0 ? <><span>{item.slug.slice(0, separator + 1)}</span>{item.slug.slice(separator + 1)}</> : item.slug}
+                  <Link className="repo-link repo-catalog-name" to={repositoryPath(handle, item.slug)} aria-label={displaySlug}>
+                    {separator >= 0 ? <><span>{ownerLabel}/</span>{name}</> : name}
                   </Link>
                   <div className="repo-catalog-meta">
                     {language && <span className="repo-language"><i style={{ backgroundColor: languageColors[language] }} aria-hidden="true"/>{language}</span>}

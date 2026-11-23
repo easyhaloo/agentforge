@@ -130,6 +130,26 @@ func (d DeliveryDependencies) readRepositoryBlob(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "commit_sha": commitSHA, "blob_sha": blobSHA, "path": filePath, "encoding": "utf-8", "content": string(content)})
 }
 
+func (d DeliveryDependencies) listCommitIssues(w http.ResponseWriter, r *http.Request) {
+	principal, repository, sha, ok := d.previewRepository(w, r)
+	if !ok {
+		return
+	}
+	reader, ok := d.IssueRepo.(interface {
+		IssuesForCommit(context.Context, string, string, string) ([]int, error)
+	})
+	if !ok {
+		writeProblem(w, http.StatusServiceUnavailable, "Commit links unavailable", "Commit links are not configured")
+		return
+	}
+	numbers, err := reader.IssuesForCommit(r.Context(), principal.OrganizationID, repository.Slug, sha)
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Commit links unavailable", "Could not read linked issues")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": numbers})
+}
+
 func (d DeliveryDependencies) listRepositoryHistory(w http.ResponseWriter, r *http.Request) {
 	principal, repository, commitSHA, ok := d.previewRepository(w, r)
 	if !ok {

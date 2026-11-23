@@ -318,7 +318,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               <div><dt>{t("pulls:gate.commit")}</dt><dd><code title={activeRevision.commit_sha}>{activeRevision.commit_sha.slice(0, 7)}</code></dd></div>
               <div><dt>{t("pulls:gate.evidence")}</dt><dd><Link className={`checks-${evidenceStatus}`} to={pullRequestPath(handle, repository, pullNumber, "checks")}>{t(`pulls:gate.evidenceStatus.${evidenceStatus}`)}</Link></dd></div>
             </dl>}
-            {canWrite && (state === "open" || state === "draft") && <Button disabled={actionBusy} onClick={() => void run(() => changesetAPI.addRevision(organization.id, pullNumber, pr.source_branch))}>{t("pulls:actions.refresh")}</Button>}
+            {canWrite && (state === "open" || state === "draft") && <Button disabled={actionBusy} onClick={() => void run(() => changesetAPI.addRevision(organization.id, pullNumber, pr.source_branch))}>{t("pulls:actions.updateRevision")}</Button>}
           </section>
           <section className="pull-reviewers">
             <h3>{t("pulls:sidebar.reviewers")}</h3>

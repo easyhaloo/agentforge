@@ -77,7 +77,7 @@ export function RepositoryActions({ organization, repository }: { organization: 
     return next.size ? `?${next}` : "?";
   }
   const context = repositoryActionsContext(repository, query);
-  const retryButton = <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button>;
+  const retryButton = <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.retry")}</Button>;
 
   function renderRun(run: RepositoryAction) {
     const status = t(`pipelines:${run.status}`);

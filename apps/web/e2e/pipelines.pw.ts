@@ -195,7 +195,7 @@ test("a template can be configured directly on the canvas without a JSON editor"
   await expect(page).toHaveURL(/\/orgs\/demo\/pipelines$/);
 });
 
-test("queue promotion is offered only for the ready head", async ({ page }) => {
+test("the merge queue loads automatically and only its ready head can be promoted", async ({ page }) => {
   await installApiMocks(page);
   const definition = { apiVersion: "agentforge/v1", name: "checks", stages: [], parameters: [] };
   const pipeline = { id: "checks", name: "checks", status: "published", version: 1, revision: 2, definition };
@@ -206,7 +206,14 @@ test("queue promotion is offered only for the ready head", async ({ page }) => {
     return route.fulfill({ json });
   });
   const entries = ["first", "second"].map((source, i) => ({ id: i + 1, repository: "team/repo", target: "main", source, sourceSHA: String(i).repeat(40), status: "ready", runId: source, candidateSHA: String(i + 1).repeat(40) }));
-  await page.route("**/org-demo/merge-queue?*", route => route.fulfill({ json: { items: entries } }));
+  let mainReads = 0;
+  await page.route("**/org-demo/merge-queue?*", route => {
+    const { searchParams } = new URL(route.request().url());
+    expect(searchParams.get("repository")).toBe("team/repo");
+    if (searchParams.get("target") !== "main") return route.fulfill({ json: { items: [] } });
+    const items = ++mainReads === 1 ? entries.map(entry => ({ ...entry, status: "building" })) : entries;
+    return route.fulfill({ json: { items } });
+  });
   await page.route("**/pipeline-runs/first/promote", route => {
     expect(route.request().postDataJSON()).toEqual({candidateSHA: entries[0].candidateSHA});
     entries.splice(0); return route.fulfill({ json: { promotedSHA: "1".repeat(40) } });
@@ -215,7 +222,13 @@ test("queue promotion is offered only for the ready head", async ({ page }) => {
   await page.getByRole("link", {name:"checks",exact:true}).click();
   await page.getByText("Merge queue", { exact: true }).click();
   await page.getByLabel("Registered repository").fill("team/repo");
-  await page.getByRole("button", { name: "Refresh queue" }).click();
+  await expect(page.getByRole("button", { name: "Refresh queue" })).toHaveCount(0);
+  await expect(page.getByText("Building", { exact: false }).filter({ hasText: "first" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Promote candidate" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Promote candidate" })).toHaveCount(1);
+  await page.getByLabel("Target branch").fill("release");
+  await expect(page.getByText("The queue is empty.")).toBeVisible();
+  await page.getByLabel("Target branch").fill("main");
   await expect(page.getByRole("button", { name: "Promote candidate" })).toHaveCount(1);
   await page.getByRole("listitem").filter({ hasText: "first" }).getByRole("button", { name: "Promote candidate" }).click();
   await expect(page.getByText("The queue is empty.")).toBeVisible();

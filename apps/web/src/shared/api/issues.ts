@@ -26,6 +26,7 @@ export type IssueProject = { id: string; number: number; name: string; repositor
 export interface Issue {
   custom_fields?: Record<string, string>;
   changesets?: { id: string; title: string }[];
+  commits?: { sha: string; subject: string }[];
   created_by_name?: string;
   id: string;
   number: number;

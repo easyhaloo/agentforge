@@ -286,7 +286,7 @@ export function RootError() {
       <section className="card org-auth-state" role="alert">
         <h2>{t("app:rootError.title")}</h2>
         <p>{t("app:rootError.description")}</p>
-        <a className="button primary" href="/">{t("app:rootError.reload")}</a>
+        <a className="button primary" href="/">{t("common:actions.retry")}</a>
       </section>
     </div>
   );

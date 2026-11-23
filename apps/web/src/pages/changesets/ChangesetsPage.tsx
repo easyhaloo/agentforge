@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Plus, RefreshCw, GitCommitHorizontal, GitBranch, AlertTriangle } from "lucide-react";
+import { Plus, GitCommitHorizontal, GitBranch, AlertTriangle } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, changesetStatuses, repositoryAPI, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../shared/api/identity";
@@ -74,7 +74,6 @@ export function ChangesetsPage({ organization, onNotify }: Props) {
       <div className="changesets-summary__icon"><GitCommitHorizontal size={20}/></div>
       <div><b>{t("changesets:page.summary", { count: total })}</b><p>{t("changesets:page.description")}</p></div>
       <span className="org-role">{organization.role}</span>
-      <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> {t("common:actions.refresh")}</Button>
     </div>
     {error && <div className="org-error" role="alert">{error}</div>}
     {repositories.length > 0 && <form className="changeset-create card" onSubmit={create}>

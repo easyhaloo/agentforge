@@ -1816,6 +1816,14 @@ components:
         custom_fields:
           type: object
           additionalProperties: { type: string }
+        commits:
+          type: array
+          items:
+            type: object
+            required: [sha, subject]
+            properties:
+              sha: { type: string, description: Full Git commit SHA. }
+              subject: { type: string }
         changesets:
           type: array
           items:

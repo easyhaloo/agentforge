@@ -100,11 +100,6 @@ function App() {
   const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || label === "New Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
   const isOverview = label === "Overview";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
-  // Organization pages are backed by the account API; the mock pages only simulate a refresh.
-  const refresh = () => {
-    if (urlHandle) void loadAccount();
-    else notify("Demo data refreshed.");
-  };
   const organizationSelect = <Select aria-label={t("navigation:sidebar.selectOrganization")} value={selectedOrganization?.id ?? ""}
     placeholder={t("navigation:sidebar.noOrganization")} disabled={!account?.organizations.length}
     onChange={event => { selectOrganization(event.target.value); setNavigationOpen(false); }}
@@ -116,7 +111,7 @@ function App() {
       <div className="shell">
         <Topbar label={label} onSearch={() => setCommandOpen(true)} onSignOut={() => void signOut()}
           context={isRepositoryDetail && urlOrganization && owner && repo ? <RepositorySwitcher key={`${urlOrganization.id}:${owner}/${repo}`}
-            organizationId={urlOrganization.id} handle={linkHandle} owner={owner} repo={repo} section={repositorySection} /> : undefined}
+            organizationId={urlOrganization.id} organizationName={urlOrganization.name} handle={linkHandle} owner={owner} repo={repo} section={repositorySection} /> : undefined}
           navigation={<Button variant="ghost" className="workspace-icon" aria-label={t("navigation:sidebar.openNavigation")}
             aria-haspopup="dialog" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}><Menu size={17} aria-hidden="true" /></Button>}
           organizationHandle={selectedOrganization ? linkHandle : undefined}
@@ -126,7 +121,7 @@ function App() {
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && label !== "Projects" && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
-              <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
+              <PageHeader label={label} descriptionKey={item?.descriptionKey} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>

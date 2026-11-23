@@ -46,7 +46,7 @@ export function RepositoryCreatePage({ organization, account, onNotify }: Props)
   const nameTrim = name.trim();
   const slug = `${prefix}/${nameTrim}`;
   const key = `${targetID}/${slug}`;
-  const nameValid = registering ? Boolean(nameTrim) && !/[\s/]/.test(nameTrim) : validName.test(nameTrim) && !nameTrim.endsWith(".");
+  const nameValid = registering ? Boolean(nameTrim) && !/[\s/]/.test(nameTrim) : validName.test(nameTrim) && /[a-z]/i.test(nameTrim) && !nameTrim.endsWith(".");
   const duplicate = conflict === key || (snapshot && snapshot.ownerID === targetID && snapshot.slugs.has(slug));
   const nameError = duplicate ? t("create.nameTaken", { name: nameTrim }) :
     (nameTrim || attempted) && !nameValid ? t(registering ? "create.ownerError" : "create.invalidName") : "";
