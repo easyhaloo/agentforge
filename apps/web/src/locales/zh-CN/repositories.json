@@ -914,6 +914,8 @@
     "actionsEnabled": "启用 Actions",
     "actionsDisabled": "禁用 Actions",
     "actionsHelp": "禁用 Actions 后无法启动新的工作流运行。已有运行和历史记录会保留。",
+    "actionsRetention": "制品和日志保留期（天）",
+    "actionsRetentionHelp": "输入 0 使用平台默认值，或设置 1–{{max}} 天。修改仅对新生成的内容生效。对象存储可能采用更短的保留期。",
     "actionsSaved": "Actions 设置已保存。",
     "general": "常规",
     "access": "访问权限",

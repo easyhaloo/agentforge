@@ -22,6 +22,7 @@ type RepositoryMetadata struct {
 	WebCommitSignoffRequired bool              `json:"web_commit_signoff_required"`
 	DeleteMergedBranches     bool              `json:"delete_merged_branches"`
 	IssuesDisabled           bool              `json:"issues_disabled"`
+	ActionsRetentionDays     int               `json:"actions_retention_days"`
 	ActionsDisabled          bool              `json:"actions_disabled"`
 	IsTemplate               bool              `json:"is_template"`
 	PushRefLimit             int               `json:"push_ref_limit"`

@@ -164,7 +164,7 @@ func (s *Store) Events(ctx context.Context, org, id string, after int64) ([]exec
 	if _, err := s.GetRun(ctx, org, id); err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT e.seq,e.created_at,e.message,e.kind,e.step_id,e.actor FROM pipeline_run_events e JOIN pipeline_runs r ON r.id=e.run_id WHERE r.organization_id=$1 AND r.id::text=$2 AND e.seq>$3 ORDER BY e.seq LIMIT 128`, org, id, after)
+	rows, err := s.pool.Query(ctx, `SELECT e.seq,e.created_at,e.message,e.kind,e.step_id,e.actor FROM pipeline_run_events e JOIN pipeline_runs r ON r.id=e.run_id WHERE r.organization_id=$1 AND r.id::text=$2 AND e.seq>$3 AND (e.expires_at IS NULL OR e.expires_at>clock_timestamp()) ORDER BY e.seq LIMIT 128`, org, id, after)
 	if err != nil {
 		return nil, err
 	}

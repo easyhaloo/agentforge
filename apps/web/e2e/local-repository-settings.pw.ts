@@ -268,6 +268,16 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await settingsNav.getByRole("link", { name: "Actions", exact: true }).click();
     const availability = content.getByRole("combobox", { name: "Actions availability" });
     await expect(availability).toHaveText(/Enable Actions/);
+    const retention = content.getByRole("spinbutton", { name: "Artifact and log retention (days)" });
+    await expect(retention).toHaveValue("0");
+    await retention.fill("401");
+    await expect(content.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await retention.fill("14");
+    await content.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(content.getByText("Actions settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(retention).toHaveValue("14");
+    await capture("actions-retention");
     await selectOption(page, availability, "Disable Actions");
     await content.getByRole("button", { name: "Save", exact: true }).click();
     await expect(content.getByText("Actions settings saved.")).toBeVisible();

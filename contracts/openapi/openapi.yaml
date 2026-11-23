@@ -721,6 +721,8 @@ paths:
                     squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                     issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
                     actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
+                    actions_retention_days:
+                      $ref: "#/components/schemas/ActionsRetentionDays"
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
                     ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
                     push_ref_limit:
@@ -2329,12 +2331,18 @@ components:
             pull_request_merge_methods:
               type: array
               items: { type: string, enum: [merge, squash, rebase] }
+    ActionsRetentionDays:
+      type: integer
+      minimum: 0
+      maximum: 400
+      description: Retention for new workflow logs and artifacts, with a maximum of 90 days for public repositories. Zero uses the platform default. Object storage can impose a shorter limit.
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, actions_retention_days, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
         actions_disabled: { type: boolean }
+        actions_retention_days: { $ref: "#/components/schemas/ActionsRetentionDays" }
         delete_merged_branches: { type: boolean }
         allow_merge_commit: { type: boolean, default: true }
         allow_squash_merge: { type: boolean, default: true }

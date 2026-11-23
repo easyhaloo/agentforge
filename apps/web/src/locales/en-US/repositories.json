@@ -914,6 +914,8 @@
     "actionsEnabled": "Enable Actions",
     "actionsDisabled": "Disable Actions",
     "actionsHelp": "Disabling Actions prevents new workflow runs. Existing runs and run history are kept.",
+    "actionsRetention": "Artifact and log retention (days)",
+    "actionsRetentionHelp": "Use 0 for the platform default or set 1–{{max}} days. Changes apply to new outputs. Object storage may enforce a shorter limit.",
     "actionsSaved": "Actions settings saved.",
     "general": "General",
     "access": "Access",

@@ -187,7 +187,7 @@ type RepositoryMergeMethods = {
   merge_commit_message_format?: RepositoryMergeMessageFormat;
   squash_commit_message_format?: RepositoryMergeMessageFormat | "commits";
 };
-export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; actions_retention_days?: number; issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
 export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered"; pull_request_merge_methods?: PullRequestMergeMethod[] };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
@@ -290,7 +290,7 @@ export const repositoryAPI = {
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
   settings: (organizationID: string, repository: string, signal?: AbortSignal, targetBranch?: string) =>
     request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings${targetBranch ? `?${new URLSearchParams({ target_branch: targetBranch })}` : ""}`, { signal }),
-  updateGeneralSettings: (organizationID: string, repository: string, settings: RepositoryMergeMethods & Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "delete_merged_branches" | "web_commit_signoff_required" | "issues_disabled" | "ref_rules" | "updated_at">) =>
+  updateGeneralSettings: (organizationID: string, repository: string, settings: RepositoryMergeMethods & Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "actions_retention_days" | "delete_merged_branches" | "web_commit_signoff_required" | "issues_disabled" | "ref_rules" | "updated_at">) =>
     request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
     }),

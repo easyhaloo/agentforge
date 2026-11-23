@@ -100,6 +100,7 @@ function ActionsSettings({ organization, repository, onSave }: {
 }) {
   const { t } = useTranslation("repositories");
   const [draft, setDraft] = useState<boolean>();
+  const [retentionDraft, setRetentionDraft] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -118,7 +119,12 @@ function ActionsSettings({ organization, repository, onSave }: {
   const actionsDisabled = settings?.actions_disabled ?? false;
   const selected = draft ?? actionsDisabled;
   const canManage = canManageRepository(organization);
-  const canSave = canManage && !busy && Boolean(settings) && selected !== actionsDisabled;
+  const retentionDays = settings?.actions_retention_days ?? 0;
+  const retention = retentionDraft ?? String(retentionDays);
+  const maxDays = settings?.visibility === "public" ? 90 : 400;
+  const days = Number(retention);
+  const retentionValid = retention !== "" && Number.isInteger(days) && days >= 0 && days <= maxDays;
+  const canSave = canManage && !busy && Boolean(settings) && retentionValid && (selected !== actionsDisabled || days !== retentionDays);
 
   async function save() {
     if (!canSave || !settings) return;
@@ -127,10 +133,13 @@ function ActionsSettings({ organization, repository, onSave }: {
     setError("");
     try {
       setSettings(await repositoryAPI.updateGeneralSettings(organization.id, repository, {
-        actions_disabled: selected, updated_at: settings.updated_at,
+        ...(selected !== actionsDisabled ? { actions_disabled: selected } : {}),
+        ...(days !== retentionDays ? { actions_retention_days: days } : {}),
+        updated_at: settings.updated_at,
       }));
       onSave();
       setDraft(undefined);
+      setRetentionDraft(undefined);
       setSaved(true);
     } catch (cause) {
       setError(translateError(cause, t, "repositories:sections.settingsFailed"));
@@ -154,6 +163,9 @@ function ActionsSettings({ organization, repository, onSave }: {
           { value: "disabled", label: t("settings.actionsDisabled") },
         ]} hint={t("settings.actionsHelp")} disabled={!canManage || busy}
         onChange={event => { setDraft(event.target.value === "disabled"); setSaved(false); setError(""); }} />
+      <Input label={t("settings.actionsRetention")} type="number" min={0} max={maxDays} step={1} required
+        value={retention} hint={t("settings.actionsRetentionHelp", { max: maxDays })} disabled={!canManage || busy}
+        onChange={event => { setRetentionDraft(event.target.value); setSaved(false); setError(""); }} />
       {canManage ? <Button type="submit" variant="primary" disabled={!canSave}>{t("common:actions.save")}</Button>
         : <p>{t("sections.settingsDenied")}</p>}
       {saved && <p role="status">{t("settings.actionsSaved")}</p>}
