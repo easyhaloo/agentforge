@@ -2153,7 +2153,7 @@ components:
             default: false
             description: >-
               Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
-              Integration promotion is unavailable on matching branches because it cannot prove pull request coverage for the entire candidate.
+              Integration promotion requires each candidate source branch and commit to match a current, verified pull request into the target.
     RepositoryRefRulePatterns:
       type: array
       description: Ref names or globs without the refs/heads/ or refs/tags/ prefix. Use ~ALL for every ref or ~DEFAULT_BRANCH for the current default branch.

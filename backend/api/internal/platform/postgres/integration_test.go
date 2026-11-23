@@ -18,6 +18,11 @@ import (
 
 func integrationFixture(t *testing.T) (*Store, *lockHTTP, *delivery.LocalGitProvider, string, string) {
 	t.Helper()
+	return integrationFixtureAt(t, t.TempDir())
+}
+
+func integrationFixtureAt(t *testing.T, root string) (*Store, *lockHTTP, *delivery.LocalGitProvider, string, string) {
+	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		t.Skip("requires PostgreSQL")
@@ -29,7 +34,6 @@ func integrationFixture(t *testing.T) (*Store, *lockHTTP, *delivery.LocalGitProv
 	t.Cleanup(s.Close)
 	fx := &lockFixture{ctx: ctx, store: s}
 	h := newLockHTTP(t, fx, 0, "team/repo")
-	root := t.TempDir()
 	src := t.TempDir()
 	git := func(args ...string) string {
 		t.Helper()

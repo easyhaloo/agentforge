@@ -3,6 +3,8 @@ package postgres
 import (
 	"encoding/json"
 	"net/http"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -107,7 +109,8 @@ func TestRepositoryRulesetChangesetMerge(t *testing.T) {
 
 func TestRepositoryRulesetIntegrationPromotion(t *testing.T) {
 	ctx := t.Context()
-	s, h, git, _, _ := integrationFixture(t)
+	root := t.TempDir()
+	s, h, git, _, _ := integrationFixtureAt(t, root)
 	org := h.organizationID
 	api := "/api/v1/organizations/" + org
 	response := h.do(ctx, http.MethodPost, api+"/pipelines/p/versions/1/integration-runs", `{"repository":"team/repo","target":"main","sources":["topic","other"]}`)
@@ -151,6 +154,34 @@ func TestRepositoryRulesetIntegrationPromotion(t *testing.T) {
 	promote(http.StatusConflict, "branch updates are restricted")
 	setMainMergeRuleset(t, s, org, false, true)
 	promote(http.StatusConflict, "cannot verify pull request coverage")
-	setMainMergeRuleset(t, s, org, false, false)
+	other, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/other")
+	lockMust(t, err)
+	otherPull, err := delivery.NewChangeset("candidate-other-pr", rulesetTestRepo, "other PR", h.userID, now)
+	lockMust(t, err)
+	otherPull.PullRequest = &delivery.PullRequest{SourceBranch: "other", BaseBranch: "main"}
+	lockMust(t, otherPull.AddPullRequestRevision("current", other, run.Integration.Target.SHA, h.userID, now))
+	stored, err := s.Create(ctx, org, otherPull)
+	lockMust(t, err)
+	promote(http.StatusConflict, "cannot verify pull request coverage for other")
+	approveRulesetTestRevision(t, otherPull, h.userID, run.Integration.Target.SHA, "current")
+	_, err = s.Update(ctx, org, otherPull, stored.Version)
+	lockMust(t, err)
+	moveSource := func(from, to string) {
+		t.Helper()
+		cmd := exec.CommandContext(ctx, "git", "-C", filepath.Join(root, org, rulesetTestRepo), "update-ref", "refs/heads/other", to, from)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("move source branch: %v %s", err, out)
+		}
+	}
+	moveSource(other.CommitSHA, topic.CommitSHA)
+	promote(http.StatusConflict, "source branch other moved")
+	moveSource(topic.CommitSHA, other.CommitSHA)
 	promote(http.StatusOK, "")
+	for _, id := range []delivery.ID{pull.ID, otherPull.ID} {
+		merged := h.stored(t, string(id)).Changeset.Merge
+		if merged == nil || merged.RevisionID != "current" || merged.CommitSHA != run.Integration.CandidateSHA {
+			t.Fatalf("verified pull request %s did not record the promoted revision: %+v", id, merged)
+		}
+	}
 }

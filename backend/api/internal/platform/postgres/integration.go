@@ -65,13 +65,12 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	if err != nil {
 		return err
 	}
+	var pullRequestRule error
 	if !recorded {
-		// Candidate history may include commits with no matching eligible Changeset.
-		// Promotion has no provenance proof covering the entire candidate.
-		if err = githttp.CheckBranchMerge(rules, candidate.Target.Ref, candidate.Target.Ref, false); err != nil {
-			if errors.Is(err, githttp.ErrBranchPullRequestRequired) {
-				return fmt.Errorf("%w; integration promotion cannot verify pull request coverage for the entire candidate", err)
-			}
+		err = githttp.CheckBranchMerge(rules, candidate.Target.Ref, candidate.Target.Ref, false)
+		if errors.Is(err, githttp.ErrBranchPullRequestRequired) {
+			pullRequestRule = err
+		} else if err != nil {
 			return err
 		}
 	}
@@ -127,6 +126,29 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	changesets, err := pgx.CollectRows(rows, pgx.RowTo[delivery.Changeset])
 	if err != nil {
 		return err
+	}
+	if pullRequestRule != nil {
+		resolver, ok := git.(delivery.GitProvider)
+		if !ok || len(candidate.Sources) == 0 {
+			return pullRequestRule
+		}
+		for _, source := range candidate.Sources {
+			qualified := slices.ContainsFunc(changesets, func(c delivery.Changeset) bool {
+				pull := c.PullRequest
+				if pull == nil || pull.BaseBranch != candidate.Target.Ref || pull.SourceBranch != source.Ref {
+					return false
+				}
+				revision, ok := c.CurrentRevision()
+				return ok && revision.CommitSHA == source.SHA && c.ValidateMerge() == nil
+			})
+			if !qualified {
+				return fmt.Errorf("%w: cannot verify pull request coverage for %s", pullRequestRule, source.Ref)
+			}
+			live, err := resolver.ResolveRevision(ctx, org, candidate.Repository, "refs/heads/"+source.Ref)
+			if err != nil || live.CommitSHA != source.SHA {
+				return fmt.Errorf("%w: source branch %s moved", pullRequestRule, source.Ref)
+			}
+		}
 	}
 	for _, c := range changesets {
 		revision, ok := c.CurrentRevision()
