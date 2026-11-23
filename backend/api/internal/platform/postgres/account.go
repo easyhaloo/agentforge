@@ -49,11 +49,11 @@ func (s *Store) CurrentAccount(ctx context.Context, sessionToken string) (identi
 	return account, nil
 }
 
-const profileColumns = "id, display_name, COALESCE(email, ''), bio, location, created_at, updated_at"
+const profileColumns = "id, username, display_name, COALESCE(email, ''), bio, location, created_at, updated_at"
 
 func scanProfile(row pgx.Row) (identity.UserProfile, error) {
 	var p identity.UserProfile
-	err := row.Scan(&p.UserID, &p.DisplayName, &p.Email, &p.Bio, &p.Location, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.UserID, &p.Username, &p.DisplayName, &p.Email, &p.Bio, &p.Location, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 

@@ -16,6 +16,11 @@ var (
 	ErrInvalidInvitation       = errors.New("invalid organization invitation")
 )
 
+type MemberMention struct {
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+}
+
 type OrganizationMember struct {
 	UserID      string    `json:"user_id"`
 	DisplayName string    `json:"display_name"`

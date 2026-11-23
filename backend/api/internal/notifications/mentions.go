@@ -3,34 +3,53 @@ package notifications
 import (
 	"regexp"
 	"strings"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/text"
 )
 
-// mentionPattern matches @username patterns
-// Usernames can contain letters, numbers, hyphens, and underscores
-// Requires whitespace or start-of-line before @ to avoid matching email addresses
-var mentionPattern = regexp.MustCompile(`(?:^|\s)@([a-zA-Z0-9_-]+)`)
+var mentionMarkdown = goldmark.New(goldmark.WithExtensions(extension.GFM))
+var mentionPattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}_.@/\\-])@([a-zA-Z0-9_-]+)`)
 
-// ParseMentions extracts all @username mentions from text
-func ParseMentions(text string) []string {
-	matches := mentionPattern.FindAllStringSubmatch(text, -1)
-	if len(matches) == 0 {
+// ParseMentions returns unique, case-insensitive handles from Markdown prose.
+func ParseMentions(body string) []string {
+	if !strings.Contains(body, "@") {
 		return nil
 	}
-
-	// Use a map to deduplicate
+	source := []byte(body)
+	document := mentionMarkdown.Parser().Parse(text.NewReader(source))
 	seen := make(map[string]bool)
 	var mentions []string
-
-	for _, match := range matches {
-		if len(match) < 2 {
-			continue
+	var prose []byte
+	flush := func() {
+		for _, match := range mentionPattern.FindAllSubmatch(prose, -1) {
+			handle := strings.ToLower(string(match[1]))
+			if !seen[handle] {
+				seen[handle] = true
+				mentions = append(mentions, handle)
+			}
 		}
-		username := strings.TrimSpace(match[1])
-		if !seen[username] {
-			seen[username] = true
-			mentions = append(mentions, username)
-		}
+		prose = prose[:0]
 	}
-
+	_ = ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if value, ok := node.(*ast.Text); ok {
+			if entering {
+				prose = append(prose, value.Value(source)...)
+				if value.SoftLineBreak() || value.HardLineBreak() {
+					flush()
+				}
+			}
+			return ast.WalkContinue, nil
+		}
+		flush()
+		switch node.(type) {
+		case *ast.CodeSpan, *ast.CodeBlock, *ast.FencedCodeBlock, *ast.AutoLink, *ast.Image, *ast.HTMLBlock:
+			return ast.WalkSkipChildren, nil
+		default:
+			return ast.WalkContinue, nil
+		}
+	})
 	return mentions
 }

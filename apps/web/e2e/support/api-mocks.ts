@@ -229,6 +229,9 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
       isAuthenticated = false;
       return route.fulfill({ status: 204 });
     }
+    if (path.endsWith("/issue-projects") && method === "GET") {
+      return json({ items: [] });
+    }
     if (path.endsWith("/repositories") && method === "GET") {
       return json({ items: repositories.filter(repo => path === `/api/v1/organizations/${repo.organization_id}/repositories`) });
     }

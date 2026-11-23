@@ -8,6 +8,7 @@ import { ReviewPage } from "../pages/review";
 import { EvalPage } from "../pages/eval";
 import { TrailsPage } from "../pages/trails";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
+import { NotificationsPage } from "../pages/notifications/NotificationsPage";
 import { OverviewPage, OverviewUnavailable } from "../pages/overview";
 import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
 import { PipelineEditorPage, PipelinesPage } from "../pages/pipelines/PipelinesPage";
@@ -19,9 +20,11 @@ import { RepositoryDetailPage } from "../pages/repositories/RepositoryDetailPage
 import { RepositoryIssues } from "../pages/repositories/RepositoryIssues";
 import { IssueDetailPage } from "../pages/repositories/IssueDetailPage";
 import { PullRequestListPage, PullRequestComparePage, PullRequestDetailPage } from "../pages/pulls";
+import { IssueCreation } from "../pages/repositories/IssueCreation";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
+import { IssueProjectsPanel } from "../pages/repositories/IssueProjectsPanel";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
 import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySection } from "../shared/routing";
@@ -67,7 +70,11 @@ export function OverviewRoute() {
 export function ResourceRoute({ label }: { label: string }) {
   const notify = useNotify();
   // The key keeps each page's state and its agentforge:resources:<label> storage separate.
-  return <ResourceWorkspacePage key={label} page={label} onNotify={notify} />;
+  const { selectedOrganization } = useAppAccount();
+  return <>
+    {label === "Projects" && selectedOrganization && <IssueProjectsPanel key={selectedOrganization.id} organization={selectedOrganization} />}
+    <ResourceWorkspacePage key={label} page={label} onNotify={notify} />
+  </>;
 }
 
 export function DeliveryRoute({ label }: { label: string }) {
@@ -106,11 +113,15 @@ export function PipelineRunRoute() {
   return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} actorId={account.user_id} runId={runId} />;
 }
 
+export function NotificationsRoute() {
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  return <NotificationsPage key={`${organization.id}:${account.user_id}`} organization={organization} />;
+}
+
 export function OrganizationIssuesRoute() {
   const { organization, account } = useOutletContext<OrganizationOutletContext>();
-  const notify = useNotify();
   return <RepositoryIssues key={organization.id} organization={organization}
-    organizationHandle={organizationHandle(organization)} currentUser={account.user_id} onNotify={notify} />;
+    organizationHandle={organizationHandle(organization)} currentUser={account.user_id} />;
 }
 
 export function RepositoriesRoute() {
@@ -150,13 +161,23 @@ export function RepositoryDetailRoute({ section }: { section?: RepositorySection
 }
 
 export function IssueDetailRoute() {
-  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const { owner, repo, number } = useParams();
   const notify = useNotify();
   const repository = `${owner}/${repo}`;
   const issueNumber = Number(number);
   return <section className="repo-layout repo-browser">
-    <IssueDetailPage key={`${organization.id}:${repository}:${issueNumber}`} organization={organization} repository={repository} issueNumber={issueNumber} onNotify={notify} />
+    <IssueDetailPage key={`${organization.id}:${repository}:${issueNumber}`} organization={organization} repository={repository} issueNumber={issueNumber} currentUser={account.user_id} onNotify={notify} />
+  </section>;
+}
+
+export function IssueCreateRoute({ chooseTemplate = false }: { chooseTemplate?: boolean }) {
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
+  const { owner, repo } = useParams();
+  const notify = useNotify();
+  if (!owner || !repo) return null;
+  return <section className="repo-layout repo-browser">
+    <IssueCreation key={`${organization.id}:${owner}/${repo}:${chooseTemplate}`} chooseTemplate={chooseTemplate} organization={organization} owner={owner} repo={repo} currentUser={account.user_id} onNotify={notify} />
   </section>;
 }
 

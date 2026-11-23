@@ -31,10 +31,10 @@ const (
 
 // Reaction represents a user's emoji reaction to an Issue or Comment
 type Reaction struct {
-	ID            ID
-	ReactableType ReactableType
-	ReactableID   ID // ID of the parent resource (Issue or Comment)
-	UserID        string
-	Content       Content
-	CreatedAt     time.Time
+	ID            ID            `json:"id"`
+	ReactableType ReactableType `json:"reactable_type"`
+	ReactableID   ID            `json:"reactable_id"` // ID of the parent resource (Issue or Comment)
+	UserID        string        `json:"user_id"`
+	Content       Content       `json:"content"`
+	CreatedAt     time.Time     `json:"created_at"`
 }

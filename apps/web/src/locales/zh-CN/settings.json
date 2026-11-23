@@ -1,5 +1,6 @@
 {
   "nav": {
+    "savedReplies": "常用回复",
     "switchContext": "切换设置上下文",
     "profile": "公开资料",
     "account": "账户",
@@ -11,6 +12,26 @@
     "agents": "Agent 交互",
     "groupAccess": "访问控制",
     "groupCode": "代码"
+  },
+  "savedReplies": {
+    "title": "常用回复",
+    "description": "创建可在议题描述中复用的回复。",
+    "empty": "你还没有常用回复。",
+    "noMatches": "没有匹配的常用回复。",
+    "add": "添加常用回复",
+    "edit": "编辑常用回复",
+    "replyTitle": "回复标题",
+    "replyBody": "回复正文",
+    "save": "保存回复",
+    "editNamed": "编辑 {{title}}",
+    "deleteNamed": "删除 {{title}}",
+    "deleteConfirm": "永久删除这条常用回复？",
+    "loadFailed": "无法加载常用回复。",
+    "saveFailed": "无法保存回复。",
+    "retry": "重试",
+    "filter": "筛选常用回复",
+    "manage": "管理常用回复（在新标签页打开）",
+    "insertTooLong": "插入这条回复会超出议题描述的长度上限。"
   },
   "profile": {
     "title": "公开资料",

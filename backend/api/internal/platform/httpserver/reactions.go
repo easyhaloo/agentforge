@@ -1,9 +1,11 @@
 package httpserver
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/comments"
 	"github.com/easyhaloo/agentforge/backend/api/internal/reactions"
 )
 
@@ -12,7 +14,7 @@ type addReactionRequest struct {
 }
 
 // listReactions handles GET /api/v1/organizations/{organizationID}/comments/{id}/reactions
-// Also supports reactions on issues via issue_id query parameter
+// Also serves issue reactions by repository and number.
 func (d DeliveryDependencies) listReactions(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, false)
 	if !ok {
@@ -23,21 +25,8 @@ func (d DeliveryDependencies) listReactions(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Determine reactable type and ID
-	var reactableType reactions.ReactableType
-	var reactableID reactions.ID
-
-	commentID := r.PathValue("commentID")
-	issueID := r.URL.Query().Get("issue_id")
-
-	if commentID != "" {
-		reactableType = reactions.ReactableTypeComment
-		reactableID = reactions.ID(commentID)
-	} else if issueID != "" {
-		reactableType = reactions.ReactableTypeIssue
-		reactableID = reactions.ID(issueID)
-	} else {
-		writeProblem(w, http.StatusBadRequest, "Resource ID required", "Either commentID path parameter or issue_id query parameter is required")
+	reactableType, reactableID, ok := d.reactionTarget(w, r, principal)
+	if !ok {
 		return
 	}
 
@@ -51,7 +40,7 @@ func (d DeliveryDependencies) listReactions(w http.ResponseWriter, r *http.Reque
 }
 
 // addReaction handles POST /api/v1/organizations/{organizationID}/comments/{id}/reactions
-// Also supports reactions on issues via issue_id query parameter
+// Also serves issue reactions by repository and number.
 func (d DeliveryDependencies) addReaction(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true)
 	if !ok {
@@ -62,21 +51,8 @@ func (d DeliveryDependencies) addReaction(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Determine reactable type and ID
-	var reactableType reactions.ReactableType
-	var reactableID reactions.ID
-
-	commentID := r.PathValue("commentID")
-	issueID := r.URL.Query().Get("issue_id")
-
-	if commentID != "" {
-		reactableType = reactions.ReactableTypeComment
-		reactableID = reactions.ID(commentID)
-	} else if issueID != "" {
-		reactableType = reactions.ReactableTypeIssue
-		reactableID = reactions.ID(issueID)
-	} else {
-		writeProblem(w, http.StatusBadRequest, "Resource ID required", "Either commentID path parameter or issue_id query parameter is required")
+	reactableType, reactableID, ok := d.reactionTarget(w, r, principal)
+	if !ok {
 		return
 	}
 
@@ -110,7 +86,7 @@ func (d DeliveryDependencies) addReaction(w http.ResponseWriter, r *http.Request
 	created, err := d.ReactionRepo.Add(r.Context(), principal.OrganizationID, reaction)
 	if err != nil {
 		// Check if it's a duplicate (user already reacted with this emoji)
-		if err.Error() == "duplicate reaction" {
+		if errors.Is(err, reactions.ErrDuplicate) {
 			writeProblem(w, http.StatusConflict, "Duplicate reaction", "You have already reacted with this emoji")
 			return
 		}
@@ -138,11 +114,15 @@ func (d DeliveryDependencies) removeReaction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Note: In a production system, you'd want to verify that the user owns this reaction
-	// or has admin/owner privileges before allowing deletion. For now, we'll allow deletion
-	// but the repository layer should handle authorization.
-
-	err := d.ReactionRepo.Remove(r.Context(), principal.OrganizationID, reactions.ID(reactionID))
+	reactableType, reactableID, ok := d.reactionTarget(w, r, principal)
+	if !ok {
+		return
+	}
+	err := d.ReactionRepo.RemoveOwn(r.Context(), principal.OrganizationID, reactableType, reactableID, reactions.ID(reactionID), principal.UserID)
+	if errors.Is(err, reactions.ErrNotFound) {
+		writeProblem(w, http.StatusNotFound, "Reaction not found", "No reaction owned by you matches this target")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to remove reaction", "The reaction could not be removed")
 		return
@@ -162,4 +142,23 @@ func isValidReactionContent(content reactions.Content) bool {
 	default:
 		return false
 	}
+}
+
+func (d DeliveryDependencies) reactionTarget(w http.ResponseWriter, r *http.Request, principal Principal) (reactions.ReactableType, reactions.ID, bool) {
+	if commentID := r.PathValue("commentID"); commentID != "" {
+		if d.CommentRepo == nil {
+			writeProblem(w, http.StatusServiceUnavailable, "Comment system unavailable", "The comment repository is not configured")
+			return "", "", false
+		}
+		if _, err := d.CommentRepo.Get(r.Context(), principal.OrganizationID, comments.ID(commentID)); err != nil {
+			writeProblem(w, http.StatusNotFound, "Comment not found", "No comment exists with this ID")
+			return "", "", false
+		}
+		return reactions.ReactableTypeComment, reactions.ID(commentID), true
+	}
+	issue, ok := d.conversationIssue(w, r, principal)
+	if !ok {
+		return "", "", false
+	}
+	return reactions.ReactableTypeIssue, reactions.ID(issue.ID), true
 }
