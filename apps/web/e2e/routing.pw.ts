@@ -232,24 +232,17 @@ test("signing out opens the login page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sign in to AgentForge" })).toBeVisible();
 });
 
-test("Refresh only simulates a refresh on mock pages and reloads the account on organization pages", async ({ page }) => {
-  let accountLoads = 0;
-  page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/v1/me") accountLoads += 1; });
+test("workspace pages load without a manual refresh action", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/projects");
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
-  const loadsOnEntry = accountLoads;
-
-  await page.locator(".page-heading").getByRole("button", { name: "Refresh" }).click();
-  await expect(page.getByText("Demo data refreshed.")).toBeVisible();
-  expect(accountLoads).toBe(loadsOnEntry);
+  const refresh = page.getByRole("button", { name: "Refresh", exact: true });
+  await expect(refresh).toHaveCount(0);
 
   await openNavigation(page);
   await changesetsLink(page).click();
   await expect(page.getByText("Browser test baseline")).toBeVisible();
-  await page.locator(".page-heading").getByRole("button", { name: "Refresh" }).click();
-  await expect.poll(() => accountLoads).toBe(loadsOnEntry + 1);
-  await expect(page.getByText("Browser test baseline")).toBeVisible();
+  await expect(refresh).toHaveCount(0);
 });
 
 test("an unknown path renders the not-found state inside the shell and highlights no sidebar item", async ({ page }) => {

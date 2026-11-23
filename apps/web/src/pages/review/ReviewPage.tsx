@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, GitPullRequest, CheckCircle2 } from "lucide-react";
+import { GitPullRequest, CheckCircle2 } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, changesetStatuses, repositoryAPI, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { changesetPath, organizationHandle } from "../../shared/routing";
-import { Button, SearchInput, Select } from "../../shared/ui";
+import { SearchInput, Select } from "../../shared/ui";
 import { ChangesetTable, changesetRows } from "../changesets/ui/ChangesetTable";
 import { CHANGESET_QUERY_MAX, readChangesetFilters, writeChangesetFilters, type ChangesetFilters } from "../changesets/changeset-filters";
 
@@ -25,7 +25,6 @@ export function ReviewPage({ organization, onNotify }: Props) {
   const [repositories, setRepositories] = useState<RepositoryMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [reloadToken, setReloadToken] = useState(0);
   const rows = changesetRows(items);
   const page = Math.floor(filters.offset / filters.limit) + 1;
 
@@ -49,7 +48,7 @@ export function ReviewPage({ organization, onNotify }: Props) {
       setItems(page.items); setTotal(page.total); setRepositories(repoPage.items);
     } catch (cause) { setError(translateError(cause, t, "changesets:errors.listFailed")); }
     finally { setLoading(false); }
-  }, [organization.id, effectiveFilters.q, effectiveFilters.repository, effectiveFilters.status, effectiveFilters.reviewer, effectiveFilters.limit, effectiveFilters.offset, reloadToken, t]);
+  }, [organization.id, effectiveFilters.q, effectiveFilters.repository, effectiveFilters.status, effectiveFilters.reviewer, effectiveFilters.limit, effectiveFilters.offset, t]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setQueryDraft(filters.q); }, [filters.q]);
@@ -67,9 +66,6 @@ export function ReviewPage({ organization, onNotify }: Props) {
         <p>{t("review:page.description")}</p>
       </div>
       <span className="org-role">{organization.role}</span>
-      <Button className="button secondary" onClick={() => void load()} disabled={loading}>
-        <RefreshCw size={14}/> {t("common:actions.refresh")}
-      </Button>
     </div>
     {error && <div className="org-error" role="alert">{error}</div>}
 

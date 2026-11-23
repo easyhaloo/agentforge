@@ -100,7 +100,7 @@ export function SessionsSettingsPage() {
       ) : !sessions ? (
         <div className="access-meta">
           <p role="alert">{t("sessions.loadError")}</p>
-          <Button onClick={refresh}>{t("common:actions.refresh")}</Button>
+          <Button onClick={refresh}>{t("common:actions.retry")}</Button>
         </div>
       ) : (
         <div className="settings-stack">

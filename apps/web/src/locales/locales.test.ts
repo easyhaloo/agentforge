@@ -27,7 +27,7 @@ describe("i18n runtime", () => {
 
   it("renders a translation when the key exists", async () => {
     await i18n.changeLanguage("en-US");
-    expect(i18n.t("common:actions.refresh")).toBe("Refresh");
+    expect(i18n.t("common:actions.retry")).toBe("Retry");
   });
 
   it("keeps the document language in step with the chosen language", async () => {
@@ -50,7 +50,7 @@ describe("i18n runtime", () => {
 
   it("ships a translation for every language it claims to support", () => {
     for (const language of ["en-US", "zh-CN"]) {
-      expect(i18n.getResource(language, "common", "actions.refresh"), language).toBeTruthy();
+      expect(i18n.getResource(language, "common", "actions.retry"), language).toBeTruthy();
     }
   });
 });

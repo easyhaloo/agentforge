@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Workflow, Activity } from "lucide-react";
+import { Workflow, Activity } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, organizationAPI, type OrganizationSummary, type StoredChangeset, type MembershipAuditEvent } from "../../shared/api/identity";
@@ -111,9 +111,6 @@ export function TrailsPage({ organization, onNotify }: Props) {
           aria-pressed={showMembership}
         >
           <Activity size={14}/> {t("trails:filters.showMembership")}
-        </Button>
-        <Button className="button secondary" onClick={() => void load()} disabled={loading}>
-          <RefreshCw size={14}/> {t("common:actions.refresh")}
         </Button>
       </div>
     </div>

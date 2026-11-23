@@ -179,7 +179,7 @@
     "cannotMerge": "Cannot merge: checks have not passed or conflicts exist",
     "confirmMerge": "Merge {{source}} into {{base}}?",
     "confirmClose": "Close this pull request without merging?",
-    "refresh": "Refresh revision",
+    "updateRevision": "Update revision",
     "mergeRequirements": "Passing checks and an approval are required.",
     "retry": "Retry"
   },

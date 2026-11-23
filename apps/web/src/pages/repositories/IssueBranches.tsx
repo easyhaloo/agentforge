@@ -80,7 +80,7 @@ export function IssueBranches({ issue, context, editable }: { issue: Issue; cont
         {loading && <p role="status">{t("common:components.loading")}</p>}
         {!loading && !failed && branches.length === 0 && <p role="status">{t("issues.detail.branchNoBase")}</p>}
         {(failed || error) && <p role="alert">{error || t("issues.detail.branchLoadFailed")}</p>}
-        {!loading && (failed || error || !base) && <Button variant="ghost" size="small" disabled={busy} onClick={reload}>{t("issues.detail.branchReload")}</Button>}
+        {!loading && (failed || error || !base) && <Button variant="ghost" size="small" disabled={busy} onClick={reload}>{t("common:actions.retry")}</Button>}
       </div>
     </Modal>}
   </>;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Ban, Building2, Check, Clipboard, Ellipsis, History, Mail, RefreshCw, ShieldCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Ban, Building2, Check, Clipboard, Ellipsis, History, Mail, ShieldCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
@@ -155,9 +155,6 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
         </div>
         <p>{t("page.description")}</p>
       </div>
-      {canAdmin && <Button onClick={() => void load()} disabled={loading}>
-        <RefreshCw size={16} aria-hidden="true" /> {t("common:actions.refresh")}
-      </Button>}
     </header>
     {!canAdmin ? <div className="org-settings-empty">
       <ShieldCheck size={26} aria-hidden="true" />

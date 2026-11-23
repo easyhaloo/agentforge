@@ -130,7 +130,7 @@ export function KeysSettingsPage() {
           ) : !keys ? (
             <div className="access-meta">
               <p role="alert">{t("keys.loadError")}</p>
-              <Button onClick={refresh}>{t("common:actions.refresh")}</Button>
+              <Button onClick={refresh}>{t("common:actions.retry")}</Button>
             </div>
           ) : (
             <>

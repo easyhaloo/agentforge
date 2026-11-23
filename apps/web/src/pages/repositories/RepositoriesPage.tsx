@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDownWideNarrow, Book, Bookmark, CaseSensitive, CircleX, GitBranch, GitFork, GitPullRequest,
-  History, Lightbulb, Menu, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Rows2, Search,
+  History, Lightbulb, Menu, PanelLeftClose, PanelLeftOpen, Plus, Rows2, Search,
   Settings, Star, UserRound, UsersRound, Workflow, X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -218,7 +218,7 @@ export function RepositoriesPage({ organization, userID }: Props) {
           </div>
         </div>
         {loading ? <p className="repo-catalog-empty" role="status">{t("common:components.loading")}</p> : error ? (
-          <div className="repo-catalog-empty"><Button onClick={() => void load()}><RefreshCw size={16} aria-hidden="true"/>{t("common:actions.refresh")}</Button></div>
+          <div className="repo-catalog-empty"><Button onClick={() => void load()}>{t("common:actions.retry")}</Button></div>
         ) : filtered.length ? (
           <ul aria-label={t("repositories:page.title")}>
             {filtered.map(item => {

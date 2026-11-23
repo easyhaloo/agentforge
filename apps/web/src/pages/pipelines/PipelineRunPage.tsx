@@ -83,7 +83,7 @@ export function PipelineRunPage({ organization, actorId, runId }: { organization
       </div>
       {run && <Link to={pipelineEditPath(handle, run.pipelineId) + returnQuery}>{t("editPipeline")}</Link>}
     </header>
-    {error ? <p className="org-error" role="alert">{error} <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button></p> :
+    {error ? <p className="org-error" role="alert">{error} <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.retry")}</Button></p> :
       !definition && <p role="status">{t("common:status.loading")}</p>}
     {stale && <p role="alert">{t("staleRun")}</p>}
     {definition && run && <div className="wf-run-layout">
