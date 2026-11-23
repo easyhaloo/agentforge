@@ -64,8 +64,8 @@ func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organiz
 	return organizationID, actorID, defaultBranch, nil
 }
 
-// LockGitPolicy serializes pushes and recovery for the repository and
-// prevents a concurrent catalog update from changing the protected ref.
+// LockGitPolicy serializes native pushes and regular merges against concurrent
+// repository policy updates. Integration promotion takes the same row lock.
 func (s *Store) LockGitPolicy(ctx context.Context, organization, repository string) (githttp.PushPolicy, func(), error) {
 	tx, err := s.lockPool.Begin(ctx)
 	if err != nil {

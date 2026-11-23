@@ -1499,7 +1499,7 @@ paths:
     post:
       operationId: mergeChangeset
       summary: Merge the current revision after server-side gate revalidation
-      description: Requires a passing evaluation, active revision-bound evidence and an approved review. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
+      description: Requires a passing evaluation, active revision-bound evidence and an approved review. Matching branch rulesets may block the merge or require a linked pull request targeting this exact branch. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -2131,7 +2131,7 @@ components:
         maxLength: 139
     RepositoryRefRules:
       type: array
-      description: Rulesets for direct pushes to a native Git repository. Every matching enabled rule applies. Exclusions take precedence within a ruleset. Each ruleset requires at least one restriction and allows at most 10 patterns across include and exclude.
+      description: Rulesets for writes to a native Git repository. Every matching enabled rule applies. Exclusions take precedence within a ruleset. Each ruleset requires at least one restriction and allows at most 10 patterns across include and exclude.
       maxItems: 10
       items:
         type: object
@@ -2145,9 +2145,15 @@ components:
             allOf: [{ $ref: "#/components/schemas/RepositoryRefRulePatterns" }, { minItems: 1 }]
           exclude: { $ref: "#/components/schemas/RepositoryRefRulePatterns" }
           restrict_creation: { type: boolean }
-          restrict_update: { type: boolean }
+          restrict_update: { type: boolean, description: "Blocks direct updates and, for branches, Changeset merges and integration promotions." }
           restrict_deletion: { type: boolean }
           block_force_push: { type: boolean, description: Applicable only to branch rulesets. }
+          require_pull_request:
+            type: boolean
+            default: false
+            description: >-
+              Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
+              Integration promotion is unavailable on matching branches because it cannot prove pull request coverage for the entire candidate.
     RepositoryRefRulePatterns:
       type: array
       description: Ref names or globs without the refs/heads/ or refs/tags/ prefix. Use ~ALL for every ref or ~DEFAULT_BRANCH for the current default branch.

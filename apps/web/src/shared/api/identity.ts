@@ -165,6 +165,7 @@ export type RepositoryRefRule = {
   restrict_update: boolean;
   restrict_deletion: boolean;
   block_force_push: boolean;
+  require_pull_request?: boolean;
 };
 export type RepositoryMetadata = { ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered" };

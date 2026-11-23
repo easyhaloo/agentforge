@@ -14,6 +14,7 @@ const restrictionLabels = {
   restrict_update: "settings.rulesets.restrictUpdate",
   restrict_deletion: "settings.rulesets.restrictDeletion",
   block_force_push: "settings.rulesets.blockForcePush",
+  require_pull_request: "settings.rulesets.requirePullRequest",
 } as const;
 const restrictions = Object.keys(restrictionLabels) as Array<keyof typeof restrictionLabels>;
 
@@ -31,8 +32,10 @@ function patterns(value: string) {
   return value.split(/\r?\n/).map(pattern => pattern.trim()).filter(Boolean);
 }
 
-function toRule({ id: _id, name, include, exclude, ...rule }: RuleDraft): RepositoryRefRule {
-  return { ...rule, name: name.trim(), include: patterns(include), exclude: patterns(exclude) };
+function toRule({ id: _id, name, include, exclude, require_pull_request, ...rule }: RuleDraft): RepositoryRefRule {
+  return { ...rule, name: name.trim(), include: patterns(include), exclude: patterns(exclude),
+    ...(require_pull_request && { require_pull_request }),
+  };
 }
 
 export function RepositoryRulesetsSettings({ organization, repository }: Props) {
@@ -109,7 +112,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     }
     if (!rule.include.length) return t("settings.rulesets.includeRequired");
     if (rule.include.length + rule.exclude.length > maxPatterns) return t("settings.rulesets.tooManyPatterns", { max: maxPatterns });
-    if (rule.target === "tag" && rule.block_force_push) return t("settings.rulesets.tagForcePush");
+    if (rule.target === "tag" && (rule.block_force_push || rule.require_pull_request)) return t("settings.rulesets.tagBranchRestrictions");
     if (!restrictions.some(restriction => rule[restriction])) return t("settings.rulesets.restrictionRequired");
     return "";
   }
@@ -283,7 +286,7 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
           { value: "branch", label: t("settings.rulesets.branch") },
           { value: "tag", label: t("settings.rulesets.tag") },
         ]}
-        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", block_force_push: false } : { target: "branch" })} />
+        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", block_force_push: false, require_pull_request: false } : { target: "branch" })} />
     </div>
     <Checkbox label={t("settings.rulesets.active")} checked={rule.enabled} disabled={busy} onChange={event => onChange({ enabled: event.target.checked })} />
     <div className="repo-settings-rule-fields">
@@ -294,8 +297,8 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
     </div>
     <fieldset className="repo-settings-rule-restrictions">
       <legend>{t("settings.rulesets.restrictions")}</legend>
-      {restrictions.map(key => key === "block_force_push" && rule.target === "tag" ? null :
-        <Checkbox key={key} label={t(restrictionLabels[key])} checked={rule[key]} disabled={busy}
+      {restrictions.map(key => rule.target === "tag" && (key === "block_force_push" || key === "require_pull_request") ? null :
+        <Checkbox key={key} label={t(restrictionLabels[key])} checked={Boolean(rule[key])} disabled={busy}
           onChange={event => onChange({ [key]: event.target.checked })} />)}
     </fieldset>
   </div>;

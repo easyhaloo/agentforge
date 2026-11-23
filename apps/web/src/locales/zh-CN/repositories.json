@@ -784,7 +784,7 @@
   "settings": {
     "rulesets": {
       "title": "规则集",
-      "help": "规则集适用于原生 Git 推送。在「分支」和「标签」中配置的保护规则仍然有效。",
+      "help": "规则集约束原生 Git 推送和分支合并。「分支」和「标签」中配置的保护规则也会生效。",
       "hostedOnly": "只有原生托管的仓库才能管理规则集。",
       "add": "新建规则集",
       "import": "导入 JSON",
@@ -814,6 +814,7 @@
       "restrictUpdate": "限制更新",
       "restrictDeletion": "限制删除",
       "blockForcePush": "禁止强制推送",
+      "requirePullRequest": "合并前要求提交拉取请求",
       "none": "无",
       "editNamed": "编辑 {{name}}",
       "closeNamed": "关闭 {{name}} 的编辑器",
@@ -826,7 +827,7 @@
       "duplicateName": "规则集名称必须唯一，且不区分大小写。",
       "includeRequired": "请至少输入一个包含模式。",
       "tooManyPatterns": "包含和排除模式合计不得超过 {{max}} 个。",
-      "tagForcePush": "标签规则集不能禁止强制推送。",
+      "tagBranchRestrictions": "标签规则集不能禁止强制推送或要求拉取请求。",
       "restrictionRequired": "请至少选择一项限制。"
     },
     "refProtection": "直接推送保护",

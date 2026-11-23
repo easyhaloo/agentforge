@@ -13,17 +13,18 @@ import (
 	"unicode/utf8"
 )
 
-// RefRule restricts direct pushes to matching branches or tags.
+// RefRule restricts writes to matching branches or tags.
 type RefRule struct {
-	Name             string   `json:"name"`
-	Target           string   `json:"target"`
-	Enabled          bool     `json:"enabled"`
-	Include          []string `json:"include"`
-	Exclude          []string `json:"exclude"`
-	RestrictCreation bool     `json:"restrict_creation"`
-	RestrictUpdate   bool     `json:"restrict_update"`
-	RestrictDeletion bool     `json:"restrict_deletion"`
-	BlockForcePush   bool     `json:"block_force_push"`
+	Name               string   `json:"name"`
+	Target             string   `json:"target"`
+	Enabled            bool     `json:"enabled"`
+	Include            []string `json:"include"`
+	Exclude            []string `json:"exclude"`
+	RestrictCreation   bool     `json:"restrict_creation"`
+	RestrictUpdate     bool     `json:"restrict_update"`
+	RestrictDeletion   bool     `json:"restrict_deletion"`
+	BlockForcePush     bool     `json:"block_force_push"`
+	RequirePullRequest bool     `json:"require_pull_request"`
 }
 
 func ValidRefRules(rules []RefRule) bool {
@@ -32,8 +33,8 @@ func ValidRefRules(rules []RefRule) bool {
 	}
 	for i, rule := range rules {
 		if rule.Name == "" || strings.TrimSpace(rule.Name) != rule.Name || utf8.RuneCountInString(rule.Name) > 80 || strings.ContainsFunc(rule.Name, unicode.IsControl) ||
-			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && rule.BlockForcePush) ||
-			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush) ||
+			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.BlockForcePush || rule.RequirePullRequest)) ||
+			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest) ||
 			len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
 			return false
 		}
@@ -107,6 +108,36 @@ func matchRefGlob(pattern, name string) bool {
 	return matched[len(components)]
 }
 
+func (rule RefRule) matches(target, name, defaultBranch string) bool {
+	return rule.Enabled && rule.Target == target && matchesRule(rule.Include, name, defaultBranch) && !matchesRule(rule.Exclude, name, defaultBranch)
+}
+
+var (
+	ErrBranchUpdatesRestricted   = errors.New("branch updates are restricted")
+	ErrBranchPullRequestRequired = errors.New("a verified pull request is required")
+)
+
+// CheckBranchMerge applies matching rules that govern server-authorized branch updates.
+// Callers must enforce revision, evidence and review gates independently.
+func CheckBranchMerge(rules []RefRule, branch, defaultBranch string, linkedPullRequest bool) error {
+	var pullRequestRule string
+	for _, rule := range rules {
+		if !rule.matches("branch", branch, defaultBranch) {
+			continue
+		}
+		if rule.RestrictUpdate {
+			return fmt.Errorf("ruleset %q blocks updates to %s: %w", rule.Name, branch, ErrBranchUpdatesRestricted)
+		}
+		if rule.RequirePullRequest && !linkedPullRequest {
+			pullRequestRule = rule.Name
+		}
+	}
+	if pullRequestRule != "" {
+		return fmt.Errorf("ruleset %q applies to %s: %w", pullRequestRule, branch, ErrBranchPullRequestRequired)
+	}
+	return nil
+}
+
 func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) error {
 	target := "branch"
 	name, isTag := strings.CutPrefix(update.Ref, "refs/tags/")
@@ -119,7 +150,7 @@ func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) erro
 	isDeletion := strings.Trim(update.New, "0") == ""
 	var forceRule string
 	for _, rule := range rules {
-		if !rule.Enabled || rule.Target != target || !matchesRule(rule.Include, name, defaultBranch) || matchesRule(rule.Exclude, name, defaultBranch) {
+		if !rule.matches(target, name, defaultBranch) {
 			continue
 		}
 		switch {
@@ -129,6 +160,8 @@ func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) erro
 			return fmt.Errorf("ruleset %q blocks deletion of %s", rule.Name, update.Ref)
 		case !isCreation && !isDeletion && rule.RestrictUpdate:
 			return fmt.Errorf("ruleset %q blocks updates to %s", rule.Name, update.Ref)
+		case !isCreation && !isDeletion && target == "branch" && rule.RequirePullRequest:
+			return fmt.Errorf("ruleset %q requires a pull request to update %s", rule.Name, update.Ref)
 		case !isCreation && !isDeletion && rule.BlockForcePush:
 			forceRule = rule.Name
 		}

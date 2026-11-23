@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
-	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
 func (d DeliveryDependencies) integrationGit() delivery.GitProvider {
@@ -184,6 +185,8 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 		writeProblem(w, 403, "Promotion denied", "Check organization membership and the registered default branch")
 	case errors.Is(err, pipeline.ErrMissing):
 		writeProblem(w, 404, "Run unavailable", "Select a run in this organization")
+	case errors.Is(err, githttp.ErrBranchUpdatesRestricted), errors.Is(err, githttp.ErrBranchPullRequestRequired):
+		writeProblem(w, http.StatusConflict, "Repository ruleset blocks promotion", err.Error())
 	case errors.Is(err, pipeline.ErrConflict):
 		writeProblem(w, 409, "Merge gate closed", "Check the exact candidate, build, evidence and current revision approvals")
 	case errors.Is(err, delivery.ErrCandidateStale):

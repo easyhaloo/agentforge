@@ -201,6 +201,16 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     expect(git(worktree, "push", "origin", `:${shipping}`, ":refs/heads/shipping/scratch/next").stderr).toContain(`blocks deletion of ${shipping}`);
     expect(checkedGit(folder, "ls-remote", gitURL, scratch)).toContain(scratch);
 
+    await content.getByRole("checkbox", { name: "Require a pull request before merging" }).check();
+    await capture("rulesets-require-pull-request");
+    await saveRulesets();
+    checkedGit(worktree, "-c", "user.name=Settings QA", "-c", "user.email=qa@example.test", "commit", "--allow-empty", "-m", "Try a direct update");
+    const blockedUpdate = git(worktree, "push", "origin", `HEAD:${shipping}`);
+    expect(blockedUpdate.stderr).toContain(`requires a pull request to update ${shipping}`);
+    const previousSHA = checkedGit(worktree, "rev-parse", "HEAD^").trim();
+    expect(checkedGit(folder, "ls-remote", gitURL, shipping).trim()).toBe(`${previousSHA}\t${shipping}`);
+    checkedGit(worktree, "push", "origin", `HEAD:${scratch}`);
+
     const tagRule = {
       name: "Release tags", target: "tag", enforcement: "active",
       conditions: { ref_name: { include: ["refs/tags/locked-*"], exclude: [] } },

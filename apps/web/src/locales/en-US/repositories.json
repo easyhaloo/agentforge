@@ -784,7 +784,7 @@
   "settings": {
     "rulesets": {
       "title": "Rulesets",
-      "help": "Rulesets apply to native Git pushes. Protections already configured under Branches and Tags still apply.",
+      "help": "Rulesets govern native Git pushes and branch merges. Protections configured under Branches and Tags also apply.",
       "hostedOnly": "Rulesets can be managed only for natively hosted repositories.",
       "add": "New ruleset",
       "import": "Import JSON",
@@ -814,6 +814,7 @@
       "restrictUpdate": "Restrict updates",
       "restrictDeletion": "Restrict deletion",
       "blockForcePush": "Block force pushes",
+      "requirePullRequest": "Require a pull request before merging",
       "none": "None",
       "editNamed": "Edit {{name}}",
       "closeNamed": "Close editor for {{name}}",
@@ -826,7 +827,7 @@
       "duplicateName": "Ruleset names must be unique, regardless of capitalization.",
       "includeRequired": "Enter at least one include pattern.",
       "tooManyPatterns": "Use up to {{max}} include and exclude patterns combined.",
-      "tagForcePush": "Tag rulesets cannot block force pushes.",
+      "tagBranchRestrictions": "Tag rulesets cannot block force pushes or require a pull request.",
       "restrictionRequired": "Select at least one restriction."
     },
     "refProtection": "Direct push protection",

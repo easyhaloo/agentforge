@@ -7,6 +7,7 @@ const ruleTypes = {
   restrict_update: "update",
   restrict_deletion: "deletion",
   block_force_push: "non_fast_forward",
+  require_pull_request: "pull_request",
 } as const;
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -72,11 +73,12 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
       (rule.parameters.update_allows_fetch_and_merge !== undefined && rule.parameters.update_allows_fetch_and_merge !== false))) return undefined;
     types.add(rule.type);
   }
-  if (target === "tag" && types.has("non_fast_forward")) return undefined;
+  if (target === "tag" && (types.has("non_fast_forward") || types.has("pull_request"))) return undefined;
   return {
     name, target, enabled: enforcement === "active", include, exclude,
     restrict_creation: types.has("creation"), restrict_update: types.has("update"),
     restrict_deletion: types.has("deletion"), block_force_push: types.has("non_fast_forward"),
+    ...(types.has("pull_request") && { require_pull_request: true }),
   };
 }
 

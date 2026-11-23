@@ -3,11 +3,13 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/jackc/pgx/v5"
 )
@@ -47,8 +49,8 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	if err = lockQueue(ctx, tx, org, candidate.Repository, candidate.Target.Ref); err != nil {
 		return err
 	}
-	var allowed bool
-	err = tx.QueryRow(ctx, `SELECT true FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id JOIN delivery_repositories d ON d.organization_id=o.id WHERE o.id=$1 AND o.status='active' AND m.status='active' AND m.user_id=$2 AND m.role IN ('owner','admin') AND d.slug=$3 AND d.default_branch=$4 FOR SHARE OF m,o,d`, org, actor, candidate.Repository, candidate.Target.Ref).Scan(&allowed)
+	var rules []githttp.RefRule
+	err = tx.QueryRow(ctx, `SELECT d.ref_rules FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id JOIN delivery_repositories d ON d.organization_id=o.id WHERE o.id=$1 AND o.status='active' AND m.status='active' AND m.user_id=$2 AND m.role IN ('owner','admin') AND d.slug=$3 AND d.default_branch=$4 FOR SHARE OF m,o FOR NO KEY UPDATE OF d`, org, actor, candidate.Repository, candidate.Target.Ref).Scan(&rules)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return execution.ErrTriggerDenied
 	}
@@ -62,6 +64,16 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	recorded, err := receipts.HasPromotion(ctx, org, candidate.Repository, id, sha)
 	if err != nil {
 		return err
+	}
+	if !recorded {
+		// Candidate history may include commits with no matching eligible Changeset.
+		// Promotion has no provenance proof covering the entire candidate.
+		if err = githttp.CheckBranchMerge(rules, candidate.Target.Ref, candidate.Target.Ref, false); err != nil {
+			if errors.Is(err, githttp.ErrBranchPullRequestRequired) {
+				return fmt.Errorf("%w; integration promotion cannot verify pull request coverage for the entire candidate", err)
+			}
+			return err
+		}
 	}
 	var first int64
 	var currentRun string

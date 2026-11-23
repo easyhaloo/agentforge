@@ -21,7 +21,7 @@ describe("ruleset JSON portability", () => {
     const rule: RepositoryRefRule = {
       name: "Release refs", target: "branch", enabled: false, include: ["releases/**", "~DEFAULT_BRANCH"],
       exclude: ["releases/scratch/**"], restrict_creation: true, restrict_update: false,
-      restrict_deletion: false, block_force_push: true,
+      restrict_deletion: false, block_force_push: true, require_pull_request: true,
     };
     expect(parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
   });
@@ -34,8 +34,13 @@ describe("ruleset JSON portability", () => {
     });
   });
 
+  it("imports a GitHub pull-request rule without extra requirements", () => {
+    expect(githubImport({ rules: [{ type: "pull_request", parameters: {} }] })).toMatchObject({ require_pull_request: true });
+  });
+
   it.each([
-    { rules: [{ type: "pull_request" }] },
+    { rules: [{ type: "pull_request", parameters: { required_approving_review_count: 2 } }] },
+    { target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules: [{ type: "pull_request" }] },
     { bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] },
     { enforcement: "evaluate" },
     { conditions: { ...githubRuleset.conditions, repository_name: { include: ["restricted-*"], exclude: [] } } },

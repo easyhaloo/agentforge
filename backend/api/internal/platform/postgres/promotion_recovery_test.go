@@ -122,6 +122,8 @@ func TestMergeQueueRecoveryAfterPromotionCommitFailure(t *testing.T) {
 	if err := promote("unrelated-user"); !errors.Is(err, execution.ErrTriggerDenied) {
 		t.Fatalf("unauthorized retry: %v", err)
 	}
+	// A ruleset enabled after Git wrote its receipt cannot invalidate recovery.
+	setMainMergeRuleset(t, s, org, true, true)
 	// A later branch move must survive replay of the receipt.
 	path := filepath.Join(git.Root, org, repo)
 	if out, err := exec.CommandContext(ctx, "git", "-C", path, "update-ref", "refs/heads/main", tail.SourceSHA, head.CandidateSHA).CombinedOutput(); err != nil {

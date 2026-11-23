@@ -1088,24 +1088,26 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	if d.Catalog == nil {
-		writeProblem(w, 503, "Repository catalog unavailable", "The merge target cannot be verified")
+	repo := stored.Changeset.Repository
+	policy, unlockRepository, locked := d.lockBranchMergePolicy(w, r, principal.OrganizationID, repo)
+	if !locked {
 		return
 	}
-	repositories, catalogErr := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
-	if catalogErr != nil {
-		writeProblem(w, 503, "Repository catalog unavailable", "The merge target could not be loaded")
+	defer unlockRepository()
+	// Promotion can complete a Changeset without the Changeset advisory lock.
+	// Refresh its state after taking the repository lock shared by both paths.
+	stored, ok = d.load(w, r, principal.OrganizationID)
+	if !ok {
 		return
 	}
-	allowedTarget := ""
-	for _, repository := range repositories {
-		if repository.Slug == stored.Changeset.Repository {
-			allowedTarget = repository.DefaultBranch
-			break
-		}
+	if stored.Changeset.Repository != repo {
+		writeRepositoryError(w, delivery.ErrVersionConflict)
+		return
 	}
-	if allowedTarget != "" && stored.Changeset.PullRequest != nil {
-		allowedTarget = stored.Changeset.PullRequest.BaseBranch
+	allowedTarget := policy.DefaultBranch
+	pull := stored.Changeset.PullRequest
+	if allowedTarget != "" && pull != nil {
+		allowedTarget = pull.BaseBranch
 	}
 	if allowedTarget == "" || input.TargetRef != allowedTarget {
 		writeProblem(w, 422, "Invalid merge target", "Use the recorded target branch")
@@ -1120,16 +1122,10 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeDeliveryError(w, err)
 		return
 	}
-	if d.Locker == nil {
-		writeProblem(w, 503, "Repository merge lock unavailable", "A distributed repository lock is required before merging")
+	if err := githttp.CheckBranchMerge(policy.RefRules, allowedTarget, policy.DefaultBranch, pull != nil && pull.BaseBranch == allowedTarget); err != nil {
+		writeProblem(w, http.StatusConflict, "Repository ruleset blocks merge", err.Error())
 		return
 	}
-	unlockRepository, lockErr := d.Locker.LockChangeset(r.Context(), principal.OrganizationID, "repository:"+stored.Changeset.Repository)
-	if lockErr != nil {
-		writeProblem(w, 503, "Repository merge lock unavailable", "The repository could not be safely locked for merge")
-		return
-	}
-	defer unlockRepository()
 	baseRef := allowedTarget
 	if pull := stored.Changeset.PullRequest; pull != nil {
 		baseRef = "refs/heads/" + allowedTarget
@@ -1169,6 +1165,51 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) lockBranchMergePolicy(w http.ResponseWriter, r *http.Request, org, repo string) (githttp.PushPolicy, func(), bool) {
+	if d.Catalog == nil || d.Locker == nil {
+		writeProblem(w, 503, "Repository merge lock unavailable", "A repository catalog and distributed lock are required before merging")
+		return githttp.PushPolicy{}, nil, false
+	}
+	if catalog, ok := d.Catalog.(interface {
+		LockGitPolicy(context.Context, string, string) (githttp.PushPolicy, func(), error)
+	}); ok {
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		policy, release, err := catalog.LockGitPolicy(ctx, org, repo)
+		if err != nil {
+			writeProblem(w, 503, "Repository merge lock unavailable", "The repository policy could not be safely locked for merge")
+			return githttp.PushPolicy{}, nil, false
+		}
+		return policy, release, true
+	}
+	// Legacy catalogs can still merge if they have no enabled branch merge rules.
+	repositories, err := d.Catalog.ListRepositories(r.Context(), org)
+	if err != nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "The merge target could not be loaded")
+		return githttp.PushPolicy{}, nil, false
+	}
+	var policy githttp.PushPolicy
+	for _, repository := range repositories {
+		if repository.Slug != repo {
+			continue
+		}
+		for _, rule := range repository.RefRules {
+			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest) {
+				writeProblem(w, 503, "Repository merge lock unavailable", "The repository ruleset requires a policy lock")
+				return githttp.PushPolicy{}, nil, false
+			}
+		}
+		policy.DefaultBranch = repository.DefaultBranch
+		break
+	}
+	release, err := d.Locker.LockChangeset(r.Context(), org, "repository:"+repo)
+	if err != nil {
+		writeProblem(w, 503, "Repository merge lock unavailable", "The repository could not be safely locked for merge")
+		return githttp.PushPolicy{}, nil, false
+	}
+	return policy, release, true
 }
 
 func (d DeliveryDependencies) getChangesetComparison(w http.ResponseWriter, r *http.Request) {
