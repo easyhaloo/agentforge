@@ -40,3 +40,21 @@ func (m MergeMethods) Check(strategy string) error {
 	}
 	return nil
 }
+
+// PullRequestMethods lists available native PR methods in default selection order.
+func (m MergeMethods) PullRequestMethods(linear bool) []string {
+	methods := make([]string, 0, 3)
+	for _, method := range []string{"merge", "squash", "rebase"} {
+		if (!linear || method != "merge") && m.Check(PullRequestMergeStrategy(method)) == nil {
+			methods = append(methods, method)
+		}
+	}
+	return methods
+}
+
+func PullRequestMergeStrategy(method string) string {
+	if method == "merge" {
+		return "merge-commit"
+	}
+	return method
+}

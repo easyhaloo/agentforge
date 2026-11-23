@@ -179,7 +179,8 @@ export type RepositoryRefRule = {
 };
 type RepositoryMergeMethods = { allow_merge_commit?: boolean; allow_squash_merge?: boolean; allow_rebase_merge?: boolean };
 export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
-export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered" };
+export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
+export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered"; pull_request_merge_methods?: PullRequestMergeMethod[] };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
 export type RepositoryPreviewRefs = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; issues_disabled?: boolean; description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
@@ -274,8 +275,8 @@ export const repositoryAPI = {
     request<operations["listRepositoryActions"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions?${filters}`, { signal }),
   workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
-  settings: (organizationID: string, repository: string, signal?: AbortSignal) =>
-    request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`, { signal }),
+  settings: (organizationID: string, repository: string, signal?: AbortSignal, targetBranch?: string) =>
+    request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings${targetBranch ? `?${new URLSearchParams({ target_branch: targetBranch })}` : ""}`, { signal }),
   updateGeneralSettings: (organizationID: string, repository: string, settings: RepositoryMergeMethods & Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "delete_merged_branches" | "web_commit_signoff_required" | "issues_disabled" | "ref_rules" | "updated_at">) =>
     request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
@@ -347,7 +348,7 @@ export const changesetAPI = {
   attachEvidence: (organizationID: string,id: string,evaluationID: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/evidence`,{method:"POST",body:JSON.stringify({evaluation_id:evaluationID})}),
   assignReview: (organizationID: string,id: string,reviewerID: string,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews`,{method:"POST",body:JSON.stringify({reviewer_id:reviewerID,comment})}),
   decideReview: (organizationID: string,id: string,reviewID: string,approved: boolean,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewID)}/decision`,{method:"POST",body:JSON.stringify({approved,comment})}),
-  merge: (organizationID: string,id: string,targetRef: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef})}),
+  merge: (organizationID: string,id: string,targetRef: string, mergeMethod?: PullRequestMergeMethod) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef, merge_method:mergeMethod})}),
   list: (organizationID: string, filters: ChangesetListFilters = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (filters.q) query.set("q", filters.q);

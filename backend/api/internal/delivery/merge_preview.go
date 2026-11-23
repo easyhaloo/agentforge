@@ -40,6 +40,16 @@ type MergePreview struct {
 var objectID = regexp.MustCompile(`^(?:[a-f0-9]{40}|[a-f0-9]{64})$`)
 var ErrPreviewUnavailable = errors.New("merge preview unavailable")
 
+// PullMergeIntent pins the verified decision before an atomic Git promotion.
+// The saved intent and receipt allow a retry to finish the database update.
+type PullMergeIntent struct {
+	ID         ID           `json:"id"`
+	RevisionID ID           `json:"revision_id"`
+	Actor      string       `json:"actor"`
+	CreatedAt  time.Time    `json:"created_at"`
+	Candidate  MergePreview `json:"candidate"`
+}
+
 // previewGit keeps hooks, user configuration and original-repository merge drivers out of the simulation.
 func previewGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return previewGitInput(ctx, dir, nil, args...)

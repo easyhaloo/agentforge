@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { tmpdir } from "node:os";
 import { expect, test } from "@playwright/test";
 import { selectOption } from "./support/select-option";
 
@@ -54,6 +55,7 @@ test("reviews an updated pull request and merges only its verified revision", as
   mkdirSync(ownerDir, { recursive: true });
   const repositoryDir = mkdtempSync(join(ownerDir, "repo-"));
   const repository = `pulls-qa/${basename(repositoryDir)}`;
+  const checkout = mkdtempSync(join(tmpdir(), "af-pull-checkout-"));
   const otherRepositoryDir = mkdtempSync(join(ownerDir, "repo-"));
   const otherRepository = `pulls-qa/${basename(otherRepositoryDir)}`;
   const gitAt = (directory: string, ...args: string[]) => execFileSync("git", ["-C", directory, ...args], {
@@ -62,19 +64,20 @@ test("reviews an updated pull request and merges only its verified revision", as
   }).trim();
   const git = (...args: string[]) => gitAt(repositoryDir, ...args);
   const commit = (contents: string, subject: string) => {
-    writeFileSync(join(repositoryDir, "README.md"), contents);
-    git("add", "README.md");
-    git("-c", "user.name=Pull Request QA", "-c", "user.email=pulls@example.test", "commit", "--quiet", "-m", subject);
-    return git("rev-parse", "HEAD");
+    writeFileSync(join(checkout, "README.md"), contents);
+    gitAt(checkout, "add", "README.md");
+    gitAt(checkout, "-c", "user.name=Pull Request QA", "-c", "user.email=pulls@example.test", "commit", "--quiet", "-m", subject);
+    return gitAt(checkout, "rev-parse", "HEAD");
   };
 
   try {
-    git("init", "--quiet", "--initial-branch=main", "--template=");
+    gitAt(checkout, "init", "--quiet", "--initial-branch=main", "--template=");
     const target = commit("# Documentation\n", "Seed repository");
-    git("branch", "release");
-    git("switch", "--quiet", "-c", "feature/docs");
+    gitAt(checkout, "branch", "release");
+    gitAt(checkout, "switch", "--quiet", "-c", "feature/docs");
     const firstHead = commit("# Documentation\n\nFirst revision.\n", "Add revision notes");
-    git("switch", "--quiet", "main");
+    gitAt(checkout, "switch", "--quiet", "main");
+    gitAt(checkout, "clone", "--quiet", "--bare", "--template=", checkout, repositoryDir);
 
     gitAt(otherRepositoryDir, "init", "--quiet", "--initial-branch=main", "--template=");
     gitAt(otherRepositoryDir, "-c", "user.name=Pull Request QA", "-c", "user.email=pulls@example.test",
@@ -454,7 +457,7 @@ test("reviews an updated pull request and merges only its verified revision", as
       await expect(merge).toBeEnabled();
     };
     await verifyAndApprove();
-    const settingsEndpoint = `**/api/v1/organizations/${orgID}/repositories/${repository}/settings`;
+    const settingsEndpoint = `**/api/v1/organizations/${orgID}/repositories/${repository}/settings?target_branch=release`;
     await page.route(settingsEndpoint, route => route.fulfill({ json: {
       default_branch: "release", ref_rules: [{ enabled: true, require_merge_queue: true }],
     } }));
@@ -468,9 +471,9 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.unroute(settingsEndpoint);
     await page.reload();
     await expect(merge).toBeEnabled();
-    git("switch", "--quiet", "feature/docs");
+    gitAt(checkout, "switch", "--quiet", "feature/docs");
     const secondHead = commit("# Documentation\n\nFirst revision.\nSecond revision.\n", "Clarify revision notes");
-    git("switch", "--quiet", "main");
+    gitAt(checkout, "push", "--quiet", repositoryDir, "HEAD:refs/heads/feature/docs");
     await page.getByRole("button", { name: "Update revision" }).click();
     await expect(merge.filter({ visible: true }).and(page.locator(":enabled"))).toHaveCount(0);
     await expect(page.getByText("This comment was made on an older revision", { exact: true })).toBeVisible();
@@ -501,13 +504,36 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(checksTab).toHaveAccessibleName("Checks 1");
     await expect(page.getByText("Revision 2", { exact: true })).toBeVisible();
 
+    await page.goto(`${base.origin}${repositoryPath}/settings`);
+    const mergeCommits = page.getByRole("checkbox", { name: "Allow merge commits" });
+    await mergeCommits.uncheck();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(mergeCommits).not.toBeChecked();
+    await capture("general-merge-methods");
+    await page.goto(detail);
+    expect(await post("merge", { target_ref: "release", merge_method: "merge" })).toEqual({
+      status: 409, detail: "Choose an enabled method for this target branch",
+    });
+    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    const method = page.getByRole("combobox", { name: "Merge method" });
+    await method.click();
+    const methods = page.getByRole("listbox").getByRole("option");
+    await expect(methods).toHaveCount(2);
+    await expect(methods.nth(0)).toHaveAccessibleName("Squash and merge");
+    await expect(methods.nth(1)).toHaveAccessibleName("Rebase and merge");
+    await method.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("pull-request-merge-methods.png"), animations: "disabled" });
+    await page.getByRole("option", { name: "Squash and merge" }).click();
     await merge.click();
+    await expect(page.getByRole("dialog")).toContainText("Squash and merge");
     await page.getByRole("dialog").getByRole("button", { name: "Merge pull request" }).click();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
     const mergedHead = git("rev-parse", "refs/heads/release");
     expect(git("rev-parse", "refs/heads/main")).toBe(target);
     expect(mergedHead).not.toBe(secondHead);
-    expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([target, secondHead]);
+    expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([target]);
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
@@ -540,6 +566,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(currentSection).toHaveText("Settings");
   } finally {
     await reviewerContext.close();
+    rmSync(checkout, { recursive: true, force: true });
     rmSync(repositoryDir, { recursive: true, force: true });
     rmSync(otherRepositoryDir, { recursive: true, force: true });
   }

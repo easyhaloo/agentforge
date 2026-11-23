@@ -246,6 +246,7 @@
 .pull-reviewers { display: grid; gap: 10px; padding: 0 0 12px; border-bottom: 1px solid var(--af-color-border); }
 .pull-reviewer-status { flex-wrap: wrap; font-size: 13px; }
 .pull-merge-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); }
+.pull-merge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pull-merge-gate-main { display: flex; align-items: center; gap: 10px; }
 .pull-merge-gate-main > svg { flex: none; color: var(--af-color-primary); }
 .pull-merge-gate p { margin: 4px 0 0; color: var(--af-color-text-secondary); }

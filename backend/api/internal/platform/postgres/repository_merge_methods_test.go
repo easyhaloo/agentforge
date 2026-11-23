@@ -68,21 +68,26 @@ func TestRepositoryMergeMethodsSettingsAndWebMerge(t *testing.T) {
 	approveRulesetTestRevision(t, pr, h.userID, base.CommitSHA, "current")
 	_, err = s.Create(ctx, org, pr)
 	lockMust(t, err)
-	merge := func(want int, detail string) {
+	merge := func(body string, want int, detail string) {
 		t.Helper()
-		resp := h.do(ctx, http.MethodPost, h.mergePath(string(pr.ID)), `{"target_ref":"main"}`)
+		resp := h.do(ctx, http.MethodPost, h.mergePath(string(pr.ID)), body)
 		if resp.Code != want || !strings.Contains(resp.Body.String(), detail) {
 			t.Fatalf("web merge: %d %s; want %d containing %q", resp.Code, resp.Body, want, detail)
 		}
 	}
-	merge(409, "Merge method disabled")
+	merge(`{"target_ref":"main","merge_method":"merge"}`, 409, "Merge method unavailable")
 	after, err := git.ResolveRevision(ctx, org, repo, "refs/heads/main")
 	lockMust(t, err)
 	if after.CommitSHA != base.CommitSHA || h.stored(t, string(pr.ID)).Changeset.Merge != nil {
 		t.Fatal("disabled web merge changed the branch or PR")
 	}
 	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireLinearHistory: true})
-	merge(200, source.CommitSHA)
+	merge(`{"target_ref":"main"}`, 200, `"status":"merged"`)
+	merged, err := git.ResolveRevision(ctx, org, repo, "refs/heads/main")
+	lockMust(t, err)
+	if merged.CommitSHA == source.CommitSHA || merged.ParentSHA != base.CommitSHA {
+		t.Fatal("the default method should squash when merge commits are disabled")
+	}
 }
 
 func TestRepositoryMergeMethodsQueueAdmissionAndPromotion(t *testing.T) {

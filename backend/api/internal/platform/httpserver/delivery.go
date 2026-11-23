@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1114,7 +1115,8 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var input struct {
-		TargetRef string `json:"target_ref"`
+		TargetRef   string `json:"target_ref"`
+		MergeMethod string `json:"merge_method"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -1149,6 +1151,31 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, 422, "Invalid merge target", "Use the recorded target branch")
 		return
 	}
+	if d.recoverPullMerge(w, r, principal.OrganizationID, stored, unlockRepository) {
+		return
+	}
+	linear := githttp.LinearHistoryRule(policy.RefRules, allowedTarget, policy.DefaultBranch) != ""
+	strategy := ""
+	if input.MergeMethod != "" && input.MergeMethod != "merge" && input.MergeMethod != "squash" && input.MergeMethod != "rebase" {
+		writeProblem(w, 422, "Invalid merge method", "Choose merge, squash, or rebase")
+		return
+	}
+	hostedPull := pull != nil && d.repositoryHostingKind(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: repo}) == "hosted"
+	if hostedPull {
+		methods := policy.MergeMethods.PullRequestMethods(linear)
+		method := input.MergeMethod
+		if method == "" && len(methods) > 0 {
+			method = methods[0]
+		}
+		if !slices.Contains(methods, method) {
+			writeProblem(w, 409, "Merge method unavailable", "Choose an enabled method for this target branch")
+			return
+		}
+		strategy = githttp.PullRequestMergeStrategy(method)
+	} else if input.MergeMethod != "" {
+		writeProblem(w, 409, "Merge method unavailable", "A native Git pull request is required to choose a merge method")
+		return
+	}
 	revision, exists := stored.Changeset.CurrentRevision()
 	if !exists || revision.CommitSHA == "" {
 		writeProblem(w, 409, "Revision required", "A resolved Git revision is required")
@@ -1181,14 +1208,18 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, 409, "Evaluation is stale", "The target branch changed after evaluation; rerun trusted evaluation before merging")
 		return
 	}
+	if strategy != "" {
+		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, unlockRepository)
+		return
+	}
 	id, err := newID()
 	if err != nil {
 		writeProblem(w, 500, "Unable to record merge", "An identifier could not be generated")
 		return
 	}
 	merge := d.Git.MergeRevision
-	strategy := "merge-commit"
-	if githttp.LinearHistoryRule(policy.RefRules, allowedTarget, policy.DefaultBranch) != "" {
+	strategy = "merge-commit"
+	if linear {
 		git, ok := d.Git.(*delivery.LocalGitProvider)
 		if !ok {
 			writeProblem(w, 503, "Linear history check unavailable", "The Git provider cannot verify a linear merge")
@@ -1219,16 +1250,8 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeRepositoryError(w, err)
 		return
 	}
-	if pull != nil {
-		cleanup, canCleanup := d.Catalog.(interface {
-			CleanupMergedPullRequestBranches(context.Context, string, string, []delivery.Changeset, *delivery.LocalGitProvider)
-		})
-		git, local := d.Git.(*delivery.LocalGitProvider)
-		if canCleanup && local {
-			unlockRepository()
-			cleanup.CleanupMergedPullRequestBranches(r.Context(), principal.OrganizationID, repo, []delivery.Changeset{*updated.Changeset}, git)
-		}
-	}
+	git, _ := d.Git.(*delivery.LocalGitProvider)
+	d.cleanupPullMerge(r.Context(), principal.OrganizationID, updated, git, unlockRepository)
 	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }
 

@@ -673,6 +673,11 @@ paths:
     get:
       operationId: getRepositorySettings
       summary: Read repository settings from the catalog
+      parameters:
+        - in: query
+          name: target_branch
+          description: Include the methods allowed by repository settings and matching rulesets for this hosted pull request target.
+          schema: { type: string }
       security: [{ sessionCookie: [] }]
       responses:
         "200":
@@ -1571,6 +1576,7 @@ paths:
               required: [target_ref]
               properties:
                 target_ref: { type: string, minLength: 1 }
+                merge_method: { type: string, enum: [merge, squash, rebase] }
       responses:
         "200":
           description: Merged changeset with the actual Git merge commit
@@ -2258,6 +2264,9 @@ components:
           required: [hosting_kind]
           properties:
             hosting_kind: { type: string, enum: [hosted, registered] }
+            pull_request_merge_methods:
+              type: array
+              items: { type: string, enum: [merge, squash, rebase] }
     RepositoryMetadata:
       type: object
       required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, created_by, created_at, updated_at]

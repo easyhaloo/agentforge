@@ -242,11 +242,14 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 	}
 	var rules []githttp.RefRule
 	var defaultBranch string
-	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch FROM delivery_repositories WHERE organization_id=$1 AND slug=$2`, org, repo).Scan(&rules, &defaultBranch); err != nil {
+	var methods githttp.MergeMethods
+	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch,allow_merge_commit,allow_squash_merge,allow_rebase_merge
+		FROM delivery_repositories WHERE organization_id=$1 AND slug=$2`, org, repo).
+		Scan(&rules, &defaultBranch, &methods.AllowMergeCommit, &methods.AllowSquashMerge, &methods.AllowRebaseMerge); err != nil {
 		return err
 	}
 	strategy, err := githttp.QueueMergeStrategy(rules, target, defaultBranch)
-	if err != nil || target != defaultBranch {
+	if err != nil || target != defaultBranch || methods.Check(strategy) != nil {
 		return tx.Commit(ctx)
 	}
 

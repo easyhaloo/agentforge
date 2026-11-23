@@ -204,8 +204,12 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 		if err = c.CompleteMerge(delivery.ID(id), actor, candidate.Target.Ref, sha, time.Now().UTC()); err != nil {
 			return pipeline.ErrConflict
 		}
-		if _, err = tx.Exec(ctx, `UPDATE delivery_changesets SET state=$3,version=version+1,updated_at=now() WHERE organization_id=$1 AND id=$2`, org, string(c.ID), c); err != nil {
+		result, err := tx.Exec(ctx, `UPDATE delivery_changesets SET state=$3,version=version+1,updated_at=now() WHERE organization_id=$1 AND id=$2 AND pull_merge_intent IS NULL`, org, string(c.ID), c)
+		if err != nil {
 			return err
+		}
+		if result.RowsAffected() != 1 {
+			return pipeline.ErrConflict
 		}
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO integration_promotions(run_id,candidate_sha,actor_id) VALUES($1,$2,$3)`, id, sha, actor); err != nil {

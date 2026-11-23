@@ -138,7 +138,8 @@ func (d DeliveryDependencies) listRepositoryWorkflows(w http.ResponseWriter, r *
 
 type repositorySettingsResponse struct {
 	delivery.RepositoryMetadata
-	HostingKind string `json:"hosting_kind"`
+	HostingKind        string    `json:"hosting_kind"`
+	PullRequestMethods *[]string `json:"pull_request_merge_methods,omitempty"`
 }
 
 func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +152,13 @@ func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
-	writeJSON(w, http.StatusOK, repositorySettingsResponse{repository, d.repositoryHostingKind(r.Context(), repository)})
+	response := repositorySettingsResponse{RepositoryMetadata: repository, HostingKind: d.repositoryHostingKind(r.Context(), repository)}
+	if branch := r.URL.Query().Get("target_branch"); branch != "" && response.HostingKind == "hosted" {
+		linear := githttp.LinearHistoryRule(repository.RefRules, branch, repository.DefaultBranch) != ""
+		methods := repository.MergeMethods.PullRequestMethods(linear)
+		response.PullRequestMethods = &methods
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r *http.Request) {
@@ -327,6 +334,6 @@ func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWri
 	case err != nil:
 		writeProblem(w, 500, "Unable to update repository settings", "General settings could not be saved")
 	default:
-		writeJSON(w, http.StatusOK, repositorySettingsResponse{updated, d.repositoryHostingKind(r.Context(), updated)})
+		writeJSON(w, http.StatusOK, repositorySettingsResponse{RepositoryMetadata: updated, HostingKind: d.repositoryHostingKind(r.Context(), updated)})
 	}
 }

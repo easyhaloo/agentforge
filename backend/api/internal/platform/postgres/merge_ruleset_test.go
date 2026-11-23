@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"os/exec"
@@ -107,7 +108,7 @@ func TestRepositoryRulesetChangesetMerge(t *testing.T) {
 	merged := h.stored(t, string(pull.ID)).Changeset.Merge
 	target, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/main")
 	lockMust(t, err)
-	if merged == nil || merged.RevisionID != "current" || merged.CommitSHA != target.CommitSHA || target.CommitSHA != topic.CommitSHA {
+	if merged == nil || merged.RevisionID != "current" || merged.CommitSHA != target.CommitSHA || target.ParentSHA != base.CommitSHA || target.CommitSHA == topic.CommitSHA {
 		t.Fatalf("verified current PR did not update branch and Changeset: %+v", merged)
 	}
 }
@@ -364,6 +365,101 @@ func TestRepositoryQueueRewritesOnlyVerifiedPullRequests(t *testing.T) {
 			lockMust(t, err)
 			if rebuilt.Integration == nil || rebuilt.Integration.Target.SHA != entry.CandidateSHA || len(rebuilt.Integration.Sources) != 1 || rebuilt.Integration.Sources[0].SHA != second.SourceSHA {
 				t.Fatalf("rebuilt candidate must use the promoted base and the second pinned source: %+v", rebuilt.Integration)
+			}
+		})
+	}
+}
+
+func TestNativePullMergeMethodsAndRecovery(t *testing.T) {
+	for _, method := range []string{"merge", "squash", "rebase"} {
+		t.Run(method, func(t *testing.T) {
+			ctx := t.Context()
+			s, h, git, _, _ := integrationFixture(t)
+			org := h.organizationID
+			h.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+				Repository: s, Identity: s, CSRF: s, AllowedOrigin: lockHTTPOrigin, Catalog: s, Git: git, Locker: s,
+			})
+			base, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/main")
+			lockMust(t, err)
+			checkout := t.TempDir()
+			repo := filepath.Join(git.Root, org, "team", "repo")
+			run := func(directory string, args ...string) string {
+				t.Helper()
+				out, err := exec.Command("git", append([]string{"-C", directory, "-c", "user.name=Test", "-c", "user.email=test@example.invalid"}, args...)...).CombinedOutput()
+				if err != nil {
+					t.Fatalf("git %v: %v: %s", args, err, out)
+				}
+				return strings.TrimSpace(string(out))
+			}
+			run(checkout, "clone", "--branch", "topic", repo, ".")
+			for _, name := range []string{"one", "two"} {
+				lockMust(t, os.WriteFile(filepath.Join(checkout, name), []byte(name), 0600))
+				run(checkout, "add", "--", name)
+				run(checkout, "commit", "-m", name)
+			}
+			run(checkout, "push", "origin", "topic")
+			source, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/topic")
+			lockMust(t, err)
+			now := time.Now()
+			pull, err := delivery.NewChangeset("native-pull", rulesetTestRepo, "native PR", h.userID, now)
+			lockMust(t, err)
+			pull.PullRequest = &delivery.PullRequest{SourceBranch: "topic", BaseBranch: "main"}
+			lockMust(t, pull.AddPullRequestRevision("current", source, base.CommitSHA, h.userID, now))
+			stored, err := s.Create(ctx, org, pull)
+			lockMust(t, err)
+			merge := func(want int) {
+				t.Helper()
+				resp := h.do(ctx, http.MethodPost, h.mergePath(string(pull.ID)), `{"target_ref":"main","merge_method":"`+method+`"}`)
+				if resp.Code != want {
+					t.Fatalf("merge returned %d %s, want %d", resp.Code, resp.Body, want)
+				}
+			}
+			merge(http.StatusConflict)
+			approveRulesetTestRevision(t, pull, h.userID, base.CommitSHA, "current")
+			stored, err = s.Update(ctx, org, pull, stored.Version)
+			lockMust(t, err)
+			if method == "merge" {
+				setMainMergeRuleset(t, s, org, githttp.RefRule{RequireLinearHistory: true})
+				merge(http.StatusConflict)
+				setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
+			}
+			if head := run(repo, "rev-parse", "main"); head != base.CommitSHA {
+				t.Fatalf("denied merge moved target to %s", head)
+			}
+			if method == "squash" {
+				_, err := s.pool.Exec(ctx, `CREATE FUNCTION reject_pull_merge_result() RETURNS trigger LANGUAGE plpgsql AS $$
+				BEGIN IF OLD.pull_merge_intent IS NOT NULL AND NEW.state ? 'merge' THEN RAISE EXCEPTION 'simulated persistence failure'; END IF; RETURN NEW; END $$;
+				CREATE TRIGGER reject_pull_merge_result BEFORE UPDATE ON delivery_changesets FOR EACH ROW EXECUTE FUNCTION reject_pull_merge_result()`)
+				lockMust(t, err)
+				merge(http.StatusInternalServerError)
+				intent, err := s.PullMergeIntent(ctx, org, pull.ID)
+				lockMust(t, err)
+				if intent == nil || run(repo, "rev-parse", "main") != intent.Candidate.CandidateSHA || h.stored(t, string(pull.ID)).Changeset.Merge != nil {
+					t.Fatal("the interrupted merge did not preserve a recoverable decision")
+				}
+				if _, err := s.Update(ctx, org, pull, stored.Version); !errors.Is(err, ErrVersionConflict) {
+					t.Fatalf("pending merge must fence other updates: %v", err)
+				}
+				_, err = s.pool.Exec(ctx, `DROP TRIGGER reject_pull_merge_result ON delivery_changesets`)
+				lockMust(t, err)
+				setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true})
+			}
+			merge(http.StatusOK)
+			tip := run(repo, "rev-parse", "main")
+			storedMerge := h.stored(t, string(pull.ID)).Changeset.Merge
+			if storedMerge == nil || storedMerge.RevisionID != "current" || storedMerge.Actor != h.userID || storedMerge.CommitSHA != tip || run(repo, "show", "main:two") != "two" {
+				t.Fatalf("incorrect merged record or tree: %+v", storedMerge)
+			}
+			switch method {
+			case "merge":
+				if parents := strings.Fields(run(repo, "show", "-s", "--format=%P", "main")); len(parents) != 2 || parents[1] != source.CommitSHA {
+					t.Fatalf("merge commit has unexpected parents: %v", parents)
+				}
+			default:
+				want := map[string]string{"squash": "1", "rebase": "2"}[method]
+				if count := run(repo, "rev-list", "--count", base.CommitSHA+"..main"); count != want {
+					t.Fatalf("wrong number of rewritten commits: %s", count)
+				}
 			}
 		})
 	}

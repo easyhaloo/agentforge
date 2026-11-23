@@ -180,7 +180,7 @@ func (s *Store) Update(ctx context.Context, organizationID string, changeset *de
 	err = s.pool.QueryRow(ctx, `
 		UPDATE delivery_changesets
 		SET repository = $3, title = $4, state = $5, version = version + 1, updated_at = now()
-		WHERE organization_id = $1 AND id = $2 AND version = $6
+		WHERE organization_id = $1 AND id = $2 AND version = $6 AND pull_merge_intent IS NULL
 		RETURNING version, created_at, updated_at
 	`, organizationID, string(changeset.ID), changeset.Repository, changeset.Title, state, expectedVersion).
 		Scan(&stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
