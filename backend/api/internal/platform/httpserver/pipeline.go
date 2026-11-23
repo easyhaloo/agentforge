@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
@@ -17,19 +18,24 @@ func (d DeliveryDependencies) pipelineRoutes(mux *http.ServeMux) {
 		"PUT " + base + "/{id}/draft":                              "save",
 		"POST " + base + "/{id}/publish":                           "publish",
 		"POST " + base + "/{id}/archive":                           "archive",
+		"POST " + base + "/{id}/disable":                           "disable",
+		"POST " + base + "/{id}/enable":                            "enable",
 		"GET " + base + "/{id}/versions":                           "versions",
 		"POST " + base + "/{id}/versions/{number}/validate-inputs": "inputs",
 	} {
 		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) { d.pipelineRequest(w, r, action) })
 	}
+	mux.HandleFunc("GET "+base+"/{id}/triggers", d.workflowTriggers)
+	mux.HandleFunc("POST "+base+"/{id}/triggers", d.workflowTriggers)
+	mux.HandleFunc("DELETE "+base+"/{id}/triggers/{binding}", d.workflowTriggers)
 }
 func (d DeliveryDependencies) pipelineRequest(w http.ResponseWriter, r *http.Request, action string) {
 	principal, ok := d.principal(w, r, r.Method != "GET" && r.Method != "HEAD")
 	if !ok {
 		return
 	}
-	if (action == "publish" || action == "archive") && principal.Role != "admin" && principal.Role != "owner" {
-		writeProblem(w, 403, "Insufficient permissions", "Only owners and admins can publish or archive pipelines")
+	if (action == "publish" || action == "archive" || action == "disable" || action == "enable") && principal.Role != "admin" && principal.Role != "owner" {
+		writeProblem(w, 403, "Insufficient permissions", "Only owners and admins can publish, archive, disable, or enable workflows")
 		return
 	}
 	if d.Pipelines == nil {
@@ -120,7 +126,15 @@ func (d DeliveryDependencies) pipelineRequest(w http.ResponseWriter, r *http.Req
 			}
 		}
 		if err == nil {
-			result, err = d.Pipelines.ChangePipeline(ctx, org, id, principal.UserID, action, revision, def)
+			if slug := r.URL.Query().Get("repository"); action == "create" && slug != "" {
+				repository, registered := d.resolveRegisteredRepository(w, r, principal, slug)
+				if !registered {
+					return
+				}
+				result, err = d.Pipelines.CreateRepositoryPipeline(ctx, org, id, principal.UserID, repository.Slug, def)
+			} else {
+				result, err = d.Pipelines.ChangePipeline(ctx, org, id, principal.UserID, action, revision, def)
+			}
 		}
 	}
 	switch {
@@ -132,5 +146,69 @@ func (d DeliveryDependencies) pipelineRequest(w http.ResponseWriter, r *http.Req
 		writeProblem(w, 500, "Pipeline operation failed", "Pipeline storage could not complete the request")
 	default:
 		writeJSON(w, status, result)
+	}
+}
+
+func (d DeliveryDependencies) workflowTriggers(w http.ResponseWriter, r *http.Request) {
+	write := r.Method != http.MethodGet
+	user, ok := d.principal(w, r, write)
+	if !ok {
+		return
+	}
+	if write && user.Role != "owner" && user.Role != "admin" {
+		writeProblem(w, 403, "Insufficient permissions", "Only owners and admins can manage workflow triggers")
+		return
+	}
+	store, ok := d.Pipelines.(pipeline.TriggerStore)
+	if !ok {
+		writeProblem(w, 503, "Triggers unavailable", "Workflow trigger storage is unavailable")
+		return
+	}
+	ctx, org, id := r.Context(), user.OrganizationID, r.PathValue("id")
+	var err error
+	switch r.Method {
+	case http.MethodGet:
+		var items []pipeline.TriggerBinding
+		items, err = store.WorkflowTriggers(ctx, org, id)
+		if err == nil {
+			writeJSON(w, http.StatusOK, map[string]any{"items": items})
+			return
+		}
+	case http.MethodPost:
+		var body struct {
+			Kind         string `json:"kind"`
+			Version      int    `json:"version"`
+			EverySeconds int    `json:"everySeconds"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		if body.Version < 1 || !((body.Kind == "schedule" && body.EverySeconds >= 60 && body.EverySeconds <= 86400*365) ||
+			(body.Kind == "changeset_revision" && body.EverySeconds == 0)) {
+			writeProblem(w, 400, "Invalid trigger", "Provide a published version and a supported trigger configuration")
+			return
+		}
+		var binding pipeline.TriggerBinding
+		binding, err = store.EnableWorkflowTrigger(ctx, org, id, user.UserID, body.Kind, body.Version, body.EverySeconds)
+		if err == nil {
+			writeJSON(w, http.StatusCreated, binding)
+			return
+		}
+	case http.MethodDelete:
+		err = store.DisableWorkflowTrigger(ctx, org, id, r.PathValue("binding"))
+		if err == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	switch {
+	case errors.Is(err, pipeline.ErrMissing):
+		writeProblem(w, 404, "Not found", "The repository workflow, version, or binding does not exist")
+	case errors.Is(err, pipeline.ErrConflict):
+		writeProblem(w, 409, "Trigger conflict", "Check the workflow and disable existing bindings of this type")
+	case errors.Is(err, execution.ErrInputs):
+		writeProblem(w, 422, "Defaults required", "Automatic triggers require defaults for all required workflow inputs")
+	default:
+		writeProblem(w, 500, "Trigger operation failed", "Workflow trigger storage could not complete the request")
 	}
 }

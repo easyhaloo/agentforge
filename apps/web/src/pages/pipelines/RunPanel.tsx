@@ -13,7 +13,7 @@ export type DraftRun = {
 };
 
 export function RunDialog({ org, pipeline, draft, onCancel, onSubmit, queue = false, confirmDiscard = false }: {
-  org: string; pipeline: Pipeline; draft?: DraftRun; onCancel: () => void; queue?: boolean; confirmDiscard?: boolean;
+  org: string; pipeline: Pick<Pipeline, "id" | "version">; draft?: DraftRun; onCancel: () => void; queue?: boolean; confirmDiscard?: boolean;
   onSubmit: (version: RunVersion, inputs: Record<string, unknown>) => Promise<void>;
 }) {
   const { t } = useTranslation("pipelines");

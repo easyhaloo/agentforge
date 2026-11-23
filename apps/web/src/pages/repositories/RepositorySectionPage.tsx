@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { GitBranch, Workflow } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { GitBranch } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryPreviewAPI, type OrganizationSummary, type RepositoryPreviewRefs } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { useDateFormatting } from "../../shared/i18n/format";
-import { organizationHandle, pipelineRunPath, repositoryPath, type RepositorySection } from "../../shared/routing";
+import { organizationHandle, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Button, Select } from "../../shared/ui";
+import { RepositoryActions } from "./RepositoryActions";
 import { canManageRepository } from "./repositoryPermissions";
 import { RepositoryIssues } from "./RepositoryIssues";
 import "./repositories.css";
@@ -20,11 +20,12 @@ export function RepositorySectionPage({ organization, repository, section, curre
   return <section className="repo-layout repo-browser">
     {section === "issues" ? (
       <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} currentUser={currentUser} onNotify={onNotify} />
+    ) : section === "actions" ? (
+      <RepositoryActions key={`${organization.id}/${repository}`} organization={organization} repository={repository} />
     ) : (
       <div className="repo-panel repo-section-content">
         <h2>{t(`sections.${section}`)}</h2>
-        {section === "actions" ? <RepositoryActions {...props}/>
-          : section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
+        {section === "settings" && !canManageRepository(organization) ? <p role="alert">{t("sections.settingsDenied")}</p>
           : <RepositoryBranches {...props}/>}
       </div>
     )}
@@ -80,38 +81,4 @@ function RepositoryBranches({ organization, repository, section, onNotify }: Pro
     {saved && <p role="status">{t("sections.settingsSaved")}</p>}
     {error && <p role="alert" className="org-error">{error}</p>}
   </form>;
-}
-
-function RepositoryActions({ organization, repository, onNotify }: Props) {
-  const { t } = useTranslation("repositories");
-  const { formatDateTime } = useDateFormatting();
-  const [search, setSearch] = useSearchParams();
-  const offset = Number(search.get("offset")) || 0;
-  const [result, setResult] = useState<Awaited<ReturnType<typeof repositoryAPI.actions>>>();
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    setResult(undefined);
-    setError("");
-    void repositoryAPI.actions(organization.id, repository, offset)
-      .then(data => { if (active) setResult(data); })
-      .catch(cause => { if (active) setError(translateError(cause, t, "repositories:sections.actionsFailed")); });
-    return () => { active = false; };
-  }, [organization.id, repository, offset, t]);
-  if (error) return <p className="org-error" role="alert">{error}</p>;
-  if (!result) return <p role="status">{t("common:components.loading")}</p>;
-  const handle = organizationHandle(organization);
-  return <>
-    {result.items.length ? <ul className="repo-section-list">
-      {result.items.map(run => <li key={run.id}>
-        <Link className="repo-link" to={pipelineRunPath(handle, run.id)}><Workflow size={16} aria-hidden="true"/>{run.pipeline} <small>v{run.version}</small></Link>
-        <span className="repo-section-badge">{t(`pipelines:${run.status}`, { defaultValue: run.status })}</span>
-        <time dateTime={run.created_at}>{formatDateTime(run.created_at)}</time>
-      </li>)}
-    </ul> : <p>{t("sections.noActions")}</p>}
-    {(offset > 0 || result.has_more) && <div className="repo-section-pagination">
-      <Button disabled={!offset} onClick={() => setSearch(offset > 20 ? { offset: String(offset - 20) } : {})}>{t("common:actions.previous")}</Button>
-      <Button disabled={!result.has_more} onClick={() => setSearch({ offset: String(offset + 20) })}>{t("common:actions.next")}</Button>
-    </div>}
-  </>;
 }

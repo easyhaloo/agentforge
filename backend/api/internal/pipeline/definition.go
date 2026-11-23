@@ -270,11 +270,13 @@ func (d Definition) ValidateInputs(input map[string]json.RawMessage) error {
 }
 
 type Summary struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Revision int    `json:"revision"`
-	Version  int    `json:"version"`
+	Disabled   bool   `json:"disabled,omitempty"`
+	Repository string `json:"repository,omitempty"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Revision   int    `json:"revision"`
+	Version    int    `json:"version"`
 }
 type Pipeline struct {
 	Summary
@@ -289,6 +291,7 @@ type Version struct {
 type Store interface {
 	ListPipelines(context.Context, string) ([]Summary, error)
 	GetPipeline(context.Context, string, string) (Pipeline, error)
+	CreateRepositoryPipeline(ctx context.Context, org, id, actor, repository string, definition *Definition) (Pipeline, error)
 	ChangePipeline(ctx context.Context, org, id, actor, action string, revision int, definition *Definition) (Pipeline, error)
 	PipelineVersion(context.Context, string, string, int) (Version, error)
 	PipelineVersions(context.Context, string, string) ([]Version, error)

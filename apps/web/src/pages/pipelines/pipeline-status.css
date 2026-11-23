@@ -1,0 +1,14 @@
+.pipeline-status-icon { display: inline-block; flex: none; vertical-align: text-bottom; color: var(--af-color-text-muted); }
+.pipeline-status-icon[data-state=succeeded] { color: var(--af-color-success); }
+.pipeline-status-icon[data-state=failed] { color: var(--af-color-danger); }
+.pipeline-status-icon:is([data-state=running], [data-state=queued], [data-state=timed_out]) { color: var(--af-color-warning); }
+:root[data-theme=light] .pipeline-status-icon[data-state=succeeded] { color: #1a7f37; }
+:root[data-theme=light] .pipeline-status-icon[data-state=failed] { color: #d1242f; }
+:root[data-theme=light] .pipeline-status-icon[data-state=running] { color: #9a6700; }
+
+.wf-run-state { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--af-color-text-secondary); font: 11px system-ui; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pipeline-status-icon[data-state=running] { animation: pipeline-status-spin 1s linear infinite; }
+}
+@keyframes pipeline-status-spin { to { transform: rotate(360deg); } }

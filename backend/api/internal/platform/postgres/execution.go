@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook,integration,trigger_source`
+const runColumns = `id,pipeline_id,version,actor_id,status,inputs,created_at,deadline,webhook,integration,trigger_source,COALESCE(` + runRepository + `, '')`
 
 func scanRun(row pgx.Row) (execution.Run, error) {
 	return scanRunSnapshot(row, false)
 }
 func scanRunSnapshot(row pgx.Row, withSteps bool) (execution.Run, error) {
 	var r execution.Run
-	fields := []any{&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration, &r.Trigger}
+	fields := []any{&r.ID, &r.PipelineID, &r.Version, &r.ActorID, &r.Status, &r.Inputs, &r.CreatedAt, &r.Deadline, &r.Webhook, &r.Integration, &r.Trigger, &r.Repository}
 	if withSteps {
 		fields = append(fields, &r.StepStatuses)
 	}
@@ -105,7 +105,7 @@ func createRunTx(ctx context.Context, tx pgx.Tx, org, id string, number int, act
 	if active >= 16 {
 		return empty, execution.ErrQuota
 	}
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook,integration,trigger_source) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING `+runColumns, org, id, number, actor, snapshot, hook, integration, source))
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO pipeline_runs(organization_id,pipeline_id,version,actor_id,inputs,webhook,integration,trigger_source,repository) VALUES($1,$2,$3,$4,$5,$6,$7,$8,(SELECT repository FROM pipelines WHERE organization_id=$1 AND id=$2)) RETURNING `+runColumns, org, id, number, actor, snapshot, hook, integration, source))
 	if err != nil {
 		return empty, err
 	}
@@ -164,15 +164,15 @@ func (s *Store) Events(ctx context.Context, org, id string, after int64) ([]exec
 
 func runDefinition(ctx context.Context, tx pgx.Tx, org, id string, number int, inputs map[string]json.RawMessage, needsCheck bool) (pipeline.Definition, error) {
 	var def pipeline.Definition
-	var archived bool
-	err := tx.QueryRow(ctx, `SELECT v.definition,p.status='archived' FROM pipelines p JOIN pipeline_versions v ON (v.organization_id,v.pipeline_id)=(p.organization_id,p.id) WHERE p.organization_id=$1 AND p.id=$2 AND v.number=$3 FOR SHARE OF p`, org, id, number).Scan(&def, &archived)
+	var stopped bool
+	err := tx.QueryRow(ctx, `SELECT v.definition,p.status='archived' OR p.disabled FROM pipelines p JOIN pipeline_versions v ON (v.organization_id,v.pipeline_id)=(p.organization_id,p.id) WHERE p.organization_id=$1 AND p.id=$2 AND v.number=$3 FOR SHARE OF p`, org, id, number).Scan(&def, &stopped)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return def, pipeline.ErrMissing
 	}
 	if err != nil {
 		return def, err
 	}
-	if archived {
+	if stopped {
 		return def, pipeline.ErrConflict
 	}
 	if err = def.ValidateInputs(inputs); err != nil {
@@ -192,4 +192,41 @@ func runDefinition(ctx context.Context, tx pgx.Tx, org, id string, number int, i
 		}
 	}
 	return def, nil
+}
+
+func (s *Store) RerunWorkflow(ctx context.Context, org, id, actor string) (execution.Run, error) {
+	prior, err := s.GetRun(ctx, org, id)
+	if err != nil {
+		return execution.Run{}, err
+	}
+	if prior.ActorID != actor {
+		return execution.Run{}, execution.ErrTriggerDenied
+	}
+	// Automated runs can carry revision or merge-queue authority that a manual rerun must not inherit.
+	if prior.Repository == "" || prior.Webhook != nil || prior.Integration != nil ||
+		(prior.Trigger != nil && prior.Trigger.Kind != "rerun") || prior.Status == "queued" || prior.Status == "running" {
+		return execution.Run{}, pipeline.ErrConflict
+	}
+	version, err := s.PipelineVersion(ctx, org, prior.PipelineID, prior.Version)
+	if err != nil {
+		return execution.Run{}, err
+	}
+	// The stored snapshot includes fixed defaults, which cannot be submitted as overrides.
+	inputs := map[string]json.RawMessage{}
+	for _, parameter := range version.Definition.Parameters {
+		if value, ok := prior.Inputs[parameter.Name]; parameter.Override && ok {
+			inputs[parameter.Name] = value
+		}
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return execution.Run{}, err
+	}
+	defer tx.Rollback(ctx)
+	source := &execution.TriggerSource{Kind: "rerun", RunID: prior.ID}
+	run, err := createRunTx(ctx, tx, org, prior.PipelineID, prior.Version, actor, inputs, nil, nil, source)
+	if err != nil {
+		return execution.Run{}, err
+	}
+	return run, tx.Commit(ctx)
 }

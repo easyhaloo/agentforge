@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
@@ -16,6 +17,7 @@ func (d DeliveryDependencies) executionRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+base+"/pipelines/{id}/versions/{number}/runs", d.executionRequest)
 	mux.HandleFunc("GET "+base+"/pipeline-runs/{run}", d.executionRequest)
 	mux.HandleFunc("POST "+base+"/pipeline-runs/{run}/cancel", d.executionRequest)
+	mux.HandleFunc("POST "+base+"/pipeline-runs/{run}/rerun", d.executionRequest)
 	mux.HandleFunc("POST "+base+"/pipeline-runs/{run}/steps/{step}/decision", d.executionRequest)
 	mux.HandleFunc("GET "+base+"/pipeline-runs/{run}/events", d.executionEvents)
 	mux.HandleFunc("GET "+base+"/pipeline-runs/{run}/objects", d.pipelineObjects)
@@ -35,7 +37,10 @@ func (d DeliveryDependencies) executionRequest(w http.ResponseWriter, r *http.Re
 	var run execution.Run
 	var err error
 	status := http.StatusOK
-	if write && r.PathValue("run") != "" {
+	if write && strings.HasSuffix(r.Pattern, "/rerun") {
+		run, err = d.Runs.RerunWorkflow(r.Context(), user.OrganizationID, r.PathValue("run"), user.UserID)
+		status = http.StatusCreated
+	} else if write && r.PathValue("run") != "" {
 		outcome := "cancelled"
 		step := r.PathValue("step")
 		if step != "" {
@@ -89,6 +94,8 @@ func (d DeliveryDependencies) executionRequest(w http.ResponseWriter, r *http.Re
 		writeProblem(w, 404, "Not found", "The requested resource does not exist in this organization")
 	case errors.Is(err, pipeline.ErrConflict):
 		writeProblem(w, 409, "Lifecycle conflict", "Reload the pipeline or run to check its current state")
+	case errors.Is(err, execution.ErrTriggerDenied):
+		writeProblem(w, 403, "Rerun denied", "Only the original actor can rerun this workflow")
 	case errors.Is(err, execution.ErrQuota):
 		writeProblem(w, 429, "Execution quota reached", "Wait for an active run to finish")
 	case err != nil:

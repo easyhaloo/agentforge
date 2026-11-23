@@ -112,3 +112,27 @@ export function authReturnPath(value: unknown): string | undefined {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\u0000-\u001f]/.test(value)) return undefined;
   return value;
 }
+
+export const repositoryActionFilters = ["workflow", "status", "event", "q", "offset", "branch", "actor"] as const;
+
+export function repositoryActionsContext(repository: string, filters?: URLSearchParams): string {
+  const query = new URLSearchParams({ fromRepository: repository });
+  for (const key of repositoryActionFilters) {
+    const value = filters?.get(key);
+    if (value) query.set(key, value);
+  }
+  return `?${query}`;
+}
+
+export function repositoryActionsBackPath(handle: string, query: URLSearchParams): string | undefined {
+  const repository = query.get("fromRepository");
+  if (!repository || !/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(repository) ||
+    repository.split("/").some(part => part === "." || part === "..")) return undefined;
+  const filters = new URLSearchParams();
+  for (const key of repositoryActionFilters) {
+    const value = query.get(key);
+    if (value) filters.set(key, value);
+  }
+  const path = repositoryPath(handle, repository, "actions");
+  return filters.size ? `${path}?${filters}` : path;
+}

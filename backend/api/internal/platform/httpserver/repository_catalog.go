@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
 type repositorySummary struct {
@@ -70,7 +72,7 @@ func (d DeliveryDependencies) listRepositoryActions(w http.ResponseWriter, r *ht
 		return
 	}
 	store, ok := d.Catalog.(interface {
-		ListRepositoryActions(context.Context, string, string, int, int) ([]delivery.RepositoryAction, error)
+		ListRepositoryActions(context.Context, string, string, delivery.RepositoryActionFilter, int, int) ([]delivery.RepositoryAction, error)
 	})
 	if !ok {
 		writeProblem(w, 503, "Repository runs unavailable", "Run storage is unavailable")
@@ -80,19 +82,56 @@ func (d DeliveryDependencies) listRepositoryActions(w http.ResponseWriter, r *ht
 	offset := 0
 	if value := r.URL.Query().Get("offset"); value != "" {
 		parsed, err := strconv.ParseInt(value, 10, 32)
-		if err != nil || parsed < 0 {
+		if err != nil || parsed < 0 || parsed > 2147483647-pageSize {
 			writeProblem(w, 400, "Invalid offset", "offset must be a nonnegative integer")
 			return
 		}
 		offset = int(parsed)
 	}
-	items, err := store.ListRepositoryActions(r.Context(), principal.OrganizationID, repository.Slug, pageSize+1, offset)
+	query := r.URL.Query()
+	filter := delivery.RepositoryActionFilter{
+		Workflow: query.Get("workflow"), Status: query.Get("status"), Event: query.Get("event"), Query: strings.TrimSpace(query.Get("q")),
+		Branch: strings.TrimSpace(query.Get("branch")), Actor: strings.TrimSpace(query.Get("actor")),
+	}
+	if len(filter.Workflow) > 128 || len(filter.Query) > 512 || len(filter.Branch) > 255 || len(filter.Actor) > 255 ||
+		strings.ContainsRune(filter.Workflow+filter.Query+filter.Branch+filter.Actor, 0) ||
+		!slices.Contains([]string{"", "queued", "running", "succeeded", "failed", "cancelled", "timed_out"}, filter.Status) ||
+		!slices.Contains([]string{"", "manual", "webhook", "changeset_revision", "schedule", "merge_queue", "integration", "rerun"}, filter.Event) {
+		writeProblem(w, 400, "Invalid run filters", "Provide supported status and event values and a valid search term")
+		return
+	}
+	items, err := store.ListRepositoryActions(r.Context(), principal.OrganizationID, repository.Slug, filter, pageSize+1, offset)
 	if err != nil {
 		writeProblem(w, 500, "Unable to list repository runs", "The run query failed")
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
 	writeJSON(w, 200, map[string]any{"items": items[:min(pageSize, len(items))], "has_more": len(items) > pageSize})
+}
+
+func (d DeliveryDependencies) listRepositoryWorkflows(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	repository, ok := d.registeredRepository(w, r, principal)
+	if !ok {
+		return
+	}
+	store, ok := d.Catalog.(interface {
+		ListRepositoryWorkflows(context.Context, string, string) ([]pipeline.Summary, error)
+	})
+	if !ok {
+		writeProblem(w, 503, "Repository workflows unavailable", "Workflow storage is unavailable")
+		return
+	}
+	items, err := store.ListRepositoryWorkflows(r.Context(), principal.OrganizationID, repository.Slug)
+	if err != nil {
+		writeProblem(w, 500, "Unable to list repository workflows", "The workflow query failed")
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(w, 200, map[string]any{"items": items})
 }
 
 func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r *http.Request) {

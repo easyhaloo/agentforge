@@ -43,6 +43,10 @@ paths:
     $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1milestones
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/milestones/{id}:
     $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1milestones~1{id}
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1actions
+  /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions/workflows:
+    $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1repositories~1{owner}~1{repo}~1actions~1workflows
   /api/v1/organizations/{organizationID}/merge-queue:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1merge-queue
   /api/v1/organizations/{organizationID}/merge-queue/{entry}/cancel:
@@ -63,6 +67,12 @@ paths:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions~1{number}~1runs
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}
+  /api/v1/organizations/{organizationID}/pipelines/{id}/triggers:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1triggers"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/triggers/{binding}:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1triggers~1{binding}"
+  /api/v1/organizations/{organizationID}/pipeline-runs/{run}/rerun:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1rerun"
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}/cancel:
     $ref: ./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipeline-runs~1{run}~1cancel
   /api/v1/organizations/{organizationID}/pipeline-runs/{run}/steps/{step}/decision:
@@ -85,6 +95,10 @@ paths:
     $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1publish"
   /api/v1/organizations/{organizationID}/pipelines/{id}/archive:
     $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1archive"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/disable:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1disable"
+  /api/v1/organizations/{organizationID}/pipelines/{id}/enable:
+    $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1enable"
   /api/v1/organizations/{organizationID}/pipelines/{id}/versions:
     $ref: "./pipelines.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1pipelines~1{id}~1versions"
   /healthz:

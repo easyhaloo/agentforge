@@ -5,8 +5,8 @@ import { type OrganizationSummary } from "../../shared/api/identity";
 import { pipelines, type Definition, type Pipeline, type Summary } from "../../shared/api/pipelines";
 import { Button, ConfirmDialog, DataTable, Empty, Input, Modal, RadioGroup } from "../../shared/ui";
 
-import { Link, useBlocker, useNavigate } from "react-router-dom";
-import { organizationHandle, orgPath, pipelineEditPath, pipelineRunPath } from "../../shared/routing";
+import { Link, useBlocker, useNavigate, useSearchParams } from "react-router-dom";
+import { organizationHandle, orgPath, pipelineEditPath, pipelineRunPath, repositoryActionsBackPath, repositoryActionsContext } from "../../shared/routing";
 import { ArrowLeft, Play, Workflow } from "lucide-react";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { MergeQueuePanel } from "./MergeQueuePanel";
@@ -78,11 +78,12 @@ export function PipelinesPage({ organization, renderHeader }: {
   </>;
 }
 
-function CreatePipelineDialog({ organization, copy, onClose }: {
-  organization: OrganizationSummary; copy?: Definition; onClose: () => void;
+export function CreatePipelineDialog({ organization, copy, onClose, repository }: {
+  organization: OrganizationSummary; copy?: Definition; onClose: () => void; repository?: string;
 }) {
   const { t } = useTranslation("pipelines");
   const navigate = useNavigate();
+  const [search] = useSearchParams();
   const [creation, setCreation] = useState(copy ?? template);
   const [nameError, setNameError] = useState(false);
   const clone = Boolean(copy);
@@ -93,9 +94,13 @@ function CreatePipelineDialog({ organization, copy, onClose }: {
         setNameError(true);
         return;
       }
-      const pipeline = await pipelines.create(organization.id, creation);
+      const pipeline = await pipelines.create(organization.id, creation, repository);
       onClose();
-      void navigate(pipelineEditPath(organizationHandle(organization), pipeline.id));
+      const path = pipelineEditPath(organizationHandle(organization), pipeline.id);
+      const filters = new URLSearchParams(search);
+      filters.delete("offset");
+      filters.set("workflow", pipeline.id);
+      void navigate(repository ? path + repositoryActionsContext(repository, filters) : path);
     }}>
       <div className="wf-create-fields">
         {!clone && <RadioGroup label={t("template")} name="pipeline-template" value={templates.find(item => item.definition.stages === creation.stages)?.label}
@@ -115,6 +120,9 @@ function CreatePipelineDialog({ organization, copy, onClose }: {
 export function PipelineEditorPage({ organization, id }: { organization: OrganizationSummary; id: string }) {
   const { t } = useTranslation("pipelines");
   const org = organization.id;
+  const handle = organizationHandle(organization);
+  const [search] = useSearchParams();
+  const backToActions = repositoryActionsBackPath(handle, search);
   const [selected, select] = useState<Pipeline | null>(null);
   const [edits, setDraft] = useState<Definition | null>(null);
   const [busy, setBusy] = useState(true);
@@ -169,16 +177,16 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   } : undefined;
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
-      <Link to={orgPath(organizationHandle(organization), "pipelines")}><ArrowLeft size={16}/>{t("backToList")}</Link>
+      <Link to={backToActions ?? orgPath(handle, "pipelines")}><ArrowLeft size={16}/>{backToActions ? t("repositories:actions.back") : t("backToList")}</Link>
       {selected && <>
         <div className="wf-editor-title"><h1>{selected.name}</h1>
-          <span role="status">{t("revision", {status:t(selected.status), revision:selected.revision, version:selected.version})}</span>
+          <span role="status">{t("revision", {status:t(selected.disabled && selected.status !== "archived" ? "disabled" : selected.status), revision:selected.revision, version:selected.version})}</span>
         </div>
         {organization.role !== "viewer" && <Button disabled={busy || dirty || !validShape} onClick={() => setCloning(true)}>{t("clone")}</Button>}
         {canPublish && selected.status === "draft" && <Button disabled={busy || dirty} onClick={() => void apply(() => pipelines.transition(org, selected, "publish"))}>{t("publish")}</Button>}
         {canPublish && selected.status !== "archived" && <Button disabled={busy || dirty} onClick={() => setArchiving(true)}>{t("archive")}</Button>}
         {canEdit && <Button variant="secondary" disabled={busy || !canSave || !dirty} onClick={() => void apply(() => pipelines.save(org, selected, draft))}>{t("save")}</Button>}
-        {canEdit && <Button variant="primary" disabled={busy || (selected.version === 0 && !draftRun?.publish)} onClick={() => setRunDialog(true)}><Play size={14} />{t("runAction")}</Button>}
+        {canEdit && <Button variant="primary" disabled={busy || selected.disabled || (selected.version === 0 && !draftRun?.publish)} onClick={() => setRunDialog(true)}><Play size={14} />{t("runAction")}</Button>}
       </>}
     </header>
     {error && <p className="org-error" role="alert">{error} {!selected && <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.refresh")}</Button>}</p>}
@@ -187,12 +195,12 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
     {canEdit && validShape ? <div className="wf-editor-shell" inert={busy} aria-busy={busy}>
       <WorkflowEditor key={selected.revision} definition={draft} update={setDraft} outputNames={outputNames} />
     </div> : (validShape ? <WorkflowCanvas definition={draft}/> : <p>{t("invalidGraph")}</p>)}
-    {selected.version > 0 && <MergeQueuePanel org={org} pipeline={selected} draft={draftRun} canStart={canEdit} canPromote={canPublish} />}
-    {canEdit && runDialog && <RunDialog org={org} pipeline={selected} draft={draftRun} confirmDiscard={dirty} onCancel={() => setRunDialog(false)}
+    {selected.version > 0 && <MergeQueuePanel org={org} pipeline={selected} draft={draftRun} canStart={canEdit && !selected.disabled} canPromote={canPublish} />}
+    {canEdit && !selected.disabled && runDialog && <RunDialog org={org} pipeline={selected} draft={draftRun} confirmDiscard={dirty} onCancel={() => setRunDialog(false)}
       onSubmit={async (version, inputs) => {
         const run = await pipelines.start(org, selected.id, version.number, inputs);
-        startedRunPath.current = pipelineRunPath(organizationHandle(organization), run.id);
-        void navigate(startedRunPath.current);
+        startedRunPath.current = pipelineRunPath(handle, run.id);
+        void navigate(startedRunPath.current + (backToActions ? `?${search}` : ""));
       }} />}
     {cloning && <CreatePipelineDialog organization={organization} copy={{ ...selected.definition, name: `${selected.name.slice(0, 59)}-copy` }} onClose={() => setCloning(false)} />}
     <ConfirmDialog open={archiving} title={t("confirmArchive", {name:selected.name})} description={t("versionsRemain")}

@@ -55,6 +55,18 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
   let created: Pipeline | undefined;
   let snapshot = { status: "queued", stepStatuses: { approve: "queued", step1: "queued" } };
   await page.route("**/api/v1/organizations/org-demo/pipeline-runs/run-1", route => route.fulfill({json: {id:"run-1", pipelineId:"p", version:1, ...snapshot}}));
+  await page.route("**/pipeline-runs/run-1/steps/approve/decision", route => {
+    expect(route.request().postDataJSON()).toEqual({ approved: false });
+    snapshot = {status:"failed", stepStatuses:{approve:"failed", step1:"cancelled"}};
+    return route.fulfill({status: 204});
+  });
+  await page.route("**/pipeline-runs/run-1/events", route => route.fulfill({
+    contentType: "text/event-stream",
+    body: 'id: 1\ndata: {"seq":1,"kind":"log","stepId":"step1","message":"check output"}\n\nid: 2\ndata: {"seq":2,"kind":"failed"}\n\n',
+  }));
+  await page.route("**/pipeline-runs/run-1/objects?after=0", route => route.fulfill({json: [{
+    id: 8, provenance: {name: "stdout.txt", step: "step1", attempt: 1}, expiresAt: "2099-01-01T00:00:00Z",
+  }]}));
   await page.route("**/api/v1/organizations/org-demo/pipelines**", async route => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/versions")) return route.fulfill({ json: { items: [2, 1].map(number => ({number, checksum:"a".repeat(64), publishedAt:new Date().toISOString(), definition: number === 1 ? created!.definition : { ...created!.definition, name:"second-version", parameters: [] }})) } });
@@ -112,9 +124,28 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
   await expect(canvas.locator("header")).not.toContainText("second-version");
   snapshot = {status:"running", stepStatuses:{approve:"waiting", step1:"queued"}};
   await expect(canvas.getByText("Waiting for approval").first()).toBeVisible();
-  snapshot = {status:"failed", stepStatuses:{approve:"failed", step1:"cancelled"}};
+  await page.getByRole("button", { name: "Review approve" }).click();
+  await page.getByRole("button", { name: "Reject instead" }).click();
+  await page.getByRole("button", { name: "Reject step" }).click();
+  await expect(page.getByRole("dialog", { name: "Review approve" })).toBeHidden();
   await expect(canvas.locator("header")).toContainText("Failed");
+  await expect(page.getByRole("link", { name: /step1.*stdout.txt/ })).toHaveAttribute("href", /objects\/8$/);
   await expect(canvas.locator(".wf-step").filter({hasText:"step1"})).toContainText("Cancelled");
+  const runNavigation = page.getByRole("navigation", { name: "Run navigation" });
+  const job = runNavigation.getByRole("link", { name: /checks.*Cancelled/ });
+  await canvas.getByRole("link", { name: "Job checks" }).click();
+  await expect(page).toHaveURL(/\?job=1\.0$/);
+  await page.reload();
+  await expect(job).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "Job checks" })).toBeVisible();
+  await page.getByText("step1", { exact: false, selector: "summary" }).click();
+  await expect(page.getByText("check output")).toBeVisible();
+  await expect(canvas).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await runNavigation.getByRole("link", { name: "Summary" }).click();
+  await expect(canvas).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole("link", { name: "Edit pipeline" }).click();
   await openRun.click();
   await expect(page.getByRole("combobox", { name: "Published version", exact: true })).toContainText("2 ·");

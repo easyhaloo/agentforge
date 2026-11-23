@@ -101,9 +101,9 @@ export function PipelineEditorRoute() {
 }
 
 export function PipelineRunRoute() {
-  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const { runId = "" } = useParams();
-  return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} runId={runId} />;
+  return <PipelineRunPage key={`${organization.id}:${runId}`} organization={organization} actorId={account.user_id} runId={runId} />;
 }
 
 export function OrganizationIssuesRoute() {
