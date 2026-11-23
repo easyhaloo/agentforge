@@ -88,20 +88,18 @@
   },
   "notifications": {
     "title": "通知",
-    "description": "配置接收通知的方式和时间",
-    "emailDescription": "通过电子邮件接收通知",
-    "emailTitle": "电子邮件通知",
-    "evaluationComplete": "评估完成",
-    "reviewAssigned": "审核已分配",
-    "changesetStatus": "变更集状态更新",
-    "orgInvitation": "组织邀请",
-    "webPushDescription": "在浏览器中接收实时通知",
-    "webPushTitle": "网页推送通知",
-    "webPushEnabled": "启用网页推送",
-    "frequency": "通知频率",
-    "frequencyRealTime": "实时",
-    "frequencyHourly": "每小时汇总",
-    "frequencyDaily": "每日汇总",
+    "description": "选择在收件箱中接收哪些议题动态。更改会自动保存。",
+    "participating": {
+      "title": "参与",
+      "description": "有人 @提及你，或在你订阅的议题中发表评论。",
+      "inbox": "在收件箱中接收参与通知"
+    },
+    "watching": {
+      "title": "关注",
+      "description": "有人在你关注的仓库中创建议题或发表评论。",
+      "inbox": "在收件箱中接收关注通知"
+    },
+    "emailUnavailable": "暂不支持邮件投递。",
     "saveSuccess": "通知设置已保存",
     "loadError": "无法加载通知偏好设置。"
   },

@@ -13,6 +13,8 @@ type UserPreferences struct {
 
 // NotificationPreferences represents user notification settings.
 type NotificationPreferences struct {
+	InboxParticipating    bool                      `json:"inbox_participating"`
+	InboxWatching         bool                      `json:"inbox_watching"`
 	UserID                string                    `json:"user_id"`
 	EmailNotifications    EmailNotificationSettings `json:"email_notifications"`
 	WebPushEnabled        bool                      `json:"web_push_enabled"`
@@ -103,6 +105,8 @@ type EmailNotificationSettingsPatch struct {
 }
 
 type NotificationPreferencesPatch struct {
+	InboxParticipating    *bool                          `json:"inbox_participating"`
+	InboxWatching         *bool                          `json:"inbox_watching"`
 	EmailNotifications    EmailNotificationSettingsPatch `json:"email_notifications"`
 	WebPushEnabled        *bool                          `json:"web_push_enabled"`
 	NotificationFrequency *string                        `json:"notification_frequency"`

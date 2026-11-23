@@ -213,6 +213,10 @@
     "failed": "无法管理 Git 凭据。"
   },
   "browser": {
+    "watch": "关注议题",
+    "unwatch": "取消关注议题",
+    "retryWatch": "重试加载关注状态",
+    "watchFailed": "无法管理仓库关注设置",
     "about": "仓库概览",
     "branches_one": "{{count}} 个分支",
     "branches_other": "{{count}} 个分支",

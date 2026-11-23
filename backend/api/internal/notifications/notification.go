@@ -11,6 +11,8 @@ type ID string
 type Type string
 
 const (
+	TypeIssueCreated Type = "issue_created"
+
 	// TypeComment indicates a new comment on a subscribed issue
 	TypeComment Type = "comment"
 

@@ -68,7 +68,7 @@ func (s *Store) UpdateUserPreferences(ctx context.Context, userID string, patch 
 	return prefs, nil
 }
 
-const notificationPreferencesColumns = `user_id, email_evaluation_complete, email_review_assigned, email_changeset_status, email_org_invitation, web_push_enabled, notification_frequency, updated_at`
+const notificationPreferencesColumns = `user_id, email_evaluation_complete, email_review_assigned, email_changeset_status, email_org_invitation, web_push_enabled, notification_frequency, inbox_participating, inbox_watching, updated_at`
 
 func scanNotificationPreferences(row pgx.Row) (identity.NotificationPreferences, error) {
 	var prefs identity.NotificationPreferences
@@ -81,6 +81,8 @@ func scanNotificationPreferences(row pgx.Row) (identity.NotificationPreferences,
 		&emailSettings.OrgInvitation,
 		&prefs.WebPushEnabled,
 		&prefs.NotificationFrequency,
+		&prefs.InboxParticipating,
+		&prefs.InboxWatching,
 		&prefs.UpdatedAt,
 	)
 	prefs.EmailNotifications = emailSettings
@@ -113,7 +115,7 @@ func (s *Store) UpdateNotificationPreferences(ctx context.Context, userID string
 		INSERT INTO notification_preferences (
 			user_id, email_evaluation_complete, email_review_assigned,
 			email_changeset_status, email_org_invitation,
-			web_push_enabled, notification_frequency
+			web_push_enabled, notification_frequency, inbox_participating, inbox_watching
 		)
 		VALUES (
 			$1,
@@ -122,7 +124,9 @@ func (s *Store) UpdateNotificationPreferences(ctx context.Context, userID string
 			COALESCE($4, true),
 			COALESCE($5, true),
 			COALESCE($6, false),
-			COALESCE($7, 'real-time')
+			COALESCE($7, 'real-time'),
+			COALESCE($8, true),
+			COALESCE($9, true)
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
 			email_evaluation_complete = COALESCE($2, notification_preferences.email_evaluation_complete),
@@ -131,6 +135,8 @@ func (s *Store) UpdateNotificationPreferences(ctx context.Context, userID string
 			email_org_invitation = COALESCE($5, notification_preferences.email_org_invitation),
 			web_push_enabled = COALESCE($6, notification_preferences.web_push_enabled),
 			notification_frequency = COALESCE($7, notification_preferences.notification_frequency),
+			inbox_participating = COALESCE($8, notification_preferences.inbox_participating),
+			inbox_watching = COALESCE($9, notification_preferences.inbox_watching),
 			updated_at = now()
 		RETURNING `+notificationPreferencesColumns,
 		userID,
@@ -140,6 +146,8 @@ func (s *Store) UpdateNotificationPreferences(ctx context.Context, userID string
 		patch.EmailNotifications.OrgInvitation,
 		patch.WebPushEnabled,
 		patch.NotificationFrequency,
+		patch.InboxParticipating,
+		patch.InboxWatching,
 	))
 	if err != nil {
 		return identity.NotificationPreferences{}, fmt.Errorf("update notification preferences: %w", err)

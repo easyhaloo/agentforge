@@ -104,17 +104,7 @@ type EventRepository interface {
 	ListByType(ctx context.Context, organizationID string, issueID string, eventType events.EventType) ([]*events.Event, error)
 }
 
-type NotificationRepository interface {
-	Create(ctx context.Context, organizationID string, notification *notifications.Notification) error
-	List(ctx context.Context, organizationID string, userID string, unreadOnly bool, limit, offset int) ([]*notifications.Notification, int, error)
-	MarkAsRead(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
-	MarkAllAsRead(ctx context.Context, organizationID string, userID string) error
-	Delete(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
-	Subscribe(ctx context.Context, organizationID string, userID string, issueID string) error
-	Unsubscribe(ctx context.Context, organizationID string, userID string, issueID string) error
-	IsSubscribed(ctx context.Context, organizationID string, userID string, issueID string) (bool, error)
-	GetSubscribers(ctx context.Context, organizationID string, issueID string) ([]string, error)
-}
+type NotificationRepository = notifications.Repository
 
 type DeliveryDependencies struct {
 	Repository       delivery.Repository
@@ -262,6 +252,8 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.unsubscribeFromIssue)
 
 	// Notification routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/watch", deps.repositoryWatch)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/watch", deps.repositoryWatch)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/notifications", deps.listNotifications)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/notifications/{id}/read", deps.markNotificationAsRead)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/notifications/read-all", deps.markAllNotificationsAsRead)

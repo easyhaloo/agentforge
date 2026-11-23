@@ -92,6 +92,12 @@ Set both `GIT_REPOSITORY_ROOT` and `EVIDENCE_ROOT` to enable revision, evaluatio
 
 The PostgreSQL store owns organization-scoped changesets and repository metadata. Every state update uses an expected version; a concurrent update returns `409` and must be reloaded. The API enforces session identity, active organization membership, role checks, exact Origin, and session-bound CSRF for all writes.
 
+## Issue inbox preferences
+
+- `GET /api/v1/users/me/notification-preferences` returns the current user's preferences. `PATCH` accepts either or both of `inbox_participating` and `inbox_watching` as booleans and returns the saved preferences. Both default to `true`. Participating covers mentions and explicit Issue subscriptions. Watching covers new Issues and comments in watched repositories.
+- `GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/watch` returns `{ "watching": false }` until the current user watches that repository. `PATCH` accepts `{ "watching": true }` to watch or `{ "watching": false }` to unwatch and returns the persisted state. The endpoint requires active organization membership and a registered repository. A missing or invalid `watching` value returns `400`.
+- Both writes require the session and CSRF token. The web UI loads saved settings before accepting changes and retains the last confirmed value if saving fails. Changes affect future inbox delivery. Legacy email and push fields are stored for API compatibility.
+
 ## Single sign-on
 
 Google and GitHub are independently optional. Set each enabled provider's Client ID and Client Secret in the API environment using secret-managed values. Register the exact callback URL with the provider.

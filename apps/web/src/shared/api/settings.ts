@@ -43,14 +43,8 @@ export interface AuthenticationInfo {
 }
 
 export interface NotificationPreferences {
-  email_notifications: {
-    evaluation_complete: boolean;
-    review_assigned: boolean;
-    changeset_status: boolean;
-    org_invitation: boolean;
-  };
-  web_push_enabled: boolean;
-  notification_frequency: "real-time" | "hourly" | "daily";
+  inbox_participating: boolean;
+  inbox_watching: boolean;
 }
 
 export interface SSHKey {

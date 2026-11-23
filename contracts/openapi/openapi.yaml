@@ -100,7 +100,7 @@ paths:
                       properties:
                         id: { type: string }
                         user_id: { type: string }
-                        type: { type: string, enum: [comment, mention, state_change, assigned] }
+                        type: { type: string, enum: [comment, mention, state_change, assigned, issue_created] }
                         reason: { type: string, enum: [subscribed, mentioned, author, assigned, comment] }
                         issue_id: { type: string }
                         repository: { type: string }

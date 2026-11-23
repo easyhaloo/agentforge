@@ -213,6 +213,10 @@
     "failed": "Could not manage the Git credential."
   },
   "browser": {
+    "watch": "Watch Issues",
+    "unwatch": "Unwatch Issues",
+    "retryWatch": "Retry loading watch status",
+    "watchFailed": "Unable to manage the repository watch setting",
     "about": "About",
     "branches_one": "{{count}} branch",
     "branches_other": "{{count}} branches",

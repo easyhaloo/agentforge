@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
-	"github.com/easyhaloo/agentforge/backend/api/internal/notifications"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -99,18 +98,8 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 		}
 	}
 
-	if handles := notifications.ParseMentions(issue.Body); len(handles) > 0 {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO notifications (organization_id, id, user_id, type, reason,
-				issue_id, repository, issue_number, issue_title, actor_id, created_at)
-			SELECT $1, gen_random_uuid()::text, m.user_id, $7, $8, $2, $3, $4, $5, $6, $9
-			FROM organization_memberships m JOIN users u ON u.id = m.user_id
-			WHERE m.organization_id = $1 AND m.status = 'active' AND m.user_id <> $6
-			  AND u.username = ANY($10)`, organizationID, issue.ID, issue.Repository, number,
-			issue.Title, issue.CreatedBy, notifications.TypeMention, notifications.ReasonMentioned, issue.CreatedAt, handles)
-		if err != nil {
-			return nil, fmt.Errorf("notify mentioned issue members: %w", err)
-		}
+	if err := notifyIssueActivity(ctx, tx, organizationID, string(issue.ID), "", issue.CreatedBy, issue.Body, issue.CreatedAt); err != nil {
+		return nil, err
 	}
 
 	created, err := scanIssue(tx.QueryRow(ctx, `SELECT `+issueColumns+`

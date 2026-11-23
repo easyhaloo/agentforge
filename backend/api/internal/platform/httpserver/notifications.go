@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,43 @@ type notificationListResponse struct {
 	Total  int                           `json:"total"`
 	Limit  int                           `json:"limit"`
 	Offset int                           `json:"offset"`
+}
+
+func (d DeliveryDependencies) repositoryWatch(w http.ResponseWriter, r *http.Request) {
+	// Watching is a personal preference available to anyone who can read the repository.
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	repository, ok := d.registeredRepository(w, r, principal)
+	if !ok {
+		return
+	}
+	if d.NotificationRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Notifications unavailable", "The notification repository is not configured")
+		return
+	}
+	var watching bool
+	var err error
+	if r.Method == http.MethodPatch {
+		var body struct {
+			Watching *bool `json:"watching"`
+		}
+		if json.NewDecoder(r.Body).Decode(&body) != nil || body.Watching == nil {
+			writeProblem(w, http.StatusBadRequest, "Invalid watch setting", "watching must be a boolean")
+			return
+		}
+		watching = *body.Watching
+		err = d.NotificationRepo.SetRepositoryWatch(r.Context(), principal.OrganizationID, repository.Slug, principal.UserID, watching)
+	} else {
+		watching, err = d.NotificationRepo.IsWatchingRepository(r.Context(), principal.OrganizationID, repository.Slug, principal.UserID)
+	}
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Repository watch unavailable", "Unable to access the repository watch setting")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]bool{"watching": watching})
 }
 
 // listNotifications handles GET /api/v1/organizations/{organizationID}/notifications
