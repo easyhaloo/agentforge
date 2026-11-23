@@ -191,6 +191,17 @@ func TestCompareValidation(t *testing.T) {
 			expectError:  "",
 		},
 		{
+			name:         "Explicit empty base compares against the empty tree",
+			query:        "?base=&head=" + commitSHA,
+			expectStatus: http.StatusOK,
+		},
+		{
+			name:         "Merge base mode requires a nonempty ref",
+			query:        "?base=&head=" + commitSHA + "&mode=merge-base",
+			expectStatus: http.StatusBadRequest,
+			expectError:  "with a nonempty base",
+		},
+		{
 			name:         "Missing base parameter",
 			query:        "?head=" + commitSHA,
 			expectStatus: http.StatusBadRequest,

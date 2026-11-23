@@ -193,7 +193,7 @@ func TestIssueRepository_LockAndUnlock(t *testing.T) {
 	}
 
 	// Test 3: Unlock the issue
-	unlocked, err := repo.Unlock(ctx, orgID, created.ID)
+	unlocked, err := repo.Unlock(ctx, orgID, created.ID, "user-001")
 	if err != nil {
 		t.Fatalf("failed to unlock issue: %v", err)
 	}

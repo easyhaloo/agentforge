@@ -26,8 +26,8 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
         ref={ref}
         id={fieldId}
         className={`af-textarea af-textarea--${controlSize} ${error ? "af-input--error" : ""} ${className}`.trim()}
-        aria-invalid={Boolean(error) || undefined}
-        aria-describedby={messageId}
+        aria-invalid={Boolean(error) || props["aria-invalid"]}
+        aria-describedby={[props["aria-describedby"], messageId].filter(Boolean).join(" ") || undefined}
       />
       {error ? <span className="af-field__error" id={messageId}>{error}</span> : hint ? <span className="af-field__hint" id={messageId}>{hint}</span> : null}
     </label>

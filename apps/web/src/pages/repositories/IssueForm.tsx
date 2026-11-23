@@ -5,18 +5,17 @@ import type { Issue } from "../../shared/api/issues";
 import "./repositories.css";
 
 interface IssueFormProps {
-  mode: "create" | "edit";
-  issue?: Issue;
+  issue: Issue;
   onSubmit: (data: { title: string; body: string }) => Promise<void>;
   onCancel: () => void;
   busy?: boolean;
 }
 
-export function IssueForm({ mode, issue, onSubmit, onCancel, busy = false }: IssueFormProps) {
+export function IssueForm({ issue, onSubmit, onCancel, busy = false }: IssueFormProps) {
   const { t } = useTranslation("repositories");
 
-  const [title, setTitle] = useState(issue?.title || "");
-  const [body, setBody] = useState(issue?.body || "");
+  const [title, setTitle] = useState(issue.title);
+  const [body, setBody] = useState(issue.body);
   const [error, setError] = useState("");
 
   const handleSubmit = async (event: FormEvent) => {
@@ -29,7 +28,7 @@ export function IssueForm({ mode, issue, onSubmit, onCancel, busy = false }: Iss
     }
 
     try {
-      await onSubmit({ title: title.trim(), body: body.trim() });
+      await onSubmit({ title: title.trim(), body });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -77,11 +76,7 @@ export function IssueForm({ mode, issue, onSubmit, onCancel, busy = false }: Iss
           {t("common:actions.cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={busy}>
-          {busy
-            ? t("common:components.loading")
-            : mode === "create"
-              ? t("issues.form.createIssue")
-              : t("issues.form.updateIssue")}
+          {busy ? t("common:components.loading") : t("issues.form.updateIssue")}
         </Button>
       </div>
     </form>

@@ -75,6 +75,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 ) {
   const generatedId = useId();
   const inputId = id ?? props.name ?? generatedId;
+  const messageId = error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined;
   return (
     <label className="af-field" htmlFor={inputId}>
       {label && <span className="af-field__label">{label}</span>}
@@ -83,8 +84,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={inputId}
         className={`af-input af-input--${controlSize} ${error ? "af-input--error" : ""} ${className}`.trim()}
-        aria-invalid={Boolean(error) || undefined}
-        aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
+        aria-invalid={Boolean(error) || props["aria-invalid"]}
+        aria-describedby={[props["aria-describedby"], messageId].filter(Boolean).join(" ") || undefined}
       />
       {error ? <span className="af-field__error" id={`${inputId}-error`}>{error}</span> : hint ? <span className="af-field__hint" id={`${inputId}-hint`}>{hint}</span> : null}
     </label>
@@ -98,7 +99,7 @@ export interface SelectOption {
   icon?: React.ComponentType<{ size?: number }>;
   title?: string;
 }
-export interface SelectProps {
+export interface SelectProps extends Pick<React.AriaAttributes, "aria-invalid" | "aria-describedby"> {
   label?: string;
   options: SelectOption[];
   menuTitle?: string;
@@ -119,9 +120,10 @@ export interface SelectProps {
   "aria-label"?: string;
   "aria-labelledby"?: string;
 }
-export function Select({ label, options, menuTitle, controlSize = "middle", placeholder, hint, error, id, className = "", value, defaultValue, onChange, disabled, name, required, autoFocus, form, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy }: SelectProps) {
+export function Select({ label, options, menuTitle, controlSize = "middle", placeholder, hint, error, id, className = "", value, defaultValue, onChange, disabled, name, required, autoFocus, form, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-invalid": ariaInvalid, "aria-describedby": ariaDescribedBy }: SelectProps) {
   const generatedId = useId();
   const selectId = id ?? name ?? generatedId;
+  const messageId = error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined;
   const [open, setOpen] = useState(false);
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? "");
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -208,9 +210,9 @@ export function Select({ label, options, menuTitle, controlSize = "middle", plac
           aria-haspopup="listbox"
           aria-controls={open ? `${selectId}-options` : undefined}
           aria-expanded={open}
-          aria-invalid={Boolean(error) || undefined}
+          aria-invalid={Boolean(error) || ariaInvalid}
           aria-required={required || undefined}
-          aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
+          aria-describedby={[ariaDescribedBy, messageId].filter(Boolean).join(" ") || undefined}
           onClick={() => setOpen(!open)}
         >
           <span className="af-select-trigger__label">{displayText}</span>

@@ -81,6 +81,8 @@
 | Repositories | `/orgs/:org/repositories/new` | Repository create form (live API, label reused, no duplicate sidebar item) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |
 | | `/orgs/:org/repositories/:owner/:repo/{issues,pulls,branches,actions,settings}` | Repository sections |
+| | `/orgs/:org/repositories/:owner/:repo/issues/new/choose` | Choose a repository issue template |
+| | `/orgs/:org/repositories/:owner/:repo/issues/new` | Create new issue |
 | | `/orgs/:org/repositories/:owner/:repo/issues/:number` | Issue detail |
 | | `/orgs/:org/repositories/:owner/:repo/pulls` | Pull request list |
 | | `/orgs/:org/repositories/:owner/:repo/pulls/new` | Compare and create pull request |
@@ -88,6 +90,7 @@
 | | `/orgs/:org/repositories/:owner/:repo/pulls/:id/{commits,checks,files}` | Pull request tabs |
 | | `/orgs/:org/repositories/:repositorySlug` | Legacy repository view with a link to the canonical Issues section |
 | Issues | `/orgs/:org/issues` | Issues across the current organization, with links to repository issue details (live API) |
+| Inbox | `/orgs/:org/notifications` | Signed-in organization member’s notification inbox (live API) |
 | Workspaces | `/workspaces` | Resource workspace (mock) |
 | Stacks | `/stacks` | Delivery flow (mock) |
 | Self-healing | `/self-healing` | Delivery flow (mock) |
@@ -96,7 +99,8 @@
 | Security | `/security` | Resource workspace (mock) |
 | Governance | `/governance` | Resource workspace (mock) |
 | Cost & Usage | `/usage` | Resource workspace (mock) |
-| Settings | `/settings` | Resource workspace (mock) |
+| Settings | `/settings` | Personal settings |
+| Saved replies | `/settings/saved-replies` | Account-scoped saved replies (live API) |
 | UI Components | `/dev/ui` | UI showcase |
 | Changesets | `/orgs/:org/changesets` | Changeset workspace (live API) |
 | Trails | `/orgs/:org/trails` | Changeset workspace (alias) |

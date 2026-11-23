@@ -37,17 +37,17 @@ const (
 
 // Notification represents a notification for a user
 type Notification struct {
-	ID          ID
-	UserID      string
-	Type        Type
-	Reason      Reason
-	IssueID     string
-	Repository  string
-	IssueNumber int
-	IssueTitle  string
-	CommentID   string // Optional: set if notification is about a specific comment
-	ActorID     string // User who triggered the notification
-	Unread      bool
-	CreatedAt   time.Time
-	ReadAt      *time.Time
+	ID          ID         `json:"id"`
+	UserID      string     `json:"user_id"`
+	Type        Type       `json:"type"`
+	Reason      Reason     `json:"reason"`
+	IssueID     string     `json:"issue_id"`
+	Repository  string     `json:"repository"`
+	IssueNumber int        `json:"issue_number"`
+	IssueTitle  string     `json:"issue_title"`
+	CommentID   string     `json:"comment_id,omitempty"` // Optional: set if notification is about a specific comment
+	ActorID     string     `json:"actor_id,omitempty"`   // User who triggered the notification
+	Unread      bool       `json:"unread"`
+	CreatedAt   time.Time  `json:"created_at"`
+	ReadAt      *time.Time `json:"read_at,omitempty"`
 }

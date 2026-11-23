@@ -44,6 +44,8 @@
     "createPullRequest": "Create pull request"
   },
   "create": {
+    "linkIssue": "Link to issue #{{number}}",
+    "invalidIssue": "The linked issue number is invalid.",
     "title": "Create pull request",
     "description": "Propose changes from {{source}} into {{base}}",
     "titleLabel": "Title",

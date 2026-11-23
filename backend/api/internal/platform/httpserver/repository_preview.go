@@ -166,28 +166,39 @@ func (d DeliveryDependencies) compareRepositoryCommits(w http.ResponseWriter, r 
 	if !ok {
 		return
 	}
-	baseRef := strings.TrimSpace(r.URL.Query().Get("base"))
-	headRef := strings.TrimSpace(r.URL.Query().Get("head"))
-	mode := strings.TrimSpace(r.URL.Query().Get("mode"))
-	if baseRef == "" || headRef == "" || len(baseRef) > 256 || len(headRef) > 256 {
-		writeProblem(w, http.StatusBadRequest, "Invalid compare refs", "Both base and head refs are required and must be at most 256 bytes")
+	_, supported := d.Preview.(delivery.RepositoryCompareReader)
+	if !supported {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository compare unavailable", "The configured Git provider does not support commit comparison")
 		return
 	}
-	if mode != "" && mode != "merge-base" {
-		writeProblem(w, http.StatusBadRequest, "Invalid compare mode", "Mode must be empty or 'merge-base'")
+	query := r.URL.Query()
+	rawBase := query.Get("base")
+	baseRef := strings.TrimSpace(rawBase)
+	headRef := strings.TrimSpace(query.Get("head"))
+	mode := strings.TrimSpace(query.Get("mode"))
+	if !query.Has("base") || headRef == "" || len(baseRef) > 256 || len(headRef) > 256 || (baseRef == "" && rawBase != "") {
+		writeProblem(w, http.StatusBadRequest, "Invalid compare refs", "Both base and head refs are required and must be at most 256 bytes. Base may be explicitly empty")
 		return
 	}
-	base, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repository.Slug, baseRef)
-	if err != nil {
-		writeProblem(w, http.StatusNotFound, "Base revision not found", "The base ref could not be resolved")
+	if (mode != "" && mode != "merge-base") || (mode == "merge-base" && baseRef == "") {
+		writeProblem(w, http.StatusBadRequest, "Invalid compare mode", "Mode must be empty or 'merge-base' with a nonempty base")
 		return
+	}
+	var baseSHA string
+	if baseRef != "" {
+		base, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repository.Slug, baseRef)
+		if err != nil {
+			writeProblem(w, http.StatusNotFound, "Base revision not found", "The base ref could not be resolved")
+			return
+		}
+		baseSHA = base.CommitSHA
 	}
 	head, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repository.Slug, headRef)
 	if err != nil {
 		writeProblem(w, http.StatusNotFound, "Head revision not found", "The head ref could not be resolved")
 		return
 	}
-	comparison, err := d.compareCommits(r.Context(), principal.OrganizationID, repository.Slug, base.CommitSHA, head.CommitSHA, mode, r.URL.Query().Get("include_commits") == "true")
+	comparison, err := d.compareCommits(r.Context(), principal.OrganizationID, repository.Slug, baseSHA, head.CommitSHA, mode, query.Get("include_commits") == "true")
 	if errors.Is(err, delivery.ErrPreviewTooLarge) {
 		writeProblem(w, http.StatusRequestEntityTooLarge, "Compare too large", "The comparison exceeds the 1 MiB preview output limit")
 		return
@@ -313,7 +324,13 @@ func (d DeliveryDependencies) blameRepositoryFile(w http.ResponseWriter, r *http
 }
 
 func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.Request) {
-	principal, repository, commitSHA, ok := d.previewRepository(w, r)
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	repository, ok := d.registeredRepository(w, r, principal)
 	if !ok {
 		return
 	}
@@ -330,6 +347,13 @@ func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.
 	if err != nil {
 		writeProblem(w, http.StatusNotFound, "Repository refs unavailable", "Branches and tags could not be read")
 		return
+	}
+	var commitSHA string
+	for _, ref := range refs {
+		if ref.Kind == "branch" && ref.Name == repository.DefaultBranch {
+			commitSHA = ref.SHA
+			break
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "default_branch": repository.DefaultBranch, "resolved_commit_sha": commitSHA, "items": refs})
 }

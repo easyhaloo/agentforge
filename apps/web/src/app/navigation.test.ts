@@ -6,7 +6,7 @@ import { itemHref, navigationGroups, navigationItems } from "./navigation";
 
 // Deliberately independent of the code under test so changes in copy or order fail here.
 const expectedGroups = [
-  { label: "WORKSPACE", items: ["Overview", "Projects", "Repositories", "Issues", "Changesets", "Workspaces"] },
+  { label: "WORKSPACE", items: ["Overview", "Projects", "Repositories", "Issues", "Inbox", "Changesets", "Workspaces"] },
   { label: "COORDINATION", items: ["Trails", "Review", "Eval", "Self-healing"] },
   { label: "INTELLIGENCE", items: ["Memory", "CI / CD"] },
   { label: "DEVELOPER", items: ["WebIDE", "UI Components"] },
@@ -52,6 +52,7 @@ describe("navigation data source", () => {
       Projects: "/projects",
       Repositories: "/orgs/demo/repositories",
       Issues: "/orgs/demo/issues",
+      Inbox: "/orgs/demo/notifications",
       Changesets: "/orgs/demo/changesets",
       Workspaces: "/workspaces",
       Trails: "/orgs/demo/trails",

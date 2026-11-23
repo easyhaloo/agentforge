@@ -42,8 +42,10 @@ test("reviews an updated pull request and merges only its verified revision", as
   expect(orgID).toMatch(/^[a-zA-Z0-9_-]+$/);
   expect(reviewerAccount.user_id).toMatch(/^[a-zA-Z0-9_-]+$/);
   // Local authentication does not support the OIDC invitation flow. Seed only the membership.
-  execFileSync("docker", ["compose", "exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1",
-    "-U", process.env.DB_USER ?? "agentforge", "-d", process.env.DB_NAME ?? "agentforge",
+  const psql = process.env.AGENTFORGE_TEST_PSQL;
+  const psqlArgs = psql ? ["-X"] : ["compose", "exec", "-T", "postgres", "psql",
+    "-U", process.env.DB_USER ?? "agentforge", "-d", process.env.DB_NAME ?? "agentforge"];
+  execFileSync(psql || "docker", [...psqlArgs, "-v", "ON_ERROR_STOP=1",
     "-v", `org=${orgID}`, "-v", `reviewer=${reviewerAccount.user_id}`], {
     input: "INSERT INTO organization_memberships (organization_id, user_id, role) VALUES (:'org', :'reviewer', 'member');\n",
   });
@@ -101,13 +103,85 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page).toHaveURL(`${base.origin}${repositoryPath}/issues`);
     await expect(currentSection).toHaveText("Issues");
     await expect(page.getByRole("main").getByRole("heading", { name: repository, exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "New issue" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New issue" })).toBeVisible();
     await capture("repository-issues", false);
     await repoNav.getByRole("link", { name: "Pull requests", exact: true }).click();
     const pullsPath = `${repositoryPath}/pulls`;
     await expect(page).toHaveURL(`${base.origin}${pullsPath}`);
     await page.getByRole("link", { name: "New pull request" }).click();
     await expect(page).toHaveURL(`${base.origin}${pullsPath}/new`);
+    const repositoryUrl = `${base.origin}${repositoryPath}`;
+    await page.goto(`${repositoryUrl}/issues/new`);
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill("Verify Development entry point");
+    await page.getByRole("button", { name: "Create issue", exact: true }).click();
+    await expect(page).toHaveURL(`${repositoryUrl}/issues/1`);
+    await test.step("DETAIL-14: no branch can be created before a base ref exists", async () => {
+      const refs = ["main", "release", "feature/docs"];
+      const heads = refs.map((name) => git("rev-parse", name));
+      await expect(page.getByRole("button", { name: "Create a branch", exact: true })).toBeVisible();
+      refs.forEach((name) => git("update-ref", "-d", `refs/heads/${name}`));
+      try {
+        await page.reload();
+        await page.getByRole("button", { name: "Create a branch", exact: true }).click();
+        const dialog = page.getByRole("dialog", { name: "Create a branch" });
+        await expect(dialog.getByText("Make the first Git commit before creating a branch.")).toBeVisible();
+        await expect(dialog.getByRole("button", { name: "Create a branch", exact: true })).toBeDisabled();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toHaveCount(0);
+      } finally {
+        refs.forEach((name, index) => git("update-ref", `refs/heads/${name}`, heads[index]));
+        await page.reload();
+      }
+    });
+    await test.step("DETAIL-14: pin, create and reopen a real issue branch", async () => {
+      const create = () => page.getByRole("button", { name: "Create a branch", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Create a branch" });
+      const suffix = dialog.getByRole("textbox", { name: "Branch name suffix" });
+      const confirm = dialog.getByRole("button", { name: "Create a branch", exact: true });
+      const branch = dialog.getByRole("combobox", { name: "Base branch", exact: true });
+      await create();
+      await suffix.fill("bad/name");
+      await expect(confirm).toBeDisabled();
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      expect(git("branch", "--list", "agentforge/issues/*")).toBe("");
+      await create();
+      await suffix.fill("verified-branch");
+      await selectOption(page, branch, "release");
+      try {
+        git("branch", "-f", "release", firstHead);
+        await confirm.click();
+        await expect(dialog.getByRole("alert")).toContainText("the base branch changed");
+        await expect(suffix).toHaveValue("verified-branch");
+        expect(git("branch", "--list", "agentforge/issues/*")).toBe("");
+        await dialog.getByRole("button", { name: "Reload branches" }).click();
+        await expect(confirm).toBeEnabled();
+        await confirm.click();
+        const createdBranch = page.getByRole("link", { name: "verified-branch", exact: true });
+        await expect(createdBranch).toBeVisible();
+        const href = await createdBranch.getAttribute("href");
+        const ref = new URL(href!, base.origin).searchParams.get("ref");
+        expect(ref).toMatch(/^refs\/heads\/agentforge\/issues\/[a-f0-9]+\/verified-branch$/);
+        expect(git("rev-parse", ref!)).toBe(firstHead);
+        await page.reload();
+        await expect(createdBranch).toHaveAttribute("href", href!);
+        await create();
+        await suffix.fill("verified-branch");
+        await confirm.click();
+        await expect(dialog.getByRole("alert")).toContainText("The branch name already exists");
+        expect(git("rev-parse", ref!)).toBe(firstHead);
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        await createdBranch.click();
+        await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible();
+        await reviewer.goto(new URL(href!, base.origin).href);
+        await expect(reviewer.getByText("Add revision notes", { exact: true })).toBeVisible();
+        await page.goto(`${repositoryUrl}/issues/1`);
+      } finally {
+        git("branch", "-f", "release", target);
+      }
+    });
+    await page.getByRole("link", { name: "Create pull request", exact: true }).click();
+    await expect(page).toHaveURL(`${base.origin}${pullsPath}/new?issue=1`);
+    await expect(page.getByRole("link", { name: "Link to issue #1" })).toHaveAttribute("href", `${orgPath}/repositories/${repository}/issues/1`);
     await selectOption(page, page.getByRole("combobox", { name: "Base branch", exact: true }), "release");
     await selectOption(page, page.getByRole("combobox", { name: "Compare branch", exact: true }), "feature/docs");
     await expect(page.getByText("Add revision notes", { exact: true })).toBeVisible({ timeout: 15_000 });
@@ -130,6 +204,35 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page.getByRole("main").getByRole("heading", { name: repository, exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
     await capture("repository-pr-desktop", false);
+    await reviewer.goto(`${repositoryUrl}/issues/1`);
+    const development = reviewer.locator("aside");
+    await expect(development.getByRole("link", { name: title, exact: true })).toBeVisible();
+    await expect(reviewer.getByRole("region", { name: "Issue timeline" }).getByRole("link", { name: title, exact: true })).toBeVisible();
+    await test.step("REF-05: select, preview and publish a local pull request reference", async () => {
+      await reviewer.goto(`${repositoryUrl}/issues/new`);
+      await reviewer.getByRole("textbox", { name: /Title/ }).fill("Reference the verification pull request");
+      const description = reviewer.getByRole("textbox", { name: "Description", exact: true });
+      await description.fill("See #verification");
+      const label = `Pull request ${changeset.id.slice(0, 8)}`;
+      await reviewer.getByRole("listbox", { name: "Reference suggestions" })
+        .getByRole("option", { name: `${label} ${title}`, exact: true }).click({ timeout: 5_000 });
+      await reviewer.getByRole("tab", { name: "Preview" }).click();
+      await expect(reviewer.getByRole("link", { name: label })).toHaveAttribute("href", new URL(detail).pathname);
+      const published = reviewer.waitForResponse(response => response.request().method() === "POST" &&
+        new URL(response.url()).pathname.endsWith("/issues"));
+      await reviewer.getByRole("button", { name: "Create issue", exact: true }).click();
+      expect((await published).status()).toBe(201);
+      await expect(reviewer).toHaveURL(new RegExp(`${repositoryUrl}/issues/\\d+$`));
+      const issue = await page.context().newPage();
+      try {
+        await issue.goto(reviewer.url());
+        await issue.getByRole("link", { name: label }).click();
+        await expect(issue).toHaveURL(detail);
+        await expect(issue.getByRole("heading", { name: title, exact: true })).toBeVisible();
+      } finally {
+        await issue.close();
+      }
+    });
     const editTitle = page.getByRole("button", { name: "Edit title" });
     const titleInput = page.getByRole("textbox", { name: "Title", exact: true });
     const cancelTitle = page.getByRole("button", { name: "Cancel", exact: true });

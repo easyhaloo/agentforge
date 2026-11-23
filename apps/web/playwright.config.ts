@@ -23,7 +23,10 @@ export default defineConfig({
     // the network, e.g. the Google Fonts @import in styles/index.css.
     launchOptions: { args: ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost"] },
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{
+    name: "chromium",
+    use: { ...devices["Desktop Chrome"], channel: process.env.AGENTFORGE_BROWSER_CHANNEL === "chrome" ? "chrome" : undefined },
+  }],
   webServer: {
     command: startTestStack
       ? `WEB_PORT=${port} exec bash ../../scripts/dev-stack.sh up`

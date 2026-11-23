@@ -1,5 +1,6 @@
 {
   "routes": {
+    "inbox": "Inbox",
     "overview": "Overview",
     "projects": "Projects",
     "workspaces": "Workspaces",
@@ -37,6 +38,7 @@
     "CONTROL PLANE": "Control plane"
   },
   "descriptions": {
+    "inbox": "Open notifications for this organization.",
     "issues": "View issues across the organization.",
     "overview": "A live map of changes, verification and delivery across your engineering system.",
     "projects": "Organize repositories, teams and delivery boundaries.",
@@ -56,6 +58,16 @@
     "usage": "Understand agent, model and compute consumption.",
     "settings": "Configure your organization and developer experience.",
     "webide": "Browse files at a pinned commit or edit them on a changeset branch."
+  },
+  "inbox": {
+    "empty": "No notifications yet.",
+    "loadFailed": "Could not load notifications.",
+    "readFailed": "Could not mark this notification as read. Try opening it again.",
+    "mentioned": "Mentioned you",
+    "unread": "Unread",
+    "read": "Read",
+    "previous": "Previous",
+    "next": "Next"
   },
   "sidebar": {
     "productName": "AgentForge",
