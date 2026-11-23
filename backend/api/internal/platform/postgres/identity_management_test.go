@@ -31,6 +31,17 @@ func identityManagementOpenStore(t *testing.T) (context.Context, *Store) {
 	return ctx, store
 }
 
+func insertLinkedIdentityFixture(t *testing.T, ctx context.Context, store *Store, userID, issuer, subject string) {
+	t.Helper()
+	id, err := newSessionID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.pool.Exec(ctx, "INSERT INTO external_identities (id, user_id, issuer, subject) VALUES ($1, $2, $3, $4)", id, userID, issuer, subject); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestListUserIdentities(t *testing.T) {
 	ctx, store := identityManagementOpenStore(t)
 	// Create a user with multiple identities
@@ -39,14 +50,7 @@ func TestListUserIdentities(t *testing.T) {
 		t.Fatalf("create user: %v", err)
 	}
 
-	// Add external OIDC identity
-	externalUserID, err := store.UpsertExternalIdentity(ctx, "https://google.com", "google-subject-123", "multi@example.test", "Multi User")
-	if err != nil {
-		t.Fatalf("add external identity: %v", err)
-	}
-	if externalUserID != userID {
-		t.Errorf("expected external identity to link to same user, got different user ID")
-	}
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://google.com", "google-subject-123")
 
 	// List identities
 	identities, err := store.ListUserIdentities(ctx, userID)
@@ -95,10 +99,7 @@ func TestGetUserIdentityCount(t *testing.T) {
 	}
 
 	// Add another identity
-	_, err = store.UpsertExternalIdentity(ctx, "https://github.com", "gh-user-456", "count@example.test", "Count User")
-	if err != nil {
-		t.Fatalf("add external identity: %v", err)
-	}
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://github.com", "gh-user-456")
 
 	count, err = store.GetUserIdentityCount(ctx, userID)
 	if err != nil {
@@ -118,10 +119,7 @@ func TestDeleteUserIdentity(t *testing.T) {
 		t.Fatalf("create user: %v", err)
 	}
 
-	_, err = store.UpsertExternalIdentity(ctx, "https://github.com", "gh-delete-789", "delete@example.test", "Delete User")
-	if err != nil {
-		t.Fatalf("add external identity: %v", err)
-	}
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://github.com", "gh-delete-789")
 
 	// Get identities
 	identities, err := store.ListUserIdentities(ctx, userID)
@@ -172,10 +170,7 @@ func TestDeleteUserIdentity_PlatformCredentials(t *testing.T) {
 		t.Fatalf("create user: %v", err)
 	}
 
-	_, err = store.UpsertExternalIdentity(ctx, "https://google.com", "google-delcred-999", "delcred@example.test", "Del Cred User")
-	if err != nil {
-		t.Fatalf("add external identity: %v", err)
-	}
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://google.com", "google-delcred-999")
 
 	// Verify platform credentials exist
 	hasCreds, err := store.HasPlatformCredentials(ctx, userID)

@@ -189,6 +189,7 @@ test("a session service failure stays on the requested page", async ({ page }) =
 
 test("the SSO entry is a full-page navigation to the backend, never a client route", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
+  await page.route("**/auth/providers", (route) => route.fulfill({ json: { providers: [{ id: "oidc", login_url: "/auth/oidc/login" }] } }));
   await page.route("**/auth/oidc/login", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Identity provider</h1>" }));
   await page.goto("/orgs/x/changesets");
   await page.getByRole("link", { name: "SSO", exact: true }).click();
