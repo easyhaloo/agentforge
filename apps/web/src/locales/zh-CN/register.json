@@ -10,7 +10,6 @@
   "signInLink": "登录",
   "orDivider": "或使用以下方式注册",
   "ssoButton": "使用 SSO 注册",
-  "trustMessage": "通过 OpenID Connect 安全认证",
   "passwordStrength": {
     "weak": "弱",
     "medium": "中",

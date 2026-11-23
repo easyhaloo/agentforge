@@ -24,6 +24,8 @@ type Config struct {
 	DatabaseURL           string
 	AppOrigin             string
 	OIDC                  *OIDCConfig
+	Google                *OIDCConfig
+	GitHub                *OIDCConfig
 	SessionTTL            time.Duration
 	GitRepositoryRoot     string
 	EvidenceRoot          string
@@ -36,18 +38,27 @@ func LoadFromEnv() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	oidcConfig, sessionTTL, err := loadOIDC(
+	configuration.OIDC, err = loadOIDC(
 		os.Getenv("OIDC_ISSUER_URL"),
 		os.Getenv("OIDC_CLIENT_ID"),
 		os.Getenv("OIDC_CLIENT_SECRET"),
 		os.Getenv("OIDC_REDIRECT_URL"),
-		os.Getenv("SESSION_TTL"),
 	)
 	if err != nil {
 		return Config{}, err
 	}
-	configuration.OIDC = oidcConfig
-	configuration.SessionTTL = sessionTTL
+	configuration.Google, err = loadNamedOAuth("GOOGLE", "https://accounts.google.com", configuration.AppOrigin+"/auth/google/callback")
+	if err != nil {
+		return Config{}, err
+	}
+	configuration.GitHub, err = loadNamedOAuth("GITHUB", "", configuration.AppOrigin+"/auth/github/callback")
+	if err != nil {
+		return Config{}, err
+	}
+	configuration.SessionTTL, err = loadSessionTTL(os.Getenv("SESSION_TTL"), configuration.OIDC != nil || configuration.Google != nil || configuration.GitHub != nil)
+	if err != nil {
+		return Config{}, err
+	}
 	configuration.GitRepositoryRoot = strings.TrimSpace(os.Getenv("GIT_REPOSITORY_ROOT"))
 	configuration.EvidenceRoot = strings.TrimSpace(os.Getenv("EVIDENCE_ROOT"))
 	configuration.EvaluationDockerImage = strings.TrimSpace(os.Getenv("EVALUATION_DOCKER_IMAGE"))
@@ -101,7 +112,7 @@ func load(port, databaseURL, appOrigin string) (Config, error) {
 	parsedOrigin, originErr := url.Parse(appOrigin)
 	if originErr != nil || (parsedOrigin.Scheme != "http" && parsedOrigin.Scheme != "https") ||
 		parsedOrigin.Host == "" || parsedOrigin.User != nil || parsedOrigin.Path != "" ||
-		parsedOrigin.RawQuery != "" || parsedOrigin.Fragment != "" {
+		parsedOrigin.ForceQuery || parsedOrigin.RawQuery != "" || strings.Contains(appOrigin, "#") {
 		return Config{}, errors.New("APP_ORIGIN must be an absolute HTTP(S) origin without a path")
 	}
 	if parsedOrigin.Scheme == "http" {
@@ -113,7 +124,7 @@ func load(port, databaseURL, appOrigin string) (Config, error) {
 	return Config{Port: port, DatabaseURL: databaseURL, AppOrigin: appOrigin}, nil
 }
 
-func loadOIDC(issuerURL, clientID, clientSecret, redirectURL, sessionTTL string) (*OIDCConfig, time.Duration, error) {
+func loadOIDC(issuerURL, clientID, clientSecret, redirectURL string) (*OIDCConfig, error) {
 	values := []string{issuerURL, clientID, clientSecret, redirectURL}
 	configured := 0
 	for _, value := range values {
@@ -122,49 +133,66 @@ func loadOIDC(issuerURL, clientID, clientSecret, redirectURL, sessionTTL string)
 		}
 	}
 	if configured == 0 {
-		if strings.TrimSpace(sessionTTL) != "" {
-			return nil, 0, errors.New("SESSION_TTL requires complete OIDC configuration")
-		}
-		return nil, 12 * time.Hour, nil
+		return nil, nil
 	}
 	if configured != len(values) {
-		return nil, 0, errors.New("OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and OIDC_REDIRECT_URL must be configured together")
+		return nil, errors.New("OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and OIDC_REDIRECT_URL must be configured together")
 	}
 
 	issuerURL = strings.TrimSpace(issuerURL)
 	issuer, err := url.Parse(issuerURL)
 	if err != nil || (issuer.Scheme != "https" && issuer.Scheme != "http") ||
 		issuer.Host == "" || issuer.User != nil || issuer.RawQuery != "" || issuer.Fragment != "" {
-		return nil, 0, errors.New("OIDC_ISSUER_URL must be an absolute issuer URL without query or fragment")
+		return nil, errors.New("OIDC_ISSUER_URL must be an absolute issuer URL without query or fragment")
 	}
 	if issuer.Scheme == "http" {
 		ip := net.ParseIP(issuer.Hostname())
 		if issuer.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
-			return nil, 0, errors.New("OIDC_ISSUER_URL must use HTTPS outside loopback development")
+			return nil, errors.New("OIDC_ISSUER_URL must use HTTPS outside loopback development")
 		}
 	}
 
 	redirect, err := url.Parse(strings.TrimSpace(redirectURL))
 	if err != nil || (redirect.Scheme != "https" && redirect.Scheme != "http") ||
 		redirect.Host == "" || redirect.User != nil || redirect.RawQuery != "" || redirect.Fragment != "" {
-		return nil, 0, errors.New("OIDC_REDIRECT_URL must be an absolute HTTP(S) callback URL")
+		return nil, errors.New("OIDC_REDIRECT_URL must be an absolute HTTP(S) callback URL")
 	}
 	if redirect.Scheme == "http" {
 		ip := net.ParseIP(redirect.Hostname())
 		if redirect.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback()) {
-			return nil, 0, errors.New("OIDC_REDIRECT_URL must use HTTPS outside loopback development")
+			return nil, errors.New("OIDC_REDIRECT_URL must use HTTPS outside loopback development")
 		}
 	}
 
-	ttl := 12 * time.Hour
-	if strings.TrimSpace(sessionTTL) != "" {
-		ttl, err = time.ParseDuration(strings.TrimSpace(sessionTTL))
-		if err != nil || ttl < 5*time.Minute || ttl > 7*24*time.Hour {
-			return nil, 0, errors.New("SESSION_TTL must be between 5m and 168h")
-		}
-	}
 	return &OIDCConfig{
 		IssuerURL: issuerURL, ClientID: strings.TrimSpace(clientID),
 		ClientSecret: clientSecret, RedirectURL: redirect.String(),
-	}, ttl, nil
+	}, nil
+}
+
+func loadNamedOAuth(prefix, issuer, callback string) (*OIDCConfig, error) {
+	idKey, secretKey := prefix+"_OAUTH_CLIENT_ID", prefix+"_OAUTH_CLIENT_SECRET"
+	id, secret := strings.TrimSpace(os.Getenv(idKey)), strings.TrimSpace(os.Getenv(secretKey))
+	if id == "" && secret == "" {
+		return nil, nil
+	}
+	if id == "" || secret == "" {
+		return nil, errors.New(idKey + " and " + secretKey + " must be configured together")
+	}
+	return &OIDCConfig{IssuerURL: issuer, ClientID: id, ClientSecret: secret, RedirectURL: callback}, nil
+}
+
+func loadSessionTTL(value string, providerConfigured bool) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 12 * time.Hour, nil
+	}
+	if !providerConfigured {
+		return 0, errors.New("SESSION_TTL requires a configured SSO provider")
+	}
+	ttl, err := time.ParseDuration(value)
+	if err != nil || ttl < 5*time.Minute || ttl > 7*24*time.Hour {
+		return 0, errors.New("SESSION_TTL must be between 5m and 168h")
+	}
+	return ttl, nil
 }

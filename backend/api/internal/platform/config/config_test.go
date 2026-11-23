@@ -39,39 +39,64 @@ func TestLoadFromValues(t *testing.T) {
 }
 
 func TestLoadOIDCConfiguration(t *testing.T) {
-	valid := func() (*OIDCConfig, time.Duration, error) {
-		return loadOIDC("https://issuer.example.com", "agentforge-client", "secret", "https://api.example.com/auth/oidc/callback", "12h")
+	config, err := loadOIDC("https://issuer.example.com", "agentforge-client", "secret", "https://api.example.com/auth/oidc/callback")
+	if err != nil || config == nil || config.ClientID != "agentforge-client" {
+		t.Fatalf("valid OIDC configuration was not loaded: %v", err)
 	}
-	config, ttl, err := valid()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if config == nil || config.ClientID != "agentforge-client" || ttl != 12*time.Hour {
-		t.Fatalf("OIDC config=%#v ttl=%s", config, ttl)
+	if config, err := loadOIDC("", "", "", ""); err != nil || config != nil {
+		t.Fatalf("unconfigured OIDC unexpectedly enabled or invalid: %v", err)
 	}
 
-	if config, ttl, err := loadOIDC("", "", "", "", ""); err != nil || config != nil || ttl != 12*time.Hour {
-		t.Fatalf("unconfigured OIDC result config=%#v ttl=%s err=%v", config, ttl, err)
-	}
 	tests := []struct {
-		name                                    string
-		issuer, clientID, secret, redirect, ttl string
+		name                               string
+		issuer, clientID, secret, redirect string
 	}{
 		{name: "partial configuration", issuer: "https://issuer.example.com"},
 		{name: "insecure remote issuer", issuer: "http://issuer.example.com", clientID: "id", secret: "secret", redirect: "https://api.example.com/callback"},
 		{name: "insecure remote callback", issuer: "https://issuer.example.com", clientID: "id", secret: "secret", redirect: "http://api.example.com/callback"},
-		{name: "invalid TTL", issuer: "https://issuer.example.com", clientID: "id", secret: "secret", redirect: "https://api.example.com/callback", ttl: "999h"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, _, err := loadOIDC(test.issuer, test.clientID, test.secret, test.redirect, test.ttl); err == nil {
+			if _, err := loadOIDC(test.issuer, test.clientID, test.secret, test.redirect); err == nil {
 				t.Fatal("expected invalid OIDC configuration to fail")
 			}
 		})
 	}
 
-	if _, ttl, err := loadOIDC("http://localhost:5556", "id", "secret", "http://localhost:8080/auth/oidc/callback", "30m"); err != nil || ttl != 30*time.Minute {
-		t.Fatalf("loopback development config ttl=%s err=%v", ttl, err)
+	if _, err := loadOIDC("http://localhost:5556", "id", "secret", "http://localhost:8080/auth/oidc/callback"); err != nil {
+		t.Fatalf("loopback development config: %v", err)
+	}
+}
+
+func TestNamedOAuthConfiguration(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://localhost/agentforge")
+	t.Setenv("APP_ORIGIN", "https://forge.example.test")
+	for _, key := range []string{"OIDC_ISSUER_URL", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_REDIRECT_URL", "GITHUB_OAUTH_CLIENT_ID", "GITHUB_OAUTH_CLIENT_SECRET", "GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "SESSION_TTL"} {
+		t.Setenv(key, "")
+	}
+	cfg, err := LoadFromEnv()
+	if err != nil || cfg.Google != nil || cfg.GitHub != nil || cfg.SessionTTL != 12*time.Hour {
+		t.Fatalf("unexpected default SSO configuration: %v", err)
+	}
+	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "id")
+	if _, err := LoadFromEnv(); err == nil {
+		t.Fatal("partial GitHub OAuth configuration accepted")
+	}
+	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "secret")
+	t.Setenv("SESSION_TTL", "30m")
+	cfg, err = LoadFromEnv()
+	if err != nil || cfg.GitHub == nil || cfg.Google != nil || cfg.GitHub.RedirectURL != "https://forge.example.test/auth/github/callback" || cfg.SessionTTL != 30*time.Minute {
+		t.Fatalf("GitHub-only OAuth configuration invalid: %v", err)
+	}
+	t.Setenv("GOOGLE_OAUTH_CLIENT_ID", "id")
+	t.Setenv("GOOGLE_OAUTH_CLIENT_SECRET", "secret")
+	cfg, err = LoadFromEnv()
+	if err != nil || cfg.Google == nil || cfg.Google.RedirectURL != "https://forge.example.test/auth/google/callback" || cfg.Google.IssuerURL != "https://accounts.google.com" {
+		t.Fatalf("Google OAuth configuration invalid: %v", err)
+	}
+	t.Setenv("SESSION_TTL", "999h")
+	if _, err := LoadFromEnv(); err == nil {
+		t.Fatal("invalid session TTL accepted")
 	}
 }
 

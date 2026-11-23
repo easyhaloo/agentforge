@@ -4,16 +4,16 @@
   "password": "Password",
   "signInButton": "Sign in",
   "noAccount": "Don't have an account?",
-  "createAccountLink": "Create one",
+  "createAccountLink": "Sign up",
   "orDivider": "or",
   "orSignInWith": "or sign in with",
   "ssoButton": "Continue with SSO",
   "loading": "Signing in...",
   "providers": {
     "oidc": "SSO",
-    "github": "GitHub",
-    "google": "Google",
-    "apple": "Apple"
+    "github": "Continue with GitHub",
+    "google": "Continue with Google",
+    "unavailable": "Single sign-on options are temporarily unavailable."
   },
   "error": {
     "unavailable": "Authentication service is unavailable. Please try again later.",
@@ -22,5 +22,12 @@
     "networkError": "Network error. Please check your connection and try again.",
     "emptyEmail": "Email is required.",
     "emptyPassword": "Password is required."
+  },
+  "invitation": "Choose a sign-in provider to accept your invitation.",
+  "ssoError": {
+    "cancelled": "Single sign-on was cancelled. You can try again.",
+    "failed": "Single sign-on failed. Please try again.",
+    "accessRequired": "This account needs organization access or a valid invitation.",
+    "invitationInvalid": "This invitation is invalid or has expired."
   }
 }

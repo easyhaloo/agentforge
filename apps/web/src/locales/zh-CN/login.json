@@ -4,16 +4,16 @@
   "password": "密码",
   "signInButton": "登录",
   "noAccount": "没有账户？",
-  "createAccountLink": "创建账户",
+  "createAccountLink": "注册",
   "orDivider": "或",
   "orSignInWith": "或使用以下方式登录",
   "ssoButton": "使用 SSO 登录",
   "loading": "登录中...",
   "providers": {
     "oidc": "SSO",
-    "github": "GitHub",
-    "google": "Google",
-    "apple": "Apple"
+    "github": "使用 GitHub 继续",
+    "google": "使用 Google 继续",
+    "unavailable": "单点登录选项暂时不可用。"
   },
   "error": {
     "unavailable": "认证服务暂时不可用，请稍后重试。",
@@ -22,5 +22,12 @@
     "networkError": "网络错误，请检查您的连接后重试。",
     "emptyEmail": "请输入邮箱。",
     "emptyPassword": "请输入密码。"
+  },
+  "invitation": "请选择登录方式以接受邀请。",
+  "ssoError": {
+    "cancelled": "已取消单点登录，你可以重试。",
+    "failed": "单点登录失败，请重试。",
+    "accessRequired": "此账号需要组织访问权限或有效邀请。",
+    "invitationInvalid": "此邀请无效或已过期。"
   }
 }

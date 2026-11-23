@@ -18,7 +18,7 @@ test.describe("Login Page", () => {
 
     // Verify registration link
     await expect(page.getByText("Don't have an account?")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Create one" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign up", exact: true })).toBeVisible();
   });
 
   test("the login background respects reduced motion and fits a narrow viewport", async ({ page }) => {
@@ -114,7 +114,7 @@ test.describe("Login Page", () => {
     await installApiMocks(page, { signedOut: true });
     await page.goto("/login");
 
-    await page.getByRole("link", { name: "Create one" }).click();
+    await page.getByRole("link", { name: "Sign up", exact: true }).click();
 
     await expect(page).toHaveURL(/\/register/);
   });
