@@ -10,7 +10,7 @@ const expectedGroups = [
   { label: "COORDINATION", items: ["Trails", "Review", "Eval", "Self-healing"] },
   { label: "INTELLIGENCE", items: ["Memory", "CI / CD"] },
   { label: "DEVELOPER", items: ["WebIDE", "UI Components"] },
-  { label: "CONTROL PLANE", items: ["Organization", "Security", "Governance", "Cost & Usage", "Settings"] },
+  { label: "CONTROL PLANE", items: ["Security", "Governance", "Cost & Usage"] },
 ];
 
 

@@ -2,7 +2,7 @@ import { Activity, Bell, ArrowDownUp, Boxes, BrainCircuit, CheckCircle2, Code2, 
 import { flatPaths, orgPath, type OrgSection } from "../shared/routing";
 
 /**
- * Single data source for the sidebar, the command palette, the page header and the breadcrumb.
+ * Shared page metadata for the sidebar, the command palette, the page header and the breadcrumb.
  * Mock pages carry a flat `path`; pages backed by the real API carry an `orgPath` that is
  * completed with an organization handle (see shared/routing).
  */
@@ -38,9 +38,10 @@ export const navigationItems: readonly NavigationItem[] = [
   { group: "CONTROL PLANE", label: "Settings", icon: Settings, descriptionKey: "navigation:descriptions.settings", path: flatPaths.settings },
 ];
 
-/** Sidebar sections, in order of first appearance in `navigationItems`. */
-export const navigationGroups = [...new Set(navigationItems.map((item) => item.group))]
-  .map((label) => ({ label, items: navigationItems.filter((item) => item.group === label) }));
+/** Sidebar sections, with settings links reserved for the user menu. */
+const sidebarItems = navigationItems.filter((item) => item.label !== "Organization" && item.label !== "Settings");
+export const navigationGroups = [...new Set(sidebarItems.map((item) => item.group))]
+  .map((label) => ({ label, items: sidebarItems.filter((item) => item.group === label) }));
 
 /** The URL of an item; `handle` only matters for organization-scoped items. */
 export function itemHref(item: NavigationItem, handle: string): string {

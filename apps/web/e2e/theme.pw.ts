@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installApiMocks } from "./support/api-mocks";
+import { openNavigation } from "./support/navigation";
 
 test("settings and shell render the saved palette, and Auto follows the system", async ({ page }) => {
   await installApiMocks(page);
@@ -63,12 +64,11 @@ test("the account language is saved through Appearance and applied across the wo
   await page.goto("/orgs/demo/repositories");
   const header = page.getByRole("banner");
   await expect(header.getByTitle("Switch language")).toHaveCount(0);
-  await header.getByRole("button", { name: "Open navigation" }).click();
-  const navigation = page.getByRole("dialog", { name: "Global navigation" });
-  await expect(navigation.getByRole("button", { name: "Close drawer" })).toBeFocused();
-  await expect(navigation.getByTitle("Switch language")).toHaveCount(0);
+  await openNavigation(page);
+  const drawer = page.getByRole("dialog", { name: "Global navigation" });
+  await expect(drawer.getByTitle("Switch language")).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await expect(navigation).toBeHidden();
+  await expect(drawer).toBeHidden();
   await header.getByRole("button", { name: "User menu" }).click();
   await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", { name: "Appearance", exact: true }).click();

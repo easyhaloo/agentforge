@@ -545,11 +545,6 @@
 .workspace-icon:hover { background: var(--af-color-surface); color: var(--af-color-text); }
 .workspace-organization .af-select { min-width: 0; max-width: 190px; }
 .workspace-organization .af-field { min-width: 0; }
-.workspace-navigation .nav-group { margin: 0 0 14px; }
-.workspace-navigation .nav-label { margin: 0 0 6px; padding-inline: 8px; }
-.workspace-navigation .af-button.nav-item { justify-content: flex-start; width: 100%; padding: 6px 8px; color: var(--af-color-text); font-size: 13px; text-decoration: none; }
-.workspace-navigation .nav-item.active { color: var(--af-color-primary); background: var(--af-color-primary-subtle); }
-.workspace-navigation__compact { display: none; }
 .topbar-repository { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .topbar-repository__name { max-width: 28ch; color: inherit; font-weight: 600; text-decoration: none; }
 .topbar-repository__name:hover { text-decoration: underline; }
@@ -569,7 +564,6 @@
   .shell > .topbar .searchbox { font-size: 0; }
   .shell > .topbar .workspace-organization { display: none; }
   .shell > .topbar .top-actions, .topbar-shortcuts { gap: 4px; }
-  .workspace-navigation__compact { display: grid; gap: 8px; margin-bottom: 12px; }
   .topbar-repository .af-popover { position: static; }
   .topbar-repository .af-popover__content { left: 12px; top: calc(100% + 4px); }
 }
