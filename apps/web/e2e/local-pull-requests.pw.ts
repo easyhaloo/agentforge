@@ -12,10 +12,10 @@ test.skip(!origin, "Requires the local API, PostgreSQL, and dev stack Git root")
 test("reviews an updated pull request and merges only its verified revision", async ({ page }, testInfo) => {
   test.slow();
   const base = new URL(origin!);
-  const capture = async (name: string) => {
+  const capture = async (name: string, fullPage = true) => {
     const path = testInfo.outputPath(`pull-request-${name}.png`);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path, animations: "disabled", fullPage: true, style: ".af-notification-viewport { visibility: hidden; }" });
+    await page.screenshot({ path, animations: "disabled", fullPage, style: ".af-notification-viewport { visibility: hidden; }" });
     await testInfo.attach(`Pull request ${name}`, { path, contentType: "image/png" });
   };
   expect(["localhost", "127.0.0.1", "[::1]"]).toContain(base.hostname);
@@ -165,8 +165,54 @@ test("reviews an updated pull request and merges only its verified revision", as
     const merge = page.getByRole("button", { name: "Merge pull request", exact: true });
     await expect(merge.filter({ visible: true }).and(page.locator(":enabled"))).toHaveCount(0);
     expect(await post("merge", { target_ref: "release" })).toEqual({ status: 422, detail: "draft pull request cannot be approved or merged" });
-    await page.getByRole("button", { name: "Ready for review" }).click();
-    await expect(page.getByRole("button", { name: "Convert to draft" })).toBeVisible();
+    const stateBadge = (name: string) => page.getByRole("button", { name, exact: true });
+    const statusMenu = page.getByRole("dialog", { name: "Pull request status" });
+    const menuAction = (name: string) => statusMenu.getByRole("button", { name, exact: true });
+    const openBadge = stateBadge("Open");
+    const draftBadge = stateBadge("Draft");
+    await draftBadge.click();
+    await expect(menuAction("Close pull request")).toBeVisible();
+    await menuAction("Ready for review").click();
+    await expect(openBadge).toBeFocused();
+    await openBadge.press("Enter");
+    await expect(openBadge).toHaveAttribute("aria-expanded", "true");
+    await expect(statusMenu.getByRole("button")).toHaveText(["Convert to draft", "Close pull request"]);
+    await expect(menuAction("Convert to draft")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(menuAction("Close pull request")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(statusMenu).toBeHidden();
+    await expect(openBadge).toBeFocused();
+    await openBadge.click();
+    const badgeBounds = (await openBadge.boundingBox())!;
+    const panelBounds = (await statusMenu.boundingBox())!;
+    expect(panelBounds.x).toBeCloseTo(badgeBounds.x, 0);
+    expect(panelBounds.y).toBeGreaterThan(badgeBounds.y + badgeBounds.height);
+    await menuAction("Close pull request").hover();
+    await capture("status-menu-open", false);
+    await page.route("**/pull-request/state", route => route.abort("failed"), { times: 1 });
+    await menuAction("Convert to draft").click();
+    await expect(page.locator(".pull-request-header").getByRole("alert")).toHaveText("Failed to change pull request state");
+    await expect(openBadge).toBeFocused();
+    await openBadge.click();
+    await menuAction("Convert to draft").click();
+    await expect(page.locator(".pull-request-header").getByRole("alert")).toHaveCount(0);
+    await expect(draftBadge).toBeFocused();
+    await page.reload();
+    await draftBadge.click();
+    await menuAction("Ready for review").click();
+    await expect(openBadge).toBeFocused();
+
+    const desktopViewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openBadge.click();
+    const mobilePanel = (await statusMenu.boundingBox())!;
+    expect(mobilePanel.x).toBeGreaterThanOrEqual(0);
+    expect(mobilePanel.x + mobilePanel.width).toBeLessThanOrEqual(390);
+    await capture("status-menu-mobile", false);
+    await page.getByRole("heading", { name: title, exact: true }).click();
+    await expect(statusMenu).toBeHidden();
+    await page.setViewportSize(desktopViewport);
 
     await page.getByPlaceholder("Leave a comment").fill("Verified the proposal locally.");
     await page.getByRole("button", { name: "Comment", exact: true }).click();
@@ -218,9 +264,13 @@ test("reviews an updated pull request and merges only its verified revision", as
     await reviewer.goto(detail);
     await expect(reviewer.getByRole("button", { name: "Comment", exact: true })).toBeVisible();
     await expect(reviewer.getByRole("button", { name: "Edit title" })).toHaveCount(0);
+    await expect(reviewer.locator(".pull-request-meta .pull-state")).toHaveText("Open");
+    await expect(reviewer.getByRole("button", { name: "Open", exact: true })).toHaveCount(0);
     await expect(reviewer.getByRole("button", { name: /^(Close|Reopen) pull request$/ })).toHaveCount(0);
     await commentInput.fill("An unsent draft");
-    await close.click();
+    await openBadge.click();
+    await menuAction("Close pull request").click();
+    await expect(stateBadge("Closed")).toBeFocused();
     await expect(composer.getByRole("button", { name: "Reopen pull request" })).toBeVisible();
     await expect(commentInput).toHaveValue("An unsent draft");
     await expect(conversationTab).toHaveAccessibleName("Conversation 2");
@@ -245,8 +295,15 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.goto(`${otherPulls}/${changeset.id}`);
     await expect(page.getByRole("alert")).toBeVisible();
     await page.goto(detail);
+    await stateBadge("Closed").click();
+    await expect(statusMenu.getByRole("button")).toHaveText(["Reopen pull request"]);
+    await capture("status-menu-closed", false);
+    await menuAction("Reopen pull request").click();
+    await expect(openBadge).toBeFocused();
+    await close.click();
+    await expect(stateBadge("Closed")).toBeVisible();
     await reopen.click();
-    await expect(close).toBeVisible();
+    await expect(openBadge).toBeVisible();
 
     const waitForWrite = (browserPage: typeof page, suffix: RegExp) => browserPage.waitForResponse(response =>
       response.request().method() === "POST" && suffix.test(new URL(response.url()).pathname));
@@ -316,6 +373,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
+    await expect(stateBadge("Merged")).toHaveCount(0);
     await capture("merged");
     await page.setViewportSize({ width: 390, height: 844 });
     await editTitle.click();
