@@ -32,13 +32,15 @@
     "title": "Organization members",
     "description": "Role and status changes are enforced by the server.",
     "columns": {
-      "member": "MEMBER",
-      "role": "ROLE",
-      "status": "STATUS",
-      "joined": "JOINED",
-      "actions": "ACTIONS"
+      "member": "Member",
+      "role": "Role",
+      "status": "Status",
+      "joined": "Joined",
+      "actions": "Actions"
     },
     "actions": {
+      "invite": "Invite member",
+      "menu": "Actions for {{memberName}}",
       "suspend": "Suspend member",
       "reactivate": "Reactivate member",
       "remove": "Remove member",
@@ -63,11 +65,11 @@
       "creating": "Creating…"
     },
     "columns": {
-      "email": "EMAIL",
-      "role": "ROLE",
-      "status": "STATUS",
-      "expires": "EXPIRES",
-      "actions": "ACTIONS"
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "expires": "Expires",
+      "actions": "Actions"
     },
     "actions": {
       "revoke": "Revoke invitation"

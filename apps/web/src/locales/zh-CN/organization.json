@@ -39,6 +39,8 @@
       "actions": "操作"
     },
     "actions": {
+      "invite": "邀请成员",
+      "menu": "{{memberName}} 的操作",
       "suspend": "暂停成员",
       "reactivate": "重新激活成员",
       "remove": "移除成员",
