@@ -21,6 +21,7 @@ type RepositoryMetadata struct {
 	Fork                     bool              `json:"fork"`
 	WebCommitSignoffRequired bool              `json:"web_commit_signoff_required"`
 	DeleteMergedBranches     bool              `json:"delete_merged_branches"`
+	AutoCloseIssuesDisabled  bool              `json:"auto_close_issues_disabled"`
 	IssuesDisabled           bool              `json:"issues_disabled"`
 	ActionsRetentionDays     int               `json:"actions_retention_days"`
 	ActionsDisabled          bool              `json:"actions_disabled"`

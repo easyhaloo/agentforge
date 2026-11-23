@@ -234,6 +234,9 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 		if result.RowsAffected() != 1 {
 			return pipeline.ErrConflict
 		}
+		if err := closeMergedPullIssues(ctx, tx, org, c, candidate.Target.Ref, actor); err != nil {
+			return err
+		}
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO integration_promotions(run_id,candidate_sha,actor_id) VALUES($1,$2,$3)`, id, sha, actor); err != nil {
 		return err

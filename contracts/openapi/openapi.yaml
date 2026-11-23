@@ -720,6 +720,7 @@ paths:
                     merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
                     squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                     issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
+                    auto_close_issues_disabled: { type: boolean, description: Disables closing linked issues when a pull request merges into the default branch. }
                     actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
                     actions_retention_days:
                       $ref: "#/components/schemas/ActionsRetentionDays"
@@ -768,7 +769,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, updated_at]
+                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, updated_at]
                 properties:
                   repository: { type: string }
                   default_branch: { type: string }
@@ -782,6 +783,7 @@ paths:
                   squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                   web_commit_signoff_required: { type: boolean }
                   issues_disabled: { type: boolean }
+                  auto_close_issues_disabled: { type: boolean }
                   description: { type: string }
                   is_template: { type: boolean }
                   protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
@@ -2386,7 +2388,7 @@ components:
       description: Retention for new workflow logs and artifacts, with a maximum of 90 days for public repositories. Zero uses the platform default. Object storage can impose a shorter limit.
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, actions_retention_days, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, actions_retention_days, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
         actions_disabled: { type: boolean }
@@ -2399,6 +2401,7 @@ components:
         squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
         web_commit_signoff_required: { type: boolean }
         issues_disabled: { type: boolean }
+        auto_close_issues_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
         ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
         push_ref_limit: { type: integer, minimum: 0, maximum: 128 }

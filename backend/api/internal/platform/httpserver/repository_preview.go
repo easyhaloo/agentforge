@@ -379,7 +379,7 @@ func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.
 		"hosting_kind": d.repositoryHostingKind(r.Context(), repository), "git_credentials_available": d.GitHTTP != nil && d.GitHTTP.Available(repository.OrganizationID, repository.Slug),
 		"merge_commit_message_format": repository.MergeCommitMessageFormat, "squash_commit_message_format": repository.SquashCommitMessageFormat,
 		"allow_merge_commit": repository.AllowMergeCommit, "allow_squash_merge": repository.AllowSquashMerge, "allow_rebase_merge": repository.AllowRebaseMerge,
-		"description": repository.Description, "delete_merged_branches": repository.DeleteMergedBranches, "web_commit_signoff_required": repository.WebCommitSignoffRequired, "issues_disabled": repository.IssuesDisabled, "is_template": repository.IsTemplate, "push_ref_limit": repository.PushRefLimit, "protected_refs": append([]string{}, repository.ProtectedRefs...), "updated_at": repository.UpdatedAt})
+		"description": repository.Description, "delete_merged_branches": repository.DeleteMergedBranches, "web_commit_signoff_required": repository.WebCommitSignoffRequired, "issues_disabled": repository.IssuesDisabled, "auto_close_issues_disabled": repository.AutoCloseIssuesDisabled, "is_template": repository.IsTemplate, "push_ref_limit": repository.PushRefLimit, "protected_refs": append([]string{}, repository.ProtectedRefs...), "updated_at": repository.UpdatedAt})
 }
 
 // repositoryImageContentType deliberately recognizes only passive raster formats.

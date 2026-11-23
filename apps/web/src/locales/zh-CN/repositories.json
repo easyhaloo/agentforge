@@ -905,6 +905,8 @@
     },
     "deleteMergedBranches": "自动删除已合并的源分支",
     "deleteMergedBranchesHelp": "合并后删除引用未变化、未受保护且没有被其他开放拉取请求使用的源分支。",
+    "autoCloseIssues": "合并拉取请求后自动关闭 Issue",
+    "autoCloseIssuesHelp": "拉取请求合并到默认分支时，关闭关联的 Issue。",
     "issuesHelp": "关闭 Issues 会隐藏此仓库的问题跟踪。重新启用后可恢复访问。",
     "issuesDisabled": "此仓库已关闭 Issues",
     "templateHelp": "使用此仓库的文件在本组织中创建新仓库。可以复制默认分支或所有分支。",

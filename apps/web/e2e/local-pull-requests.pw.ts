@@ -519,6 +519,23 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.reload();
     await expect(squashMessageFormat).toContainText("Pull request title and description");
     await capture("general-merge-message");
+    const autoClose = page.getByRole("checkbox", { name: "Auto-close issues with merged pull requests" });
+    await expect(autoClose).toBeChecked();
+    await autoClose.uncheck();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(autoClose).not.toBeChecked();
+    await autoClose.check();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await capture("general-auto-close-issues");
+    await page.getByRole("button", { name: "Change default branch" }).click();
+    await selectOption(page, page.getByRole("combobox", { name: "New default branch" }), "release");
+    await page.locator("form").filter({ has: page.getByRole("combobox", { name: "New default branch" }) })
+      .getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Update default branch" }).click();
+    await expect(page.getByText("Default branch updated.")).toBeVisible();
     await page.goto(detail);
     expect(await post("merge", { target_ref: "release", merge_method: "merge" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
@@ -651,6 +668,14 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
     await expect(stateBadge("Merged")).toHaveCount(0);
     await capture("merged");
+    const issuePage = await page.context().newPage();
+    try {
+      await issuePage.goto(`${repositoryUrl}/issues/1`);
+      await expect(issuePage.getByRole("button", { name: "Reopen issue", exact: true })).toBeVisible();
+      await issuePage.screenshot({ path: testInfo.outputPath("issue-closed-after-default-branch-merge.png"), animations: "disabled" });
+    } finally {
+      await issuePage.close();
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     await editTitle.click();
     await expect(titleInput).toBeFocused();

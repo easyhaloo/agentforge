@@ -32,11 +32,25 @@ func (s *Store) CompletePullMergeIntent(ctx context.Context, org string, stored 
 	if err := c.CompleteMerge(intent.ID, intent.Actor, intent.Candidate.Target.Ref, intent.Candidate.CandidateSHA, intent.CreatedAt); err != nil {
 		return delivery.StoredChangeset{}, err
 	}
-	err := s.pool.QueryRow(ctx, `UPDATE delivery_changesets SET state=$4, version=version+1, updated_at=now(), pull_merge_intent=NULL
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	defer tx.Rollback(ctx)
+	err = tx.QueryRow(ctx, `UPDATE delivery_changesets SET state=$4, version=version+1, updated_at=now(), pull_merge_intent=NULL
 		WHERE organization_id=$1 AND id=$2 AND version=$3 AND pull_merge_intent->>'id'=$5
 		RETURNING version,updated_at`, org, c.ID, stored.Version, c, intent.ID).Scan(&stored.Version, &stored.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return delivery.StoredChangeset{}, delivery.ErrVersionConflict
 	}
-	return stored, err
+	if err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	if err := closeMergedPullIssues(ctx, tx, org, c, intent.Candidate.Target.Ref, intent.Actor); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	return stored, nil
 }

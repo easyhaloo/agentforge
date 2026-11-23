@@ -905,6 +905,8 @@
     },
     "deleteMergedBranches": "Automatically delete head branches",
     "deleteMergedBranchesHelp": "Delete the source branch after merging when it has not moved, is not protected, and is not used by an open pull request.",
+    "autoCloseIssues": "Auto-close issues with merged pull requests",
+    "autoCloseIssuesHelp": "Close linked issues when a pull request merges into the default branch.",
     "issuesHelp": "Disabling Issues hides this repository’s issue tracker. Re-enable Issues to restore access.",
     "issuesDisabled": "Issues are disabled for this repository",
     "templateHelp": "Use this repository’s files to create new repositories in this organization. You can copy the default branch or all branches.",
