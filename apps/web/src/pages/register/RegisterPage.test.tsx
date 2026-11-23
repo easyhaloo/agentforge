@@ -9,6 +9,10 @@ import { RegisterPage } from "./RegisterPage";
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
+vi.mock("../../shared/api/providers", () => ({
+  getEnabledProviders: async () => [{ id: "oidc", loginUrl: "/auth/oidc/login" }],
+}));
+
 // Mock i18next
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -25,7 +29,6 @@ vi.mock("react-i18next", () => ({
         "signInLink": "Sign in",
         "orDivider": "or sign up with",
         "ssoButton": "Continue with SSO",
-        "trustMessage": "Secure authentication via OpenID Connect",
         "passwordStrength.weak": "Weak",
         "passwordStrength.medium": "Medium",
         "passwordStrength.strong": "Strong",

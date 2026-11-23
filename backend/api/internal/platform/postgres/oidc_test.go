@@ -75,6 +75,26 @@ func TestPostgresOIDCTransactionsAreSingleUseAndExternalIdentityIsStable(t *test
 	if otherUserID == userID {
 		t.Fatal("distinct issuer/subject identity must not be merged by email")
 	}
+
+	localEmail := "local-sso-" + suffix + "@example.test"
+	localID, err := store.CreateLocalUser(ctx, localEmail, "local-password-hash", "Local User")
+	if err != nil {
+		t.Fatal(err)
+	}
+	githubUserID, err := store.UpsertExternalIdentity(ctx, "https://github.com", suffix, localEmail, "GitHub User")
+	if err != nil || githubUserID == localID {
+		t.Fatalf("matching email was used as local account identity: %v", err)
+	}
+	insertLinkedIdentityFixture(t, ctx, store, localID, issuer, subject+"-linked")
+	linkedUserID, err := store.UpsertExternalIdentity(ctx, issuer, subject+"-linked", "changed@example.test", "Updated Linked Name")
+	if err != nil || linkedUserID != localID {
+		t.Fatalf("existing external mapping was not preserved: %v", err)
+	}
+	local, err := store.FindUserByEmail(ctx, localEmail)
+	if err != nil || local.ID != localID {
+		t.Fatalf("external profile changed the password login email: %v", err)
+	}
+
 }
 
 func TestBootstrapFirstOwnerIsSerializedAndOneTime(t *testing.T) {

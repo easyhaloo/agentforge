@@ -143,7 +143,7 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
     ? { user_id: "user-owner", display_name: "Taylor Owner", email: "owner@example.test", organizations }
     : null;
 
-  // Mock /auth/* endpoints (local auth)
+  // Mock /auth/* endpoints
   await page.route("**/auth/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -152,6 +152,8 @@ export async function installApiMocks(page: Page, { organizations = [demoOrganiz
 
     // Helper to return JSON responses
     const json = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+
+    if (path === "/auth/providers" && method === "GET") return json({ providers: [] });
 
     // POST /auth/local/login
     if (path === "/auth/local/login" && method === "POST") {

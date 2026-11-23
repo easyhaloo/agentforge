@@ -303,6 +303,71 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
+  /auth/providers:
+    get:
+      operationId: listSSOProviders
+      summary: List the SSO providers available to this deployment
+      security: []
+      responses:
+        "200":
+          description: Available providers in display order, or an empty list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, login_url]
+                      properties:
+                        id: { type: string, enum: [google, github, oidc] }
+                        login_url: { type: string, enum: [/auth/google/login, /auth/github/login, /auth/oidc/login] }
+  /auth/{provider}/login:
+    get:
+      operationId: startProviderLogin
+      summary: Start Google or GitHub sign-in with PKCE
+      security: []
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [google, github] }
+        - in: query
+          name: return
+          schema: { type: string }
+          description: Optional same-origin absolute path after sign-in
+      responses:
+        "302":
+          description: Redirect to the provider
+        "303":
+          description: Redirect back to login on initialization failure
+        "503": { $ref: "#/components/responses/Problem" }
+  /auth/{provider}/callback:
+    get:
+      operationId: completeProviderLogin
+      summary: Verify the Google or GitHub identity and establish a session
+      security: []
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [google, github] }
+        - in: query
+          name: code
+          schema: { type: string }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: error
+          schema: { type: string }
+      responses:
+        "303":
+          description: Redirect to the application on success or to login with a fixed sso_error code on failure
+        "503": { $ref: "#/components/responses/Problem" }
   /auth/oidc/login:
     get:
       operationId: startOIDCLogin
@@ -315,8 +380,8 @@ paths:
   /auth/invitations/accept:
     get:
       operationId: beginOrganizationInvitationAcceptance
-      summary: Bind a one-time invitation token to the browser and begin OIDC login
-      description: The invitation is not consumed until the OIDC callback validates a signed ID token with a verified email matching the invitation.
+      summary: Bind a one-time invitation token to the browser and begin SSO login
+      description: The SSO callback consumes the invitation after verifying that the provider email matches the invited address.
       security: []
       parameters:
         - in: query
@@ -325,7 +390,7 @@ paths:
           schema: { type: string, minLength: 40, maxLength: 128 }
       responses:
         "303":
-          description: Redirect to the configured OIDC login route
+          description: Redirect to the SSO provider chooser or directly to the generic OIDC login route
         "400": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /auth/oidc/callback:
