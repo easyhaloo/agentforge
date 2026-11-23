@@ -115,26 +115,16 @@ test.describe("Settings Pages", () => {
     await expect(page.locator("main")).toBeVisible();
   });
 
-  test("user menu displays in topbar with 3 items", async ({ page }) => {
+  test("user menu opens the workbench from Profile and omits Appearance", async ({ page }) => {
     await page.goto("/settings/account");
+    await page.getByRole("button", { name: /^User menu,/ }).click();
 
-    // Wait for page to load
-    await expect(page.locator("main")).toBeVisible({ timeout: 10000 });
-
-    // The user menu trigger is the avatar button in the topbar (UserMenu Popover)
-    await page.locator(".user-menu-trigger").click();
-
-    // Wait for menu to open
-    await page.waitForTimeout(500);
-
-    // Verify menu items exist (check for text content in the dropdown)
-    const menuContainer = page.getByRole("dialog", { name: "User menu" });
-    await expect(menuContainer).toBeVisible({ timeout: 5000 });
-
-    // Check for the three expected menu items by text content
-    await expect(page.locator('text=/profile/i').first()).toBeVisible();
-    await expect(page.locator('text=/settings/i').first()).toBeVisible();
-    await expect(page.locator('text=/sign out/i').first()).toBeVisible();
+    const menu = page.getByRole("dialog", { name: "User menu" });
+    await expect(menu.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Appearance" })).toHaveCount(0);
+    await menu.getByRole("link", { name: "Profile", exact: true }).click();
+    await expect(page).toHaveURL("/");
+    await expect(page.getByRole("region", { name: "Your work" })).toBeVisible();
   });
 
   test("clicking Settings in user menu navigates to settings", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { BookMarked, Folders, LogOut, Paintbrush, Settings, User } from "lucide-react";
+import { BookMarked, Folders, LogOut, Settings, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { flatPaths, organizationHandle, orgPath } from "../../shared/routing";
@@ -38,7 +38,7 @@ export function UserMenu({ onSignOut }: Props) {
           </div>
         </div>
         <hr />
-        <Link className="user-menu-item" to={`${flatPaths.settings}/profile`}>
+        <Link className="user-menu-item" to={flatPaths.overview}>
           <User aria-hidden="true" />{t("userMenu.profile")}
         </Link>
         {handle && <Link className="user-menu-item" to={orgPath(handle, "repositories")}>
@@ -50,9 +50,6 @@ export function UserMenu({ onSignOut }: Props) {
         <hr />
         <Link className="user-menu-item" to={flatPaths.settings}>
           <Settings aria-hidden="true" />{t("userMenu.settings")}
-        </Link>
-        <Link className="user-menu-item" to={`${flatPaths.settings}/appearance`}>
-          <Paintbrush aria-hidden="true" />{t("settings:nav.appearance")}
         </Link>
         {account && <>
           <hr />

@@ -67,6 +67,7 @@ test("the account language is saved through Appearance and applied across the wo
   await expect(page.getByRole("dialog", { name: "Global navigation" }).getByTitle("Switch language")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await header.getByRole("button", { name: "User menu" }).click();
+  await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", { name: "Appearance", exact: true }).click();
   await page.getByRole("combobox", { name: "Language" }).click();
   await page.getByRole("option", { name: "简体中文" }).click();
