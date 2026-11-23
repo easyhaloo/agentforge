@@ -2,12 +2,16 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
 
+var ErrNoRepositoryMergeMethod = errors.New("enable at least one pull request merge method")
+
 type RepositoryMetadata struct {
+	githttp.MergeMethods
 	OrganizationID           string            `json:"organization_id"`
 	Slug                     string            `json:"slug"`
 	Description              string            `json:"description,omitempty"`

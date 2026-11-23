@@ -50,7 +50,8 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 		return err
 	}
 	var rules []githttp.RefRule
-	err = tx.QueryRow(ctx, `SELECT d.ref_rules FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id JOIN delivery_repositories d ON d.organization_id=o.id WHERE o.id=$1 AND o.status='active' AND m.status='active' AND m.user_id=$2 AND m.role IN ('owner','admin') AND d.slug=$3 AND d.default_branch=$4 FOR SHARE OF m,o FOR NO KEY UPDATE OF d`, org, actor, candidate.Repository, candidate.Target.Ref).Scan(&rules)
+	var methods githttp.MergeMethods
+	err = tx.QueryRow(ctx, `SELECT d.ref_rules, d.allow_merge_commit, d.allow_squash_merge, d.allow_rebase_merge FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id JOIN delivery_repositories d ON d.organization_id=o.id WHERE o.id=$1 AND o.status='active' AND m.status='active' AND m.user_id=$2 AND m.role IN ('owner','admin') AND d.slug=$3 AND d.default_branch=$4 FOR SHARE OF m,o FOR NO KEY UPDATE OF d`, org, actor, candidate.Repository, candidate.Target.Ref).Scan(&rules, &methods.AllowMergeCommit, &methods.AllowSquashMerge, &methods.AllowRebaseMerge)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return execution.ErrTriggerDenied
 	}
@@ -72,6 +73,9 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	}
 	var pullRequestRule error
 	if !recorded {
+		if err := methods.Check(candidate.Strategy); err != nil {
+			return err
+		}
 		if candidate.QueueEntry != 0 {
 			strategy, err := githttp.QueueMergeStrategy(rules, candidate.Target.Ref, candidate.Target.Ref)
 			if err != nil || strategy != candidate.Strategy {

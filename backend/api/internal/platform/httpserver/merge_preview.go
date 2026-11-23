@@ -200,6 +200,8 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 		writeProblem(w, 403, "Promotion denied", "Check organization membership and the registered default branch")
 	case errors.Is(err, pipeline.ErrMissing):
 		writeProblem(w, 404, "Run unavailable", "Select a run in this organization")
+	case errors.Is(err, githttp.ErrMergeMethodDisabled):
+		writeProblem(w, 409, "Merge method disabled", err.Error())
 	case errors.Is(err, githttp.ErrBranchUpdatesRestricted), errors.Is(err, githttp.ErrBranchPullRequestRequired),
 		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRefNameRestricted), errors.Is(err, githttp.ErrLinearHistoryRequired):
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks promotion", err.Error())
@@ -214,6 +216,8 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 
 func writeQueueError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, githttp.ErrMergeMethodDisabled):
+		writeProblem(w, 409, "Merge method disabled", err.Error())
 	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
 		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 	case errors.Is(err, execution.ErrTriggerDenied):

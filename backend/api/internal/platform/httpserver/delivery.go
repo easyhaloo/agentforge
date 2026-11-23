@@ -1187,6 +1187,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	merge := d.Git.MergeRevision
+	strategy := "merge-commit"
 	if githttp.LinearHistoryRule(policy.RefRules, allowedTarget, policy.DefaultBranch) != "" {
 		git, ok := d.Git.(*delivery.LocalGitProvider)
 		if !ok {
@@ -1194,6 +1195,11 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		merge = git.FastForwardRevision
+		strategy = "ff-only"
+	}
+	if err := policy.MergeMethods.Check(strategy); err != nil {
+		writeProblem(w, 409, "Merge method disabled", err.Error())
+		return
 	}
 	merged, err := merge(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef, baseRevision.CommitSHA)
 	if errors.Is(err, githttp.ErrLinearHistoryRequired) {
@@ -1261,6 +1267,7 @@ func (d DeliveryDependencies) lockBranchMergePolicy(w http.ResponseWriter, r *ht
 			}
 		}
 		policy.DefaultBranch = repository.DefaultBranch
+		policy.MergeMethods = repository.MergeMethods
 		break
 	}
 	release, err := d.Locker.LockChangeset(r.Context(), org, "repository:"+repo)

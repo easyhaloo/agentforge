@@ -168,6 +168,7 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		return
 	}
 	var input struct {
+		githttp.MergeMethods
 		DefaultBranch            string             `json:"default_branch"`
 		PreviousBranch           string             `json:"previous_branch"`
 		Description              *string            `json:"description"`
@@ -184,9 +185,13 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
+	if input.MergeMethods.Specified() || input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
+			return
+		}
+		if !input.UpdatedAt.Equal(repository.UpdatedAt) {
+			writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
 			return
 		}
 		if input.Description != nil {
@@ -257,7 +262,7 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 			repository.ActionsDisabled = *input.ActionsDisabled
 		}
 		repository.UpdatedAt = input.UpdatedAt
-		d.updateRepositoryGeneralSettings(w, r, repository)
+		d.updateRepositoryGeneralSettings(w, r, repository, input.MergeMethods)
 		return
 	}
 	store, storeOK := d.Catalog.(interface {
@@ -305,22 +310,23 @@ func (d DeliveryDependencies) repositoryHostingKind(ctx context.Context, reposit
 	return "registered"
 }
 
-func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWriter, r *http.Request, repository delivery.RepositoryMetadata) {
+func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWriter, r *http.Request, repository delivery.RepositoryMetadata, methods githttp.MergeMethods) {
 	store, ok := d.Catalog.(interface {
-		SetRepositoryGeneralSettings(context.Context, delivery.RepositoryMetadata) (time.Time, error)
+		PatchRepositoryGeneralSettings(context.Context, delivery.RepositoryMetadata, githttp.MergeMethods) (delivery.RepositoryMetadata, error)
 	})
 	if !ok {
 		writeProblem(w, 503, "Repository settings unavailable", "Repository settings are not configured")
 		return
 	}
-	updatedAt, err := store.SetRepositoryGeneralSettings(r.Context(), repository)
+	updated, err := store.PatchRepositoryGeneralSettings(r.Context(), repository, methods)
 	switch {
 	case errors.Is(err, delivery.ErrVersionConflict):
 		writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
+	case errors.Is(err, delivery.ErrNoRepositoryMergeMethod):
+		writeProblem(w, 422, "Invalid merge methods", "Enable at least one pull request merge method")
 	case err != nil:
 		writeProblem(w, 500, "Unable to update repository settings", "General settings could not be saved")
 	default:
-		repository.UpdatedAt = updatedAt
-		writeJSON(w, http.StatusOK, repositorySettingsResponse{repository, d.repositoryHostingKind(r.Context(), repository)})
+		writeJSON(w, http.StatusOK, repositorySettingsResponse{updated, d.repositoryHostingKind(r.Context(), updated)})
 	}
 }

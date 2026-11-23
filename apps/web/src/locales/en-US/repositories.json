@@ -869,6 +869,12 @@
     "pullRequests": "Pull Requests",
     "requireWebSignoff": "Require contributors to sign off on web commits",
     "requireWebSignoffHelp": "Contributors must certify their changes under the Developer Certificate of Origin before creating commits in WebIDE.",
+    "mergeMethods": {
+      "allow_merge_commit": "Allow merge commits",
+      "allow_squash_merge": "Allow squash merging",
+      "allow_rebase_merge": "Allow rebase merging",
+      "required": "Enable at least one pull request merge method."
+    },
     "deleteMergedBranches": "Automatically delete head branches",
     "deleteMergedBranchesHelp": "Delete the source branch after merging when it has not moved, is not protected, and is not used by an open pull request.",
     "issuesHelp": "Disabling Issues hides this repository’s issue tracker. Re-enable Issues to restore access.",

@@ -65,7 +65,8 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
           <h2>{t("settings.repositoryName")}</h2>
           <Link className="repo-link" to={repositoryPath(handle, repository)}>{refs.repository}</Link>
           <GeneralSettings organization={organization} refs={refs} onSave={item => setRefs(current => current && {
-            ...current, description: item.description, web_commit_signoff_required: item.web_commit_signoff_required, delete_merged_branches: item.delete_merged_branches, issues_disabled: item.issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
+            ...current, allow_merge_commit: item.allow_merge_commit, allow_squash_merge: item.allow_squash_merge, allow_rebase_merge: item.allow_rebase_merge,
+            description: item.description, web_commit_signoff_required: item.web_commit_signoff_required, delete_merged_branches: item.delete_merged_branches, issues_disabled: item.issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
           })} />
         </section>
         <DefaultBranchSettings organization={organization} repository={repository} refs={refs}
@@ -160,6 +161,9 @@ function ActionsSettings({ organization, repository, onSave }: {
   </section>;
 }
 
+const mergeMethodKeys = ["allow_merge_commit", "allow_squash_merge", "allow_rebase_merge"] as const;
+type MergeMethodKey = typeof mergeMethodKeys[number];
+
 function GeneralSettings({ organization, refs, onSave }: {
   organization: OrganizationSummary; refs: RepositoryPreviewRefs; onSave: (item: RepositoryMetadata) => void;
 }) {
@@ -170,6 +174,7 @@ function GeneralSettings({ organization, refs, onSave }: {
   const [issuesDraft, setIssuesDraft] = useState<boolean>();
   const [signoffDraft, setSignoffDraft] = useState<boolean>();
   const [deleteBranchesDraft, setDeleteBranchesDraft] = useState<boolean>();
+  const [mergeMethodsDraft, setMergeMethodsDraft] = useState<Partial<Record<MergeMethodKey, boolean>>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -182,17 +187,21 @@ function GeneralSettings({ organization, refs, onSave }: {
   const pushLimitValue = Number(pushLimit);
   const validPushLimit = pushLimit !== "" && (pushLimitValue === 0 ||
     (Number.isInteger(pushLimitValue) && pushLimitValue >= 2 && pushLimitValue <= 128));
-  const changed = description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
+  const mergeMethodEnabled = (key: MergeMethodKey) => mergeMethodsDraft[key] ?? refs[key] ?? true;
+  const validMergeMethods = mergeMethodKeys.some(mergeMethodEnabled);
+  const mergeMethodsChanged = mergeMethodKeys.some(key => mergeMethodEnabled(key) !== (refs[key] ?? true));
+  const changed = mergeMethodsChanged || description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
   const canEdit = canManageRepository(organization) && Boolean(refs.updated_at);
   const useTemplate = `${repositoryNewPath(organizationHandle(organization))}?${new URLSearchParams({ template: refs.repository })}`;
 
   const save = async () => {
-    if (!canEdit || !refs.updated_at || !changed || !validPushLimit || busy) return;
+    if (!canEdit || !refs.updated_at || !changed || !validPushLimit || !validMergeMethods || busy) return;
     setBusy(true);
     setSaved(false);
     setError("");
     try {
       const item = await repositoryAPI.updateGeneralSettings(organization.id, refs.repository, {
+        ...mergeMethodsDraft,
         description: description.trim(), web_commit_signoff_required: signoffRequired, is_template: isTemplate, issues_disabled: !issuesEnabled, updated_at: refs.updated_at,
         ...(refs.hosting_kind === "hosted" ? { delete_merged_branches: deleteBranches } : {}),
         ...(refs.git_credentials_available ? { push_ref_limit: pushLimitValue } : {}),
@@ -201,6 +210,7 @@ function GeneralSettings({ organization, refs, onSave }: {
       if (item.issues_disabled !== refs.issues_disabled) window.dispatchEvent(new Event(repositoryIssuesSettingChanged));
       setIssuesDraft(undefined);
       setDeleteBranchesDraft(undefined);
+      setMergeMethodsDraft({});
       setSignoffDraft(undefined);
       setDraft(undefined);
       setTemplate(undefined);
@@ -229,8 +239,14 @@ function GeneralSettings({ organization, refs, onSave }: {
     <Checkbox label={t("sections.issues")} checked={issuesEnabled} disabled={busy}
       onChange={event => { setIssuesDraft(event.target.checked); setSaved(false); }} />
     <p>{t("settings.issuesHelp")}</p>
+    <h3 className="repo-settings-subheading">{t("settings.pullRequests")}</h3>
+    {mergeMethodKeys.map(key => <Checkbox key={key} label={t(`settings.mergeMethods.${key}`)} checked={mergeMethodEnabled(key)} disabled={busy}
+      onChange={event => {
+        setMergeMethodsDraft({ ...mergeMethodsDraft, [key]: event.target.checked });
+        setSaved(false);
+      }} />)}
+    {!validMergeMethods && <p role="alert" className="org-error">{t("settings.mergeMethods.required")}</p>}
     {refs.hosting_kind === "hosted" && <>
-      <h3 className="repo-settings-subheading">{t("settings.pullRequests")}</h3>
       <Checkbox label={t("settings.deleteMergedBranches")} checked={deleteBranches} disabled={busy}
         onChange={event => { setDeleteBranchesDraft(event.target.checked); setSaved(false); }} />
       <p>{t("settings.deleteMergedBranchesHelp")}</p>
@@ -246,7 +262,7 @@ function GeneralSettings({ organization, refs, onSave }: {
       <p>{t("settings.pushLimitHelp")}</p>
     </>}
     <div className="repo-settings-controls">
-      <Button type="submit" variant="primary" disabled={busy || !changed || !validPushLimit}>{t("common:actions.save")}</Button>
+      <Button type="submit" variant="primary" disabled={busy || !changed || !validPushLimit || !validMergeMethods}>{t("common:actions.save")}</Button>
       {refs.is_template && <Link className="repo-link" to={useTemplate}>{t("settings.useTemplate")}</Link>}
     </div>
     {saved && <p role="status">{t("settings.generalSaved")}</p>}

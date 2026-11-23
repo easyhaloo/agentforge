@@ -685,7 +685,7 @@ paths:
     patch:
       operationId: updateRepositorySettings
       summary: Update general repository settings or the default branch
-      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the settings or refs endpoint.
+      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the settings or refs endpoint. Omitted fields are preserved and at least one pull request merge method must remain enabled.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -709,6 +709,9 @@ paths:
                     is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
                     web_commit_signoff_required: { type: boolean, description: Require explicit Developer Certificate of Origin sign-off for WebIDE commits. }
                     delete_merged_branches: { type: boolean, description: Delete eligible source branches after merging pull requests in native Git repositories. }
+                    allow_merge_commit: { type: boolean }
+                    allow_squash_merge: { type: boolean }
+                    allow_rebase_merge: { type: boolean }
                     issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
                     actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
@@ -756,13 +759,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, web_commit_signoff_required, issues_disabled, push_ref_limit, updated_at]
+                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, updated_at]
                 properties:
                   repository: { type: string }
                   default_branch: { type: string }
                   hosting_kind: { type: string, enum: [hosted, registered] }
                   git_credentials_available: { type: boolean }
                   delete_merged_branches: { type: boolean }
+                  allow_merge_commit: { type: boolean, default: true }
+                  allow_squash_merge: { type: boolean, default: true }
+                  allow_rebase_merge: { type: boolean, default: true }
                   web_commit_signoff_required: { type: boolean }
                   issues_disabled: { type: boolean }
                   description: { type: string }
@@ -2254,11 +2260,14 @@ components:
             hosting_kind: { type: string, enum: [hosted, registered] }
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, delete_merged_branches, web_commit_signoff_required, issues_disabled, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
         actions_disabled: { type: boolean }
         delete_merged_branches: { type: boolean }
+        allow_merge_commit: { type: boolean, default: true }
+        allow_squash_merge: { type: boolean, default: true }
+        allow_rebase_merge: { type: boolean, default: true }
         web_commit_signoff_required: { type: boolean }
         issues_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }

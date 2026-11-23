@@ -377,6 +377,7 @@ func (d DeliveryDependencies) listRepositoryRefs(w http.ResponseWriter, r *http.
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"repository": repository.Slug, "default_branch": repository.DefaultBranch, "resolved_commit_sha": commitSHA, "items": refs,
 		"hosting_kind": d.repositoryHostingKind(r.Context(), repository), "git_credentials_available": d.GitHTTP != nil && d.GitHTTP.Available(repository.OrganizationID, repository.Slug),
+		"allow_merge_commit": repository.AllowMergeCommit, "allow_squash_merge": repository.AllowSquashMerge, "allow_rebase_merge": repository.AllowRebaseMerge,
 		"description": repository.Description, "delete_merged_branches": repository.DeleteMergedBranches, "web_commit_signoff_required": repository.WebCommitSignoffRequired, "issues_disabled": repository.IssuesDisabled, "is_template": repository.IsTemplate, "push_ref_limit": repository.PushRefLimit, "protected_refs": append([]string{}, repository.ProtectedRefs...), "updated_at": repository.UpdatedAt})
 }
 

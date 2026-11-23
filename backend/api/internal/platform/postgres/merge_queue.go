@@ -40,17 +40,19 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	if err = lockQueue(ctx, tx, org, repo, target); err != nil {
 		return entry, err
 	}
-	var rules []githttp.RefRule
-	var defaultBranch string
-	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch FROM delivery_repositories WHERE organization_id=$1 AND slug=$2 FOR NO KEY UPDATE`, org, repo).Scan(&rules, &defaultBranch); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return entry, execution.ErrInputs
-		}
+	policy, err := lockGitPolicyRow(ctx, tx, org, repo)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return entry, execution.ErrInputs
+	}
+	if err != nil {
 		return entry, err
 	}
-	strategy, err := githttp.QueueMergeStrategy(rules, target, defaultBranch)
-	if err != nil || strategy != candidate.Strategy || target != defaultBranch {
+	strategy, err := githttp.QueueMergeStrategy(policy.RefRules, target, policy.DefaultBranch)
+	if err != nil || strategy != candidate.Strategy || target != policy.DefaultBranch {
 		return entry, pipeline.ErrConflict
+	}
+	if err := policy.MergeMethods.Check(candidate.Strategy); err != nil {
+		return entry, err
 	}
 	var count int
 	var duplicate bool
