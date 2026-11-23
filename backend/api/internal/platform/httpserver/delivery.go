@@ -57,19 +57,6 @@ type LocalAuthHandler interface {
 	Register(http.ResponseWriter, *http.Request)
 }
 
-type IssueRepository interface {
-	Create(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error)
-	Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error)
-	List(ctx context.Context, organizationID string, filter issues.ListFilter, limit, offset int) ([]*issues.Issue, int, error)
-	Update(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error)
-	Close(ctx context.Context, organizationID string, issueID issues.ID, reason issues.StateReason, closedBy string, closedAt time.Time) (*issues.Issue, error)
-	AddAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
-	RemoveAssignee(ctx context.Context, organizationID string, issueID string, userID string) error
-	GetAssignees(ctx context.Context, organizationID string, issueID string) ([]string, error)
-	Lock(ctx context.Context, organizationID string, issueID issues.ID, reason issues.LockReason, lockedBy string, lockedAt time.Time) (*issues.Issue, error)
-	Unlock(ctx context.Context, organizationID string, issueID issues.ID) (*issues.Issue, error)
-}
-
 type CommentRepository interface {
 	Create(ctx context.Context, organizationID string, comment *comments.Comment) (*comments.Comment, error)
 	List(ctx context.Context, organizationID string, resourceType comments.ResourceType, resourceID comments.ID) ([]*comments.Comment, error)
@@ -151,7 +138,7 @@ type DeliveryDependencies struct {
 	Locker           delivery.ChangesetLocker
 	Workspaces       workspace.Repository
 	Tasks            *tasks.PostgresStore
-	IssueRepo        IssueRepository
+	IssueRepo        issues.Repository
 	CommentRepo      CommentRepository
 	LabelRepo        LabelRepository
 	MilestoneRepo    MilestoneRepository
@@ -284,6 +271,8 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 type repositoryRegistrationRequest struct {
 	Slug          string `json:"slug"`
 	DefaultBranch string `json:"default_branch"`
+	Visibility    string `json:"visibility"`
+	Fork          bool   `json:"fork"`
 }
 
 func (d DeliveryDependencies) listRepositories(w http.ResponseWriter, r *http.Request) {
@@ -326,11 +315,24 @@ func (d DeliveryDependencies) registerRepository(w http.ResponseWriter, r *http.
 	}
 	input.Slug = strings.TrimSpace(input.Slug)
 	input.DefaultBranch = strings.TrimSpace(input.DefaultBranch)
+	switch input.Visibility {
+	case "", "public", "private":
+	default:
+		writeProblem(w, http.StatusBadRequest, "Invalid repository visibility", "visibility must be public, private, or empty")
+		return
+	}
 	if _, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, input.Slug, input.DefaultBranch); err != nil {
 		writeProblem(w, 422, "Repository not available", "The repository must exist under the configured organization Git root and its default branch must resolve")
 		return
 	}
-	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: input.Slug, DefaultBranch: input.DefaultBranch, CreatedBy: principal.UserID})
+	item, err := d.Catalog.RegisterRepository(r.Context(), delivery.RepositoryMetadata{
+		OrganizationID: principal.OrganizationID,
+		Slug:           input.Slug,
+		DefaultBranch:  input.DefaultBranch,
+		Visibility:     input.Visibility,
+		Fork:           input.Fork,
+		CreatedBy:      principal.UserID,
+	})
 	if errors.Is(err, delivery.ErrVersionConflict) {
 		writeProblem(w, 409, "Repository already registered", "This repository is already registered for the organization")
 		return

@@ -89,8 +89,8 @@ func TestIssueRepository_List(t *testing.T) {
 		t.Fatalf("failed to list issues: %v", err)
 	}
 
-	if total != 3 {
-		t.Errorf("expected total 3, got %d", total)
+	if total.Total != 3 {
+		t.Errorf("expected total 3, got %d", total.Total)
 	}
 
 	if len(result) != 3 {
@@ -104,8 +104,8 @@ func TestIssueRepository_List(t *testing.T) {
 		t.Fatalf("failed to list open issues: %v", err)
 	}
 
-	if total != 2 {
-		t.Errorf("expected 2 open issues, got %d", total)
+	if total.Total != 2 {
+		t.Errorf("expected 2 open issues, got %d", total.Total)
 	}
 
 	// Test 3: Filter by creator
@@ -115,8 +115,8 @@ func TestIssueRepository_List(t *testing.T) {
 		t.Fatalf("failed to list issues by creator: %v", err)
 	}
 
-	if total != 2 {
-		t.Errorf("expected 2 issues by user-001, got %d", total)
+	if total.Total != 2 {
+		t.Errorf("expected 2 issues by user-001, got %d", total.Total)
 	}
 
 	// Test 4: Pagination (limit 2, offset 1)
@@ -126,8 +126,8 @@ func TestIssueRepository_List(t *testing.T) {
 		t.Fatalf("failed to list with pagination: %v", err)
 	}
 
-	if total != 3 {
-		t.Errorf("expected total 3, got %d", total)
+	if total.Total != 3 {
+		t.Errorf("expected total 3, got %d", total.Total)
 	}
 
 	if len(result) != 2 {
@@ -141,8 +141,8 @@ func TestIssueRepository_List(t *testing.T) {
 		t.Fatalf("failed to search issues: %v", err)
 	}
 
-	if total != 1 {
-		t.Errorf("expected 1 issue matching 'First', got %d", total)
+	if total.Total != 1 {
+		t.Errorf("expected 1 issue matching 'First', got %d", total.Total)
 	}
 
 	if len(result) > 0 && result[0].Title != "First issue" {

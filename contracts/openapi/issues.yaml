@@ -20,23 +20,23 @@ paths:
           schema: { type: string }
         - name: state
           in: query
-          description: Filter by state
-          schema: { type: string, enum: [open, closed, all], default: open }
-        - name: creator
+          description: Filter by state. Omit to include both open and closed issues.
+          schema: { type: string, enum: [open, closed] }
+        - name: created_by
           in: query
           description: Filter by creator user ID
           schema: { type: string }
         - name: assignee
           in: query
-          description: Filter by assignee. Use "none" for unassigned, "*" for any assignee.
+          description: Filter by assignee user ID.
           schema: { type: string }
         - name: labels
           in: query
-          description: Comma-separated label names (AND logic)
+          description: Filter by one exact label name.
           schema: { type: string }
         - name: milestone
           in: query
-          description: Milestone ID, "none" for no milestone, "*" for any milestone
+          description: Filter by milestone ID.
           schema: { type: string }
         - name: since
           in: query
@@ -44,7 +44,7 @@ paths:
           schema: { type: string, format: date-time }
         - name: q
           in: query
-          description: Full-text search in title and body
+          description: 'Search title and body, or enter # followed by an issue number for an exact match.'
           schema: { type: string }
         - name: sort
           in: query
@@ -54,14 +54,18 @@ paths:
           in: query
           description: Sort direction
           schema: { type: string, enum: [asc, desc], default: desc }
-        - name: page
+        - name: limit
           in: query
-          description: Page number (1-indexed)
-          schema: { type: integer, minimum: 1, default: 1 }
-        - name: per_page
+          description: Maximum issues to return
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: offset
           in: query
-          description: Results per page
-          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+          description: Number of matching issues to skip
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: include_filter_options
+          in: query
+          description: Return distinct filter values across the repository. Requires repository.
+          schema: { type: boolean, default: false }
       responses:
         "200":
           description: List of issues
@@ -120,7 +124,7 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateIssue
-      summary: Update issue title, body, or milestone
+      summary: Update issue title or body
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
@@ -171,9 +175,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [state_reason]
+              required: [reason]
               properties:
-                state_reason:
+                reason:
                   type: string
                   enum: [completed, not_planned, duplicate]
                   description: Reason for closing the issue
@@ -947,7 +951,7 @@ components:
     # ==================== Issue Schemas ====================
     Issue:
       type: object
-      required: [id, number, repository, title, body, state, created_by, created_at, updated_at, comments]
+      required: [id, number, repository, title, body, state, locked, comments, labels, assignees, created_by, created_at, updated_at]
       properties:
         id: { type: string }
         number:
@@ -1012,14 +1016,6 @@ components:
         body:
           type: string
           maxLength: 65536
-        assignees:
-          type: array
-          items: { type: string }
-          description: User IDs to assign
-        labels:
-          type: array
-          items: { type: string }
-          description: Label names to add
 
     IssueUpdate:
       type: object
@@ -1031,13 +1027,10 @@ components:
         body:
           type: string
           maxLength: 65536
-        milestone_id:
-          type: string
-          description: Set to empty string to clear milestone
 
     IssuePage:
       type: object
-      required: [items, total, limit, offset]
+      required: [items, total, open_total, closed_total, limit, offset]
       properties:
         items:
           type: array
@@ -1045,9 +1038,38 @@ components:
         total:
           type: integer
           minimum: 0
-          description: Total matching issues
+          description: Total matching issues before pagination, including the state filter.
+        open_total:
+          type: integer
+          minimum: 0
+          description: Matching open issues before pagination, ignoring the state filter.
+        closed_total:
+          type: integer
+          minimum: 0
+          description: Matching closed issues before pagination, ignoring the state filter.
         limit: { type: integer }
         offset: { type: integer }
+        filter_options:
+          type: object
+          description: Distinct values used by repository issues across all states, independent of active filters and pagination. Returned when include_filter_options is true.
+          required: [authors, labels, assignees, milestones]
+          properties:
+            authors:
+              type: array
+              items: { type: string }
+              description: Creator user IDs
+            labels:
+              type: array
+              items: { type: string }
+              description: Label names
+            assignees:
+              type: array
+              items: { type: string }
+              description: Assignee user IDs
+            milestones:
+              type: array
+              items: { type: string }
+              description: Milestone IDs
 
     # ==================== Comment Schemas ====================
     Comment:

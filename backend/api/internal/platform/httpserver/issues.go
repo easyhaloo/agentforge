@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,10 +34,11 @@ type assigneesRequest struct {
 }
 
 type issueListResponse struct {
-	Items  []*issues.Issue `json:"items"`
-	Total  int             `json:"total"`
-	Limit  int             `json:"limit"`
-	Offset int             `json:"offset"`
+	Items []*issues.Issue `json:"items"`
+	issues.ListCounts
+	Limit         int                   `json:"limit"`
+	Offset        int                   `json:"offset"`
+	FilterOptions *issues.FilterOptions `json:"filter_options,omitempty"`
 }
 
 // listIssues handles GET /api/v1/organizations/{organizationID}/issues
@@ -50,17 +52,19 @@ func (d DeliveryDependencies) listIssues(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	query := r.URL.Query()
+
 	// Parse pagination
 	limit, offset := 20, 0
 	var err error
-	if raw := r.URL.Query().Get("limit"); raw != "" {
+	if raw := query.Get("limit"); raw != "" {
 		limit, err = strconv.Atoi(raw)
 		if err != nil || limit < 1 || limit > 100 {
 			writeProblem(w, http.StatusBadRequest, "Invalid limit", "limit must be an integer between 1 and 100")
 			return
 		}
 	}
-	if raw := r.URL.Query().Get("offset"); raw != "" {
+	if raw := query.Get("offset"); raw != "" {
 		offset, err = strconv.Atoi(raw)
 		if err != nil || offset < 0 {
 			writeProblem(w, http.StatusBadRequest, "Invalid offset", "offset must be a non-negative integer")
@@ -68,31 +72,64 @@ func (d DeliveryDependencies) listIssues(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Build filter
 	filter := issues.ListFilter{
-		Repository: r.URL.Query().Get("repository"),
-		State:      issues.State(r.URL.Query().Get("state")),
-		CreatedBy:  r.URL.Query().Get("created_by"),
-		Query:      r.URL.Query().Get("q"),
+		Repository: query.Get("repository"),
+		State:      issues.State(query.Get("state")),
+		CreatedBy:  query.Get("created_by"),
+		Assignee:   query.Get("assignee"),
+		Label:      query.Get("labels"),
+		Milestone:  query.Get("milestone"),
+		Query:      strings.TrimSpace(query.Get("q")),
+		Sort:       query.Get("sort"),
+		Direction:  query.Get("direction"),
 	}
-
-	// Validate state if provided
 	if filter.State != "" && filter.State != issues.StateOpen && filter.State != issues.StateClosed {
 		writeProblem(w, http.StatusBadRequest, "Invalid state", "state must be 'open' or 'closed'")
 		return
 	}
+	if filter.Sort != "" && filter.Sort != "created" && filter.Sort != "updated" && filter.Sort != "comments" {
+		writeProblem(w, http.StatusBadRequest, "Invalid sort", "sort must be 'created', 'updated', or 'comments'")
+		return
+	}
+	if filter.Direction != "" && filter.Direction != "asc" && filter.Direction != "desc" {
+		writeProblem(w, http.StatusBadRequest, "Invalid direction", "direction must be 'asc' or 'desc'")
+		return
+	}
+	if raw := query.Get("since"); raw != "" {
+		since, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "Invalid since", "since must be an RFC3339 timestamp")
+			return
+		}
+		filter.Since = &since
+	}
+	includeFilterOptions := false
+	switch query.Get("include_filter_options") {
+	case "", "false":
+	case "true":
+		if filter.Repository == "" {
+			writeProblem(w, http.StatusBadRequest, "Repository required", "repository is required when including filter options")
+			return
+		}
+		includeFilterOptions = true
+	default:
+		writeProblem(w, http.StatusBadRequest, "Invalid include_filter_options", "include_filter_options must be 'true' or 'false'")
+		return
+	}
 
-	items, total, err := d.IssueRepo.List(r.Context(), principal.OrganizationID, filter, limit, offset)
+	items, counts, err := d.IssueRepo.List(r.Context(), principal.OrganizationID, filter, limit, offset)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to list issues", "The issue query failed")
 		return
 	}
-
-	response := issueListResponse{
-		Items:  items,
-		Total:  total,
-		Limit:  limit,
-		Offset: offset,
+	response := issueListResponse{Items: items, ListCounts: counts, Limit: limit, Offset: offset}
+	if includeFilterOptions {
+		options, err := d.IssueRepo.FilterOptions(r.Context(), principal.OrganizationID, filter.Repository)
+		if err != nil {
+			writeProblem(w, http.StatusInternalServerError, "Unable to list issue filters", "The issue filters query failed")
+			return
+		}
+		response.FilterOptions = &options
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -308,6 +345,10 @@ func (d DeliveryDependencies) closeIssue(w http.ResponseWriter, r *http.Request)
 	}
 
 	closed, err := d.IssueRepo.Close(r.Context(), principal.OrganizationID, issue.ID, reason, principal.UserID, time.Now().UTC())
+	if errors.Is(err, issues.ErrStateConflict) {
+		writeProblem(w, http.StatusConflict, "Issue state changed", "Refresh the issue and try again")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to close issue", "The issue could not be closed")
 		return
@@ -359,14 +400,11 @@ func (d DeliveryDependencies) reopenIssue(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Reopen by updating state
-	issue.State = issues.StateOpen
-	issue.StateReason = ""
-	issue.ClosedAt = nil
-	issue.ClosedBy = ""
-	issue.UpdatedAt = time.Now().UTC()
-
-	reopened, err := d.IssueRepo.Update(r.Context(), principal.OrganizationID, issue)
+	reopened, err := d.IssueRepo.Reopen(r.Context(), principal.OrganizationID, issue.ID, time.Now().UTC())
+	if errors.Is(err, issues.ErrStateConflict) {
+		writeProblem(w, http.StatusConflict, "Issue state changed", "Refresh the issue and try again")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to reopen issue", "The issue could not be reopened")
 		return

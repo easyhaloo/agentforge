@@ -2,8 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -29,19 +27,15 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 	issue.Number = number
 
 	// Insert issue
-	_, err = r.store.pool.Exec(ctx, `
+	row := r.store.pool.QueryRow(ctx, `
 		INSERT INTO issues (
 			organization_id, id, repository, number, title, body,
 			state, created_by, created_at, updated_at, version
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1)
-	`, organizationID, issue.ID, issue.Repository, issue.Number, issue.Title, issue.Body,
+		RETURNING `+issueColumns, organizationID, issue.ID, issue.Repository, issue.Number, issue.Title, issue.Body,
 		issue.State, issue.CreatedBy, issue.CreatedAt, issue.UpdatedAt)
 
-	if err != nil {
-		return nil, fmt.Errorf("insert issue: %w", err)
-	}
-
-	return issue, nil
+	return scanIssue(row)
 }
 
 // AddAssignee assigns a user to an issue (idempotent)
@@ -102,62 +96,36 @@ func (r *IssueRepository) GetAssignees(ctx context.Context, organizationID strin
 	return assignees, nil
 }
 
-// Get retrieves an issue by repository and number
-func (r *IssueRepository) Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error) {
+// issueColumns keeps the projection consistent across list, detail and mutation responses.
+const issueColumns = `id, repository, number, title, body, state, COALESCE(state_reason, ''),
+	COALESCE(milestone_id, ''), comments_count, locked, COALESCE(lock_reason, ''), locked_at,
+	COALESCE(locked_by, ''), created_by, created_at, updated_at, closed_at, COALESCE(closed_by, ''),
+	COALESCE((SELECT jsonb_agg(jsonb_build_object('id', l.id, 'name', l.name,
+		'description', l.description, 'color', l.color, 'created_at', l.created_at,
+		'updated_at', l.updated_at) ORDER BY l.name)
+		FROM issue_labels il JOIN labels l ON l.organization_id = il.organization_id AND l.id = il.label_id
+		WHERE il.organization_id = issues.organization_id AND il.issue_id = issues.id
+		  AND l.repository = issues.repository), '[]'::jsonb),
+	COALESCE((SELECT jsonb_agg(jsonb_build_object('user_id', a.user_id) ORDER BY a.user_id)
+		FROM issue_assignees a WHERE a.organization_id = issues.organization_id AND a.issue_id = issues.id), '[]'::jsonb)`
+
+func scanIssue(row pgx.Row) (*issues.Issue, error) {
 	var issue issues.Issue
-	var stateStr, stateReasonStr sql.NullString
-	var closedBy sql.NullString
-	var closedAt sql.NullTime
-	var lockReason sql.NullString
-	var lockedAt sql.NullTime
-	var lockedBy sql.NullString
-
-	err := r.store.pool.QueryRow(ctx, `
-		SELECT id, repository, number, title, body, state, state_reason,
-		       comments_count, locked, lock_reason, locked_at, locked_by,
-		       created_by, created_at, updated_at, closed_at, closed_by
-		FROM issues
-		WHERE organization_id = $1 AND repository = $2 AND number = $3
-	`, organizationID, repository, number).Scan(
-		&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-		&stateStr, &stateReasonStr, &issue.CommentsCount,
-		&issue.Locked, &lockReason, &lockedAt, &lockedBy,
-		&issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
-		&closedAt, &closedBy,
-	)
-
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("issue not found")
-		}
-		return nil, fmt.Errorf("query issue: %w", err)
+	if err := row.Scan(
+		&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body, &issue.State,
+		&issue.StateReason, &issue.MilestoneID, &issue.CommentsCount, &issue.Locked, &issue.LockReason,
+		&issue.LockedAt, &issue.LockedBy, &issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
+		&issue.ClosedAt, &issue.ClosedBy, &issue.Labels, &issue.Assignees,
+	); err != nil {
+		return nil, fmt.Errorf("scan issue: %w", err)
 	}
-
-	if stateStr.Valid {
-		issue.State = issues.State(stateStr.String)
-	}
-	if stateReasonStr.Valid {
-		issue.StateReason = issues.StateReason(stateReasonStr.String)
-	}
-	if closedAt.Valid {
-		t := closedAt.Time
-		issue.ClosedAt = &t
-	}
-	if closedBy.Valid {
-		issue.ClosedBy = closedBy.String
-	}
-	if lockReason.Valid {
-		issue.LockReason = issues.LockReason(lockReason.String)
-	}
-	if lockedAt.Valid {
-		t := lockedAt.Time
-		issue.LockedAt = &t
-	}
-	if lockedBy.Valid {
-		issue.LockedBy = lockedBy.String
-	}
-
 	return &issue, nil
+}
+
+// Get retrieves an issue by repository and number.
+func (r *IssueRepository) Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error) {
+	return scanIssue(r.store.pool.QueryRow(ctx, `SELECT `+issueColumns+`
+		FROM issues WHERE organization_id = $1 AND repository = $2 AND number = $3`, organizationID, repository, number))
 }
 
 // allocateNumber atomically allocates the next sequential number for a repository
@@ -187,146 +155,20 @@ func (r *IssueRepository) allocateNumber(ctx context.Context, organizationID, re
 	return number, nil
 }
 
-// Lock locks an issue to prevent new comments
+// Lock locks an issue to prevent new comments.
 func (r *IssueRepository) Lock(ctx context.Context, organizationID string, issueID issues.ID, reason issues.LockReason, lockedBy string, lockedAt time.Time) (*issues.Issue, error) {
-	// Update the issue to set locked fields
-	_, err := r.store.pool.Exec(ctx, `
+	return scanIssue(r.store.pool.QueryRow(ctx, `
 		UPDATE issues
-		SET locked = true,
-		    lock_reason = $1,
-		    locked_at = $2,
-		    locked_by = $3,
-		    updated_at = $2
+		SET locked = true, lock_reason = $1, locked_at = $2, locked_by = $3, updated_at = $2
 		WHERE organization_id = $4 AND id = $5
-	`, reason, lockedAt, lockedBy, organizationID, issueID)
-
-	if err != nil {
-		return nil, fmt.Errorf("lock issue: %w", err)
-	}
-
-	// Retrieve the updated issue
-	var issue issues.Issue
-	var stateStr, stateReasonStr sql.NullString
-	var closedBy sql.NullString
-	var closedAt sql.NullTime
-	var lockReason sql.NullString
-	var lockedAtDB sql.NullTime
-	var lockedByDB sql.NullString
-
-	err = r.store.pool.QueryRow(ctx, `
-		SELECT id, repository, number, title, body, state, state_reason,
-		       comments_count, locked, lock_reason, locked_at, locked_by,
-		       created_by, created_at, updated_at, closed_at, closed_by
-		FROM issues
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, issueID).Scan(
-		&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-		&stateStr, &stateReasonStr, &issue.CommentsCount,
-		&issue.Locked, &lockReason, &lockedAtDB, &lockedByDB,
-		&issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
-		&closedAt, &closedBy,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("query locked issue: %w", err)
-	}
-
-	// Map nullable fields
-	if stateStr.Valid {
-		issue.State = issues.State(stateStr.String)
-	}
-	if stateReasonStr.Valid {
-		issue.StateReason = issues.StateReason(stateReasonStr.String)
-	}
-	if closedAt.Valid {
-		t := closedAt.Time
-		issue.ClosedAt = &t
-	}
-	if closedBy.Valid {
-		issue.ClosedBy = closedBy.String
-	}
-	if lockReason.Valid {
-		issue.LockReason = issues.LockReason(lockReason.String)
-	}
-	if lockedAtDB.Valid {
-		t := lockedAtDB.Time
-		issue.LockedAt = &t
-	}
-	if lockedByDB.Valid {
-		issue.LockedBy = lockedByDB.String
-	}
-
-	return &issue, nil
+		RETURNING `+issueColumns, reason, lockedAt, lockedBy, organizationID, issueID))
 }
 
-// Unlock unlocks an issue to allow new comments
+// Unlock unlocks an issue to allow new comments.
 func (r *IssueRepository) Unlock(ctx context.Context, organizationID string, issueID issues.ID) (*issues.Issue, error) {
-	// Update the issue to clear locked fields
-	_, err := r.store.pool.Exec(ctx, `
+	return scanIssue(r.store.pool.QueryRow(ctx, `
 		UPDATE issues
-		SET locked = false,
-		    lock_reason = NULL,
-		    locked_at = NULL,
-		    locked_by = NULL,
-		    updated_at = now()
+		SET locked = false, lock_reason = NULL, locked_at = NULL, locked_by = NULL, updated_at = now()
 		WHERE organization_id = $1 AND id = $2
-	`, organizationID, issueID)
-
-	if err != nil {
-		return nil, fmt.Errorf("unlock issue: %w", err)
-	}
-
-	// Retrieve the updated issue
-	var issue issues.Issue
-	var stateStr, stateReasonStr sql.NullString
-	var closedBy sql.NullString
-	var closedAt sql.NullTime
-	var lockReason sql.NullString
-	var lockedAt sql.NullTime
-	var lockedByDB sql.NullString
-
-	err = r.store.pool.QueryRow(ctx, `
-		SELECT id, repository, number, title, body, state, state_reason,
-		       comments_count, locked, lock_reason, locked_at, locked_by,
-		       created_by, created_at, updated_at, closed_at, closed_by
-		FROM issues
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, issueID).Scan(
-		&issue.ID, &issue.Repository, &issue.Number, &issue.Title, &issue.Body,
-		&stateStr, &stateReasonStr, &issue.CommentsCount,
-		&issue.Locked, &lockReason, &lockedAt, &lockedByDB,
-		&issue.CreatedBy, &issue.CreatedAt, &issue.UpdatedAt,
-		&closedAt, &closedBy,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("query unlocked issue: %w", err)
-	}
-
-	// Map nullable fields
-	if stateStr.Valid {
-		issue.State = issues.State(stateStr.String)
-	}
-	if stateReasonStr.Valid {
-		issue.StateReason = issues.StateReason(stateReasonStr.String)
-	}
-	if closedAt.Valid {
-		t := closedAt.Time
-		issue.ClosedAt = &t
-	}
-	if closedBy.Valid {
-		issue.ClosedBy = closedBy.String
-	}
-	if lockReason.Valid {
-		issue.LockReason = issues.LockReason(lockReason.String)
-	}
-	if lockedAt.Valid {
-		t := lockedAt.Time
-		issue.LockedAt = &t
-	}
-	if lockedByDB.Valid {
-		issue.LockedBy = lockedByDB.String
-	}
-
-	return &issue, nil
+		RETURNING `+issueColumns, organizationID, issueID))
 }
