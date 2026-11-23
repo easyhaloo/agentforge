@@ -818,6 +818,8 @@
       "restrictDeletion": "Restrict deletion",
       "blockForcePush": "Block force pushes",
       "requirePullRequest": "Require a pull request before merging",
+      "requireLinearHistory": "Require linear history",
+      "linearHistoryHelp": "Block merge commits from entering matching branches. Pull requests must fast-forward or use a linear integration candidate.",
       "requireMergeQueue": "Require merge queue",
       "mergeQueueHelp": "Verified pull requests must pass through the merge queue.",
       "mergeQueueTarget": "Use ~DEFAULT_BRANCH as the only include pattern and remove exclusions to require the merge queue.",
@@ -852,7 +854,7 @@
         "contains": "Contains",
         "regex": "Matches regex"
       },
-      "tagBranchRestrictions": "Tag rulesets cannot block force pushes, require a pull request, or require the merge queue.",
+      "tagBranchRestrictions": "Tag rulesets cannot block force pushes, require a pull request, require the merge queue, or require linear history.",
       "restrictionRequired": "Select at least one restriction."
     },
     "refProtection": "Direct push protection",

@@ -2218,6 +2218,10 @@ components:
               Valid only for branch rulesets targeting ~DEFAULT_BRANCH with no exclusions.
               Requires a verified pull request for each source and a successful run at the head of the repository merge queue.
               Blocks native pushes and other writers from directly updating the existing default branch.
+          require_linear_history:
+            type: boolean
+            default: false
+            description: Valid only for branch rulesets. Rejects introduced merge commits on pushes and integration promotions. Direct Changeset merges to matching branches must fast-forward without introducing merge commits.
           name_patterns:
             type: array
             maxItems: 10

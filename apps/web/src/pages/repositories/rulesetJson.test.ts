@@ -44,6 +44,15 @@ describe("ruleset JSON portability", () => {
     expect(githubImport({ rules: [{ type: "pull_request", parameters }] })).toMatchObject({ require_pull_request: true });
   });
 
+  it("imports and exports only parameterless linear history rules on branches", () => {
+    const rules = [{ type: "required_linear_history", parameters: {} }];
+    const rule = githubImport({ rules });
+    expect(rule?.require_linear_history).toBe(true);
+    expect(rule && parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
+    expect(githubImport({ target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules })).toBeUndefined();
+    expect(githubImport({ rules: [{ type: "required_linear_history", parameters: { unexpected: true } }] })).toBeUndefined();
+  });
+
   it("round trips GitHub tag name patterns with literal and negative requirements", () => {
     const rules = [
       { type: "tag_name_pattern", parameters: { operator: "starts_with", pattern: "v", name: "Version prefix" } },

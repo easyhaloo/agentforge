@@ -8,6 +8,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/jackc/pgx/v5"
 )
@@ -27,7 +28,7 @@ func queueEvent(ctx context.Context, tx pgx.Tx, id int64, actor string) error {
 
 func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int, actor string, inputs map[string]json.RawMessage, candidate execution.Integration) (execution.QueueEntry, error) {
 	var entry execution.QueueEntry
-	if len(candidate.Sources) != 1 || candidate.Strategy != "merge-commit" {
+	if len(candidate.Sources) != 1 || (candidate.Strategy != "merge-commit" && candidate.Strategy != "ff-only") {
 		return entry, execution.ErrInputs
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -225,9 +226,19 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 	} else if pending {
 		return tx.Commit(ctx)
 	}
+	var rules []githttp.RefRule
+	var defaultBranch string
+	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch FROM delivery_repositories WHERE organization_id=$1 AND slug=$2`, org, repo).Scan(&rules, &defaultBranch); err != nil {
+		return err
+	}
+	strategy := "merge-commit"
+	if githttp.LinearHistoryRule(rules, target, defaultBranch) != "" {
+		strategy = "ff-only"
+	}
+
 	if status != "queued" {
-		var runStatus, base string
-		if err = tx.QueryRow(ctx, `SELECT status,integration->'target'->>'sha' FROM pipeline_runs WHERE id=$1`, run).Scan(&runStatus, &base); err != nil {
+		var runStatus, base, runStrategy string
+		if err = tx.QueryRow(ctx, `SELECT status,integration->'target'->>'sha',integration->>'strategy' FROM pipeline_runs WHERE id=$1`, run).Scan(&runStatus, &base, &runStrategy); err != nil {
 			return err
 		}
 		switch runStatus {
@@ -238,7 +249,7 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 			if gitErr != nil {
 				return tx.Commit(ctx)
 			}
-			if head.CommitSHA != base {
+			if head.CommitSHA != base || (strategy == "ff-only" && runStrategy != strategy) {
 				err = cancelTrainRuns(ctx, tx, org, repo, target, 0, "scheduler")
 				if err == nil {
 					err = invalidateTrain(ctx, tx, org, repo, target, 0, "scheduler")
@@ -255,15 +266,19 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		}
 		return tx.Commit(ctx)
 	}
-	rows, err := tx.Query(ctx, `SELECT source_sha FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND id<=$4 AND `+activeQueue+` ORDER BY id`, org, repo, target, id)
+	rows, err := tx.Query(ctx, `SELECT source_ref,source_sha FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND id<=$4 AND `+activeQueue+` ORDER BY id`, org, repo, target, id)
 	if err != nil {
 		return err
 	}
-	sources, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	pinned, err := pgx.CollectRows(rows, pgx.RowToStructByPos[delivery.PinnedRef])
 	if err != nil {
 		return err
 	}
-	candidate, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: target, Sources: sources})
+	sources := make([]string, len(pinned))
+	for i, source := range pinned {
+		sources[i] = source.SHA
+	}
+	candidate, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: target, Sources: sources, Strategy: strategy})
 	if err != nil {
 		return tx.Commit(ctx)
 	}
@@ -277,7 +292,9 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		}
 		return tx.Commit(ctx)
 	}
-	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: candidate, QueueEntry: id}, nil)
+	// Preparation uses pinned commits while promotion verifies the recorded branch names.
+	candidate.Sources = pinned
+	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: strategy, MergePreview: candidate, QueueEntry: id}, nil)
 	if errors.Is(err, execution.ErrQuota) || errors.Is(err, execution.ErrRepositoryActionsDisabled) {
 		return tx.Commit(ctx)
 	}

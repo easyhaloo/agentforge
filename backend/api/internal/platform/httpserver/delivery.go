@@ -795,7 +795,22 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 	if !ok {
 		return
 	}
-	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content), policy.CheckBranchWrite, signoff)
+	check := func(ref string, creating bool) error {
+		if err := policy.CheckBranchWrite(ref, creating); err != nil {
+			return err
+		}
+		if creating && githttp.LinearHistoryRule(policy.RefRules, strings.TrimPrefix(ref, "refs/heads/"), policy.DefaultBranch) != "" {
+			git, ok := writer.(*delivery.LocalGitProvider)
+			if !ok {
+				return delivery.ErrProviderUnavailable
+			}
+			// The editor introduces one single-parent commit. Check any history
+			// under its parent that is not yet reachable from a branch.
+			return git.CheckLinearHistory(r.Context(), principal.OrganizationID, stored.Changeset.Repository, "", revision.CommitSHA)
+		}
+		return nil
+	}
+	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content), check, signoff)
 	if writeBranchRuleConflict(w, err) {
 		return
 	}
@@ -1171,7 +1186,20 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, 500, "Unable to record merge", "An identifier could not be generated")
 		return
 	}
-	merged, err := d.Git.MergeRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef, baseRevision.CommitSHA)
+	merge := d.Git.MergeRevision
+	if githttp.LinearHistoryRule(policy.RefRules, allowedTarget, policy.DefaultBranch) != "" {
+		git, ok := d.Git.(*delivery.LocalGitProvider)
+		if !ok {
+			writeProblem(w, 503, "Linear history check unavailable", "The Git provider cannot verify a linear merge")
+			return
+		}
+		merge = git.FastForwardRevision
+	}
+	merged, err := merge(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef, baseRevision.CommitSHA)
+	if errors.Is(err, githttp.ErrLinearHistoryRequired) {
+		writeProblem(w, 409, "Repository ruleset blocks merge", "Rebase the source onto the target with no merge commits and verify the new revision before merging")
+		return
+	}
 	if err != nil {
 		writeProblem(w, 409, "Git merge rejected", "The target branch could not be merged cleanly; no merge record was written")
 		return
@@ -1227,7 +1255,7 @@ func (d DeliveryDependencies) lockBranchMergePolicy(w http.ResponseWriter, r *ht
 			continue
 		}
 		for _, rule := range repository.RefRules {
-			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest || rule.RequireMergeQueue || len(rule.NamePatterns) > 0) {
+			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || len(rule.NamePatterns) > 0) {
 				writeProblem(w, 503, "Repository merge lock unavailable", "The repository ruleset requires a policy lock")
 				return githttp.PushPolicy{}, nil, false
 			}

@@ -18,18 +18,19 @@ import (
 
 // RefRule restricts writes to matching branches or tags.
 type RefRule struct {
-	Name               string           `json:"name"`
-	Target             string           `json:"target"`
-	Enabled            bool             `json:"enabled"`
-	Include            []string         `json:"include"`
-	Exclude            []string         `json:"exclude"`
-	RestrictCreation   bool             `json:"restrict_creation"`
-	RestrictUpdate     bool             `json:"restrict_update"`
-	RestrictDeletion   bool             `json:"restrict_deletion"`
-	BlockForcePush     bool             `json:"block_force_push"`
-	RequirePullRequest bool             `json:"require_pull_request"`
-	RequireMergeQueue  bool             `json:"require_merge_queue,omitempty"`
-	NamePatterns       []RefNamePattern `json:"name_patterns,omitempty"`
+	Name                 string           `json:"name"`
+	Target               string           `json:"target"`
+	Enabled              bool             `json:"enabled"`
+	Include              []string         `json:"include"`
+	Exclude              []string         `json:"exclude"`
+	RestrictCreation     bool             `json:"restrict_creation"`
+	RestrictUpdate       bool             `json:"restrict_update"`
+	RestrictDeletion     bool             `json:"restrict_deletion"`
+	BlockForcePush       bool             `json:"block_force_push"`
+	RequirePullRequest   bool             `json:"require_pull_request"`
+	RequireLinearHistory bool             `json:"require_linear_history,omitempty"`
+	RequireMergeQueue    bool             `json:"require_merge_queue,omitempty"`
+	NamePatterns         []RefNamePattern `json:"name_patterns,omitempty"`
 }
 
 func ValidRefRules(rules []RefRule) bool {
@@ -38,8 +39,8 @@ func ValidRefRules(rules []RefRule) bool {
 	}
 	for i, rule := range rules {
 		if rule.Name == "" || strings.TrimSpace(rule.Name) != rule.Name || utf8.RuneCountInString(rule.Name) > 80 || strings.ContainsFunc(rule.Name, unicode.IsControl) ||
-			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue)) ||
-			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || len(rule.NamePatterns) > 0) ||
+			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory)) ||
+			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || len(rule.NamePatterns) > 0) ||
 			!validNamePatterns(rule.NamePatterns) || len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
 			return false
 		}
@@ -186,6 +187,41 @@ var (
 	ErrBranchMergeQueueRequired  = errors.New("the merge queue is required")
 )
 
+// LinearHistoryRule returns the first applicable rule. All matching rules have
+// the same requirement, so the first name is sufficient for diagnostics.
+func LinearHistoryRule(rules []RefRule, branch, defaultBranch string) string {
+	for _, rule := range rules {
+		if rule.RequireLinearHistory && rule.matches("branch", branch, defaultBranch) {
+			return rule.Name
+		}
+	}
+	return ""
+}
+
+var ErrLinearHistoryRequired = errors.New("merge commits are not allowed by the linear history rule")
+
+// CheckLinearHistory inspects the new history of an existing branch or, on
+// creation, the commits not already reachable from any published branch.
+func CheckLinearHistory(old, next string, git func(...string) (string, error)) error {
+	if !validObjectID(next) || (old != "" && !validObjectID(old)) {
+		return errors.New("invalid commit for linear history check")
+	}
+	args := []string{"rev-list", "--merges", "--max-count=1", next}
+	if old == "" || strings.Trim(old, "0") == "" {
+		args = append(args, "--not", "--branches")
+	} else {
+		args = append(args, "^"+old)
+	}
+	merge, err := git(args...)
+	if err != nil {
+		return fmt.Errorf("check linear Git history: %w", err)
+	}
+	if strings.TrimSpace(merge) != "" {
+		return ErrLinearHistoryRequired
+	}
+	return nil
+}
+
 // CheckBranchWrite checks a platform writer's exact destination ref. The caller
 // must use the same observed ref state for the policy check and the Git CAS.
 func (policy PushPolicy) CheckBranchWrite(ref string, creating bool) error {
@@ -273,6 +309,18 @@ func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) erro
 			return fmt.Errorf("ruleset %q requires a pull request to update %s", rule.Name, update.Ref)
 		case !isCreation && !isDeletion && rule.BlockForcePush:
 			forceRule = rule.Name
+		}
+	}
+	if rule := LinearHistoryRule(rules, name, defaultBranch); !isTag && !isDeletion && rule != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := CheckLinearHistory(update.Old, update.New, func(args ...string) (string, error) {
+			cmd := exec.CommandContext(ctx, os.Getenv("AF_GIT_BINARY"), append([]string{"--no-replace-objects"}, args...)...)
+			out, err := cmd.Output()
+			return string(out), err
+		})
+		if err != nil {
+			return fmt.Errorf("ruleset %q rejects %s: %w", rule, update.Ref, err)
 		}
 	}
 	if forceRule == "" {

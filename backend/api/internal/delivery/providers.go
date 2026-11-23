@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
 
 var (
@@ -179,6 +181,29 @@ func (p *LocalGitProvider) ResolveRevision(ctx context.Context, organizationID, 
 }
 
 func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string) (GitMerge, error) {
+	return p.mergeRevision(ctx, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA, false)
+}
+
+func (p *LocalGitProvider) FastForwardRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string) (GitMerge, error) {
+	return p.mergeRevision(ctx, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA, true)
+}
+
+func (p *LocalGitProvider) CheckLinearHistory(ctx context.Context, org, repo, old, next string) error {
+	path, err := p.repositoryPath(ctx, org, repo)
+	if err != nil {
+		return err
+	}
+	return checkLinearHistory(ctx, path, old, next)
+}
+
+func checkLinearHistory(ctx context.Context, path, old, next string) error {
+	return githttp.CheckLinearHistory(old, next, func(args ...string) (string, error) {
+		out, err := previewGit(ctx, path, args...)
+		return string(out), err
+	})
+}
+
+func (p *LocalGitProvider) mergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string, linear bool) (GitMerge, error) {
 	path, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return GitMerge{}, err
@@ -196,14 +221,25 @@ func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, re
 	if _, err := p.run(ctx, path, "merge-base", "--is-ancestor", revisionSHA, target); err == nil {
 		return GitMerge{CommitSHA: target, TargetRef: targetRef}, nil
 	}
-	tree, err := p.run(ctx, path, "merge-tree", "--write-tree", "--no-messages", target, revisionSHA)
-	if err != nil || !validGitObjectID(tree) {
-		return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry")
-	}
-	commit, err := p.run(ctx, path, "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost",
-		"commit-tree", tree, "-p", target, "-p", revisionSHA, "-m", "Merge verified AgentForge revision")
-	if err != nil || !validGitObjectID(commit) {
-		return GitMerge{}, ErrRepositoryInvalid
+	commit := revisionSHA
+	if linear {
+		if err := checkLinearHistory(ctx, path, target, revisionSHA); err != nil {
+			return GitMerge{}, err
+		}
+		if _, err := previewGit(ctx, path, "merge-base", "--is-ancestor", target, revisionSHA); err != nil {
+			return GitMerge{}, githttp.ErrLinearHistoryRequired
+		}
+	} else {
+		var err error
+		tree, err := p.run(ctx, path, "merge-tree", "--write-tree", "--no-messages", target, revisionSHA)
+		if err != nil || !validGitObjectID(tree) {
+			return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry")
+		}
+		commit, err = p.run(ctx, path, "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost",
+			"commit-tree", tree, "-p", target, "-p", revisionSHA, "-m", "Merge verified AgentForge revision")
+		if err != nil || !validGitObjectID(commit) {
+			return GitMerge{}, ErrRepositoryInvalid
+		}
 	}
 	branch, _ := p.run(ctx, path, "symbolic-ref", "--quiet", "HEAD")
 	bare, err := p.run(ctx, path, "rev-parse", "--is-bare-repository")

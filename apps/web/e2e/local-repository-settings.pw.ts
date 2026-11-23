@@ -350,6 +350,30 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     expect(git(worktree, "push", "origin", `HEAD:${importedPR}`).stderr).toContain(`requires a pull request to update ${importedPR}`);
     expect(checkedGit(folder, "ls-remote", gitURL, importedPR).trim()).toBe(`${previousSHA}\t${importedPR}`);
 
+    const linear = "refs/heads/linear-main";
+    const linearNew = "refs/heads/linear-new";
+    await importRuleset({
+      name: "Linear branches", target: "branch", enforcement: "active",
+      conditions: { ref_name: { include: ["refs/heads/linear-*"], exclude: [] } },
+      rules: [{ type: "required_linear_history" }],
+    });
+    const requireLinear = content.getByRole("checkbox", { name: "Require linear history" });
+    await expect(requireLinear).toBeChecked();
+    await saveRulesets();
+    await page.reload();
+    await content.getByRole("button", { name: "Edit Linear branches" }).click();
+    await expect(requireLinear).toBeChecked();
+    await capture("linear-history");
+    const currentSHA = checkedGit(worktree, "rev-parse", "HEAD").trim();
+    checkedGit(worktree, "push", "origin", `HEAD^:${linear}`);
+    const mergeSHA = checkedGit(worktree, "-c", "user.name=Settings QA", "-c", "user.email=qa@example.test", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-p", "HEAD^", "-m", "Merge commit").trim();
+    const denied = git(worktree, "push", "origin", `${mergeSHA}:${linear}`, `${mergeSHA}:${linearNew}`);
+    expect(denied.status).not.toBe(0);
+    expect(denied.stderr).toContain("merge commits are not allowed by the linear history rule");
+    expect(checkedGit(folder, "ls-remote", gitURL, linear, linearNew).trim()).toBe(`${previousSHA}\t${linear}`);
+    checkedGit(worktree, "push", "origin", `HEAD:${linear}`);
+    expect(checkedGit(folder, "ls-remote", gitURL, linear).trim()).toBe(`${currentSHA}\t${linear}`);
+
     await importRuleset({ ...tagRule, rules: [{ type: "required_signatures" }] });
     await expect(content.getByRole("alert")).toContainText("Choose a supported ruleset JSON file");
     await expect(content.getByRole("button", { name: "Save changes" })).toBeDisabled();

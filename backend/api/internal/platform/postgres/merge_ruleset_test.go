@@ -101,12 +101,12 @@ func TestRepositoryRulesetChangesetMerge(t *testing.T) {
 	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
 	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true})
 	merge(pull.ID, "main", http.StatusConflict, "the merge queue is required")
-	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true, RequireLinearHistory: true})
 	merge(pull.ID, "main", http.StatusOK, "current")
 	merged := h.stored(t, string(pull.ID)).Changeset.Merge
 	target, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/main")
 	lockMust(t, err)
-	if merged == nil || merged.RevisionID != "current" || merged.CommitSHA != target.CommitSHA || target.CommitSHA == base.CommitSHA {
+	if merged == nil || merged.RevisionID != "current" || merged.CommitSHA != target.CommitSHA || target.CommitSHA != topic.CommitSHA {
 		t.Fatalf("verified current PR did not update branch and Changeset: %+v", merged)
 	}
 }
@@ -158,6 +158,8 @@ func TestRepositoryRulesetIntegrationPromotion(t *testing.T) {
 	promote(http.StatusConflict, "the merge queue is required")
 	setMainMergeRuleset(t, s, org, githttp.RefRule{RestrictUpdate: true})
 	promote(http.StatusConflict, "branch updates are restricted")
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireLinearHistory: true})
+	promote(http.StatusConflict, "merge commits are not allowed by the linear history rule")
 	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
 	promote(http.StatusConflict, "cannot verify pull request coverage")
 	other, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/other")
@@ -196,7 +198,7 @@ func TestRepositoryRulesetRequiresVerifiedQueueEntry(t *testing.T) {
 	ctx := t.Context()
 	s, h, git, _, _ := integrationFixture(t)
 	org := h.organizationID
-	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true})
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true, RequireLinearHistory: true})
 	api := "/api/v1/organizations/" + org
 	response := h.do(ctx, http.MethodPost, api+"/pipelines/p/versions/1/merge-queue", `{"repository":"team/repo","target":"main","sources":["topic"]}`)
 	if response.Code != http.StatusCreated {
@@ -206,7 +208,7 @@ func TestRepositoryRulesetRequiresVerifiedQueueEntry(t *testing.T) {
 	lockMust(t, json.Unmarshal(response.Body.Bytes(), &entry))
 	run, err := s.GetRun(ctx, org, entry.RunID)
 	lockMust(t, err)
-	if run.Integration == nil || run.Integration.QueueEntry != entry.ID {
+	if run.Integration == nil || run.Integration.QueueEntry != entry.ID || run.Integration.Strategy != "ff-only" {
 		t.Fatal("missing queue-bound run")
 	}
 	task, err := s.ClaimTask(ctx, registerTestRunner(t, s, org, pipeline.ContainerCheck))

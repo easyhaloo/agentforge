@@ -8,6 +8,7 @@ const ruleTypes = {
   restrict_update: "update",
   restrict_deletion: "deletion",
   block_force_push: "non_fast_forward",
+  require_linear_history: "required_linear_history",
   require_pull_request: "pull_request",
   require_merge_queue: "merge_queue",
 } as const;
@@ -115,12 +116,13 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     if (!supportedRuleParameters(rule.type, rule.parameters)) return undefined;
     types.add(rule.type);
   }
-  if (target === "tag" && (types.has("non_fast_forward") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
+  if (target === "tag" && (types.has("non_fast_forward") || types.has("required_linear_history") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
   if (types.has("merge_queue") && (include.length !== 1 || include[0] !== "~DEFAULT_BRANCH" || exclude.length)) return undefined;
   return {
     name, target, enabled: enforcement === "active", include, exclude,
     restrict_creation: types.has("creation"), restrict_update: types.has("update"),
     restrict_deletion: types.has("deletion"), block_force_push: types.has("non_fast_forward"),
+    ...(types.has("required_linear_history") && { require_linear_history: true }),
     ...(types.has("pull_request") && { require_pull_request: true }),
     ...(types.has("merge_queue") && { require_merge_queue: true }),
     ...(namePatterns.length > 0 && { name_patterns: namePatterns }),

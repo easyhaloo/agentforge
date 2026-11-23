@@ -76,9 +76,15 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 			writeProblem(w, 503, "Catalog unavailable", "Could not read registered repositories")
 			return
 		}
-		if !slices.ContainsFunc(repos, func(item delivery.RepositoryMetadata) bool { return item.Slug == input.Repository }) {
+		repoIndex := slices.IndexFunc(repos, func(item delivery.RepositoryMetadata) bool { return item.Slug == input.Repository })
+		if repoIndex < 0 {
 			writeProblem(w, 404, "Unknown repository", "Select a repository registered in this organization")
 			return
+		}
+		repo := repos[repoIndex]
+		target := strings.TrimPrefix(input.Target, "refs/heads/")
+		if (queueRequest || input.Strategy == "") && githttp.LinearHistoryRule(repo.RefRules, target, repo.DefaultBranch) != "" {
+			input.Strategy = "ff-only"
 		}
 		select {
 		case slots <- struct{}{}:
@@ -186,7 +192,7 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 	case errors.Is(err, pipeline.ErrMissing):
 		writeProblem(w, 404, "Run unavailable", "Select a run in this organization")
 	case errors.Is(err, githttp.ErrBranchUpdatesRestricted), errors.Is(err, githttp.ErrBranchPullRequestRequired),
-		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRefNameRestricted):
+		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRefNameRestricted), errors.Is(err, githttp.ErrLinearHistoryRequired):
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks promotion", err.Error())
 	case errors.Is(err, pipeline.ErrConflict):
 		writeProblem(w, 409, "Merge gate closed", "Check the exact candidate, build, evidence and current revision approvals")

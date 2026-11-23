@@ -103,7 +103,7 @@ paths:
                 repository: {type: string}
                 target: {type: string}
                 sources: {type: array, minItems: 1, maxItems: 1, items: {type: string}}
-                strategy: {type: string, const: merge-commit}
+                strategy: {type: string, const: merge-commit, description: The queue selects fast-forward only when the target branch requires linear history.}
                 inputs: {type: object, additionalProperties: true}
       responses:
         '201':

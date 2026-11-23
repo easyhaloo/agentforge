@@ -16,6 +16,7 @@ const restrictionLabels = {
   restrict_update: "settings.rulesets.restrictUpdate",
   restrict_deletion: "settings.rulesets.restrictDeletion",
   block_force_push: "settings.rulesets.blockForcePush",
+  require_linear_history: "settings.rulesets.requireLinearHistory",
   require_pull_request: "settings.rulesets.requirePullRequest",
   require_merge_queue: "settings.rulesets.requireMergeQueue",
 } as const;
@@ -35,10 +36,11 @@ function patterns(value: string) {
   return value.split(/\r?\n/).map(pattern => pattern.trim()).filter(Boolean);
 }
 
-function toRule({ id: _id, name, include, exclude, require_pull_request, require_merge_queue, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
+function toRule({ id: _id, name, include, exclude, require_pull_request, require_merge_queue, require_linear_history, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
   return { ...rule, name: name.trim(), include: patterns(include), exclude: patterns(exclude),
     ...(require_pull_request && { require_pull_request }),
     ...(require_merge_queue && { require_merge_queue }),
+    ...(require_linear_history && { require_linear_history }),
     ...(name_patterns?.length && { name_patterns: name_patterns.map(({ operator, pattern, name, negate }) => ({
       operator, pattern, ...(name && { name }), ...(negate && { negate }),
     })) }),
@@ -119,7 +121,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     }
     if (!rule.include.length) return t("settings.rulesets.includeRequired");
     if (rule.include.length + rule.exclude.length > maxPatterns) return t("settings.rulesets.tooManyPatterns", { max: maxPatterns });
-    if (rule.target === "tag" && (rule.block_force_push || rule.require_pull_request || rule.require_merge_queue)) return t("settings.rulesets.tagBranchRestrictions");
+    if (rule.target === "tag" && (rule.block_force_push || rule.require_pull_request || rule.require_merge_queue || rule.require_linear_history)) return t("settings.rulesets.tagBranchRestrictions");
     if (rule.require_merge_queue && (rule.include.length !== 1 || rule.include[0] !== "~DEFAULT_BRANCH" || rule.exclude.length)) {
       return t("settings.rulesets.mergeQueueTarget");
     }
@@ -305,7 +307,7 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
           { value: "branch", label: t("settings.rulesets.branch") },
           { value: "tag", label: t("settings.rulesets.tag") },
         ]}
-        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", block_force_push: false, require_pull_request: false, require_merge_queue: false } : { target: "branch" })} />
+        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", block_force_push: false, require_pull_request: false, require_merge_queue: false, require_linear_history: false } : { target: "branch" })} />
     </div>
     <Checkbox label={t("settings.rulesets.active")} checked={rule.enabled} disabled={busy} onChange={event => onChange({ enabled: event.target.checked })} />
     <div className="repo-settings-rule-fields">
@@ -316,9 +318,10 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
     </div>
     <fieldset className="repo-settings-rule-restrictions">
       <legend>{t("settings.rulesets.restrictions")}</legend>
-      {restrictions.map(key => rule.target === "tag" && (key === "block_force_push" || key === "require_pull_request" || key === "require_merge_queue") ? null :
+      {restrictions.map(key => rule.target === "tag" && (key === "block_force_push" || key === "require_pull_request" || key === "require_merge_queue" || key === "require_linear_history") ? null :
         <Checkbox key={key} label={t(restrictionLabels[key])} checked={Boolean(rule[key])} disabled={busy}
           onChange={event => onChange({ [key]: event.target.checked })} />)}
+      {rule.require_linear_history && <p>{t("settings.rulesets.linearHistoryHelp")}</p>}
       {rule.require_merge_queue && <p>{t("settings.rulesets.mergeQueueHelp")}</p>}
     </fieldset>
     <fieldset className="repo-settings-rule-restrictions">

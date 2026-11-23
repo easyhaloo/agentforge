@@ -74,6 +74,15 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 			return err
 		}
 	}
+	if !recorded && githttp.LinearHistoryRule(rules, candidate.Target.Ref, candidate.Target.Ref) != "" {
+		local, ok := git.(*delivery.LocalGitProvider)
+		if !ok {
+			return delivery.ErrProviderUnavailable
+		}
+		if err := local.CheckLinearHistory(ctx, org, candidate.Repository, candidate.Target.SHA, sha); err != nil {
+			return err
+		}
+	}
 	var first int64
 	var currentRun string
 	err = tx.QueryRow(ctx, `SELECT id,coalesce(run_id::text,'') FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND `+activeQueue+` ORDER BY id LIMIT 1`, org, candidate.Repository, candidate.Target.Ref).Scan(&first, &currentRun)
