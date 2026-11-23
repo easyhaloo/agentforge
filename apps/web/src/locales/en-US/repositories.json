@@ -876,6 +876,15 @@
       "allow_rebase_merge": "Allow rebase merging",
       "required": "Enable at least one pull request merge method."
     },
+    "mergeMessage": {
+      "mergeLabel": "Merge commit message",
+      "squashLabel": "Squash commit message",
+      "default": "Default message",
+      "title": "Pull request title",
+      "description": "Pull request title and description",
+      "commits": "Pull request title and commit details",
+      "help": "These formats apply when merging a pull request from its page."
+    },
     "deleteMergedBranches": "Automatically delete head branches",
     "deleteMergedBranchesHelp": "Delete the source branch after merging when it has not moved, is not protected, and is not used by an open pull request.",
     "issuesHelp": "Disabling Issues hides this repository’s issue tracker. Re-enable Issues to restore access.",

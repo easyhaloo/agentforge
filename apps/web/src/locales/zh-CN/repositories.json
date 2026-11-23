@@ -876,6 +876,15 @@
       "allow_rebase_merge": "允许变基合并",
       "required": "请至少启用一种拉取请求合并方式。"
     },
+    "mergeMessage": {
+      "mergeLabel": "合并提交消息",
+      "squashLabel": "压缩提交消息",
+      "default": "默认消息",
+      "title": "拉取请求标题",
+      "description": "拉取请求标题和描述",
+      "commits": "拉取请求标题和提交详情",
+      "help": "在拉取请求页面执行合并时使用这些格式。"
+    },
     "deleteMergedBranches": "自动删除已合并的源分支",
     "deleteMergedBranchesHelp": "合并后删除引用未变化、未受保护且没有被其他开放拉取请求使用的源分支。",
     "issuesHelp": "关闭 Issues 会隐藏此仓库的问题跟踪。重新启用后可恢复访问。",

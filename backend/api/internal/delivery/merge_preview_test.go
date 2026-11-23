@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
 
 func TestOrderedPreviewIsReproducibleAndDoesNotTouchRefs(t *testing.T) {
@@ -340,4 +342,36 @@ func newCandidateStrategyRepo(t *testing.T) (*LocalGitProvider, func(...string) 
 		return git("rev-parse", "HEAD")
 	}
 	return mustProvider(t, root), git, commit
+}
+
+func TestPullRequestCandidateCommitMessage(t *testing.T) {
+	repo := t.TempDir()
+	gitTest(t, repo, "init", "-b", "main")
+	gitTest(t, repo, "commit", "--allow-empty", "-m", "base")
+	gitTest(t, repo, "checkout", "-b", "feature")
+	gitTest(t, repo, "commit", "--allow-empty", "-m", "First commit", "-m", "First details")
+	gitTest(t, repo, "branch", "single")
+	gitTest(t, repo, "commit", "--allow-empty", "-m", "Second commit")
+	c := Changeset{ID: "proposal", Repository: "team/repo", Title: "Verified change", PullRequest: &PullRequest{SourceBranch: "feature", Description: "Explain the change."}}
+	for _, tc := range []struct{ strategy, format, source, want string }{
+		{"merge-commit", "default", "feature", "Merge pull request proposal from team/repo:feature\n\nVerified change"},
+		{"merge-commit", "title", "feature", "Verified change"},
+		{"merge-commit", "description", "feature", "Verified change\n\nExplain the change."},
+		{"squash", "default", "single", "First commit\n\nFirst details"},
+		{"squash", "default", "feature", "Verified change\n\n* First commit\n* Second commit"},
+		{"squash", "title", "feature", "Verified change"},
+		{"squash", "description", "feature", "Verified change\n\nExplain the change."},
+		{"squash", "commits", "single", "Verified change\n\n* First commit"},
+	} {
+		t.Run(tc.strategy+"/"+tc.format+"/"+tc.source, func(t *testing.T) {
+			formats := githttp.MergeMessageFormats{MergeCommitMessageFormat: tc.format, SquashCommitMessageFormat: tc.format}
+			candidate, err := simulateMerge(t.Context(), repo, MergeRequest{Target: "main", Sources: []string{tc.source}, Strategy: tc.strategy, PullMessage: c.PullMergeMessage(formats)})
+			if err != nil || candidate.Status != "clean" {
+				t.Fatalf("prepare candidate: %+v, %v", candidate, err)
+			}
+			if got := strings.TrimSpace(gitTest(t, repo, "show", "-s", "--format=%B", candidate.CandidateSHA)); got != tc.want {
+				t.Fatalf("candidate commit message = %q, want %q", got, tc.want)
+			}
+		})
+	}
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { GitBranch, KeyRound, Play, Scale, Settings, Tag } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
+import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMergeMessageFormat, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { translateError } from "../../shared/api/errors";
 import { organizationHandle, repositoryNewPath, repositoryPath, repositorySettingsPath, type RepositorySettingsSection } from "../../shared/routing";
@@ -66,6 +66,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
           <Link className="repo-link" to={repositoryPath(handle, repository)}>{refs.repository}</Link>
           <GeneralSettings organization={organization} refs={refs} onSave={item => setRefs(current => current && {
             ...current, allow_merge_commit: item.allow_merge_commit, allow_squash_merge: item.allow_squash_merge, allow_rebase_merge: item.allow_rebase_merge,
+            merge_commit_message_format: item.merge_commit_message_format, squash_commit_message_format: item.squash_commit_message_format,
             description: item.description, web_commit_signoff_required: item.web_commit_signoff_required, delete_merged_branches: item.delete_merged_branches, issues_disabled: item.issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
           })} />
         </section>
@@ -161,6 +162,8 @@ function ActionsSettings({ organization, repository, onSave }: {
   </section>;
 }
 
+const mergeMessageFormats = ["default", "title", "description"] as const satisfies readonly RepositoryMergeMessageFormat[];
+const squashMessageFormats = [...mergeMessageFormats, "commits"] as const;
 const mergeMethodKeys = ["allow_merge_commit", "allow_squash_merge", "allow_rebase_merge"] as const;
 type MergeMethodKey = typeof mergeMethodKeys[number];
 
@@ -187,10 +190,15 @@ function GeneralSettings({ organization, refs, onSave }: {
   const pushLimitValue = Number(pushLimit);
   const validPushLimit = pushLimit !== "" && (pushLimitValue === 0 ||
     (Number.isInteger(pushLimitValue) && pushLimitValue >= 2 && pushLimitValue <= 128));
+  const [mergeMessageDraft, setMergeMessageDraft] = useState<RepositoryMergeMessageFormat>();
+  const [squashMessageDraft, setSquashMessageDraft] = useState<RepositoryMergeMessageFormat | "commits">();
+  const mergeMessage = mergeMessageDraft ?? refs.merge_commit_message_format ?? "default";
+  const squashMessage = squashMessageDraft ?? refs.squash_commit_message_format ?? "default";
+  const messageFormatsChanged = mergeMessage !== (refs.merge_commit_message_format ?? "default") || squashMessage !== (refs.squash_commit_message_format ?? "default");
   const mergeMethodEnabled = (key: MergeMethodKey) => mergeMethodsDraft[key] ?? refs[key] ?? true;
   const validMergeMethods = mergeMethodKeys.some(mergeMethodEnabled);
   const mergeMethodsChanged = mergeMethodKeys.some(key => mergeMethodEnabled(key) !== (refs[key] ?? true));
-  const changed = mergeMethodsChanged || description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
+  const changed = messageFormatsChanged || mergeMethodsChanged || description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
   const canEdit = canManageRepository(organization) && Boolean(refs.updated_at);
   const useTemplate = `${repositoryNewPath(organizationHandle(organization))}?${new URLSearchParams({ template: refs.repository })}`;
 
@@ -202,6 +210,8 @@ function GeneralSettings({ organization, refs, onSave }: {
     try {
       const item = await repositoryAPI.updateGeneralSettings(organization.id, refs.repository, {
         ...mergeMethodsDraft,
+        ...(mergeMessageDraft === undefined ? {} : { merge_commit_message_format: mergeMessageDraft }),
+        ...(squashMessageDraft === undefined ? {} : { squash_commit_message_format: squashMessageDraft }),
         description: description.trim(), web_commit_signoff_required: signoffRequired, is_template: isTemplate, issues_disabled: !issuesEnabled, updated_at: refs.updated_at,
         ...(refs.hosting_kind === "hosted" ? { delete_merged_branches: deleteBranches } : {}),
         ...(refs.git_credentials_available ? { push_ref_limit: pushLimitValue } : {}),
@@ -211,6 +221,8 @@ function GeneralSettings({ organization, refs, onSave }: {
       setIssuesDraft(undefined);
       setDeleteBranchesDraft(undefined);
       setMergeMethodsDraft({});
+      setMergeMessageDraft(undefined);
+      setSquashMessageDraft(undefined);
       setSignoffDraft(undefined);
       setDraft(undefined);
       setTemplate(undefined);
@@ -240,11 +252,23 @@ function GeneralSettings({ organization, refs, onSave }: {
       onChange={event => { setIssuesDraft(event.target.checked); setSaved(false); }} />
     <p>{t("settings.issuesHelp")}</p>
     <h3 className="repo-settings-subheading">{t("settings.pullRequests")}</h3>
-    {mergeMethodKeys.map(key => <Checkbox key={key} label={t(`settings.mergeMethods.${key}`)} checked={mergeMethodEnabled(key)} disabled={busy}
-      onChange={event => {
-        setMergeMethodsDraft({ ...mergeMethodsDraft, [key]: event.target.checked });
-        setSaved(false);
-      }} />)}
+    {mergeMethodKeys.map(key => <div className="repo-settings-merge-method" key={key}>
+      <Checkbox label={t(`settings.mergeMethods.${key}`)} checked={mergeMethodEnabled(key)} disabled={busy}
+        onChange={event => {
+          setMergeMethodsDraft({ ...mergeMethodsDraft, [key]: event.target.checked });
+          setSaved(false);
+        }} />
+      {refs.hosting_kind === "hosted" && mergeMethodEnabled(key) && key === "allow_merge_commit" &&
+        <Select label={t("settings.mergeMessage.mergeLabel")} value={mergeMessage} disabled={busy}
+          options={mergeMessageFormats.map(value => ({ value, label: t(`settings.mergeMessage.${value}`) }))}
+          onChange={event => { setMergeMessageDraft(mergeMessageFormats.find(value => value === event.target.value)); setSaved(false); }} />}
+      {refs.hosting_kind === "hosted" && mergeMethodEnabled(key) && key === "allow_squash_merge" &&
+        <Select label={t("settings.mergeMessage.squashLabel")} value={squashMessage} disabled={busy}
+          options={squashMessageFormats.map(value => ({ value, label: t(`settings.mergeMessage.${value}`) }))}
+          onChange={event => { setSquashMessageDraft(squashMessageFormats.find(value => value === event.target.value)); setSaved(false); }} />}
+    </div>)}
+    {refs.hosting_kind === "hosted" && (mergeMethodEnabled("allow_merge_commit") || mergeMethodEnabled("allow_squash_merge")) &&
+      <p>{t("settings.mergeMessage.help")}</p>}
     {!validMergeMethods && <p role="alert" className="org-error">{t("settings.mergeMethods.required")}</p>}
     {refs.hosting_kind === "hosted" && <>
       <Checkbox label={t("settings.deleteMergedBranches")} checked={deleteBranches} disabled={busy}

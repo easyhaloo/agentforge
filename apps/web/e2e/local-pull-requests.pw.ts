@@ -512,6 +512,13 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.reload();
     await expect(mergeCommits).not.toBeChecked();
     await capture("general-merge-methods");
+    const squashMessageFormat = page.getByRole("combobox", { name: "Squash commit message" });
+    await selectOption(page, squashMessageFormat, "Pull request title and description");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(squashMessageFormat).toContainText("Pull request title and description");
+    await capture("general-merge-message");
     await page.goto(detail);
     expect(await post("merge", { target_ref: "release", merge_method: "merge" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
@@ -558,6 +565,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(git("rev-parse", "refs/heads/main")).toBe(target);
     expect(mergedHead).not.toBe(secondHead);
     expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([target]);
+    expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${updatedTitle}\n\nA real pull request from the Git test repository.`);
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();

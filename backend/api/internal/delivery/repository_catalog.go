@@ -12,6 +12,7 @@ var ErrNoRepositoryMergeMethod = errors.New("enable at least one pull request me
 
 type RepositoryMetadata struct {
 	githttp.MergeMethods
+	githttp.MergeMessageFormats
 	OrganizationID           string            `json:"organization_id"`
 	Slug                     string            `json:"slug"`
 	Description              string            `json:"description,omitempty"`

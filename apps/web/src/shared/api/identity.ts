@@ -178,7 +178,14 @@ export type RepositoryRefRule = {
   require_linear_history?: boolean;
   name_patterns?: RefNamePattern[];
 };
-type RepositoryMergeMethods = { allow_merge_commit?: boolean; allow_squash_merge?: boolean; allow_rebase_merge?: boolean };
+export type RepositoryMergeMessageFormat = "default" | "title" | "description";
+type RepositoryMergeMethods = {
+  allow_merge_commit?: boolean;
+  allow_squash_merge?: boolean;
+  allow_rebase_merge?: boolean;
+  merge_commit_message_format?: RepositoryMergeMessageFormat;
+  squash_commit_message_format?: RepositoryMergeMessageFormat | "commits";
+};
 export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
 export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered"; pull_request_merge_methods?: PullRequestMergeMethod[] };

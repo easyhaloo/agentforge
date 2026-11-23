@@ -1209,7 +1209,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if strategy != "" {
-		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, unlockRepository)
+		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, policy.MergeMessageFormats, unlockRepository)
 		return
 	}
 	id, err := newID()

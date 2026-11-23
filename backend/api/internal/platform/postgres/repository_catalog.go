@@ -25,9 +25,9 @@ func (s *Store) RegisterRepository(ctx context.Context, input delivery.Repositor
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO delivery_repositories (organization_id,slug,default_branch,created_by,visibility,fork,description)
 		VALUES ($1,$2,$3,$4,$5,$6,$7)
-		RETURNING created_at,updated_at,allow_merge_commit,allow_squash_merge,allow_rebase_merge
+		RETURNING created_at,updated_at,allow_merge_commit,allow_squash_merge,allow_rebase_merge,merge_commit_message_format,squash_commit_message_format
 	`, input.OrganizationID, input.Slug, input.DefaultBranch, input.CreatedBy, input.Visibility, input.Fork, input.Description).
-		Scan(&input.CreatedAt, &input.UpdatedAt, &input.AllowMergeCommit, &input.AllowSquashMerge, &input.AllowRebaseMerge)
+		Scan(&input.CreatedAt, &input.UpdatedAt, &input.AllowMergeCommit, &input.AllowSquashMerge, &input.AllowRebaseMerge, &input.MergeCommitMessageFormat, &input.SquashCommitMessageFormat)
 	if err != nil {
 		var pgError *pgconn.PgError
 		if errors.As(err, &pgError) && pgError.Code == "23505" {
@@ -44,7 +44,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 	}
 	rows, err := s.pool.Query(ctx, `
 		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description,is_template,push_ref_limit,protected_refs,actions_disabled,ref_rules,issues_disabled,delete_merged_branches,web_commit_signoff_required,
-		       allow_merge_commit,allow_squash_merge,allow_rebase_merge
+		       allow_merge_commit,allow_squash_merge,allow_rebase_merge,merge_commit_message_format,squash_commit_message_format
 		FROM delivery_repositories WHERE organization_id=$1 ORDER BY slug ASC
 	`, organizationID)
 	if err != nil {
@@ -57,7 +57,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		if err := rows.Scan(
 			&item.OrganizationID, &item.Slug, &item.DefaultBranch, &item.CreatedBy,
 			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description, &item.IsTemplate, &item.PushRefLimit, &item.ProtectedRefs, &item.ActionsDisabled, &item.RefRules, &item.IssuesDisabled, &item.DeleteMergedBranches, &item.WebCommitSignoffRequired,
-			&item.AllowMergeCommit, &item.AllowSquashMerge, &item.AllowRebaseMerge,
+			&item.AllowMergeCommit, &item.AllowSquashMerge, &item.AllowRebaseMerge, &item.MergeCommitMessageFormat, &item.SquashCommitMessageFormat,
 		); err != nil {
 			return nil, err
 		}
@@ -104,14 +104,16 @@ func (s *Store) PatchRepositoryGeneralSettings(ctx context.Context, repository d
     protected_refs=COALESCE($7, '{}'::text[]), actions_disabled=$8, ref_rules=COALESCE(NULLIF($9::jsonb, 'null'::jsonb), '[]'::jsonb),
     issues_disabled=$10, delete_merged_branches=$11, web_commit_signoff_required=$12,
     allow_merge_commit=COALESCE($13, allow_merge_commit), allow_squash_merge=COALESCE($14, allow_squash_merge),
-    allow_rebase_merge=COALESCE($15, allow_rebase_merge), updated_at=clock_timestamp()
+    allow_rebase_merge=COALESCE($15, allow_rebase_merge),
+    merge_commit_message_format=COALESCE(NULLIF($16,''), merge_commit_message_format),
+    squash_commit_message_format=COALESCE(NULLIF($17,''), squash_commit_message_format), updated_at=clock_timestamp()
   WHERE organization_id=$1 AND slug=$2 AND updated_at=$5
-  RETURNING updated_at, allow_merge_commit, allow_squash_merge, allow_rebase_merge`,
+  RETURNING updated_at, allow_merge_commit, allow_squash_merge, allow_rebase_merge, merge_commit_message_format, squash_commit_message_format`,
 		repository.OrganizationID, repository.Slug, repository.Description, repository.IsTemplate, repository.UpdatedAt,
 		repository.PushRefLimit, repository.ProtectedRefs, repository.ActionsDisabled, repository.RefRules,
 		repository.IssuesDisabled, repository.DeleteMergedBranches, repository.WebCommitSignoffRequired,
-		methods.AllowMergeCommit, methods.AllowSquashMerge, methods.AllowRebaseMerge).
-		Scan(&repository.UpdatedAt, &repository.AllowMergeCommit, &repository.AllowSquashMerge, &repository.AllowRebaseMerge)
+		methods.AllowMergeCommit, methods.AllowSquashMerge, methods.AllowRebaseMerge, repository.MergeCommitMessageFormat, repository.SquashCommitMessageFormat).
+		Scan(&repository.UpdatedAt, &repository.AllowMergeCommit, &repository.AllowSquashMerge, &repository.AllowRebaseMerge, &repository.MergeCommitMessageFormat, &repository.SquashCommitMessageFormat)
 	var pgError *pgconn.PgError
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

@@ -175,23 +175,25 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 	}
 	var input struct {
 		githttp.MergeMethods
-		DefaultBranch            string             `json:"default_branch"`
-		PreviousBranch           string             `json:"previous_branch"`
-		Description              *string            `json:"description"`
-		WebCommitSignoffRequired *bool              `json:"web_commit_signoff_required"`
-		DeleteMergedBranches     *bool              `json:"delete_merged_branches"`
-		IssuesDisabled           *bool              `json:"issues_disabled"`
-		ActionsDisabled          *bool              `json:"actions_disabled"`
-		IsTemplate               *bool              `json:"is_template"`
-		PushRefLimit             *int               `json:"push_ref_limit"`
-		ProtectedRefs            *[]string          `json:"protected_refs"`
-		RefRules                 *[]githttp.RefRule `json:"ref_rules"`
-		UpdatedAt                time.Time          `json:"updated_at"`
+		MergeCommitMessageFormat  *string            `json:"merge_commit_message_format"`
+		SquashCommitMessageFormat *string            `json:"squash_commit_message_format"`
+		DefaultBranch             string             `json:"default_branch"`
+		PreviousBranch            string             `json:"previous_branch"`
+		Description               *string            `json:"description"`
+		WebCommitSignoffRequired  *bool              `json:"web_commit_signoff_required"`
+		DeleteMergedBranches      *bool              `json:"delete_merged_branches"`
+		IssuesDisabled            *bool              `json:"issues_disabled"`
+		ActionsDisabled           *bool              `json:"actions_disabled"`
+		IsTemplate                *bool              `json:"is_template"`
+		PushRefLimit              *int               `json:"push_ref_limit"`
+		ProtectedRefs             *[]string          `json:"protected_refs"`
+		RefRules                  *[]githttp.RefRule `json:"ref_rules"`
+		UpdatedAt                 time.Time          `json:"updated_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.MergeMethods.Specified() || input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
+	if input.MergeMethods.Specified() || input.MergeCommitMessageFormat != nil || input.SquashCommitMessageFormat != nil || input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.IssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -199,6 +201,20 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		if !input.UpdatedAt.Equal(repository.UpdatedAt) {
 			writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
 			return
+		}
+		if input.MergeCommitMessageFormat != nil || input.SquashCommitMessageFormat != nil {
+			if d.repositoryHostingKind(r.Context(), repository) != "hosted" ||
+				(input.MergeCommitMessageFormat != nil && !githttp.ValidMergeMessageFormat(*input.MergeCommitMessageFormat, false)) ||
+				(input.SquashCommitMessageFormat != nil && !githttp.ValidMergeMessageFormat(*input.SquashCommitMessageFormat, true)) {
+				writeProblem(w, 422, "Invalid merge message format", "Choose a supported format for a native Git repository")
+				return
+			}
+			if input.MergeCommitMessageFormat != nil {
+				repository.MergeCommitMessageFormat = *input.MergeCommitMessageFormat
+			}
+			if input.SquashCommitMessageFormat != nil {
+				repository.SquashCommitMessageFormat = *input.SquashCommitMessageFormat
+			}
 		}
 		if input.Description != nil {
 			repository.Description = strings.TrimSpace(*input.Description)

@@ -19,9 +19,10 @@ type MergePreviewProvider interface {
 	PreviewMerge(context.Context, string, string, MergeRequest) (MergePreview, error)
 }
 type MergeRequest struct {
-	Target   string   `json:"target"`
-	Sources  []string `json:"sources"`
-	Strategy string   `json:"strategy,omitempty"`
+	Target      string            `json:"target"`
+	Sources     []string          `json:"sources"`
+	Strategy    string            `json:"strategy,omitempty"`
+	PullMessage *PullMergeMessage `json:"-"`
 }
 type PinnedRef struct {
 	Ref string `json:"ref"`
@@ -250,8 +251,14 @@ func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergeP
 		if input.Strategy != "squash" && source.SHA != current {
 			parents = append(parents, "-p", source.SHA)
 		}
-		parents = append(parents, "-m", "AgentForge integration candidate")
-		raw, err := previewGit(ctx, temp, parents...)
+		message := "AgentForge integration candidate"
+		if input.PullMessage != nil {
+			message, err = input.PullMessage.render(ctx, temp, input.Strategy, current, source.SHA)
+			if err != nil {
+				return result, err
+			}
+		}
+		raw, err := previewGitInput(ctx, temp, strings.NewReader(message+"\n"), parents...)
 		if err != nil {
 			return result, ErrPreviewUnavailable
 		}

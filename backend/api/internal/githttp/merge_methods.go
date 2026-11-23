@@ -10,6 +10,16 @@ var pullRequestMethods = [...]string{"merge", "squash", "rebase"}
 
 var ErrMergeMethodDisabled = errors.New("repository does not allow this merge method")
 
+type MergeMessageFormats struct {
+	MergeCommitMessageFormat  string `json:"merge_commit_message_format,omitempty"`
+	SquashCommitMessageFormat string `json:"squash_commit_message_format,omitempty"`
+}
+
+// ValidMergeMessageFormat checks a supplied setting. An omitted setting is handled by the caller.
+func ValidMergeMessageFormat(format string, squash bool) bool {
+	return format == "default" || format == "title" || format == "description" || (squash && format == "commits")
+}
+
 // MergeMethods represents repository settings and partial updates. An unset
 // setting is enabled, including for catalogs that predate these controls.
 type MergeMethods struct {

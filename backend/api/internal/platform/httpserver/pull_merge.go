@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
 
 type pullMergeStore interface {
@@ -51,7 +52,7 @@ func (d DeliveryDependencies) recoverPullMerge(w http.ResponseWriter, r *http.Re
 	return false
 }
 
-func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Request, org, actor string, stored delivery.StoredChangeset, revision delivery.Revision, baseSHA, strategy string, release func()) {
+func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Request, org, actor string, stored delivery.StoredChangeset, revision delivery.Revision, baseSHA, strategy string, formats githttp.MergeMessageFormats, release func()) {
 	store, persistent := d.Repository.(pullMergeStore)
 	git, local := d.Git.(*delivery.LocalGitProvider)
 	if !persistent || !local {
@@ -62,6 +63,7 @@ func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Req
 	pull := c.PullRequest
 	candidate, err := git.PrepareCandidate(ctx, org, c.Repository, delivery.MergeRequest{
 		Target: pull.BaseBranch, Sources: []string{pull.SourceBranch}, Strategy: strategy,
+		PullMessage: c.PullMergeMessage(formats),
 	})
 	if err != nil || candidate.Status != "clean" || candidate.Target.SHA != baseSHA || len(candidate.Sources) != 1 || candidate.Sources[0].SHA != revision.CommitSHA {
 		writeProblem(w, 409, "Git merge rejected", "The verified source and target could not be merged using this method")

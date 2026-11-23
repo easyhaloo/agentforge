@@ -23,7 +23,8 @@ const MaxPushRefs = 128
 
 // PushPolicy is loaded while holding the repository row lock for a Git receive.
 type PushPolicy struct {
-	MergeMethods             MergeMethods
+	MergeMethods MergeMethods
+	MergeMessageFormats
 	DefaultBranch            string
 	RefLimit                 int
 	ProtectedRefs            []string

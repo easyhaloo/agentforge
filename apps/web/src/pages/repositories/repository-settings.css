@@ -97,3 +97,12 @@
 @media (max-width: 680px) {
   .repo-settings-rule-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+.repo-settings-merge-method {
+  display: grid;
+  gap: 8px;
+}
+
+.repo-settings-merge-method > .af-field {
+  margin-inline-start: 24px;
+}

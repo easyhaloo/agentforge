@@ -717,6 +717,8 @@ paths:
                     allow_merge_commit: { type: boolean }
                     allow_squash_merge: { type: boolean }
                     allow_rebase_merge: { type: boolean }
+                    merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
+                    squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                     issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
                     actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
@@ -774,6 +776,8 @@ paths:
                   allow_merge_commit: { type: boolean, default: true }
                   allow_squash_merge: { type: boolean, default: true }
                   allow_rebase_merge: { type: boolean, default: true }
+                  merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
+                  squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                   web_commit_signoff_required: { type: boolean }
                   issues_disabled: { type: boolean }
                   description: { type: string }
@@ -2284,6 +2288,8 @@ components:
         allow_merge_commit: { type: boolean, default: true }
         allow_squash_merge: { type: boolean, default: true }
         allow_rebase_merge: { type: boolean, default: true }
+        merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
+        squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
         web_commit_signoff_required: { type: boolean }
         issues_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
