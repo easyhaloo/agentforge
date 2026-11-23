@@ -1,15 +1,25 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Clipboard, RefreshCw, UserPlus, Users, ShieldCheck, History, Mail, Ban, Check, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Ban, Building2, Check, Clipboard, Ellipsis, History, Mail, RefreshCw, ShieldCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { organizationAPI, type CreatedInvitation, type MembershipAuditEvent, type OrganizationInvitation, type OrganizationMember, type OrganizationSummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { Button, ConfirmDialog, DataTable, Input, Select, Tabs } from "../../shared/ui";
+import { Button, ConfirmDialog, DataTable, Input, Popover, Select, Tabs } from "../../shared/ui";
+
+import { AccountAvatar } from "../../shared/ui/components/AccountAvatar";
+import "./organization-settings.css";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
 type Tab = "members" | "invitations" | "audit";
 
-const statusClass = (status: string) => status === "active" || status === "accepted" ? "status success" : status === "pending" ? "status warning" : "status muted";
+const statusTone = (status: string) => {
+  switch (status) {
+    case "active": case "accepted": return "success";
+    case "pending": case "invited": return "warning";
+    case "suspended": case "removed": case "revoked": return "danger";
+    default: return "neutral";
+  }
+};
 
 export function OrganizationManagementPage({ organization, onNotify }: Props) {
   const { t } = useTranslation("organization");
@@ -18,7 +28,10 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
   const [events, setEvents] = useState<MembershipAuditEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const inviteEmail = useRef<HTMLInputElement>(null);
+  const focusInviteEmail = useRef(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
@@ -76,12 +89,20 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
         organizationAPI.audit(organization.id),
       ]);
       setMembers(memberPage.items); setInvitations(invitationPage.items); setEvents(auditPage.items);
+      setLoaded(true);
     } catch (cause) {
       setError(translateError(cause, t, "organization:feedback.loadFailed"));
     } finally { setLoading(false); }
   }, [organization.id, canAdmin]);
 
   useEffect(() => { setCreated(null); void load(); }, [load]);
+
+  useEffect(() => {
+    if (tab === "invitations" && focusInviteEmail.current) {
+      inviteEmail.current?.focus();
+      focusInviteEmail.current = false;
+    }
+  }, [tab]);
 
   const updateMember = async (member: OrganizationMember, update: { role?: string; status?: string }) => {
     setBusyID(member.user_id); setError("");
@@ -116,87 +137,174 @@ export function OrganizationManagementPage({ organization, onNotify }: Props) {
     catch { setError(t("feedback.clipboardUnavailable")); }
   };
 
-  if (!canAdmin) return <section className="org-admin card"><div className="org-admin-empty"><ShieldCheck size={26}/><h2>{t("page.restrictedTitle")}</h2><p>{t("page.restrictedDescription", { role: roleLabel(organization.role) })}</p></div></section>;
+  const renderStatus = (status: string) => (
+    <span className={`org-label org-label--${statusTone(status)}`}>{statusLabel(status)}</span>
+  );
+  const renderDate = (date: string) => <time dateTime={date}>{formatDateTime(date)}</time>;
+  const canManageMember = (member: OrganizationMember) =>
+    member.status !== "removed" && (organization.role === "owner" || member.role === "member" || member.role === "viewer");
+  const roleOptions = organization.role === "owner" ? ["admin", "member", "viewer"] : ["member", "viewer"];
 
-  return <section className="org-admin">
-    <div className="org-admin-summary card">
-      <div className="org-admin-summary__icon"><Users size={19}/></div>
-      <div><h2>{organization.name}</h2><p>{t("page.description")}</p></div>
-      <span className="org-role">{roleLabel(organization.role)}</span>
-      <Button className="button secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> {t("common:actions.refresh")}</Button>
-    </div>
-    <Tabs
-      id="organization-admin"
-      value={tab}
-      onChange={(value) => setTab(value as Tab)}
-      ariaLabel={t("tabs.ariaLabel")}
-      className="org-tabs"
-      items={[
-        { key: "members", label: <><Users size={14}/> {t("tabs.members")} <em>{members.length}</em></> },
-        { key: "invitations", label: <><Mail size={14}/> {t("tabs.invitations")} <em>{invitations.length}</em></> },
-        { key: "audit", label: <><History size={14}/> {t("tabs.audit")}</> },
-      ]}
-    />
-    {error && <div className="org-error" role="alert">{error}</div>}
-    {created && <div className="org-invite-created"><div><b>{t("invitations.created.title")}</b><p>{t("invitations.created.description")}</p></div><code>{created.invitation_url}</code><Button className="button secondary" onClick={()=>void copyInvitation()}><Clipboard size={14}/> {t("invitations.created.copyButton")}</Button><Button variant="ghost" className="org-icon-action" aria-label={t("invitations.created.dismissAriaLabel")} onClick={()=>setCreated(null)}><X size={15}/></Button></div>}
-    <div role="tabpanel" id="organization-admin-panel" aria-labelledby={`organization-admin-tab-${tab}`} tabIndex={0}>
-    {loading ? <div className="org-loading">{t("page.loading")}</div> : tab==="members" ? <>
-      <div className="org-panel-head"><div><h3>{t("members.title")}</h3><p>{t("members.description")}</p></div></div>
-      <DataTable
-        className="org-table"
-        columns={[
-          { key: "display_name", title: t("members.columns.member"), render: (_, member) => <><b>{member.display_name}</b><small>{member.email || member.user_id}</small></> },
-          { key: "role", title: t("members.columns.role"), render: (_, member) => {
-            const manageable = member.status !== "removed" && (organization.role === "owner" || member.role === "member" || member.role === "viewer");
-            const roleOptions = organization.role === "owner" ? ["admin", "member", "viewer"] : ["member", "viewer"];
-            return <Select aria-label={t("members.actions.roleAriaLabel", { memberName: member.display_name })} value={member.role} disabled={!manageable || busyID === member.user_id} onChange={(event) => void updateMember(member, { role: event.target.value })} options={[...new Set([member.role, ...roleOptions])].map((value) => ({ label: roleLabel(value), value }))} />;
-          } },
-          { key: "status", title: t("members.columns.status"), render: (_, member) => <span className={statusClass(member.status)}>{statusLabel(member.status)}</span> },
-          { key: "created_at", title: t("members.columns.joined"), render: (_, member) => formatDateTime(member.created_at) },
-          { key: "actions", title: t("members.columns.actions"), render: (_, member) => {
-            const manageable = member.status !== "removed" && (organization.role === "owner" || member.role === "member" || member.role === "viewer");
-            return <div className="org-actions">{manageable && <><Button variant="ghost" className="org-icon-action" title={member.status === "active" ? t("members.actions.suspend") : t("members.actions.reactivate")} disabled={busyID === member.user_id} onClick={() => void updateMember(member, { status: member.status === "active" ? "suspended" : "active" })}>{member.status === "active" ? <Ban size={14}/> : <Check size={14}/>}</Button><Button variant="ghost" className="org-icon-action danger" title={t("members.actions.remove")} disabled={busyID === member.user_id} onClick={() => setMemberToRemove(member)}><X size={14}/></Button></>}</div>;
-          } },
+  return <section className="org-settings" aria-labelledby="org-settings-title">
+    <header className="org-admin-summary">
+      <span className="org-admin-summary__icon"><Building2 size={24} aria-hidden="true" /></span>
+      <div className="org-admin-summary__identity">
+        <div className="org-admin-summary__title">
+          <h1 id="org-settings-title">{organization.name}</h1>
+          <span className="org-label">{roleLabel(organization.role)}</span>
+        </div>
+        <p>{t("page.description")}</p>
+      </div>
+      {canAdmin && <Button onClick={() => void load()} disabled={loading}>
+        <RefreshCw size={16} aria-hidden="true" /> {t("common:actions.refresh")}
+      </Button>}
+    </header>
+    {!canAdmin ? <div className="org-settings-empty">
+      <ShieldCheck size={26} aria-hidden="true" />
+      <h2>{t("page.restrictedTitle")}</h2>
+      <p>{t("page.restrictedDescription", { role: roleLabel(organization.role) })}</p>
+    </div> : <>
+      <Tabs
+        id="organization-admin"
+        value={tab}
+        onChange={(value) => setTab(value as Tab)}
+        ariaLabel={t("tabs.ariaLabel")}
+        className="org-tabs"
+        items={[
+          { key: "members", label: <><Users size={16} aria-hidden="true" /> {t("tabs.members")} {loaded && <span className="org-count">{members.length}</span>}</> },
+          { key: "invitations", label: <><Mail size={16} aria-hidden="true" /> {t("tabs.invitations")} {loaded && <span className="org-count">{invitations.length}</span>}</> },
+          { key: "audit", label: <><History size={16} aria-hidden="true" /> {t("tabs.audit")}</> },
         ]}
-        data={members}
-        rowKey="user_id"
-        emptyText={t("members.empty")}
-        showColumnVisibility={false}
       />
-    </> : tab==="invitations" ? <>
-      <div className="org-panel-head"><div><h3>{t("invitations.title")}</h3><p>{t("invitations.description")}</p></div></div>
-      <form className="org-invite-form" onSubmit={createInvitation}>
-        <Input label={t("invitations.form.emailLabel")} type="email" required maxLength={320} value={email} onChange={e=>setEmail(e.target.value)} placeholder={t("invitations.form.emailPlaceholder")}/>
-        <Select label={t("invitations.form.roleLabel")} value={role} onChange={e=>setRole(e.target.value)} options={[{label:t("roles.member"),value:"member"},{label:t("roles.viewer"),value:"viewer"},...(organization.role==="owner"?[{label:t("roles.admin"),value:"admin"}]:[])]}/>
-        <Button variant="primary" className="button primary" type="submit" disabled={creating}><UserPlus size={14}/>{creating?t("invitations.form.creating"):t("invitations.form.createButton")}</Button>
-      </form>
-      <DataTable
-        className="org-table"
-        columns={[
-          { key: "email", title: t("invitations.columns.email"), render: (_, invitation) => <b>{invitation.email}</b> },
-          { key: "role", title: t("invitations.columns.role"), render: (_, invitation) => roleLabel(invitation.role) },
-          { key: "status", title: t("invitations.columns.status"), render: (_, invitation) => <span className={statusClass(invitation.status)}>{statusLabel(invitation.status)}</span> },
-          { key: "expires_at", title: t("invitations.columns.expires"), render: (_, invitation) => formatDateTime(invitation.expires_at) },
-          { key: "actions", title: t("invitations.columns.actions"), render: (_, invitation) => invitation.status === "pending" ? <Button variant="ghost" className="org-icon-action danger" title={t("invitations.actions.revoke")} disabled={busyID === invitation.id} onClick={() => void revokeInvitation(invitation)}><X size={14}/></Button> : null },
-        ]}
-        data={invitations}
-        rowKey="id"
-        emptyText={t("invitations.empty")}
-        showColumnVisibility={false}
+      {error && <div className="org-settings-error" role="alert">{error}</div>}
+      {created && <div className="org-invite-created">
+        <div><strong>{t("invitations.created.title")}</strong><p>{t("invitations.created.description")}</p></div>
+        <Button variant="ghost" className="org-icon-action" aria-label={t("invitations.created.dismissAriaLabel")} onClick={() => setCreated(null)}><X size={16} aria-hidden="true" /></Button>
+        <code>{created.invitation_url}</code>
+        <Button onClick={() => void copyInvitation()}><Clipboard size={16} aria-hidden="true" /> {t("invitations.created.copyButton")}</Button>
+      </div>}
+      <div className="org-panel" role="tabpanel" id="organization-admin-panel" aria-labelledby={`organization-admin-tab-${tab}`} tabIndex={0} aria-busy={loading}>
+        {!loaded ? (loading && <div className="org-settings-loading" role="status">{t("page.loading")}</div>) : tab === "members" ? <>
+          <div className="org-panel-head">
+            <h2>{t("members.title")}</h2>
+            <Button variant="primary" onClick={() => { focusInviteEmail.current = true; setTab("invitations"); }}>
+              <UserPlus size={16} aria-hidden="true" /> {t("members.actions.invite")}
+            </Button>
+          </div>
+          <DataTable
+            className="org-table"
+            aria-label={t("members.title")}
+            columns={[
+              { key: "display_name", title: t("members.columns.member"), render: (_, member) => <div className="org-member">
+                <AccountAvatar userId={member.user_id} size={32} />
+                <div>
+                  <strong>{member.display_name}</strong>
+                  <small>{member.email || member.user_id}</small>
+                  <div className="org-mobile-meta">{renderStatus(member.status)} {renderDate(member.created_at)}</div>
+                </div>
+              </div> },
+              { key: "role", title: t("members.columns.role"), render: (_, member) => canManageMember(member) ? (
+                <Select
+                  aria-label={t("members.actions.roleAriaLabel", { memberName: member.display_name })}
+                  menuTitle={t("members.columns.role")}
+                  value={member.role}
+                  disabled={busyID === member.user_id}
+                  onChange={(event) => { if (event.target.value !== member.role) void updateMember(member, { role: event.target.value }); }}
+                  options={[...new Set([...roleOptions, member.role])].map((value) => ({ label: roleLabel(value), value }))}
+                />
+              ) : <span className="org-label">{roleLabel(member.role)}</span> },
+              { key: "status", title: t("members.columns.status"), render: (_, member) => renderStatus(member.status) },
+              { key: "created_at", title: t("members.columns.joined"), render: (_, member) => renderDate(member.created_at) },
+              { key: "actions", title: t("members.columns.actions"), render: (_, member) => {
+                if (!canManageMember(member)) return null;
+                const active = member.status === "active";
+                const actionLabel = t("members.actions.menu", { memberName: member.display_name });
+                return <Popover
+                  ariaLabel={actionLabel}
+                  triggerClassName="org-icon-action"
+                  trigger={<><Ellipsis size={16} aria-hidden="true" /><span className="org-sr-only">{actionLabel}</span></>}
+                >
+                  {(dismiss) => <>
+                    <Button variant="ghost" disabled={busyID === member.user_id} onClick={() => {
+                      dismiss();
+                      void updateMember(member, { status: active ? "suspended" : "active" });
+                    }}>
+                      {active ? <Ban size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
+                      {active ? t("members.actions.suspend") : t("members.actions.reactivate")}
+                    </Button>
+                    <Button variant="ghost" className="org-danger" disabled={busyID === member.user_id} onClick={() => {
+                      dismiss();
+                      setMemberToRemove(member);
+                    }}><UserMinus size={16} aria-hidden="true" /> {t("members.actions.remove")}</Button>
+                  </>}
+                </Popover>;
+              } },
+            ]}
+            data={members}
+            rowKey="user_id"
+            emptyText={t("members.empty")}
+            showColumnVisibility={false}
+          />
+        </> : tab === "invitations" ? <>
+          <div className="org-panel-head"><div><h2>{t("invitations.title")}</h2><p>{t("invitations.description")}</p></div></div>
+          <form className="org-invite-form" onSubmit={createInvitation}>
+            <Input ref={inviteEmail} label={t("invitations.form.emailLabel")} type="email" required maxLength={320} value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t("invitations.form.emailPlaceholder")} />
+            <Select label={t("invitations.form.roleLabel")} value={role} onChange={(event) => setRole(event.target.value)} options={roleOptions.map((value) => ({ value, label: roleLabel(value) }))} />
+            <Button variant="primary" type="submit" loading={creating}>
+              {creating ? t("invitations.form.creating") : t("invitations.form.createButton")}
+            </Button>
+          </form>
+          <DataTable
+            className="org-table"
+            aria-label={t("invitations.title")}
+            columns={[
+              { key: "email", title: t("invitations.columns.email"), render: (_, invitation) => <>
+                <strong>{invitation.email}</strong>
+                <div className="org-mobile-meta">{renderStatus(invitation.status)} {renderDate(invitation.expires_at)}</div>
+              </> },
+              { key: "role", title: t("invitations.columns.role"), render: (_, invitation) => <span className="org-label">{roleLabel(invitation.role)}</span> },
+              { key: "status", title: t("invitations.columns.status"), render: (_, invitation) => renderStatus(invitation.status) },
+              { key: "expires_at", title: t("invitations.columns.expires"), render: (_, invitation) => renderDate(invitation.expires_at) },
+              { key: "actions", title: t("invitations.columns.actions"), render: (_, invitation) => invitation.status === "pending" ? (
+                <Button className="org-icon-action org-danger" title={t("invitations.actions.revoke")} aria-label={t("invitations.actions.revoke")} disabled={busyID === invitation.id} onClick={() => void revokeInvitation(invitation)}>
+                  <X size={16} aria-hidden="true" />
+                </Button>
+              ) : null },
+            ]}
+            data={invitations}
+            rowKey="id"
+            emptyText={t("invitations.empty")}
+            showColumnVisibility={false}
+          />
+        </> : <>
+          <div className="org-panel-head"><div><h2>{t("audit.title")}</h2><p>{t("audit.description")}</p></div></div>
+          <div className="org-audit-list">
+            {events.map((event) => <article key={event.id}>
+              <span className="org-audit-icon"><History size={16} aria-hidden="true" /></span>
+              <div>
+                <strong>{auditActionLabel(event.action)}</strong>
+                <p>{t("audit.actor")} <code>{event.actor_user_id}</code> · {t("audit.target")} <code>{event.target_user_id}</code></p>
+                <small>{roleLabel(event.before_role || "") || "—"} / {statusLabel(event.before_status)} → {roleLabel(event.after_role || "") || roleLabel(event.before_role || "") || "—"} / {statusLabel(event.after_status)}</small>
+              </div>
+              {renderDate(event.created_at)}
+            </article>)}
+            {!events.length && <p className="org-settings-loading">{t("audit.empty")}</p>}
+          </div>
+        </>}
+      </div>
+      <ConfirmDialog
+        open={Boolean(memberToRemove)}
+        title={t("members.confirmRemove.title")}
+        description={memberToRemove ? t("members.confirmRemove.description", { memberName: memberToRemove.display_name }) : t("members.confirmRemove.descriptionFallback")}
+        confirmText={t("members.confirmRemove.confirmText")}
+        danger
+        onCancel={() => setMemberToRemove(null)}
+        onConfirm={async () => {
+          if (!memberToRemove) return;
+          await removeMember(memberToRemove);
+          setMemberToRemove(null);
+        }}
       />
-    </> : <>
-      <div className="org-panel-head"><div><h3>{t("audit.title")}</h3><p>{t("audit.description")}</p></div></div>
-      <div className="org-audit-list">{events.map(event=><article key={event.id}><span className="org-audit-icon"><History size={14}/></span><div><b>{auditActionLabel(event.action)}</b><p>{t("audit.actor")} <code>{event.actor_user_id}</code> · {t("audit.target")} <code>{event.target_user_id}</code></p><small>{roleLabel(event.before_role || "") || "—"} / {statusLabel(event.before_status)} → {roleLabel(event.after_role || "") || roleLabel(event.before_role || "") || "—"} / {statusLabel(event.after_status)}</small></div><time>{formatDateTime(event.created_at)}</time></article>)}{!events.length&&<div className="org-empty">{t("audit.empty")}</div>}</div>
     </>}
-    </div>
-    <ConfirmDialog
-      open={Boolean(memberToRemove)}
-      title={t("members.confirmRemove.title")}
-      description={memberToRemove ? t("members.confirmRemove.description", { memberName: memberToRemove.display_name }) : t("members.confirmRemove.descriptionFallback")}
-      confirmText={t("members.confirmRemove.confirmText")}
-      danger
-      onCancel={() => setMemberToRemove(null)}
-      onConfirm={async () => { if (!memberToRemove) return; await removeMember(memberToRemove); setMemberToRemove(null); }}
-    />
   </section>;
 }
