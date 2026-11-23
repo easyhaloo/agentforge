@@ -854,7 +854,7 @@
         "contains": "包含",
         "regex": "符合正则表达式"
       },
-      "tagBranchRestrictions": "标签规则集不能禁止强制推送、要求拉取请求、要求使用合并队列或要求线性历史。",
+      "tagBranchRestrictions": "标签规则集不能要求拉取请求、要求使用合并队列或要求线性历史。",
       "restrictionRequired": "请至少选择一项限制。"
     },
     "refProtection": "直接推送保护",

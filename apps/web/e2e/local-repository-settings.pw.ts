@@ -321,7 +321,7 @@ test("repository settings persist and update the native Git endpoint", async ({ 
       name: "Release tags", target: "tag", enforcement: "active",
       conditions: { ref_name: { include: ["refs/tags/locked-*"], exclude: [] } },
       rules: [
-        { type: "update", parameters: { update_allows_fetch_and_merge: false } },
+        { type: "non_fast_forward" },
         { type: "tag_name_pattern", parameters: { operator: "ends_with", pattern: "-draft", negate: true } },
       ],
     };
@@ -380,9 +380,10 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await importRuleset(tagRule);
     await expect(content.getByRole("textbox", { name: "Ruleset name" })).toHaveValue("Release tags");
     await expect(content.getByRole("textbox", { name: "Include patterns" })).toHaveValue("locked-*");
-    await expect(content.getByRole("checkbox", { name: "Restrict updates" })).toBeChecked();
+    await expect(content.getByRole("checkbox", { name: "Block force pushes" })).toBeChecked();
     await expect(content.getByRole("button", { name: "Export Release tags as JSON" })).toHaveCount(0);
     await capture("rulesets-import");
+    await capture("tag-force-push");
     await saveRulesets();
     const download = page.waitForEvent("download");
     await content.getByRole("button", { name: "Export Release tags as JSON" }).click();
@@ -391,12 +392,16 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     expect(JSON.parse(readFileSync((await exported.path())!, "utf8"))).toMatchObject({
       name: "Release tags", target: "tag", enforcement: "active",
       conditions: { ref_name: { include: ["locked-*"], exclude: [] } },
-      rules: [{ type: "update" }, tagRule.rules[1]],
+      rules: tagRule.rules,
     });
     expect(git(worktree, "push", "origin", "HEAD:refs/tags/locked-draft").stderr).toContain("ref name does not match the required pattern");
     const lockedTag = "refs/tags/locked-release";
-    checkedGit(worktree, "push", "origin", `HEAD:${lockedTag}`);
-    expect(git(worktree, "push", "origin", `+HEAD^:${lockedTag}`).stderr).toContain(`blocks updates to ${lockedTag}`);
+    checkedGit(worktree, "push", "origin", `HEAD^:${lockedTag}`);
+    const tagOverwrite = git(worktree, "push", "origin", `+HEAD:${lockedTag}`);
+    expect(tagOverwrite.status).not.toBe(0);
+    expect(tagOverwrite.stderr).toContain(`blocks force pushes to ${lockedTag}`);
+    expect(checkedGit(folder, "ls-remote", gitURL, lockedTag).trim()).toBe(`${previousSHA}\t${lockedTag}`);
+    checkedGit(worktree, "push", "origin", `:${lockedTag}`);
     await content.getByRole("button", { name: "Edit Release tags" }).click();
     await content.getByRole("checkbox", { name: "Restrict creation" }).check();
     await saveRulesets();

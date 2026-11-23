@@ -116,7 +116,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     if (!supportedRuleParameters(rule.type, rule.parameters)) return undefined;
     types.add(rule.type);
   }
-  if (target === "tag" && (types.has("non_fast_forward") || types.has("required_linear_history") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
+  if (target === "tag" && (types.has("required_linear_history") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
   if (types.has("merge_queue") && (include.length !== 1 || include[0] !== "~DEFAULT_BRANCH" || exclude.length)) return undefined;
   return {
     name, target, enabled: enforcement === "active", include, exclude,

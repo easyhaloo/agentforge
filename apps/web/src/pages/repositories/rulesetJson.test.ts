@@ -53,13 +53,15 @@ describe("ruleset JSON portability", () => {
     expect(githubImport({ rules: [{ type: "required_linear_history", parameters: { unexpected: true } }] })).toBeUndefined();
   });
 
-  it("round trips GitHub tag name patterns with literal and negative requirements", () => {
+  it("round trips GitHub tag force-push protection and name patterns", () => {
     const rules = [
+      { type: "non_fast_forward" },
       { type: "tag_name_pattern", parameters: { operator: "starts_with", pattern: "v", name: "Version prefix" } },
       { type: "tag_name_pattern", parameters: { operator: "regex", pattern: "-draft$", negate: true } },
     ];
     const rule = githubImport({ target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules });
-    expect(rule?.name_patterns).toEqual(rules.map(({ parameters }) => parameters));
+    expect(rule?.block_force_push).toBe(true);
+    expect(rule?.name_patterns).toEqual(rules.slice(1).map(({ parameters }) => parameters));
     expect(rule && parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
     expect(githubImport({ rules })).toBeUndefined();
   });
@@ -78,7 +80,7 @@ describe("ruleset JSON portability", () => {
     { conditions: { ref_name: { include: ["refs/heads/releases/**"] } } },
     { conditions: { ref_name: { include: ["refs/tags/wrong-target"] } } },
     { rules: [{ type: "update", parameters: { update_allows_fetch_and_merge: true } }] },
-    { target: "tag", conditions: { ref_name: { include: ["~ALL"] } } },
+    { target: "tag", conditions: { ref_name: { include: ["~DEFAULT_BRANCH"] } } },
   ])("rejects unsupported semantics instead of importing a partial rule %#", (overrides) => {
     expect(githubImport(overrides)).toBeUndefined();
   });

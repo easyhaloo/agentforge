@@ -97,7 +97,9 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath("repo-settings-rulesets-mobile.png"), animations: "disabled", fullPage: true });
   await selectOption(page, panel.getByRole("combobox", { name: "Target" }), "Tags");
-  await expect(panel.getByRole("checkbox", { name: "Block force pushes" })).toHaveCount(0);
+  const blockForcePushes = panel.getByRole("checkbox", { name: "Block force pushes" });
+  await expect(blockForcePushes).toBeChecked();
+  await blockForcePushes.uncheck();
   await name.fill("Release tags");
   await include.fill("release/**");
   await panel.getByRole("checkbox", { name: "Enable ruleset" }).uncheck();

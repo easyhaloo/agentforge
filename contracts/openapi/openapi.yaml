@@ -2204,7 +2204,7 @@ components:
           restrict_creation: { type: boolean }
           restrict_update: { type: boolean, description: "Blocks direct updates and, for branches, Changeset merges and integration promotions." }
           restrict_deletion: { type: boolean }
-          block_force_push: { type: boolean, description: Applicable only to branch rulesets. }
+          block_force_push: { type: boolean, description: Prevents non-fast-forward branch updates and forced tag replacements. }
           require_pull_request:
             type: boolean
             default: false

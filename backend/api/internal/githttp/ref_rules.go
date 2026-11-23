@@ -39,7 +39,7 @@ func ValidRefRules(rules []RefRule) bool {
 	}
 	for i, rule := range rules {
 		if rule.Name == "" || strings.TrimSpace(rule.Name) != rule.Name || utf8.RuneCountInString(rule.Name) > 80 || strings.ContainsFunc(rule.Name, unicode.IsControl) ||
-			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory)) ||
+			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory)) ||
 			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || len(rule.NamePatterns) > 0) ||
 			!validNamePatterns(rule.NamePatterns) || len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
 			return false
@@ -325,6 +325,10 @@ func checkRefRules(rules []RefRule, update RefUpdate, defaultBranch string) erro
 	}
 	if forceRule == "" {
 		return nil
+	}
+	// Git tag replacements always require force, even when both objects are commits.
+	if isTag {
+		return fmt.Errorf("ruleset %q blocks force pushes to %s", forceRule, update.Ref)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
