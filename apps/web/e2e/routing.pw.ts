@@ -3,6 +3,7 @@ import { demoOrganization, installApiMocks, labsOrganization } from "./support/a
 import { navigation, openNavigation } from "./support/navigation";
 import { selectOption } from "./support/select-option";
 
+const topbarTitle = (page: Page) => page.getByRole("banner").locator(".workspace-brand__page");
 const pageHeading = (page: Page) => page.getByRole("main").locator(".page-heading h1");
 const sidebarLink = (page: Page, name: string) => navigation(page).getByRole("link", { name, exact: true });
 // The Changesets item carries a count badge inside the link, so match it by prefix.
@@ -17,14 +18,14 @@ test.beforeEach(async ({ page }) => {
 test("a deep link renders its page, survives a reload and follows Back and Forward", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/projects");
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
   await openNavigation(page);
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
   await expect(navigation(page).locator("[aria-current='page']")).toHaveCount(1);
   await expect(page.getByRole("table").getByText("Core Platform", { exact: true })).toBeVisible();
 
   await page.reload();
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
   await openNavigation(page);
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
 
@@ -45,7 +46,7 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await expect(sidebarLink(page, "Repositories")).toHaveAttribute("aria-current", "page");
   await page.goBack();
   await expect(page).toHaveURL(/\/projects$/);
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
   await page.goForward();
   await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
   await expect(pageHeading(page)).toHaveText("Repositories");
@@ -68,7 +69,13 @@ for (const [path, label] of flatPages) {
   test(`the flat page ${path} renders ${label} when opened directly`, async ({ page }) => {
     await installApiMocks(page);
     await page.goto(path);
-    await expect(pageHeading(page)).toHaveText(label);
+    if (label === "Projects") {
+      await expect(topbarTitle(page)).toHaveText(label);
+      await expect(page.getByRole("main").locator(".page-heading")).toHaveCount(0);
+      await expect(page.getByRole("textbox", { name: "Search Projects" })).toBeVisible();
+    } else {
+      await expect(pageHeading(page)).toHaveText(label);
+    }
     await openNavigation(page);
     await expect(sidebarLink(page, label)).toHaveAttribute("aria-current", "page");
   });
@@ -170,7 +177,7 @@ test("signed out, protected URLs redirect to login and public demo pages still r
   }
 
   await page.goto("/projects");
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
 });
 
 test("a session service failure stays on the requested page", async ({ page }) => {
@@ -209,7 +216,7 @@ test("switching organization keeps the sub-path and the choice survives leaving 
 
   await openNavigation(page);
   await sidebarLink(page, "Projects").click();
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
   await openNavigation(page);
   await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/labs/changesets");
@@ -236,7 +243,7 @@ test("Refresh only simulates a refresh on mock pages and reloads the account on 
   let accountLoads = 0;
   page.on("request", (request) => { if (new URL(request.url()).pathname === "/api/v1/me") accountLoads += 1; });
   await installApiMocks(page);
-  await page.goto("/projects");
+  await page.goto("/workspaces");
   await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
   const loadsOnEntry = accountLoads;
 
@@ -272,7 +279,7 @@ test("an unknown path renders the not-found state inside the shell and highlight
 test("a trailing slash is canonicalized, so the page and its highlighted sidebar item agree", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/projects/?q=1#top");
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
   await openNavigation(page);
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
   expect(pathOf(page)).toBe("/projects?q=1#top");
@@ -291,7 +298,7 @@ test("Ctrl+K opens the command palette and selecting a page navigates by URL", a
   await dialog.getByRole("option", { name: "Projects", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/projects$/);
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
 
   await page.keyboard.press("Control+k");
   await search.fill("Changesets");
@@ -310,7 +317,7 @@ test("selecting the page you are already on in the palette does not add a histor
   await page.goto("/");
   await openNavigation(page);
   await sidebarLink(page, "Projects").click();
-  await expect(pageHeading(page)).toHaveText("Projects");
+  await expect(topbarTitle(page)).toHaveText("Projects");
   const dialog = page.getByRole("dialog", { name: "Search or jump to" });
 
   await page.keyboard.press("Control+k");

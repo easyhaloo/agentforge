@@ -40,7 +40,7 @@ test("Delivery creates a revision, evaluates it, approves and completes the merg
 
 test("Resources supports search, status filtering, inspection and creation", async ({ page }) => {
   await (await openNavigation(page)).getByRole("link", { name: "Projects", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Projects", { exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "Search Projects" }).fill("Commerce");
   await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
   await selectOption(page, page.getByRole("combobox", { name: "Filter by status" }), "At risk");
@@ -92,7 +92,7 @@ test("Organization invitations can be created and displayed", async ({ page }) =
 test("application shell remains usable at a mobile viewport", async ({ page }) => {
   await (await openNavigation(page)).getByRole("link", { name: "Projects", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Projects", { exact: true })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,

@@ -125,7 +125,7 @@ function App() {
         <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} organizationPicker={organizationSelect} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
-            {!isOverview && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
+            {!isOverview && label !== "Projects" && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
               <PageHeader label={label} descriptionKey={item?.descriptionKey} onRefresh={item ? refresh : undefined} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
             {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}

@@ -41,7 +41,6 @@
     "inbox": "Open notifications for this organization.",
     "issues": "View issues across the organization.",
     "overview": "A live map of changes, verification and delivery across your engineering system.",
-    "projects": "Organize repositories, teams and delivery boundaries.",
     "repositories": "Git-compatible repositories backed by a canonical object graph.",
     "changesets": "Reviewable, revisioned units of change — distinct from Git commits.",
     "workspaces": "Isolated environments for agents and human contributors.",
