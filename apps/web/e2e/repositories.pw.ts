@@ -293,6 +293,7 @@ test("repository code and commit details are independently navigable", async ({ 
   await page.getByRole("link", { name: "easyhaloo/agentforge", exact: true }).click();
   await expect(page).toHaveURL(/\/orgs\/demo\/repositories\/easyhaloo\/agentforge$/);
   await expect(page.getByRole("link", { name: "README.md" })).toBeVisible();
+  await expect(page.getByRole("main").getByText("easyhaloo/agentforge", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Register repository" })).toHaveCount(0);
   await page.getByRole("region", { name: "Files", exact: true }).getByRole("link", { name: "Commit history" }).click();
   await expect(page.getByRole("heading", { name: "Commit history" })).toBeVisible();

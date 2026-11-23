@@ -199,7 +199,6 @@
     "branchLabel": "默认分支"
   },
   "columns": {
-    "repository": "代码仓库",
     "branch": "默认分支",
     "registeredBy": "注册者",
     "registered": "注册时间"

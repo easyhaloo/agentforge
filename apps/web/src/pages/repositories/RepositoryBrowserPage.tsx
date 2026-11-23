@@ -338,10 +338,9 @@ function CodeBrowser({ organizationID, repository, refName, makeQuery, directory
     </div>
     {isRoot && <aside className="repo-about" aria-labelledby="repo-about-title">
       <h2 id="repo-about-title">{t("repositories:browser.about")}</h2>
-      <dl>
-        <div><dt>{t("repositories:columns.repository")}</dt><dd>{repository}</dd></div>
-        {refs && <div><dt>{t("repositories:form.branchLabel")}</dt><dd>{refs.default_branch}</dd></div>}
-      </dl>
+      {refs && <dl>
+        <div><dt>{t("repositories:form.branchLabel")}</dt><dd>{refs.default_branch}</dd></div>
+      </dl>}
       <div className="repo-about-links">
         {blob && <a className="repo-quiet-action" href="#repository-readme">README</a>}
         <Link className="repo-quiet-action" to={makeQuery({ view: "commits" })}>{t("repositories:history.title")}</Link>
