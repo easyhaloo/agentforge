@@ -31,7 +31,7 @@ func (r *ReactionRepository) Add(ctx context.Context, organizationID string, rea
 		// Check for unique constraint violation (duplicate reaction)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
-			return nil, fmt.Errorf("user already reacted with this emoji")
+			return nil, reactions.ErrDuplicate
 		}
 		return nil, fmt.Errorf("insert reaction: %w", err)
 	}
@@ -75,19 +75,18 @@ func (r *ReactionRepository) List(ctx context.Context, organizationID string, re
 	return reactionsList, nil
 }
 
-// Remove deletes a reaction by ID
-func (r *ReactionRepository) Remove(ctx context.Context, organizationID string, reactionID reactions.ID) error {
+func (r *ReactionRepository) RemoveOwn(ctx context.Context, organizationID string, resourceType reactions.ReactableType, resourceID, reactionID reactions.ID, userID string) error {
 	result, err := r.store.pool.Exec(ctx, `
 		DELETE FROM reactions
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, reactionID)
+		WHERE organization_id = $1 AND id = $2 AND reactable_type = $3 AND reactable_id = $4 AND user_id = $5
+	`, organizationID, reactionID, resourceType, resourceID, userID)
 
 	if err != nil {
 		return fmt.Errorf("delete reaction: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("reaction not found")
+		return reactions.ErrNotFound
 	}
 
 	return nil

@@ -97,7 +97,7 @@ function App() {
   const isRepositoryCatalog = label === "Repositories" && accountState === "ready" && Boolean(urlOrganization);
   const { owner, repo } = match?.params ?? {};
   const repositorySection = repositorySections.find(section => section === match?.pathname.split("/")[6]);
-  const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
+  const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || label === "New Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
   const isOverview = label === "Overview";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
   // Organization pages are backed by the account API; the mock pages only simulate a refresh.

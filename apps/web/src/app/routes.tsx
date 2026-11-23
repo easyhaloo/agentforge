@@ -3,6 +3,7 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { UIShowcasePage } from "../pages/ui-showcase";
 import {
   ProfileSettingsPage,
+  SavedRepliesSettingsPage,
   AccountSettingsPage,
   AppearanceSettingsPage,
   NotificationsSettingsPage,
@@ -16,7 +17,7 @@ import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, NotificationsRoute, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, IssueCreateRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -70,6 +71,7 @@ export const routes: RouteObject[] = [
             element: <SettingsRoute />,
             children: [
               { index: true, handle: routeHandle("Settings"), element: <Navigate to="/settings/profile" replace /> },
+              { path: "saved-replies", handle: routeHandle("Saved replies"), element: <SavedRepliesSettingsPage /> },
               { path: "profile", handle: routeHandle("Public profile"), element: <ProfileSettingsPage /> },
               { path: "account", handle: routeHandle("Account"), element: <AccountSettingsPage /> },
               { path: "appearance", handle: routeHandle("Appearance"), element: <AppearanceSettingsPage /> },
@@ -113,10 +115,13 @@ export const routes: RouteObject[] = [
             element: <OrganizationGate variant="repositories" />,
             children: [
               organizationPage("issues", "Issues", <OrganizationIssuesRoute />),
+              organizationPage("notifications", "Inbox", <NotificationsRoute />),
               organizationPage("repositories", "Repositories", <RepositoriesRoute />),
               organizationPage("repositories/new", "Repositories", <RepositoryCreateRoute />),
               organizationPage("repositories/:owner/:repo", "Repository", <RepositoryDetailRoute />),
               ...repositorySections.filter(section => section !== "pulls").map(section => organizationPage(`repositories/:owner/:repo/${section}`, "Repository", <RepositoryDetailRoute section={section} />)),
+              organizationPage("repositories/:owner/:repo/issues/new/choose", "New Issue", <IssueCreateRoute chooseTemplate />),
+              organizationPage("repositories/:owner/:repo/issues/new", "New Issue", <IssueCreateRoute />),
               organizationPage("repositories/:owner/:repo/issues/:number", "Issue", <IssueDetailRoute />),
               { path: "orgs/:org/repositories/:owner/:repo/pulls", handle: routeHandle("Pull requests"), element: <PullRequestListRoute /> },
               { path: "orgs/:org/repositories/:owner/:repo/pulls/new", handle: routeHandle("Compare and create pull request"), element: <PullRequestCompareRoute /> },

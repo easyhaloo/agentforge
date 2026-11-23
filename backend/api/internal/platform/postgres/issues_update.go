@@ -2,15 +2,148 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 )
 
-// Update updates an existing issue's title and body.
+// Update applies issue changes atomically against its previously read version.
 func (r *IssueRepository) Update(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error) {
-	return scanIssue(r.store.pool.QueryRow(ctx, `
-		UPDATE issues
-		SET title = $1, body = $2, updated_at = $3
-		WHERE organization_id = $4 AND id = $5
-		RETURNING `+issueColumns, issue.Title, issue.Body, issue.UpdatedAt, organizationID, issue.ID))
+	tx, err := r.store.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin issue update: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	meta := issue.MetadataUpdate
+	if meta.MilestoneID != nil && *meta.MilestoneID != "" {
+		var id string
+		err := tx.QueryRow(ctx, `SELECT id FROM milestones WHERE organization_id = $1 AND repository = $2 AND id = $3 AND state = 'open' FOR SHARE`,
+			organizationID, issue.Repository, *meta.MilestoneID).Scan(&id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, issues.ErrInvalidMetadata
+		}
+		if err != nil {
+			return nil, fmt.Errorf("validate issue milestone: %w", err)
+		}
+	}
+	var updatedID string
+	err = tx.QueryRow(ctx, `
+		WITH previous AS (
+			SELECT title, body FROM issues WHERE organization_id = $4 AND id = $5 FOR UPDATE
+		), mutated AS (
+			UPDATE issues SET title = $1, body = $2, updated_at = $3,
+				milestone_id = CASE WHEN $8::text IS NULL THEN milestone_id ELSE NULLIF($8, '') END,
+				issue_type = COALESCE($9::text, issue_type), custom_fields = COALESCE($11::jsonb, custom_fields)
+			WHERE organization_id = $4 AND id = $5 AND ($6::timestamptz IS NULL OR updated_at = $6)
+			AND EXISTS (SELECT 1 FROM previous)
+			RETURNING *
+		), events AS (
+			INSERT INTO issue_events (organization_id, id, issue_id, event_type, actor_id, created_at)
+			SELECT m.organization_id, gen_random_uuid()::text, m.id, changes.kind, nullif($7::text, ''), m.updated_at
+			FROM mutated m CROSS JOIN previous p
+			CROSS JOIN LATERAL (VALUES ('renamed', m.title <> p.title), ('edited', m.body <> p.body), ('metadata_changed', $10::boolean)) changes(kind, changed)
+			WHERE changes.changed
+		)
+		SELECT id FROM mutated`, issue.Title, issue.Body, issue.UpdatedAt, organizationID, issue.ID, issue.ExpectedUpdatedAt, issue.EditorID,
+		meta.MilestoneID, meta.Type, meta.HasChanges(), meta.Fields).Scan(&updatedID)
+	if errors.Is(err, pgx.ErrNoRows) && issue.ExpectedUpdatedAt != nil {
+		return nil, issues.ErrStateConflict
+	}
+	if err != nil {
+		return nil, fmt.Errorf("update issue: %w", err)
+	}
+	for _, group := range []struct {
+		ids       []string
+		statement string
+	}{
+		{meta.AssigneeIDs, `DELETE FROM issue_assignees WHERE organization_id = $1 AND issue_id = $2`},
+		{meta.LabelIDs, `DELETE FROM issue_labels WHERE organization_id = $1 AND issue_id = $2`},
+		{meta.ProjectIDs, `DELETE FROM issue_projects WHERE organization_id = $1 AND issue_id = $2`},
+	} {
+		if group.ids != nil {
+			if _, err := tx.Exec(ctx, group.statement, organizationID, issue.ID); err != nil {
+				return nil, fmt.Errorf("replace issue metadata: %w", err)
+			}
+		}
+	}
+	if err := insertIssueMetadata(ctx, tx, organizationID, issue, meta); err != nil {
+		return nil, err
+	}
+	if meta.ChangesetIDs != nil {
+		if err := updateIssueChangesets(ctx, tx, organizationID, issue, meta.ChangesetIDs); err != nil {
+			return nil, err
+		}
+	}
+
+	updated, err := scanIssue(tx.QueryRow(ctx, `SELECT `+issueColumns+` FROM issues WHERE organization_id = $1 AND id = $2`, organizationID, issue.ID))
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit issue update: %w", err)
+	}
+	return updated, nil
+}
+
+func insertIssueMetadata(ctx context.Context, tx pgx.Tx, organizationID string, issue *issues.Issue, meta issues.MetadataUpdate) error {
+	for _, group := range []struct {
+		ids       []string
+		statement string
+		scoped    bool
+	}{
+		{meta.AssigneeIDs, `INSERT INTO issue_assignees (organization_id, issue_id, user_id)
+			SELECT $1, $2, user_id FROM organization_memberships
+			WHERE organization_id = $1 AND status = 'active' AND user_id = ANY($3) FOR SHARE`, false},
+		{meta.LabelIDs, `INSERT INTO issue_labels (organization_id, issue_id, label_id)
+			SELECT $1, $2, id FROM labels WHERE organization_id = $1 AND id = ANY($3) AND repository = $4 FOR KEY SHARE`, true},
+		{meta.ProjectIDs, `INSERT INTO issue_projects (organization_id, issue_id, project_id)
+			SELECT $1, $2, id FROM organization_projects
+			WHERE organization_id = $1 AND id = ANY($3) AND (repository IS NULL OR repository = $4) FOR KEY SHARE`, true},
+	} {
+		if len(group.ids) == 0 {
+			continue
+		}
+		args := []any{organizationID, issue.ID, group.ids}
+		if group.scoped {
+			args = append(args, issue.Repository)
+		}
+		inserted, err := tx.Exec(ctx, group.statement, args...)
+		if err != nil {
+			return fmt.Errorf("insert issue metadata: %w", err)
+		}
+		if inserted.RowsAffected() != int64(len(group.ids)) {
+			return issues.ErrInvalidMetadata
+		}
+	}
+	return nil
+}
+
+// updateIssueChangesets runs after the issue row has been locked and version-checked.
+func updateIssueChangesets(ctx context.Context, tx pgx.Tx, organizationID string, issue *issues.Issue, ids []string) error {
+	var matched int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM (
+		SELECT id FROM delivery_changesets WHERE organization_id = $1 AND repository = $2 AND id = ANY($3) FOR KEY SHARE
+	) valid`, organizationID, issue.Repository, ids).Scan(&matched); err != nil {
+		return fmt.Errorf("validate issue changesets: %w", err)
+	}
+	if matched != len(ids) {
+		return issues.ErrInvalidMetadata
+	}
+	_, err := tx.Exec(ctx, `WITH removed AS (
+		DELETE FROM issue_changeset_links WHERE organization_id = $1 AND issue_id = $2 AND NOT (changeset_id = ANY($3)) RETURNING changeset_id
+	), linked AS (
+		INSERT INTO issue_changeset_links (organization_id, issue_id, changeset_id, linked_by)
+		SELECT $1, $2, id, $4 FROM unnest($3::text[]) ids(id) ON CONFLICT DO NOTHING RETURNING changeset_id
+	)
+	INSERT INTO issue_events (organization_id, id, issue_id, event_type, actor_id, metadata)
+	SELECT $1, gen_random_uuid()::text, $2, kind, $4, jsonb_build_object('changeset_id', changeset_id)
+	FROM (SELECT 'linked_changeset' kind, changeset_id FROM linked
+	      UNION ALL SELECT 'unlinked_changeset', changeset_id FROM removed) changes`, organizationID, issue.ID, ids, issue.EditorID)
+	if err != nil {
+		return fmt.Errorf("update linked issue changesets: %w", err)
+	}
+	return nil
 }

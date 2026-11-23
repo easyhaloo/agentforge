@@ -8,3 +8,4 @@ export { AuthenticationSettingsPage } from "./AuthenticationSettingsPage";
 export { KeysSettingsPage } from "./KeysSettingsPage";
 export { SessionsSettingsPage } from "./SessionsSettingsPage";
 export { AgentSettingsPage } from "./AgentSettingsPage";
+export { SavedRepliesSettingsPage } from "./SavedRepliesSettingsPage";

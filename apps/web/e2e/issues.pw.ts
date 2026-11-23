@@ -47,6 +47,43 @@ test("opens Issues from repository Code and lists open issues by default", async
   await expect(closedFilter(page)).toContainText("1");
 });
 
+test("read-only viewers can read issues but cannot open either creation entry point", async ({ page }) => {
+  await installApiMocks(page, { organizations: [{ ...demoOrganization, role: "viewer" }] });
+  await page.goto(issuesPath);
+  await expect(issueLinks(page)).toHaveCount(3);
+  await expect(page.getByRole("link", { name: "New issue", exact: true })).toHaveCount(0);
+
+  for (const path of ["/new", "/new/choose", "/new?template=bug.md"]) {
+    await page.goto(`${issuesPath}${path}`);
+    await expect(page.getByRole("alert")).toHaveText("Your organization role does not allow you to create issues.");
+    await expect(page.getByRole("button", { name: "Create issue", exact: true })).toHaveCount(0);
+    await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+    await expect(page).toHaveURL(issuesPath);
+  }
+});
+
+test("a writer can select a maintainers-only blank issue", async ({ page }) => {
+  await installApiMocks(page, { organizations: [{ ...demoOrganization, role: "member" }] });
+  const config = ".github/ISSUE_TEMPLATE/config.yml";
+  await page.route("**/repositories/easyhaloo/agentforge/tree?*", route => {
+    const path = new URL(route.request().url()).searchParams.get("path") ?? "";
+    const next = path === "" ? ".github" : path === ".github" ? ".github/ISSUE_TEMPLATE" : config;
+    return route.fulfill({ json: { commit_sha: "a".repeat(40), items: [{
+      name: next.split("/").at(-1), path: next, kind: next === config ? "file" : "tree",
+    }] } });
+  });
+  await page.route("**/repositories/easyhaloo/agentforge/blob?*", route => route.fulfill({ json: {
+    content: "blank_issues_enabled: false\ncontact_links:\n  - name: Support\n    about: Ask a question\n    url: https://example.test/support\n",
+  } }));
+
+  await page.goto(issuesPath);
+  await page.getByRole("link", { name: "New issue", exact: true }).click();
+  await expect(page.getByText("Maintainers only", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Blank issue", exact: true }).click();
+  await expect(page).toHaveURL(`${issuesPath}/new`);
+  await expect(page.getByRole("button", { name: "Create issue", exact: true })).toBeVisible();
+});
+
 test("the legacy repository Issues link opens the canonical list", async ({ page }) => {
   await page.goto("/orgs/demo/repositories/agentforge");
   await page.getByRole("link", { name: "Issues", exact: true }).click();
@@ -178,7 +215,7 @@ test("keeps the issue list and description usable on a narrow screen", async ({ 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(issuesPath);
   await expect(page.getByRole("heading", { name: "Issues", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "New issue", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "New issue", exact: true })).toBeVisible();
   const link = page.getByRole("link", { name: performance, exact: true });
   await expect(link).toBeVisible();
   const horizontalOverflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -188,4 +225,187 @@ test("keeps the issue list and description usable on a narrow screen", async ({ 
   await expect(page.getByRole("region", { name: "Description" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Assignees" })).toBeVisible();
   await expect.poll(horizontalOverflow).toBe(0);
+});
+
+test("previews GitHub Markdown and strips unsafe HTML on a narrow dark screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto(`${issuesPath}/new`);
+  const title = page.getByRole("textbox", { name: "Title" });
+  const description = page.getByRole("textbox", { name: "Description" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await title.pressSequentially("x".repeat(501));
+  await expect(title).toHaveValue("x".repeat(500));
+  await description.fill("Selected text");
+  await description.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Bold", exact: true }).click();
+  await expect(description).toHaveValue("**Selected text**");
+  await expect(description).toBeFocused();
+  await page.getByRole("button", { name: "Bold", exact: true }).click();
+  await expect(description).toHaveValue("Selected text");
+
+  await description.fill("First item\nSecond item");
+  await description.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Numbered list" }).click();
+  await expect(description).toHaveValue("1. First item\n2. Second item");
+  await page.getByRole("button", { name: "Numbered list" }).click();
+  await expect(description).toHaveValue("First item\nSecond item");
+
+  await description.fill("Reference guide");
+  await description.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Link", exact: true }).click();
+  await page.keyboard.insertText("https://example.test/guide");
+  await expect(description).toHaveValue("[Reference guide](https://example.test/guide)");
+
+  await description.fill("first line\nsecond line");
+  await description.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Code", exact: true }).click();
+  await expect(description).toHaveValue("```\nfirst line\nsecond line\n```");
+
+  // Exercise the toolbar's direct-value fallback and ensure it cannot exceed maxlength.
+  await page.evaluate(() => { document.execCommand = () => false; });
+  await description.fill("Fallback text");
+  await description.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Bold", exact: true }).click();
+  await expect(description).toHaveValue("**Fallback text**");
+  const maxBody = "x".repeat(65536);
+  await description.fill(maxBody);
+  await description.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Bold", exact: true }).click();
+  await expect.poll(() => description.inputValue().then((value) => value === maxBody)).toBe(true);
+
+  const markdown = [
+    "**Selected text**",
+    "",
+    "First line",
+    "Second line :rocket:",
+    "",
+    "> [!NOTE]",
+    "> Read this before publishing.",
+    "",
+    "<details>",
+    "<summary>More information</summary>",
+    "",
+    "- Hidden until expanded",
+    "",
+    "</details>",
+    "",
+    "<div data-qa-raw-html>Raw HTML</div>",
+    "",
+    "<script>javascriptShouldNotExecute()</script>",
+    "",
+    "[Blocked URL](javascript:void%280%29)",
+    "",
+    "Footnote reference[^test].",
+    "",
+    "[^test]: Footnote content.",
+    "",
+    "```text", "line".repeat(250), "```",
+  ].join("\n");
+  await description.fill(markdown);
+  const write = page.getByRole("tab", { name: "Write" });
+  const preview = page.getByRole("tab", { name: "Preview" });
+  await write.press("ArrowRight");
+  await expect(preview).toBeFocused();
+  const panel = page.getByRole("tabpanel", { name: "Preview" });
+  await expect(panel.locator("strong")).toHaveText("Selected text");
+  await expect(panel.locator("[data-qa-raw-html]")).toHaveCount(0);
+  await expect(panel.locator("script, a[href^='javascript:']")).toHaveCount(0);
+  await expect(panel.locator("p:has(> br)").filter({ hasText: "First line" })).toHaveText(/First line\s*Second line 🚀/);
+  await expect(panel.getByText("Note", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Read this before publishing.", { exact: true })).toBeVisible();
+  const foldedText = panel.getByText("Hidden until expanded", { exact: true });
+  await expect(foldedText).toBeHidden();
+  await panel.getByText("More information", { exact: true }).click();
+  await expect(foldedText).toBeVisible();
+  const footnoteLink = panel.locator("a[data-footnote-ref]");
+  const backLink = panel.locator("a[data-footnote-backref]");
+  await expect(footnoteLink).toHaveAttribute("href", "#user-content-fn-test");
+  await expect(panel.locator("#user-content-fn-test")).toContainText("Footnote content.");
+  await expect(backLink).toHaveAttribute("href", "#user-content-fnref-test");
+  await expect(footnoteLink).toHaveAttribute("id", "user-content-fnref-test");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  await preview.press("Home");
+  await expect(description).toHaveValue(markdown);
+  await page.getByRole("link", { name: "Issues", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Keep editing" }).click();
+  await expect(description).toHaveValue(markdown);
+});
+
+test("slash commands insert Markdown blocks and preserve the surrounding draft", async ({ page }) => {
+  await page.goto(`${issuesPath}/new`);
+  const body = page.getByRole("textbox", { name: "Description", exact: true });
+  await body.fill("before\n\n");
+  await body.press("/");
+  const commands = page.getByRole("listbox", { name: "Slash commands" });
+  await commands.getByRole("option", { name: "Alerts", exact: true }).click();
+  await expect(page.getByRole("listbox", { name: "Alerts" }).getByRole("option")).toHaveCount(5);
+  await body.press("Escape");
+  await expect(commands).toBeVisible();
+  await body.press("Enter");
+  await page.getByRole("option", { name: "Warning", exact: true }).click();
+  await expect(body).toHaveValue("before\n\n> [!WARNING]\n> Alert text\n\n");
+  await expect(body).toBeFocused();
+
+  await body.pressSequentially("/table");
+  await body.press("Tab");
+  await expect(page.getByRole("listbox", { name: "Table" }).getByRole("option")).toHaveCount(5);
+  await body.press("ArrowUp");
+  await body.press("Enter");
+  await expect(body).toHaveValue(/Column 1.*Column 5/);
+  await body.pressSequentially("/code");
+  await body.press("Enter");
+  await body.pressSequentially("/details");
+  await body.press("Enter");
+  await expect(body).toHaveValue(/<summary>Details<\/summary>/);
+  await body.press("ControlOrMeta+z");
+  await expect(body).toHaveValue(/\/details$/);
+  await body.press("ControlOrMeta+Shift+z");
+  await expect(body).toHaveValue(/<summary>Details<\/summary>/);
+  await body.pressSequentially("after");
+
+  await page.getByRole("tab", { name: "Preview" }).click();
+  const preview = page.getByRole("tabpanel", { name: "Preview" });
+  await expect(preview.getByText("Warning", { exact: true })).toBeVisible();
+  await expect(preview.locator("table thead th")).toHaveText(["Column 1", "Column 2", "Column 3", "Column 4", "Column 5"]);
+  await expect(preview.locator("pre code")).toBeAttached();
+  await preview.getByText("Details", { exact: true }).click();
+  await expect(preview.getByText("Add details here", { exact: true })).toBeVisible();
+  await expect(preview.getByText("before", { exact: true })).toBeVisible();
+  await expect(preview.getByText("after", { exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Write" }).click();
+  await body.fill("https://example.com/path");
+  await expect(commands).toBeHidden();
+  await body.pressSequentially("\n/unknown");
+  await body.press("Enter");
+  await expect(body).toHaveValue("https://example.com/path\n/unknown\n");
+
+  const full = `${"a".repeat(65_530)}\n/code`;
+  await body.fill(full);
+  await expect(commands).toBeVisible();
+  await body.press("Enter");
+  await expect(body).toHaveValue(full);
+  await expect(commands).toBeHidden();
+});
+
+test("the template command reports empty and failed lookups without rewriting the description", async ({ page }) => {
+  let available = false;
+  await page.route("**/repositories/easyhaloo/agentforge/tree?*", route => available
+    ? route.fulfill({ json: { commit_sha: "a".repeat(40), items: [] } })
+    : route.fulfill({ status: 503 }));
+  await page.goto(`${issuesPath}/new`);
+  const body = page.getByRole("textbox", { name: "Description", exact: true });
+  await body.fill("Existing text\n\n");
+  await body.pressSequentially("/template");
+  await body.press("Enter");
+  await expect(page.getByText("Suggestions are temporarily unavailable.", { exact: true })).toBeVisible();
+  await body.press("Escape");
+  available = true;
+  await body.press("Enter");
+  await expect(page.getByText("No suggestions found.", { exact: true })).toBeVisible();
+  await body.press("Escape");
+  await body.press("Escape");
+  await expect(body).toHaveValue("Existing text\n\n/template");
 });

@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 )
 
@@ -25,7 +27,7 @@ func TestIssueHTTPContract(t *testing.T) {
 	repository := "team/repo"
 	h := newLockHTTP(t, &lockFixture{ctx: ctx, store: store}, 0, repository, "team/other")
 	h.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
-		Identity: store, CSRF: store, AllowedOrigin: lockHTTPOrigin,
+		Identity: store, CSRF: store, Catalog: store, AllowedOrigin: lockHTTPOrigin,
 		IssueRepo: NewIssueRepository(store), CommentRepo: NewCommentRepository(store),
 	})
 	base := "/api/v1/organizations/" + h.organizationID + "/issues"
@@ -86,6 +88,17 @@ func TestIssueHTTPContract(t *testing.T) {
 	}
 	second := create(repository, "Second")
 	other := create("team/other", "Other")
+	var references []int
+	lockMust(t, json.Unmarshal(request(http.MethodGet, base+"/references"+query+"&number=1&number=2&number=9999", "", http.StatusOK), &references))
+	if !reflect.DeepEqual(references, []int{1, 2}) {
+		t.Fatalf("reference lookup must return only existing numbers in the repository: %v", references)
+	}
+	lockMust(t, json.Unmarshal(request(http.MethodGet, base+"/references?repository=team%2Fother&number=2", "", http.StatusOK), &references))
+	if references == nil || len(references) != 0 {
+		t.Fatalf("reference lookup must not link to a different repository: %v", references)
+	}
+	request(http.MethodGet, base+"/references"+query+"&number=0", "", http.StatusBadRequest)
+	request(http.MethodGet, base+"/references?number=1", "", http.StatusBadRequest)
 	_, err = store.pool.Exec(ctx, `INSERT INTO users (id, display_name) VALUES ('participant', 'Participant'), ('other', 'Other')`)
 	lockMust(t, err)
 	_, err = store.pool.Exec(ctx, `UPDATE issues SET created_by = 'participant' WHERE organization_id = $1 AND id = $2`, h.organizationID, second.ID)
@@ -106,7 +119,7 @@ func TestIssueHTTPContract(t *testing.T) {
 	lockMust(t, err)
 
 	detail := fmt.Sprintf("%s/%d", base, first.Number)
-	request(http.MethodPost, detail+"/comments?issue_id="+url.QueryEscape(first.ID), `{"body":"Comment"}`, http.StatusCreated)
+	request(http.MethodPost, detail+"/comments"+query, `{"body":"Comment"}`, http.StatusCreated)
 	assertMetadata := func(got issueResponse) {
 		t.Helper()
 		if got.Number != first.Number || got.Comments != 1 || got.MilestoneID != "release-one" ||
@@ -189,4 +202,132 @@ func TestIssueHTTPContract(t *testing.T) {
 	}
 	request(http.MethodPost, detail+"/reopen"+query, "", http.StatusConflict)
 	list("&state=closed", 20, 0, 0, 2, 0)
+}
+
+func TestIssueCreateMetadata(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("requires PostgreSQL")
+	}
+	ctx := t.Context()
+	store, err := Open(ctx, slugScratchDatabase(t, dsn, 1))
+	lockMust(t, err)
+	t.Cleanup(store.Close)
+	h := newLockHTTP(t, &lockFixture{ctx: ctx, store: store}, 0, "team/repo", "team/other")
+	h.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+		Identity: store, CSRF: store, Catalog: store, AllowedOrigin: lockHTTPOrigin,
+		IssueRepo: NewIssueRepository(store),
+	})
+	_, err = store.pool.Exec(ctx, `INSERT INTO labels (organization_id, id, repository, name, color) VALUES
+		($1, 'local-label', 'team/repo', 'Ready', 'd73a4a'), ($1, 'other-label', 'team/other', 'Other', 'ffffff')`, h.organizationID)
+	lockMust(t, err)
+	_, err = store.pool.Exec(ctx, `INSERT INTO milestones (organization_id, id, repository, title, state, closed_at) VALUES
+		($1, 'release', 'team/repo', 'Release', 'open', NULL),
+		($1, 'closed', 'team/repo', 'Closed', 'closed', now()),
+		($1, 'other-milestone', 'team/other', 'Other', 'open', NULL)`, h.organizationID)
+	lockMust(t, err)
+	_, err = store.pool.Exec(ctx, `INSERT INTO users (id, display_name) VALUES ('not-a-member', 'Not a member')`)
+	lockMust(t, err)
+	base := "/api/v1/organizations/" + h.organizationID + "/issues"
+	create := func(fields string, status int) issues.Issue {
+		t.Helper()
+		response := h.do(ctx, http.MethodPost, base, `{"repository":"team/repo","title":"Metadata"`+fields+`}`)
+		if response.Code != status {
+			t.Fatalf("create with %s returned %d, want %d: %s", fields, response.Code, status, response.Body)
+		}
+		var issue issues.Issue
+		if status == http.StatusCreated {
+			lockMust(t, json.Unmarshal(response.Body.Bytes(), &issue))
+		}
+		return issue
+	}
+	for _, fields := range []string{
+		`,"label_ids":["local-label","other-label"]`, `,"assignees":["not-a-member"]`,
+		`,"milestone_id":"other-milestone"`, `,"milestone_id":"closed"`, `,"issue_type":"invalid"`,
+	} {
+		create(fields, http.StatusUnprocessableEntity)
+	}
+	valid := fmt.Sprintf(`,"assignees":[%q],"label_ids":["local-label"],"milestone_id":"release","issue_type":"bug"`, h.userID)
+	created := create(valid, http.StatusCreated)
+	if created.Number != 1 || created.Type != "bug" || created.MilestoneTitle != "Release" || len(created.Labels) != 1 ||
+		created.Labels[0].Name != "Ready" || !reflect.DeepEqual(created.Assignees, []issues.Assignee{{UserID: h.userID, DisplayName: h.userID}}) {
+		t.Fatalf("expected persisted metadata on first issue: %+v", created)
+	}
+	_, err = store.pool.Exec(ctx, `UPDATE organization_memberships SET role = 'member' WHERE organization_id = $1 AND user_id = $2`, h.organizationID, h.userID)
+	lockMust(t, err)
+	create(valid, http.StatusForbidden)
+	if issue := create("", http.StatusCreated); issue.Number != 2 || len(issue.Labels) != 0 || len(issue.Assignees) != 0 || issue.MilestoneID != "" || issue.Type != "" {
+		t.Fatalf("expected an issue without metadata: %+v", issue)
+	}
+}
+
+func TestIssueAttachmentLifecycle(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("requires PostgreSQL")
+	}
+	ctx := t.Context()
+	store, err := Open(ctx, slugScratchDatabase(t, dsn, 1))
+	lockMust(t, err)
+	t.Cleanup(store.Close)
+	fx := &lockFixture{ctx: ctx, store: store}
+	uploader := newLockHTTP(t, fx, 0, "team/repo", "team/other")
+	reader := newLockHTTP(t, fx, 0, "team/repo")
+	handler := httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
+		Identity: store, CSRF: store, Catalog: store, AllowedOrigin: lockHTTPOrigin,
+		IssueRepo: NewIssueRepository(store),
+	})
+	uploader.handler, reader.handler = handler, handler
+	_, err = store.pool.Exec(ctx, `INSERT INTO organization_memberships (organization_id, user_id, role, status)
+		VALUES ($1, $2, 'member', 'active')`, uploader.organizationID, reader.userID)
+	lockMust(t, err)
+	base := "/api/v1/organizations/" + uploader.organizationID
+	request := func(session *lockHTTP, method, route, body string, status int) *httptest.ResponseRecorder {
+		t.Helper()
+		response := session.do(ctx, method, route, body)
+		if response.Code != status {
+			t.Fatalf("%s %s returned %d, want %d: %s", method, route, response.Code, status, response.Body)
+		}
+		return response
+	}
+	request(uploader, http.MethodPost, base+"/issue-attachments?repository=team%2Frepo&filename=large.png", strings.Repeat("x", (10<<20)+1), http.StatusRequestEntityTooLarge)
+	const content = "Attachment saved from the Issue draft.\n"
+	upload := func() (id, route string) {
+		t.Helper()
+		response := request(uploader, http.MethodPost, base+"/issue-attachments?repository=team%2Frepo&filename=notes.txt", content, http.StatusCreated)
+		var file struct{ ID, URL string }
+		lockMust(t, json.Unmarshal(response.Body.Bytes(), &file))
+		return file.ID, file.URL
+	}
+	id, route := upload()
+	expiredID, expiredRoute := upload()
+	_, err = store.pool.Exec(ctx, `UPDATE issue_attachments SET expires_at = now() WHERE organization_id = $1 AND id = $2`, uploader.organizationID, expiredID)
+	lockMust(t, err)
+	request(uploader, http.MethodGet, route, "", http.StatusOK)
+	request(uploader, http.MethodGet, expiredRoute, "", http.StatusNotFound)
+	request(reader, http.MethodGet, route, "", http.StatusNotFound)
+	request(reader, http.MethodGet, "/api/v1/organizations/"+reader.organizationID+"/issue-attachments/"+id, "", http.StatusNotFound)
+	create := func(session *lockHTTP, repository, body string, ids []string, status int) *httptest.ResponseRecorder {
+		t.Helper()
+		data, err := json.Marshal(map[string]any{"repository": repository, "title": "Attachments", "body": body, "attachment_ids": ids})
+		lockMust(t, err)
+		return request(session, http.MethodPost, base+"/issues", string(data), status)
+	}
+	body := "[notes](" + route + ")"
+	create(reader, "team/repo", body, []string{id}, http.StatusUnprocessableEntity)
+	create(uploader, "team/other", body, []string{id}, http.StatusUnprocessableEntity)
+	create(uploader, "team/repo", body+"\n[Expired]("+expiredRoute+")", []string{id, expiredID}, http.StatusUnprocessableEntity)
+	request(reader, http.MethodGet, route, "", http.StatusNotFound)
+
+	created := create(uploader, "team/repo", body, []string{id}, http.StatusCreated)
+	var issue issues.Issue
+	lockMust(t, json.Unmarshal(created.Body.Bytes(), &issue))
+	if issue.Number != 1 {
+		t.Fatalf("failed attachment binding must roll back issue creation, got issue #%d", issue.Number)
+	}
+	download := request(reader, http.MethodGet, route, "", http.StatusOK)
+	if download.Body.String() != content || download.Header().Get("Content-Disposition") != "attachment; filename=notes.txt" {
+		t.Fatalf("expected published bytes and download disposition, got %q (%v)", download.Body, download.Header())
+	}
+	create(uploader, "team/repo", body, []string{id}, http.StatusUnprocessableEntity)
 }

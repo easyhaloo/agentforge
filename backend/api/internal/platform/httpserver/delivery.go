@@ -39,6 +39,7 @@ type AccountRepository interface {
 }
 
 type MembershipRepository interface {
+	FindMemberMentions(context.Context, string, string) ([]identity.MemberMention, error)
 	ListMembers(context.Context, string, int, int) ([]identity.OrganizationMember, error)
 	UpdateMembership(context.Context, string, string, string, *string, *string) (identity.OrganizationMember, error)
 	RemoveMembership(context.Context, string, string, string) error
@@ -93,7 +94,7 @@ type MilestoneRepository interface {
 type ReactionRepository interface {
 	Add(ctx context.Context, organizationID string, reaction *reactions.Reaction) (*reactions.Reaction, error)
 	List(ctx context.Context, organizationID string, reactableType reactions.ReactableType, reactableID reactions.ID) ([]*reactions.Reaction, error)
-	Remove(ctx context.Context, organizationID string, reactionID reactions.ID) error
+	RemoveOwn(ctx context.Context, organizationID string, resourceType reactions.ReactableType, resourceID, reactionID reactions.ID, userID string) error
 }
 
 type EventRepository interface {
@@ -139,6 +140,8 @@ type DeliveryDependencies struct {
 	Workspaces       workspace.Repository
 	Tasks            *tasks.PostgresStore
 	IssueRepo        issues.Repository
+	IssueDetailRepo  issues.DetailRepository
+	ProjectRepo      issues.ProjectRepository
 	CommentRepo      CommentRepository
 	LabelRepo        LabelRepository
 	MilestoneRepo    MilestoneRepository
@@ -168,6 +171,7 @@ type createChangesetRequest struct {
 	SourceBranch    *string `json:"source_branch,omitempty"`
 	BaseBranch      *string `json:"base_branch,omitempty"`
 	ExpectedHeadSHA *string `json:"expected_head_sha,omitempty"`
+	IssueNumber     *int32  `json:"issue_number,omitempty"`
 	Description     *string `json:"description,omitempty"`
 	Draft           *bool   `json:"draft,omitempty"`
 }
@@ -226,7 +230,16 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)
 
 	// Issue tracking routes
+	deps.registerIssueDetail(mux)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issue-attachments", deps.stageIssueAttachment)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issue-attachments/{attachmentID}", deps.getIssueAttachment)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issue-projects", deps.listIssueProjects)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issue-projects", deps.createIssueProject)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues", deps.listIssues)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/member-mentions", deps.findIssueMemberMentions)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/references", deps.issueReferences)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/github-reference", deps.resolveGitHubIssueReference)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/github-pull-search", deps.searchGitHubPullReferences)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues", deps.createIssue)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}", deps.getIssue)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/issues/{number}", deps.updateIssue)
@@ -244,9 +257,9 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.unsubscribeFromIssue)
 
 	// Notification routes
-	mux.HandleFunc("GET /api/v1/notifications", deps.listNotifications)
-	mux.HandleFunc("PATCH /api/v1/notifications/{id}/read", deps.markNotificationAsRead)
-	mux.HandleFunc("POST /api/v1/notifications/read-all", deps.markAllNotificationsAsRead)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/notifications", deps.listNotifications)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/notifications/{id}/read", deps.markNotificationAsRead)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/notifications/read-all", deps.markAllNotificationsAsRead)
 
 	// Comment routes
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/comments", deps.listComments)
@@ -258,6 +271,9 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/comments/{commentID}/minimize", deps.unminimizeComment)
 
 	// Reaction routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issues/{number}/reactions", deps.listReactions)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issues/{number}/reactions", deps.addReaction)
+	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/reactions/{reactionID}", deps.removeReaction)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/comments/{commentID}/reactions", deps.listReactions)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/comments/{commentID}/reactions", deps.addReaction)
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/comments/{commentID}/reactions/{reactionID}", deps.removeReaction)
@@ -450,6 +466,20 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 	if !decodeJSON(w, r, &input) {
 		return
 	}
+	if input.IssueNumber != nil {
+		if *input.IssueNumber <= 0 || input.BaseBranch == nil {
+			writeProblem(w, http.StatusBadRequest, "Invalid linked issue", "A positive issue number can be linked only when creating a pull request")
+			return
+		}
+		if principal.Role != "owner" && principal.Role != "admin" {
+			writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only organization owners and admins can link pull requests to issues")
+			return
+		}
+		if d.IssueDetailRepo == nil {
+			writeProblem(w, http.StatusServiceUnavailable, "Issue detail unavailable", "The issue detail repository is not configured")
+			return
+		}
+	}
 	id, err := newID()
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to create changeset", "An identifier could not be generated")
@@ -579,7 +609,19 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	stored, err := d.Repository.Create(r.Context(), principal.OrganizationID, changeset)
+	var stored delivery.StoredChangeset
+	if input.IssueNumber == nil {
+		stored, err = d.Repository.Create(r.Context(), principal.OrganizationID, changeset)
+	} else {
+		stored, err = d.IssueDetailRepo.CreateLinkedPullRequest(r.Context(), issues.DetailScope{
+			OrganizationID: principal.OrganizationID, Repository: changeset.Repository, Number: int(*input.IssueNumber),
+			UserID: principal.UserID, CanManage: principal.Role == "owner" || principal.Role == "admin",
+		}, changeset)
+		if errors.Is(err, issues.ErrDetailNotFound) || errors.Is(err, issues.ErrDetailForbidden) {
+			issueDetailError(w, err)
+			return
+		}
+	}
 	if errors.Is(err, delivery.ErrVersionConflict) {
 		writeProblem(w, http.StatusConflict, "Changeset conflict", "A changeset with this identifier already exists in this organization")
 		return

@@ -1,11 +1,14 @@
 package httpserver
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/comments"
+	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 )
 
 type createCommentRequest struct {
@@ -13,7 +16,8 @@ type createCommentRequest struct {
 }
 
 type updateCommentRequest struct {
-	Body string `json:"body"`
+	Body    string `json:"body"`
+	Version *int64 `json:"version,omitempty"`
 }
 
 type minimizeCommentRequest struct {
@@ -31,14 +35,12 @@ func (d DeliveryDependencies) listComments(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Get issue ID from query or path
-	issueID := r.URL.Query().Get("issue_id")
-	if issueID == "" {
-		writeProblem(w, http.StatusBadRequest, "Issue ID required", "issue_id query parameter is required")
+	issue, ok := d.conversationIssue(w, r, principal)
+	if !ok {
 		return
 	}
 
-	commentsList, err := d.CommentRepo.List(r.Context(), principal.OrganizationID, comments.ResourceTypeIssue, comments.ID(issueID))
+	commentsList, err := d.CommentRepo.List(r.Context(), principal.OrganizationID, comments.ResourceTypeIssue, comments.ID(issue.ID))
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to list comments", "The comment query failed")
 		return
@@ -58,9 +60,13 @@ func (d DeliveryDependencies) createComment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	issueID := r.URL.Query().Get("issue_id")
-	if issueID == "" {
-		writeProblem(w, http.StatusBadRequest, "Issue ID required", "issue_id query parameter is required")
+	issue, ok := d.conversationIssue(w, r, principal)
+	if !ok {
+		return
+	}
+	moderator := principal.Role == "admin" || principal.Role == "owner"
+	if issue.Locked && !moderator {
+		writeProblem(w, http.StatusForbidden, "Conversation locked", "Only maintainers can comment on this locked issue")
 		return
 	}
 
@@ -70,8 +76,8 @@ func (d DeliveryDependencies) createComment(w http.ResponseWriter, r *http.Reque
 	}
 
 	req.Body = strings.TrimSpace(req.Body)
-	if req.Body == "" {
-		writeProblem(w, http.StatusBadRequest, "Body required", "comment body must not be empty")
+	if req.Body == "" || len([]rune(req.Body)) > 65536 {
+		writeProblem(w, http.StatusBadRequest, "Invalid comment", "Comment body must contain 1 to 65,536 characters")
 		return
 	}
 
@@ -85,14 +91,19 @@ func (d DeliveryDependencies) createComment(w http.ResponseWriter, r *http.Reque
 	comment := &comments.Comment{
 		ID:           comments.ID(id),
 		ResourceType: comments.ResourceTypeIssue,
-		ResourceID:   comments.ID(issueID),
+		ResourceID:   comments.ID(issue.ID),
 		Body:         req.Body,
 		AuthorID:     principal.UserID,
 		CreatedAt:    now,
 		UpdatedAt:    now,
+		AllowLocked:  moderator,
 	}
 
 	created, err := d.CommentRepo.Create(r.Context(), principal.OrganizationID, comment)
+	if errors.Is(err, comments.ErrLocked) {
+		writeProblem(w, http.StatusForbidden, "Conversation locked", "Only maintainers can comment on this locked issue")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to create comment", "The comment could not be persisted")
 		return
@@ -150,8 +161,8 @@ func (d DeliveryDependencies) updateComment(w http.ResponseWriter, r *http.Reque
 	}
 
 	req.Body = strings.TrimSpace(req.Body)
-	if req.Body == "" {
-		writeProblem(w, http.StatusBadRequest, "Body required", "comment body must not be empty")
+	if req.Body == "" || len([]rune(req.Body)) > 65536 {
+		writeProblem(w, http.StatusBadRequest, "Invalid comment", "Comment body must contain 1 to 65,536 characters")
 		return
 	}
 
@@ -168,12 +179,20 @@ func (d DeliveryDependencies) updateComment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if req.Version != nil && *req.Version != comment.Version {
+		writeProblem(w, http.StatusConflict, "Comment changed", "Reload the comment before saving your edits")
+		return
+	}
 	comment.Body = req.Body
 	now := time.Now().UTC()
 	comment.EditedAt = &now
 	comment.UpdatedAt = now
 
 	updated, err := d.CommentRepo.Update(r.Context(), principal.OrganizationID, comment)
+	if errors.Is(err, comments.ErrVersionConflict) {
+		writeProblem(w, http.StatusConflict, "Comment changed", "Reload the comment before saving your edits")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to update comment", "The comment could not be updated")
 		return
@@ -311,4 +330,23 @@ func (d DeliveryDependencies) canModifyComment(principal Principal, comment *com
 		return true
 	}
 	return false
+}
+
+func (d DeliveryDependencies) conversationIssue(w http.ResponseWriter, r *http.Request, principal Principal) (*issues.Issue, bool) {
+	if d.IssueRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Issue tracking unavailable", "The issue repository is not configured")
+		return nil, false
+	}
+	repository := r.URL.Query().Get("repository")
+	number, err := strconv.Atoi(r.PathValue("number"))
+	if repository == "" || err != nil || number < 1 {
+		writeProblem(w, http.StatusBadRequest, "Invalid issue reference", "A repository and positive issue number are required")
+		return nil, false
+	}
+	issue, err := d.IssueRepo.Get(r.Context(), principal.OrganizationID, repository, number)
+	if err != nil || (r.URL.Query().Has("issue_id") && r.URL.Query().Get("issue_id") != string(issue.ID)) {
+		writeProblem(w, http.StatusNotFound, "Issue not found", "No issue matches the requested reference")
+		return nil, false
+	}
+	return issue, true
 }

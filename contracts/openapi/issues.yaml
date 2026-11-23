@@ -78,6 +78,7 @@ paths:
     post:
       operationId: createIssue
       summary: Create a new issue
+      description: Issue metadata and staged attachments are saved atomically with the new issue. Only organization owners and admins can set assignees, labels, milestone, type, or projects.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
@@ -96,6 +97,299 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/member-mentions:
+    get:
+      operationId: findIssueMemberMentions
+      summary: Find active organization members for an Issue mention
+      description: Requires the organization role needed to create issues. Matches a handle or display name without exposing email or membership details.
+      security: [{ sessionCookie: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: Matching organization members
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 6
+                    items:
+                      type: object
+                      required: [username, display_name]
+                      properties:
+                        username: { type: string }
+                        display_name: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/references:
+    get:
+      operationId: resolveIssueReferences
+      summary: Resolve existing issue numbers in one repository
+      security: [{ sessionCookie: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+        - name: number
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { type: integer, format: int32, minimum: 1 }
+      responses:
+        "200":
+          description: Existing issue numbers in ascending order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: integer, format: int32, minimum: 1 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/github-reference:
+    get:
+      operationId: resolvePublicGitHubIssueReference
+      summary: Identify a public GitHub issue or pull request
+      description: Queries GitHub anonymously using only the supplied repository and number.
+      security: [{ sessionCookie: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[a-zA-Z0-9-]{1,39}/[a-zA-Z0-9_.-]{1,100}$' }
+        - name: number
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      responses:
+        "200":
+          description: The canonical GitHub route segment and reference summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kind, title, state]
+                properties:
+                  kind: { type: string, enum: [issues, pull] }
+                  title: { type: string }
+                  state: { type: string, enum: [open, closed, merged] }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/github-pull-search:
+    get:
+      operationId: searchPublicGitHubPullRequests
+      summary: Find up to six pull requests in one public GitHub repository
+      description: Queries GitHub anonymously by exact number or optional title keyword. Issues are excluded.
+      security: [{ sessionCookie: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[a-zA-Z0-9-]{1,39}/[a-zA-Z0-9_.-]{1,100}$' }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 80 }
+      responses:
+        "200":
+          description: Matching pull requests, if any
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 6
+                    items:
+                      type: object
+                      required: [number, title]
+                      properties:
+                        number: { type: integer, minimum: 1 }
+                        title: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+    get:
+      operationId: listIssueProjects
+      summary: List available issue projects
+      tags: [Issues]
+      description: With a repository, returns organization-wide projects and projects scoped to that repository. Recent is specific to the caller.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: repository
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Issue projects
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/IssueProject" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createIssueProject
+      summary: Create an organization or repository issue project
+      description: Requires an organization owner or admin. Names are case-insensitive within a scope.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                repository: { type: string, description: Omit for an organization-wide project. }
+      responses:
+        "201":
+          description: Issue project created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IssueProject" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-attachments:
+    post:
+      operationId: stageIssueAttachment
+      summary: Upload a file for an issue draft
+      description: Send the raw file bytes. Images and videos are limited to 10 MiB, other supported files to 25 MiB. Drafts expire after 24 hours. Each uploader in an organization can have up to 100 pending files totaling up to 100 MiB.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: repository
+          in: query
+          required: true
+          schema: { type: string }
+        - name: filename
+          in: query
+          required: true
+          description: File name including a supported extension, up to 255 UTF-8 bytes. Path separators and control characters are not allowed.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream: {}
+      responses:
+        "201":
+          description: Staged file metadata. Reference the returned URL in the Issue Markdown and send the ID in attachment_ids when creating the Issue.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, url, name, image]
+                properties:
+                  id: { type: string, pattern: '^[a-f0-9]{32}$' }
+                  url: { type: string, format: uri-reference }
+                  name: { type: string }
+                  image: { type: boolean }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "415": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-attachments/{attachmentID}:
+    get:
+      operationId: getIssueAttachment
+      summary: Read or download an issue attachment
+      description: Only the uploader can read a staged file. A published file is available to authenticated organization members who can read the repository.
+      security: [{ sessionCookie: [] }]
+      tags: [Issues]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - name: attachmentID
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-f0-9]{32}$' }
+        - name: download
+          in: query
+          description: A non-empty value requests a download for an image or video. Other files always download.
+          schema: { type: string }
+      responses:
+        "200":
+          description: File bytes. Images and videos are served with their validated media type. Other files use application/octet-stream.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            application/octet-stream: {}
+            image/*: {}
+            video/*: {}
+        "206":
+          description: Partial file bytes requested with a valid Range header.
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "416":
+          description: Unsatisfiable Range header.
+        "500": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/issues/{number}:
     get:
@@ -117,14 +411,15 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Issue details
+          description: Issue details. An old location after transfer returns the issue with its canonical repository and number.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Issue" }
         "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateIssue
-      summary: Update issue title or body
+      summary: Update issue content or replace selected metadata fields
+      description: Authors, organization admins, and owners can edit content. Only organization owners and admins can edit metadata. If the update timestamp is stale, the entire write is rejected.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
@@ -220,7 +515,7 @@ paths:
   /api/v1/organizations/{organizationID}/issues/{number}/lock:
     post:
       operationId: lockIssue
-      summary: Lock an issue to prevent further modifications
+      summary: Restrict comments and reactions to maintainers
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       tags: [Issues]
       parameters:
@@ -233,9 +528,19 @@ paths:
           in: query
           required: true
           schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, enum: [off-topic, 'too heated', resolved, spam] }
       responses:
-        "204":
-          description: Issue locked
+        "200":
+          $ref: "#/components/responses/UpdatedIssue"
+        "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
     delete:
@@ -254,8 +559,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "204":
-          description: Issue unlocked
+        "200": { $ref: "#/components/responses/UpdatedIssue" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
 
@@ -282,8 +586,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/Comment" }
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: [array, "null"]
+                    items: { $ref: "#/components/schemas/Comment" }
         "404": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createIssueComment
@@ -452,8 +760,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/Reaction" }
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: [array, "null"]
+                    items: { $ref: "#/components/schemas/Reaction" }
     post:
       operationId: addCommentReaction
       summary: Add a reaction to a comment
@@ -920,8 +1232,480 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/IssueEvent" }
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: [array, "null"]
+                    items: { $ref: "#/components/schemas/IssueEvent" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/transfer:
+    post:
+      operationId: transferIssue
+      summary: Move an issue to another repository in the organization
+      description: Only owners and administrators can transfer. Private issues cannot move to a public repository. Remove parent and child links first. The issue ID, attachments, subscriptions, conversation and history remain with the issue. Repository labels, milestones, projects and development associations are cleared.
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: repository, in: query, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repository, expected_updated_at]
+              properties:
+                repository: { type: string, description: Destination repository slug }
+                expected_updated_at: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Transferred issue with the number allocated at the destination
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/github-source:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    get:
+      operationId: getIssueGitHubSource
+      summary: Read the linked public GitHub issue and its stored cross-references
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/IssueGitHubSource" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: setIssueGitHubSource
+      summary: Sync or remove the issue's public GitHub source
+      description: Owners and administrators can link or refresh a public GitHub issue. A successful sync stores cross-references found on the first page of its timeline. An empty URL unlinks it.
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, maxLength: 200 }
+                expected_fetched_at: { type: string, description: The current fetched_at value or empty if not linked }
+      responses:
+        "200": { $ref: "#/components/responses/IssueGitHubSource" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/branches:
+    post:
+      operationId: createIssueBranch
+      summary: Create a Git branch for an issue
+      description: Owners and administrators can create a branch in the issue repository from a pinned base commit. It remains in that repository if the issue is transferred.
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      parameters:
+        - $ref: "#/components/parameters/organizationID"
+        - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: repository, in: query, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_branch, base_sha]
+              properties:
+                name: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,79}$', description: Branch suffix }
+                base_branch: { type: string, description: Existing branch name without refs/heads/ }
+                base_sha: { type: string, pattern: '^([0-9a-f]{40}|[0-9a-f]{64})$' }
+      responses:
+        "201":
+          description: Created Git ref
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, kind, sha]
+                properties:
+                  name: { type: string }
+                  kind: { type: string, const: branch }
+                  sha: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/relationships:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    get:
+      operationId: getIssueRelationships
+      summary: Get the same-repository parent and children
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Issue parent and children
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [parent, children]
+                properties:
+                  parent:
+                    oneOf:
+                      - $ref: "#/components/schemas/IssueSummary"
+                      - type: 'null'
+                  children:
+                    type: array
+                    items: { $ref: "#/components/schemas/IssueSummary" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/parent:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    put:
+      operationId: setIssueParent
+      summary: Link an existing issue to its parent
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number]
+              properties:
+                number: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Issue parent and children
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [parent, children]
+                properties:
+                  parent:
+                    oneOf:
+                      - $ref: "#/components/schemas/IssueSummary"
+                      - type: 'null'
+                  children:
+                    type: array
+                    items: { $ref: "#/components/schemas/IssueSummary" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: removeIssueParent
+      summary: Remove the parent relationship
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "200":
+          description: Issue parent and children
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [parent, children]
+                properties:
+                  parent:
+                    oneOf:
+                      - $ref: "#/components/schemas/IssueSummary"
+                      - type: 'null'
+                  children:
+                    type: array
+                    items: { $ref: "#/components/schemas/IssueSummary" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/artifacts:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    get:
+      operationId: getIssueArtifacts
+      summary: List attachments linked as artifacts
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Issue artifacts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [artifacts]
+                properties:
+                  artifacts:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, size, content_type, url]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        size: { type: integer, minimum: 1 }
+                        content_type: { type: string }
+                        url: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/artifacts/{attachmentID}:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+      - { name: attachmentID, in: path, required: true, schema: { type: string } }
+    put:
+      operationId: linkIssueArtifact
+      summary: Link a staged attachment as an artifact
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204":
+          description: Attachment linked
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: unlinkIssueArtifact
+      summary: Remove an artifact link
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204":
+          description: Attachment unlinked
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/reports:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    post:
+      operationId: reportIssueContent
+      summary: Report the issue description or one comment
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, enum: [spam, abuse, harassment, inappropriate, other] }
+                details: { type: string, maxLength: 2000 }
+                commentId: { type: string, maxLength: 128 }
+      responses:
+        "201":
+          description: Report receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, created_at]
+                properties:
+                  id: { type: string }
+                  created_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/subscription:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    get:
+      operationId: getIssueSubscription
+      summary: Get current subscription for the caller
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Current subscription state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscribed]
+                properties:
+                  subscribed: { type: boolean }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: subscribeToIssue
+      summary: Subscribe to issue activity
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "200":
+          description: Current subscription state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscribed]
+                properties:
+                  subscribed: { type: boolean }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: unsubscribeFromIssue
+      summary: Unsubscribe from issue activity
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "200":
+          description: Current subscription state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscribed]
+                properties:
+                  subscribed: { type: boolean }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/reactions:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+    get:
+      operationId: listIssueReactions
+      summary: List reactions to the issue description
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Issue reactions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: [array, "null"]
+                    items: { $ref: "#/components/schemas/Reaction" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: addIssueReaction
+      summary: Add a reaction to the issue description
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, enum: ["+1", "-1", laugh, confused, heart, hooray, rocket, eyes] }
+      responses:
+        "201":
+          description: Reaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reaction"
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issues/{number}/reactions/{reactionID}:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: repository, in: query, required: true, schema: { type: string } }
+      - { name: reactionID, in: path, required: true, schema: { type: string } }
+    delete:
+      operationId: removeIssueReaction
+      summary: Remove the caller’s issue reaction
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      responses:
+        "204":
+          description: Reaction removed
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
 
 # ==================== Components ====================
 components:
@@ -934,6 +1718,32 @@ components:
       schema: { type: string }
 
   responses:
+    IssueGitHubSource:
+      description: Stored GitHub source snapshot or null when no issue is linked
+      content:
+        application/json:
+          schema:
+            type: [object, 'null']
+            required: [url, fetched_at, references]
+            properties:
+              url: { type: string, format: uri }
+              fetched_at: { type: string, format: date-time }
+              references:
+                type: array
+                items:
+                  type: object
+                  required: [url, actor, title, number, created_at]
+                  properties:
+                    url: { type: string, format: uri }
+                    actor: { type: string }
+                    title: { type: string }
+                    number: { type: integer, minimum: 1 }
+                    created_at: { type: string, format: date-time }
+    UpdatedIssue:
+      description: Updated issue
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Issue" }
     Problem:
       description: RFC 9457 Problem response
       content:
@@ -949,6 +1759,25 @@ components:
 
   schemas:
     # ==================== Issue Schemas ====================
+    IssueProject:
+      type: object
+      required: [id, name, number]
+      properties:
+        id: { type: string }
+        number: { type: integer, minimum: 1, description: Stable number within the organization. }
+        name: { type: string }
+        repository: { type: string }
+        recent: { type: boolean, description: The caller added this project to an issue in the last 30 days. }
+
+    IssueSummary:
+      type: object
+      required: [id, number, title, state]
+      properties:
+        id: { type: string }
+        number: { type: integer, minimum: 1 }
+        title: { type: string }
+        state: { type: string, enum: [open, closed] }
+
     Issue:
       type: object
       required: [id, number, repository, title, body, state, locked, comments, labels, assignees, created_by, created_at, updated_at]
@@ -979,6 +1808,28 @@ components:
         milestone_id:
           type: string
           description: Associated milestone ID
+        milestone_title: { type: string }
+        created_by_name: { type: string }
+        lock_reason: { type: string, enum: [off-topic, 'too heated', resolved, spam] }
+        locked_by: { type: string }
+        locked_at: { type: string, format: date-time }
+        custom_fields:
+          type: object
+          additionalProperties: { type: string }
+        changesets:
+          type: array
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id: { type: string, description: Stable Changeset ID. }
+              title: { type: string }
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/IssueProject" }
+        issue_type:
+          type: string
+          enum: [task, bug, feature]
         locked:
           type: boolean
           description: Whether the issue is locked
@@ -996,6 +1847,7 @@ components:
             required: [user_id]
             properties:
               user_id: { type: string }
+              display_name: { type: string }
         created_by: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1004,7 +1856,7 @@ components:
 
     IssueCreate:
       type: object
-      required: [repository, title, body]
+      required: [repository, title]
       properties:
         repository:
           type: string
@@ -1015,7 +1867,37 @@ components:
           maxLength: 500
         body:
           type: string
-          maxLength: 65536
+          description: Optional Markdown. The browser editor limits input to 65536 characters.
+        assignees:
+          type: array
+          description: Organization member user IDs.
+          items: { type: string }
+        label_ids:
+          type: array
+          description: Label IDs belonging to this repository.
+          items: { type: string }
+        milestone_id:
+          type: string
+          description: Milestone ID belonging to this repository.
+        issue_type:
+          type: string
+          enum: ['', task, bug, feature]
+        project_ids:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          description: Organization-wide and same-repository project IDs. Requires an organization owner or admin.
+          items: { type: string, minLength: 32, maxLength: 32 }
+        attachment_ids:
+          type: array
+          maxItems: 20
+          description: Unexpired staged file IDs owned by the caller for this repository. Every staged URL must appear in the Markdown body.
+          items: { type: string, pattern: '^[a-f0-9]{32}$' }
+
+        parent_number:
+          type: integer
+          minimum: 1
+          description: Number of a parent in the same repository. The caller needs permission to manage the parent.
 
     IssueUpdate:
       type: object
@@ -1027,6 +1909,33 @@ components:
         body:
           type: string
           maxLength: 65536
+
+        expected_updated_at: { type: string, format: date-time }
+        custom_fields:
+          type: object
+          maxProperties: 20
+          propertyNames: { minLength: 1, maxLength: 64 }
+          additionalProperties: { type: string, maxLength: 500 }
+          description: Replace all custom text fields. Use an empty object to clear.
+        changeset_ids:
+          type: array
+          maxItems: 100
+          description: Replace links to same-repository Changesets. Use an empty array to clear.
+          items: { type: string }
+        assignees:
+          type: array
+          maxItems: 100
+          items: { type: string }
+        label_ids:
+          type: array
+          maxItems: 100
+          items: { type: string }
+        project_ids:
+          type: array
+          maxItems: 100
+          items: { type: string }
+        milestone_id: { type: string, description: Use an empty string to clear. }
+        issue_type: { type: string, enum: ['', task, bug, feature] }
 
     IssuePage:
       type: object
@@ -1074,7 +1983,7 @@ components:
     # ==================== Comment Schemas ====================
     Comment:
       type: object
-      required: [id, resource_type, resource_id, body, author_id, created_at, updated_at]
+      required: [id, resource_type, resource_id, body, author_id, created_at, updated_at, minimized, version]
       properties:
         id: { type: string }
         resource_type:
@@ -1090,6 +1999,7 @@ components:
         updated_at: { type: string, format: date-time }
         edited_at: { type: string, format: date-time }
         minimized: { type: boolean }
+        version: { type: integer, minimum: 1 }
         minimized_reason:
           type: string
           enum: [spam, off-topic, outdated, resolved]
@@ -1183,6 +2093,7 @@ components:
         event_type:
           type: string
           enum: [created, closed, reopened, labeled, unlabeled, assigned, unassigned, milestoned, demilestoned, renamed, edited, locked, unlocked, linked_changeset, unlinked_changeset, commented, mentioned, referenced]
+        issue_id: { type: string }
         actor_id: { type: string }
-        metadata: { type: object }
+        metadata: { type: [object, "null"] }
         created_at: { type: string, format: date-time }

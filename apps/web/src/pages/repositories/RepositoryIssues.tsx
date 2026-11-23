@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2, List, User, MessageSquare } from "lucide-react";
-import { Button, SearchInput, Select, Modal } from "../../shared/ui";
+import { Button, SearchInput, Select } from "../../shared/ui";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { issuesAPI, type IssueListParams, type IssuePage } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { issueDetailPath } from "../../shared/routing";
-import { IssueForm } from "./IssueForm";
+import { issueTemplatePath, issueDetailPath } from "../../shared/routing";
 import "./repositories.css";
 
 type IssueFilterType = "open" | "closed" | "all" | "assigned" | "created";
@@ -18,13 +17,11 @@ interface RepositoryIssuesProps {
   repository?: string;
   organizationHandle: string;
   currentUser: string;
-  onNotify: (message: string) => void;
 }
 
-export function RepositoryIssues({ organization, repository, organizationHandle, currentUser, onNotify }: RepositoryIssuesProps) {
+export function RepositoryIssues({ organization, repository, organizationHandle, currentUser }: RepositoryIssuesProps) {
   const { t } = useTranslation("repositories");
   const { formatDateTime, formatRelativeTime } = useDateFormatting();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = searchParams.get("state");
   const activeFilter: IssueFilterType = state === "closed" || state === "all" || state === "assigned" || state === "created" ? state : "open";
@@ -32,10 +29,8 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
 
   const [result, setResult] = useState<IssuePage>();
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [requestVersion, setRequestVersion] = useState(0);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchDraft, setSearchDraft] = useState(searchQuery);
   const composing = useRef(false);
   const [authorFilter, setAuthorFilter] = useState("");
@@ -123,21 +118,6 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
     setSearchParams(params, { flushSync: true });
   }
 
-  const handleCreateIssue = async (fields: { title: string; body: string }) => {
-    if (!repository) return;
-    setBusy(true);
-    try {
-      const newIssue = await issuesAPI.create(organization.id, { repository, ...fields });
-      setShowCreateModal(false);
-      onNotify(t("issues.createSuccess"));
-      navigate(issueDetailPath(organizationHandle, repository, newIssue.number));
-    } catch (cause) {
-      throw new Error(translateError(cause, t, "repositories:issues.createFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="issues-tab-content">
       <div className="issues-tab-layout">
@@ -179,9 +159,9 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
         <div className="issues-main">
           <div className="issues-header">
             {repository && <h2>{t("sections.issues")}</h2>}
-            {repository && <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+            {repository && organization.role !== "viewer" && <Link to={issueTemplatePath(organizationHandle, repository)} className="af-button af-button--primary af-button--middle">
               {t("issues.newIssue")}
-            </Button>}
+            </Link>}
           </div>
           <div
             onCompositionStart={() => { composing.current = true; }}
@@ -285,6 +265,7 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
                     <div className="issue-title-cell">
                       <div className="issue-title-row">
                         <Link className="repo-link issue-title-link" to={issueDetailPath(organizationHandle, issue.repository, issue.number)}>{issue.title}</Link>
+                        {issue.issue_type && <span className="issue-label">{t(`issues.type.${issue.issue_type}`)}</span>}
                         {issue.labels.map((label) => (
                           <span key={label.id} className="issue-label" style={{ borderColor: `#${label.color}` }}>{label.name}</span>
                         ))}
@@ -334,23 +315,6 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
           </div>}
         </div>
       </div>
-
-      {/* Create Issue Modal */}
-      {showCreateModal && (
-        <Modal
-          open={showCreateModal}
-          onCancel={() => setShowCreateModal(false)}
-          title={t("issues.createIssue")}
-          confirmLoading={busy}
-        >
-          <IssueForm
-            mode="create"
-            onSubmit={handleCreateIssue}
-            onCancel={() => setShowCreateModal(false)}
-            busy={busy}
-          />
-        </Modal>
-      )}
     </div>
   );
 }

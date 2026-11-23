@@ -1,5 +1,6 @@
 {
   "nav": {
+    "savedReplies": "Saved replies",
     "switchContext": "Switch settings context",
     "profile": "Public profile",
     "account": "Account",
@@ -11,6 +12,26 @@
     "agents": "Agent Interactions",
     "groupAccess": "ACCESS",
     "groupCode": "CODE"
+  },
+  "savedReplies": {
+    "title": "Saved replies",
+    "description": "Create reusable replies for issue descriptions.",
+    "empty": "You don’t have any saved replies yet.",
+    "noMatches": "No matching saved replies.",
+    "add": "Add a saved reply",
+    "edit": "Edit saved reply",
+    "replyTitle": "Reply title",
+    "replyBody": "Reply body",
+    "save": "Save reply",
+    "editNamed": "Edit {{title}}",
+    "deleteNamed": "Delete {{title}}",
+    "deleteConfirm": "Permanently delete this saved reply?",
+    "loadFailed": "Could not load saved replies.",
+    "saveFailed": "Could not save the reply.",
+    "retry": "Retry",
+    "filter": "Filter saved replies",
+    "manage": "Manage saved replies (opens in a new tab)",
+    "insertTooLong": "This reply would exceed the issue description limit."
   },
   "profile": {
     "title": "Public profile",
