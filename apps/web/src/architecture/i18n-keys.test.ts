@@ -173,7 +173,7 @@ describe("navigation translations", () => {
     const keys = [
       ...Object.values(routeKeyByLabel),
       ...Object.values(groupKeyByGroup),
-      ...navigationItems.map((item) => item.descriptionKey),
+      ...navigationItems.map((item) => item.descriptionKey).filter((key) => key !== undefined),
     ];
     for (const key of keys) {
       if (!resolvesEverywhere(key)) unresolved.push(key);
