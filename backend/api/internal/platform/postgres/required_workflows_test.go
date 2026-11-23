@@ -1,8 +1,12 @@
 package postgres
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +36,8 @@ func enableRequiredWorkflow(t *testing.T, s *Store, h *lockHTTP, rules []githttp
 
 func TestRequiredWorkflowBlocksMergeUntilCurrentAutomaticRunPasses(t *testing.T) {
 	ctx := t.Context()
-	s, h, git, previous, _ := integrationFixture(t)
+	root := t.TempDir()
+	s, h, git, previous, _ := integrationFixtureAt(t, root)
 	org := h.organizationID
 	h.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 		Repository: s, Identity: s, CSRF: s, AllowedOrigin: lockHTTPOrigin, Catalog: s, Git: git, Locker: s, Runs: s,
@@ -52,6 +57,24 @@ func TestRequiredWorkflowBlocksMergeUntilCurrentAutomaticRunPasses(t *testing.T)
 	lockMust(t, c.AddPullRequestRevision("prior", delivery.GitRevision{CommitSHA: previous}, base.CommitSHA, h.userID, now))
 	_, err = s.Create(ctx, org, c)
 	lockMust(t, err)
+	assertStatus := func(revision, status string) {
+		t.Helper()
+		resp := h.do(ctx, http.MethodGet, h.changesetsPath()+"/"+string(c.ID)+"/pull-request/required-workflows", "")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("get workflow statuses: %d %s", resp.Code, resp.Body)
+		}
+		var result struct {
+			Revision string                           `json:"revision_id"`
+			Checks   []githttp.RequiredWorkflowStatus `json:"checks"`
+		}
+		lockMust(t, json.Unmarshal(resp.Body.Bytes(), &result))
+		if result.Revision != revision || !slices.Equal(result.Checks, []githttp.RequiredWorkflowStatus{{
+			PipelineID: "required-ci", Name: "build", Status: status,
+		}}) {
+			t.Fatalf("expected %s on %s, got %+v", status, revision, result)
+		}
+	}
+	assertStatus("prior", "source_moved")
 	claimAndPass := func(expectedSource string) {
 		t.Helper()
 		task, err := s.ClaimTask(ctx, registerTestRunner(t, s, org, pipeline.ContainerCheck))
@@ -79,6 +102,7 @@ func TestRequiredWorkflowBlocksMergeUntilCurrentAutomaticRunPasses(t *testing.T)
 	_, err = s.CreateRun(ctx, org, "required-ci", 1, h.userID, nil)
 	lockMust(t, err)
 	claimAndPass("")
+	assertStatus("current", "waiting")
 
 	merge := func() int {
 		t.Helper()
@@ -98,6 +122,19 @@ func TestRequiredWorkflowBlocksMergeUntilCurrentAutomaticRunPasses(t *testing.T)
 	}
 	lockMust(t, s.AdvanceTriggers(ctx))
 	claimAndPass(topic.CommitSHA)
+	assertStatus("current", "passed")
+	other, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/other")
+	lockMust(t, err)
+	moveTarget := func(to, from string) {
+		t.Helper()
+		cmd := exec.CommandContext(ctx, "git", "-C", filepath.Join(root, org, rulesetTestRepo), "update-ref", "refs/heads/main", to, from)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("move target branch: %v %s", err, output)
+		}
+	}
+	moveTarget(other.CommitSHA, base.CommitSHA)
+	assertStatus("current", "behind")
+	moveTarget(base.CommitSHA, other.CommitSHA)
 	revision, _ := c.CurrentRevision()
 	if err := s.CheckRequiredWorkflows(ctx, org, c, revision, previous, map[string]bool{"required-ci": true}); !errors.Is(err, githttp.ErrRequiredWorkflows) {
 		t.Fatalf("strict check accepted a different target commit: %v", err)

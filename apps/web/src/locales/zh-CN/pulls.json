@@ -126,12 +126,27 @@
     "passed": "所有检查通过",
     "required": "需要证据",
     "noChecks": "未配置检查",
+    "noEvaluation": "此修订版本暂无评估结果",
     "status": {
       "pending": "待处理",
       "running": "运行中",
       "passed": "通过",
       "failed": "失败",
       "skipped": "已跳过"
+    }
+  },
+  "requiredWorkflows": {
+    "title": "仓库必需工作流",
+    "loading": "正在加载仓库必需工作流…",
+    "unavailable": "暂时无法获取必需工作流状态。",
+    "stale": "当前修订版本已变更。请重试以加载新版本的必需工作流状态。",
+    "summary": "必需工作流已通过 {{passed}} 项，共 {{total}} 项",
+    "viewChecks": "查看检查",
+    "status": {
+      "passed": "已通过",
+      "waiting": "等待一次成功运行",
+      "behind": "源分支落后于目标分支",
+      "source_moved": "源分支在此修订版本之后已变更"
     }
   },
   "files": {

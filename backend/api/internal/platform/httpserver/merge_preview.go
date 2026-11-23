@@ -129,7 +129,8 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 					writeProblem(w, 503, "Queue unavailable", "Durable storage is required")
 					return
 				}
-				entry, err := queue.Enqueue(r.Context(), user.OrganizationID, r.PathValue("id"), version, user.UserID, inputs, execution.Integration{Repository: input.Repository, Strategy: input.Strategy, MergePreview: result})
+				git, _ := d.integrationGit().(*delivery.LocalGitProvider)
+				entry, err := queue.Enqueue(r.Context(), user.OrganizationID, r.PathValue("id"), version, user.UserID, inputs, execution.Integration{Repository: input.Repository, Strategy: input.Strategy, MergePreview: result}, git)
 				if err != nil {
 					writeQueueError(w, err)
 					return
@@ -222,7 +223,7 @@ func writeQueueError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, githttp.ErrMergeMethodDisabled):
 		writeProblem(w, 409, "Merge method disabled", err.Error())
-	case errors.Is(err, githttp.ErrBranchPullRequestRequired), errors.Is(err, githttp.ErrRequiredWorkflows):
+	case errors.Is(err, githttp.ErrBranchPullRequestRequired), errors.Is(err, githttp.ErrRequiredWorkflows), errors.Is(err, githttp.ErrStrictWorkflowBase):
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks queue admission", err.Error())
 	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
 		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")

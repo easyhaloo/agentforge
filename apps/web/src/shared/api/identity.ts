@@ -197,6 +197,10 @@ export type RepositoryPreviewTree = { repository: string; commit_sha: string; pa
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
 export type PullRequestComparison = RepositoryCompare & { commits: RepositoryCommit[]; commits_truncated: boolean };
+export type PullRequestRequiredWorkflows = {
+  revision_id: string;
+  checks: Array<{ pipeline_id: string; name: string; status: "passed" | "waiting" | "behind" | "source_moved" }>;
+};
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
 export type GitCredential = { id: string; username: string; token: string; expires_at: string };
@@ -391,4 +395,6 @@ export const changesetAPI = {
     }),
   getComparison: (organizationID: string, id: string) =>
     request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/comparison`),
+  getRequiredWorkflows: (organizationID: string, id: string, signal: AbortSignal) =>
+    request<PullRequestRequiredWorkflows>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/required-workflows`, { signal, cache: "no-store" }),
 };

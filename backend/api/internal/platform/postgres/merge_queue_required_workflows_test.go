@@ -82,8 +82,15 @@ func TestMergeQueueAdmissionRequiresCurrentWorkflowPass(t *testing.T) {
 	passTriggeredRun(source.CommitSHA)
 	wrongBase := execution.Integration{Repository: rulesetTestRepo, Strategy: "merge-commit", MergePreview: preview}
 	wrongBase.Target.SHA = previous
-	if _, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, wrongBase); !errors.Is(err, githttp.ErrRequiredWorkflows) {
+	if _, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, wrongBase, git); !errors.Is(err, githttp.ErrRequiredWorkflows) {
 		t.Fatalf("strict admission with a different target SHA returned %v", err)
+	}
+	assertNoEntry()
+	other, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/other")
+	lockMust(t, err)
+	wrongBase.Target.SHA = other.CommitSHA
+	if _, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, wrongBase, git); !errors.Is(err, githttp.ErrStrictWorkflowBase) {
+		t.Fatalf("strict admission when source excludes the candidate target returned %v", err)
 	}
 	assertNoEntry()
 

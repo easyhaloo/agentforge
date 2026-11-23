@@ -126,12 +126,27 @@
     "passed": "All checks passed",
     "required": "Evidence required",
     "noChecks": "No checks configured",
+    "noEvaluation": "No evaluation results for this revision",
     "status": {
       "pending": "Pending",
       "running": "Running",
       "passed": "Passed",
       "failed": "Failed",
       "skipped": "Skipped"
+    }
+  },
+  "requiredWorkflows": {
+    "title": "Required repository workflows",
+    "loading": "Loading required repository workflows…",
+    "unavailable": "Required workflow statuses are unavailable.",
+    "stale": "The active revision changed. Retry to load its required workflow statuses.",
+    "summary": "Required workflows passed: {{passed}} of {{total}}",
+    "viewChecks": "View checks",
+    "status": {
+      "passed": "Passed",
+      "waiting": "Waiting for a passing run",
+      "behind": "Source branch is behind the target branch",
+      "source_moved": "Source branch changed since this revision"
     }
   },
   "files": {

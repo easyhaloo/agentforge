@@ -23,7 +23,7 @@ func TestMergeQueueRecoveryAfterPromotionCommitFailure(t *testing.T) {
 		t.Helper()
 		preview, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: "main", Sources: []string{source}})
 		lockMust(t, err)
-		e, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview})
+		e, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview}, git)
 		lockMust(t, err)
 		return e
 	}

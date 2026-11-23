@@ -5,7 +5,7 @@ import { pipelines } from "../../shared/api/pipelines";
 import { translateError } from "../../shared/api/errors";
 import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
-import { maxRulesetFileBytes, namePatternOperators, parseRulesetJson, mergeMethods, serializeRulesetJson } from "./rulesetJson";
+import { inspectRulesetJson, maxRulesetFileBytes, namePatternOperators, mergeMethods, serializeRulesetJson, type RulesetImport } from "./rulesetJson";
 
 const maxRules = 10;
 const maxNameLength = 80;
@@ -58,7 +58,8 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
   const [invalidRule, setInvalidRule] = useState<number>();
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
-  const busy = saving || importing;
+  const [pendingImport, setPendingImport] = useState<RulesetImport>();
+  const busy = saving || importing || Boolean(pendingImport);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -66,6 +67,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
   const nextId = useRef(0);
   const addButton = useRef<HTMLButtonElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
   const focusAdd = useRef(false);
   const validationAlert = useRef<HTMLParagraphElement>(null);
   const errorId = useId();
@@ -140,6 +142,17 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     return "";
   }
 
+  function addImportedRule(rule: RepositoryRefRule) {
+    const validation = validationError(rule, rules.length);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+    const id = nextId.current++;
+    changeRules([...rules, toDraft(rule, id)]);
+    setEditing(id);
+  }
+
   async function importRuleset(file: File) {
     if (!canEdit || busy || rules.length >= maxRules) return;
     setImporting(true);
@@ -147,19 +160,16 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     setInvalidRule(undefined);
     setSaved(false);
     try {
-      const rule = file.size <= maxRulesetFileBytes ? parseRulesetJson(await file.text()) : undefined;
-      if (!rule) {
+      const result = file.size <= maxRulesetFileBytes ? inspectRulesetJson(await file.text()) : undefined;
+      if (!result) {
         setError(t("settings.rulesets.importInvalid"));
         return;
       }
-      const validation = validationError(rule, rules.length);
-      if (validation) {
-        setError(validation);
-        return;
+      if (result.githubWorkflows) {
+        setPendingImport(result);
+      } else {
+        addImportedRule(result.rule);
       }
-      const id = nextId.current++;
-      changeRules([...rules, toDraft(rule, id)]);
-      setEditing(id);
     } catch {
       setError(t("settings.rulesets.importUnreadable"));
     } finally {
@@ -218,7 +228,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
   </div>;
   if (!settings) return <p role="status">{t("common:components.loading")}</p>;
 
-  return <form className="repo-settings-rulesets" aria-busy={busy} noValidate
+  return <form className="repo-settings-rulesets" aria-busy={saving || importing} noValidate
     onSubmit={event => { event.preventDefault(); void save(); }}>
     <div className="repo-settings-card">
       <p>{t("settings.rulesets.help")}</p>
@@ -228,7 +238,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
         <Button ref={addButton} disabled={busy || rules.length >= maxRules} onClick={addRule}>
           {t("settings.rulesets.add")}
         </Button>
-        <Button disabled={busy || rules.length >= maxRules} onClick={() => fileInput.current?.click()}>
+        <Button ref={importButton} disabled={busy || rules.length >= maxRules} onClick={() => fileInput.current?.click()}>
           {t("settings.rulesets.import")}
         </Button>
         <div hidden>
@@ -242,6 +252,14 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
       </div>}
       {canEdit && rules.length >= maxRules && <p>{t("settings.rulesets.limit", { max: maxRules })}</p>}
     </div>
+    {canEdit && pendingImport?.githubWorkflows && <GitHubWorkflowImport
+      checks={pendingImport.githubWorkflows} organization={organization.id} repository={repository}
+      onCancel={() => { setPendingImport(undefined); requestAnimationFrame(() => importButton.current?.focus()); }}
+      onImport={required_workflows => {
+        setPendingImport(undefined);
+        addImportedRule({ ...pendingImport.rule, required_workflows });
+        requestAnimationFrame(() => importButton.current?.focus());
+      }} />}
     {!rules.length && <div className="repo-settings-card"><p>{t("settings.rulesets.empty")}</p></div>}
     {rules.map(rule => {
       const name = rule.name.trim() || t("settings.rulesets.untitled");
@@ -414,20 +432,7 @@ function RequiredWorkflowEditor({ checks, organization, repository, busy, onChan
   onChange: (checks: NonNullable<RepositoryRefRule["required_workflows"]>) => void;
 }) {
   const { t } = useTranslation("repositories");
-  const [options, setOptions] = useState<{ id: string; name: string }[]>();
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    void repositoryAPI.workflows(organization, repository, controller.signal).then(async ({ items }) => {
-      const published = items.filter(workflow => workflow.repository === repository && workflow.version > 0 && !workflow.disabled && workflow.status !== "archived");
-      const eligible = await Promise.all(published.map(async workflow => {
-        const { items: triggers } = await pipelines.triggers(organization, workflow.id, controller.signal);
-        return triggers.some(trigger => trigger.kind === "changeset_revision") ? [workflow] : [];
-      }));
-      if (!controller.signal.aborted) setOptions(eligible.flat());
-    }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
-    return () => controller.abort();
-  }, [organization, repository]);
+  const { options, failed } = useRequiredWorkflowOptions(organization, repository);
   return <fieldset className="repo-settings-rule-restrictions" disabled={busy}>
     <legend>{t("settings.rulesets.workflowSelection")}</legend>
     <p>{t("settings.rulesets.workflowHelp")}</p>
@@ -442,4 +447,60 @@ function RequiredWorkflowEditor({ checks, organization, repository, busy, onChan
     <Checkbox label={t("settings.rulesets.strictWorkflows")} checked={checks.strict} onChange={event => onChange({ ...checks, strict: event.target.checked })} />
     <Checkbox label={t("settings.rulesets.skipWorkflowCreation")} checked={checks.skip_creation} onChange={event => onChange({ ...checks, skip_creation: event.target.checked })} />
   </fieldset>;
+}
+
+function useRequiredWorkflowOptions(organization: string, repository: string) {
+  const [options, setOptions] = useState<{ id: string; name: string }[]>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void repositoryAPI.workflows(organization, repository, controller.signal).then(async ({ items }) => {
+      const published = items.filter(workflow => workflow.repository === repository && workflow.version > 0 && !workflow.disabled && workflow.status !== "archived");
+      const eligible = await Promise.all(published.map(async workflow => {
+        const { items: triggers } = await pipelines.triggers(organization, workflow.id, controller.signal);
+        return triggers.some(trigger => trigger.kind === "changeset_revision") ? [workflow] : [];
+      }));
+      if (!controller.signal.aborted) setOptions(eligible.flat());
+    }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
+    return () => controller.abort();
+  }, [organization, repository]);
+  return { options, failed };
+}
+
+function GitHubWorkflowImport({ checks, organization, repository, onCancel, onImport }: {
+  checks: NonNullable<RulesetImport["githubWorkflows"]>;
+  organization: string;
+  repository: string;
+  onCancel: () => void;
+  onImport: (checks: NonNullable<RepositoryRefRule["required_workflows"]>) => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const { options, failed } = useRequiredWorkflowOptions(organization, repository);
+  const [mapping, setMapping] = useState(() => checks.checks.map(() => ""));
+  const heading = useRef<HTMLHeadingElement>(null);
+  const headingID = useId();
+  useEffect(() => { heading.current?.focus(); }, []);
+  const complete = mapping.every(id => options?.some(workflow => workflow.id === id)) && new Set(mapping).size === mapping.length;
+  return <section className="repo-settings-card" aria-labelledby={headingID}>
+    <h2 id={headingID} tabIndex={-1} ref={heading}>{t("settings.rulesets.mapGithubChecks")}</h2>
+    <p>{t("settings.rulesets.mapGithubChecksHelp")}</p>
+    {failed ? <p role="alert">{t("settings.rulesets.workflowsFailed")}</p> : !options ? <p role="status">{t("settings.rulesets.workflowsLoading")}</p> :
+      options.length < mapping.length && <p role="status">{t("settings.rulesets.mapGithubInsufficientWorkflows", { count: mapping.length })}</p>}
+    {checks.checks.map(({ context, integrationId }, index) => <Select
+      key={JSON.stringify([context, integrationId])}
+      label={integrationId === null ? t("settings.rulesets.githubAnySource", { context }) : t("settings.rulesets.githubAppSource", { context, app: integrationId })}
+      value={mapping[index]} disabled={!options?.length}
+      options={[{ value: "", label: t("settings.rulesets.selectWorkflow") }, ...((options ?? [])
+        .filter(({ id }) => id === mapping[index] || !mapping.includes(id)).map(({ id, name }) => ({ value: id, label: `${name} (${id})` })))]}
+      onChange={event => {
+        const id = event.target.value;
+        setMapping(current => current.map((value, i) => i === index ? id : value));
+      }} />)}
+    <div className="repo-settings-controls">
+      <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>
+      <Button variant="primary" disabled={!complete} onClick={() => onImport({ pipeline_ids: mapping, strict: checks.strict, skip_creation: checks.skip_creation })}>
+        {t("settings.rulesets.addMappedGithubRuleset")}
+      </Button>
+    </div>
+  </section>;
 }

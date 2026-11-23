@@ -26,7 +26,7 @@ func TestBackupRestoresCandidateAndQueue(t *testing.T) {
 	org, repo := h.organizationID, "team/repo"
 	preview, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: "main", Sources: []string{"topic"}})
 	lockMust(t, err)
-	entry, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview})
+	entry, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview}, git)
 	lockMust(t, err)
 	token := registerTestRunner(t, s, org, pipeline.ContainerCheck)
 	s.Close()

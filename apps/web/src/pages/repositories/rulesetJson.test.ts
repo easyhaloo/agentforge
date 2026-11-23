@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RepositoryRefRule } from "../../shared/api/identity";
-import { parseRulesetJson, serializeRulesetJson } from "./rulesetJson";
+import { inspectRulesetJson, parseRulesetJson, serializeRulesetJson } from "./rulesetJson";
 
 const githubRuleset = {
   id: 421,
@@ -108,6 +108,28 @@ describe("ruleset JSON portability", () => {
       do_not_enforce_on_create: false,
       required_status_checks: [{ context: "ci", integration_id: 15368 }],
     } }] })).toBeUndefined();
+  });
+
+  it("stages all contexts and the original app in the reference ci ruleset for explicit mapping", () => {
+    const checks = ["changes", "web", "api", "contracts"].map(context => ({ context, integration_id: 15368 }));
+    const text = JSON.stringify({
+      ...githubRuleset, name: "ci", conditions: { ref_name: { include: ["refs/heads/main"], exclude: [] } },
+      rules: [...githubRuleset.rules,
+        { type: "pull_request", parameters: {
+          allowed_merge_methods: ["merge", "squash", "rebase"], required_approving_review_count: 0,
+          require_extra_approval_for_unattributed_changes: true,
+        } },
+        { type: "required_status_checks", parameters: {
+          strict_required_status_checks_policy: true, do_not_enforce_on_create: false, required_status_checks: checks,
+        } },
+      ],
+    });
+    expect(parseRulesetJson(text)).toBeUndefined();
+    expect(inspectRulesetJson(text)).toMatchObject({
+      rule: { name: "ci", include: ["main"], restrict_deletion: true, block_force_push: true, require_pull_request: true },
+      githubWorkflows: { strict: true, skip_creation: false, checks: checks.map(({ context }) => ({ context, integrationId: 15368 })) },
+    });
+    expect(inspectRulesetJson(text.replace('"context":"web"', '"context":"changes"'))).toBeUndefined();
   });
 
   it.each([

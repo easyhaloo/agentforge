@@ -233,6 +233,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/required-workflows", deps.getPullRequestRequiredWorkflows)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state", deps.changePRState)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title", deps.changePRTitle)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)
@@ -1313,7 +1314,7 @@ func (d DeliveryDependencies) lockBranchMergePolicy(w http.ResponseWriter, r *ht
 			continue
 		}
 		for _, rule := range repository.RefRules {
-			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || len(rule.NamePatterns) > 0) {
+			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || rule.RequiredWorkflows != nil || len(rule.NamePatterns) > 0) {
 				writeProblem(w, 503, "Repository merge lock unavailable", "The repository ruleset requires a policy lock")
 				return githttp.PushPolicy{}, nil, false
 			}

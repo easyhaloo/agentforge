@@ -39,6 +39,7 @@ function readPullRequestParameters(value: unknown): Pick<RepositoryRefRule, "all
 
   // AgentForge requires approval on the active revision, even when the source
   // ruleset permits zero approvals or allows approvals from older revisions.
+  // That already covers one extra approval when the source requires zero.
   const { required_approving_review_count: count, dismiss_stale_reviews_on_push: dismissStale,
     require_code_owner_review: codeOwners, require_last_push_approval: lastPush,
     required_review_thread_resolution: resolveThreads, allowed_merge_methods: methods,
@@ -48,7 +49,8 @@ function readPullRequestParameters(value: unknown): Pick<RepositoryRefRule, "all
     "require_extra_approval_for_unattributed_changes"]) &&
     (count === undefined || count === 0 || count === 1) &&
     (dismissStale === undefined || typeof dismissStale === "boolean") &&
-    [codeOwners, lastPush, resolveThreads, extraApproval].every(setting => setting === undefined || setting === false) &&
+    [codeOwners, lastPush, resolveThreads].every(setting => setting === undefined || setting === false) &&
+    (extraApproval === undefined || extraApproval === false || (extraApproval === true && count === 0)) &&
     (reviewers === undefined || (Array.isArray(reviewers) && reviewers.length === 0));
   if (!supported) return undefined;
   if (methods === undefined) return {};
@@ -93,7 +95,33 @@ function readPatterns(value: unknown, target: RepositoryRefRule["target"], nativ
   return patterns;
 }
 
-export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
+type GitHubStatusCheck = { context: string; integrationId: number | null };
+type GitHubWorkflowImport = {
+  checks: GitHubStatusCheck[];
+  strict: boolean;
+  skip_creation: boolean;
+};
+export type RulesetImport = { rule: RepositoryRefRule; githubWorkflows?: GitHubWorkflowImport };
+
+function readGitHubWorkflows(parameters: Record<string, unknown>): GitHubWorkflowImport | undefined {
+  const { required_status_checks: items, strict_required_status_checks_policy: strict, do_not_enforce_on_create: skipCreation } = parameters;
+  if (!hasOnlyKeys(parameters, ["required_status_checks", "strict_required_status_checks_policy", "do_not_enforce_on_create"]) ||
+    typeof strict !== "boolean" || (skipCreation !== undefined && typeof skipCreation !== "boolean") ||
+    !Array.isArray(items) || !items.length || items.length > 20) return undefined;
+  const checks: GitHubStatusCheck[] = [];
+  for (const item of items as unknown[]) {
+    if (!record(item) || !hasOnlyKeys(item, ["context", "integration_id"])) return undefined;
+    const { context, integration_id: app } = item;
+    if (typeof context !== "string" || !context || context.length > 255 || context.trim() !== context ||
+      (app != null && (typeof app !== "number" || !Number.isSafeInteger(app) || (app < 1 && app !== -1)))) return undefined;
+    const integrationId = !app || app === -1 ? null : app;
+    if (checks.some(check => check.context === context && check.integrationId === integrationId)) return undefined;
+    checks.push({ context, integrationId });
+  }
+  return { checks, strict, skip_creation: skipCreation ?? false };
+}
+
+export function inspectRulesetJson(text: string): RulesetImport | undefined {
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -116,6 +144,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
   const namePatterns: RefNamePattern[] = [];
   let queueMethod: RepositoryRefRule["merge_queue_method"];
   let workflowChecks: RepositoryRefRule["required_workflows"];
+  let githubWorkflows: GitHubWorkflowImport | undefined;
   let pullRequestParameters: Pick<RepositoryRefRule, "allowed_merge_methods"> | undefined;
   for (const rule of rules as unknown[]) {
     if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string") return undefined;
@@ -135,10 +164,15 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
         if (!queueMethod) return undefined;
       }
     } else if (rule.type === "required_status_checks") {
-      // GitHub App identities cannot authorize AgentForge workflows. Accept only native exports here.
       const parameters = rule.parameters;
-      if (schema !== format || target !== "branch" || !record(parameters) ||
-        !hasOnlyKeys(parameters, ["pipeline_ids", "strict", "skip_creation"]) ||
+      if (target !== "branch" || !record(parameters)) return undefined;
+      if (schema !== format) {
+        githubWorkflows = readGitHubWorkflows(parameters);
+        if (!githubWorkflows) return undefined;
+        types.add(rule.type);
+        continue;
+      }
+      if (!hasOnlyKeys(parameters, ["pipeline_ids", "strict", "skip_creation"]) ||
         typeof parameters.strict !== "boolean" || typeof parameters.skip_creation !== "boolean" ||
         !Array.isArray(parameters.pipeline_ids) || !parameters.pipeline_ids.length || parameters.pipeline_ids.length > 20 ||
         new Set(parameters.pipeline_ids).size !== parameters.pipeline_ids.length ||
@@ -152,7 +186,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
   }
   if (target === "tag" && (types.has("required_linear_history") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
   if (types.has("merge_queue") && (include.length !== 1 || include[0] !== "~DEFAULT_BRANCH" || exclude.length)) return undefined;
-  return {
+  const rule: RepositoryRefRule = {
     name, target, enabled: enforcement === "active", include, exclude,
     restrict_creation: types.has("creation"), restrict_update: types.has("update"),
     restrict_deletion: types.has("deletion"), block_force_push: types.has("non_fast_forward"),
@@ -163,6 +197,12 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     ...(queueMethod && { merge_queue_method: queueMethod }),
     ...(namePatterns.length > 0 && { name_patterns: namePatterns }),
   };
+  return { rule, githubWorkflows };
+}
+
+export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
+  const result = inspectRulesetJson(text);
+  return result?.githubWorkflows ? undefined : result?.rule;
 }
 
 export function serializeRulesetJson(rule: RepositoryRefRule): string {

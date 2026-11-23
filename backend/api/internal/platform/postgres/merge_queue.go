@@ -27,7 +27,7 @@ func queueEvent(ctx context.Context, tx pgx.Tx, id int64, actor string) error {
 	return err
 }
 
-func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int, actor string, inputs map[string]json.RawMessage, candidate execution.Integration) (execution.QueueEntry, error) {
+func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int, actor string, inputs map[string]json.RawMessage, candidate execution.Integration, git *delivery.LocalGitProvider) (execution.QueueEntry, error) {
 	var entry execution.QueueEntry
 	if len(candidate.Sources) != 1 {
 		return entry, execution.ErrInputs
@@ -77,7 +77,7 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 		return entry, err
 	}
 	if checks := githttp.BranchRequiredWorkflows(policy.RefRules, target, policy.DefaultBranch); len(checks) > 0 {
-		if err = checkQueueRequiredWorkflows(ctx, tx, org, candidate, checks); err != nil {
+		if err = checkQueueRequiredWorkflows(ctx, tx, org, candidate, checks, git); err != nil {
 			return entry, err
 		}
 	}
@@ -114,7 +114,7 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	return entry, tx.Commit(ctx)
 }
 
-func checkQueueRequiredWorkflows(ctx context.Context, tx pgx.Tx, org string, candidate execution.Integration, checks map[string]bool) error {
+func checkQueueRequiredWorkflows(ctx context.Context, tx pgx.Tx, org string, candidate execution.Integration, checks map[string]bool, git *delivery.LocalGitProvider) error {
 	source := candidate.Sources[0]
 	noPull := fmt.Errorf("%w: expected exactly one open pull request matching the candidate branches and source commit", githttp.ErrBranchPullRequestRequired)
 	if source.SHA == "" || candidate.Target.SHA == "" {
@@ -140,8 +140,9 @@ func checkQueueRequiredWorkflows(ctx context.Context, tx pgx.Tx, org string, can
 	if !ok || revision.ID == "" || revision.Ref != source.Ref || revision.CommitSHA != source.SHA {
 		return noPull
 	}
-	// Strict status provenance must match the candidate target SHA. This store has
-	// no Git provider, so promotion still checks actual target ancestry.
+	if err := git.CheckRequiredWorkflowBase(ctx, org, candidate.Repository, candidate.Target.SHA, revision.CommitSHA, checks); err != nil {
+		return err
+	}
 	return checkRequiredWorkflows(ctx, tx, org, &pull, revision, candidate.Target.SHA, checks)
 }
 

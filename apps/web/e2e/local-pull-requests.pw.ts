@@ -547,17 +547,32 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(triggers.getByText("Changeset revision · Version 1")).toBeVisible();
     await triggers.getByRole("button", { name: "Close", exact: true }).click();
     await page.goto(`${base.origin}${repositoryPath}/settings/rulesets`);
-    await page.getByRole("button", { name: "New ruleset" }).click();
-    await page.getByRole("textbox", { name: "Ruleset name" }).fill("Release merge methods");
-    await page.getByRole("textbox", { name: "Include patterns" }).fill("release");
-    await page.getByRole("checkbox", { name: "Require a pull request before merging" }).check();
+    const picker = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Import JSON" }).click();
+    await (await picker).setFiles({ name: "ci.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
+      name: "Release merge methods", target: "branch", enforcement: "active", bypass_actors: [],
+      conditions: { ref_name: { include: ["refs/heads/release"], exclude: [] } },
+      rules: [
+        { type: "deletion" }, { type: "non_fast_forward" },
+        { type: "pull_request", parameters: {
+          allowed_merge_methods: ["merge", "squash"], required_approving_review_count: 0,
+          require_extra_approval_for_unattributed_changes: true,
+        } },
+        { type: "required_status_checks", parameters: {
+          strict_required_status_checks_policy: true, do_not_enforce_on_create: false,
+          required_status_checks: [{ context: "release-ci", integration_id: 15368 }],
+        } },
+      ],
+    })) });
+    const addMapped = page.getByRole("button", { name: "Add mapped ruleset" });
+    await expect(addMapped).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    await selectOption(page, page.getByRole("combobox", { name: /release-ci.*GitHub App/ }), /^release-ci \(/);
+    await capture("github-check-mapping");
+    await addMapped.click();
     const requireChecks = page.getByRole("checkbox", { name: "Require status checks to pass" });
     const strictChecks = page.getByRole("checkbox", { name: "Require the source branch to be up to date before merging" });
-    await requireChecks.check();
-    await selectOption(page, page.getByRole("combobox", { name: "Add a workflow" }), /^release-ci \(/);
-    await strictChecks.check();
     const allowedMethods = page.getByRole("group", { name: "Allowed merge methods" });
-    await allowedMethods.getByRole("checkbox", { name: "Rebase", exact: true }).uncheck();
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Rulesets saved.")).toBeVisible();
     await page.reload();
@@ -570,12 +585,17 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.getByRole("group", { name: "Required repository workflows" }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath("repository-settings-required-workflows.png"), animations: "disabled" });
     await page.goto(detail);
-    await expect(merge).toBeEnabled();
-    await merge.click();
-    await page.getByRole("dialog").getByRole("button", { name: "Merge pull request" }).click();
-    await expect(page.getByText(/required repository workflows have not passed for the current revision/i).first()).toBeVisible();
+    await expect(merge).toBeDisabled();
+    await capture("required-workflow-blocked");
+    await checksTab.click();
+    await expect(page.getByRole("heading", { name: "Required repository workflows" })).toBeVisible();
+    await expect(page.getByText("release-ci", { exact: true })).toBeVisible();
+    await expect(page.getByText("Waiting for a passing run", { exact: true })).toBeVisible();
+    expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toMatchObject({
+      status: 409, detail: expect.stringContaining("required repository workflows have not passed"),
+    });
     expect(git("rev-parse", "refs/heads/release")).toBe(target);
-    await page.screenshot({ path: testInfo.outputPath("repository-required-workflow-blocks-merge.png"), animations: "disabled" });
+    await capture("required-workflow-status");
     await page.goto(`${base.origin}${repositoryPath}/settings/rulesets`);
     await page.getByRole("button", { name: "Edit Release merge methods", exact: true }).click();
     await requireChecks.uncheck();

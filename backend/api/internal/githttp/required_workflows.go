@@ -20,6 +20,12 @@ type RequiredWorkflows struct {
 	SkipCreation bool     `json:"skip_creation"`
 }
 
+type RequiredWorkflowStatus struct {
+	PipelineID string `json:"pipeline_id"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+}
+
 func (checks RequiredWorkflows) valid() bool {
 	if len(checks.PipelineIDs) == 0 || len(checks.PipelineIDs) > 20 {
 		return false

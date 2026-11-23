@@ -224,7 +224,7 @@ func TestMergeQueueConcurrentAdmissionAndFailedHead(t *testing.T) {
 		preview, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: "main", Sources: []string{source}})
 		lockMust(t, err)
 		return func() (execution.QueueEntry, error) {
-			return s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{MergePreview: preview, Repository: repo, Strategy: "merge-commit"})
+			return s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{MergePreview: preview, Repository: repo, Strategy: "merge-commit"}, git)
 		}
 	}
 	enqueue := admit("topic")

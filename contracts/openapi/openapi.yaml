@@ -1623,6 +1623,43 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/required-workflows:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getPullRequestRequiredWorkflows
+      summary: Get the required repository workflow status for the current pull request revision
+      description: Status reflects the live source and target branches. Merge verifies the same policy again under the repository lock.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Required workflow status, with an empty checks list when no rules apply
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision_id, checks]
+                properties:
+                  revision_id: { type: string }
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      required: [pipeline_id, name, status]
+                      properties:
+                        pipeline_id: { type: string }
+                        name: { type: string }
+                        status: { type: string, enum: [passed, waiting, behind, source_moved] }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state:
     parameters:
       - in: path

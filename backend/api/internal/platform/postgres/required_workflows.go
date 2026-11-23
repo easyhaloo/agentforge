@@ -37,31 +37,71 @@ func (s *Store) CheckRequiredWorkflows(ctx context.Context, org string, c *deliv
 	return checkRequiredWorkflows(ctx, s.pool, org, c, rev, base, required)
 }
 
-func checkRequiredWorkflows(ctx context.Context, db interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}, org string, c *delivery.Changeset, rev delivery.Revision, base string, required map[string]bool) error {
-	for _, workflow := range slices.Sorted(maps.Keys(required)) {
-		var passed bool
-		// Only original runs admitted by the enabled repository trigger qualify.
-		// Schedules, manual runs, reruns and user-supplied inputs have no such event.
-		err := db.QueryRow(ctx, `SELECT EXISTS (
-			SELECT FROM pipeline_trigger_bindings b
-			JOIN pipelines p ON (p.organization_id,p.id)=(b.organization_id,b.pipeline_id)
-			JOIN pipeline_trigger_events e ON e.binding_id=b.id
-			JOIN pipeline_runs r ON r.id=e.run_id AND (r.organization_id,r.pipeline_id,r.version)=(b.organization_id,b.pipeline_id,b.version)
-			WHERE b.organization_id=$1 AND b.repository=$2 AND b.pipeline_id=$3 AND b.enabled
-			  AND p.repository=$2 AND NOT p.disabled AND p.status<>'archived' AND r.status='succeeded'
-			  AND e.source->>'kind'='changeset_revision' AND e.source->>'changesetId'=$4
-			  AND e.source->>'revisionId'=$5 AND e.source->>'sha'=$6
-			  AND (NOT $7 OR e.source->>'baseSha'=$8)
-			  AND EXISTS (SELECT FROM pipeline_step_runs t WHERE t.run_id=r.id AND t.status='succeeded' AND t.checked_source_sha=$6)
-		)`, org, c.Repository, workflow, string(c.ID), string(rev.ID), rev.CommitSHA, required[workflow], base).Scan(&passed)
-		if err != nil {
-			return fmt.Errorf("verify required workflow: %w", err)
-		}
-		if !passed {
-			return fmt.Errorf("%w: %s", githttp.ErrRequiredWorkflows, workflow)
+func checkRequiredWorkflows(ctx context.Context, db requiredWorkflowQueryer, org string, c *delivery.Changeset, rev delivery.Revision, base string, required map[string]bool) error {
+	checks, err := requiredWorkflowStatuses(ctx, db, org, c, rev, base, required)
+	if err != nil {
+		return err
+	}
+	for _, check := range checks {
+		if check.Status != "passed" {
+			return fmt.Errorf("%w: %s", githttp.ErrRequiredWorkflows, check.PipelineID)
 		}
 	}
 	return nil
+}
+
+func (s *Store) RequiredWorkflowStatuses(ctx context.Context, org string, c *delivery.Changeset, rev delivery.Revision, base string, required map[string]bool) ([]githttp.RequiredWorkflowStatus, error) {
+	return requiredWorkflowStatuses(ctx, s.pool, org, c, rev, base, required)
+}
+
+type requiredWorkflowQueryer interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+func requiredWorkflowStatuses(ctx context.Context, db requiredWorkflowQueryer, org string, c *delivery.Changeset, rev delivery.Revision, base string, required map[string]bool) ([]githttp.RequiredWorkflowStatus, error) {
+	checks := make([]githttp.RequiredWorkflowStatus, 0, len(required))
+	if len(required) == 0 {
+		return checks, nil
+	}
+	ids := slices.Sorted(maps.Keys(required))
+	strict := make([]bool, len(ids))
+	for i, id := range ids {
+		strict[i] = required[id]
+	}
+	// Only original runs admitted by the enabled repository trigger qualify.
+	// Schedules, manual runs, reruns and user-supplied inputs have no such event.
+	rows, err := db.Query(ctx, `SELECT w.id, coalesce(p.name, w.id), EXISTS (
+		SELECT FROM pipeline_trigger_bindings b
+		JOIN pipeline_trigger_events e ON e.binding_id=b.id
+		JOIN pipeline_runs r ON r.id=e.run_id AND (r.organization_id,r.pipeline_id,r.version)=(b.organization_id,b.pipeline_id,b.version)
+		WHERE b.organization_id=$1 AND b.repository=$2 AND b.pipeline_id=p.id AND b.enabled
+		  AND NOT p.disabled AND p.status<>'archived' AND r.status='succeeded'
+		  AND e.source->>'kind'='changeset_revision' AND e.source->>'changesetId'=$3
+		  AND e.source->>'revisionId'=$4 AND e.source->>'sha'=$5
+		  AND (NOT w.strict OR e.source->>'baseSha'=$6)
+		  AND EXISTS (SELECT FROM pipeline_step_runs t WHERE t.run_id=r.id AND t.status='succeeded' AND t.checked_source_sha=$5)
+	)
+	FROM unnest($7::text[], $8::boolean[]) AS w(id, strict)
+	LEFT JOIN pipelines p ON p.organization_id=$1 AND p.repository=$2 AND p.id=w.id
+	ORDER BY w.id`, org, c.Repository, string(c.ID), string(rev.ID), rev.CommitSHA, base, ids, strict)
+	if err != nil {
+		return nil, fmt.Errorf("verify required workflows: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var check githttp.RequiredWorkflowStatus
+		var passed bool
+		if err := rows.Scan(&check.PipelineID, &check.Name, &passed); err != nil {
+			return nil, fmt.Errorf("read required workflow status: %w", err)
+		}
+		check.Status = "waiting"
+		if passed {
+			check.Status = "passed"
+		}
+		checks = append(checks, check)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read required workflow statuses: %w", err)
+	}
+	return checks, nil
 }
