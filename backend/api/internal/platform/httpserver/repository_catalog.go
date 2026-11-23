@@ -155,12 +155,13 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		Description    *string   `json:"description"`
 		IsTemplate     *bool     `json:"is_template"`
 		PushRefLimit   *int      `json:"push_ref_limit"`
+		ProtectedRefs  *[]string `json:"protected_refs"`
 		UpdatedAt      time.Time `json:"updated_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil {
+	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -190,6 +191,14 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				return
 			}
 			repository.PushRefLimit = limit
+		}
+		if input.ProtectedRefs != nil {
+			if !githttp.ValidProtectedRefs(*input.ProtectedRefs) ||
+				(len(*input.ProtectedRefs) > 0 && d.repositoryHostingKind(r.Context(), repository) != "hosted") {
+				writeProblem(w, 422, "Invalid ref protection", "Provide up to 20 unique branch or tag patterns for a native Git repository")
+				return
+			}
+			repository.ProtectedRefs = *input.ProtectedRefs
 		}
 		repository.UpdatedAt = input.UpdatedAt
 		d.updateRepositoryGeneralSettings(w, r, repository)

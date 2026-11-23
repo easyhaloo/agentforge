@@ -695,6 +695,7 @@ paths:
                     updated_at: { type: string, format: date-time }
                     description: { type: string, maxLength: 350 }
                     is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
+                    protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
                     push_ref_limit:
                       description: Optional branch and tag update cap for native Git pushes. Zero uses the server maximum of 128.
                       oneOf:
@@ -746,6 +747,7 @@ paths:
                   git_credentials_available: { type: boolean }
                   description: { type: string }
                   is_template: { type: boolean }
+                  protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
                   push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
                   updated_at: { type: string, format: date-time }
                   resolved_commit_sha: { type: string, pattern: "^([0-9a-f]{40}|[0-9a-f]{64})?$", description: Empty before the default branch has a commit }
@@ -2104,11 +2106,21 @@ components:
         organizations:
           type: array
           items: { $ref: "#/components/schemas/OrganizationSummary" }
+    RepositoryProtectedRefs:
+      type: array
+      description: Native Git branch and tag patterns blocked for direct pushes. Glob wildcards do not span slash separators.
+      maxItems: 20
+      uniqueItems: true
+      items:
+        type: string
+        pattern: '^refs/(heads|tags)/.+$'
+        maxLength: 139
     RepositoryMetadata:
       type: object
       required: [organization_id, slug, default_branch, fork, is_template, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
+        protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
         push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
         organization_id: { type: string }
         slug: { type: string }

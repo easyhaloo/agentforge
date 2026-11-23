@@ -153,10 +153,10 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
-export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
-export type RepositoryPreviewRefs = { description?: string; is_template?: boolean; push_ref_limit?: number; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
+export type RepositoryPreviewRefs = { description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
 export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
@@ -248,7 +248,7 @@ export const repositoryAPI = {
     request<operations["listRepositoryActions"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions?${filters}`, { signal }),
   workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
-  updateGeneralSettings: (organizationID: string, repository: string, settings: { description: string; is_template: boolean; push_ref_limit?: number; updated_at: string }) =>
+  updateGeneralSettings: (organizationID: string, repository: string, settings: Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "updated_at">) =>
     request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
     }),

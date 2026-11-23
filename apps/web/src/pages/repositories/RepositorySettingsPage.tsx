@@ -6,7 +6,7 @@ import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryP
 import { useDateFormatting } from "../../shared/i18n/format";
 import { translateError } from "../../shared/api/errors";
 import { organizationHandle, repositoryNewPath, repositoryPath, repositorySettingsPath, type RepositorySettingsSection } from "../../shared/routing";
-import { Button, Checkbox, Input, Modal, Select } from "../../shared/ui";
+import { Button, Checkbox, Input, Modal, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import "./repositories.css";
@@ -67,8 +67,11 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
             setAttempt(current => current + 1);
           }} />
       </>}
-      {refs && (section === "branches" || section === "tags") && <RepositoryRefList kind={section === "branches" ? "branch" : "tag"}
-        refs={refs} codePath={repositoryPath(handle, repository)} />}
+      {refs && (section === "branches" || section === "tags") && <>
+        {refs.hosting_kind === "hosted" && <RefProtectionSettings key={section} section={section} organization={organization} refs={refs}
+          onSave={item => setRefs(current => current && { ...current, protected_refs: item.protected_refs, updated_at: item.updated_at })} />}
+        <RepositoryRefList kind={section === "branches" ? "branch" : "tag"} refs={refs} codePath={repositoryPath(handle, repository)} />
+      </>}
       {refs && section === "git-tokens" && <div className="repo-settings-card">
         {refs.git_credentials_available ? <RepositoryCredentials organization={organization} repository={repository} />
           : <p>{t("settings.tokensUnavailable")}</p>}
@@ -208,6 +211,51 @@ function DefaultBranchSettings({ organization, repository, refs, onSave }: {
       {error && <p role="alert" className="org-error">{error}</p>}
     </Modal>
   </section>;
+}
+
+function RefProtectionSettings({ section, organization, refs, onSave }: {
+  section: "branches" | "tags"; organization: OrganizationSummary; refs: RepositoryPreviewRefs; onSave: (item: RepositoryMetadata) => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const prefix = section === "branches" ? "refs/heads/" : "refs/tags/";
+  const existing = (refs.protected_refs ?? []).filter(pattern => pattern.startsWith(prefix));
+  const savedValue = existing.map(pattern => pattern.slice(prefix.length)).join("\n");
+  const [draft, setDraft] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const value = draft ?? savedValue;
+  const canEdit = canManageRepository(organization);
+  const save = async () => {
+    if (!canEdit || !refs.updated_at || busy || value === savedValue) return;
+    const patterns = value.split("\n").map(pattern => pattern.trim()).filter(Boolean).map(pattern => prefix + pattern);
+    const other = (refs.protected_refs ?? []).filter(pattern => !pattern.startsWith(prefix));
+    setBusy(true);
+    setSaved(false);
+    setError("");
+    try {
+      onSave(await repositoryAPI.updateGeneralSettings(organization.id, refs.repository, {
+        protected_refs: [...other, ...patterns], updated_at: refs.updated_at,
+      }));
+      setDraft(undefined);
+      setSaved(true);
+    } catch (cause) {
+      setError(translateError(cause, t, "repositories:sections.settingsFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <form className="repo-settings-card repo-settings-form" onSubmit={event => { event.preventDefault(); void save(); }}>
+    <h2>{t("settings.refProtection")}</h2>
+    <TextArea rows={3} label={t("settings.protectedPatterns")} hint={t("settings.protectedPatternsHelp", { example: section === "branches" ? "release/*" : "v*" })}
+      value={value} maxLength={2580} readOnly={!canEdit} disabled={busy} onChange={event => { setDraft(event.target.value); setSaved(false); }} />
+    {canEdit ? <div className="repo-settings-controls">
+      <Button type="submit" variant="primary" disabled={busy || !refs.updated_at || value === savedValue}>{t("common:actions.save")}</Button>
+    </div> : <p>{t("sections.settingsDenied")}</p>}
+    {saved && <p role="status">{t("sections.settingsSaved")}</p>}
+    {error && <p role="alert" className="org-error">{error}</p>}
+  </form>;
 }
 
 function RepositoryRefList({ kind, refs, codePath }: { kind: "branch" | "tag"; refs: RepositoryPreviewRefs; codePath: string }) {

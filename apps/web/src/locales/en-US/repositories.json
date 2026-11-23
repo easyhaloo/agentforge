@@ -782,6 +782,9 @@
     }
   },
   "settings": {
+    "refProtection": "Direct push protection",
+    "protectedPatterns": "Protected name patterns",
+    "protectedPatternsHelp": "Enter one name or pattern per line, such as {{example}}. Use *, ? or character classes within one path segment. Up to 20 patterns across branches and tags. Matching refs cannot be created, updated or deleted by a direct Git push.",
     "description": "Description",
     "templateRepository": "Template repository",
     "templateHelp": "Use this repository’s files to create new repositories in this organization. You can copy the default branch or all branches.",

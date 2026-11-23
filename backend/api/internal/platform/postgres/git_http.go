@@ -64,26 +64,25 @@ func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organiz
 	return organizationID, actorID, defaultBranch, nil
 }
 
-// LockGitDefaultBranch serializes pushes and recovery for the repository and
+// LockGitPolicy serializes pushes and recovery for the repository and
 // prevents a concurrent catalog update from changing the protected ref.
-func (s *Store) LockGitDefaultBranch(ctx context.Context, organization, repository string) (string, int, func(), error) {
+func (s *Store) LockGitPolicy(ctx context.Context, organization, repository string) (githttp.PushPolicy, func(), error) {
 	tx, err := s.lockPool.Begin(ctx)
 	if err != nil {
-		return "", 0, nil, fmt.Errorf("begin Git branch lock: %w", err)
+		return githttp.PushPolicy{}, nil, fmt.Errorf("begin Git branch lock: %w", err)
 	}
 	release := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = tx.Rollback(ctx)
 	}
-	var branch string
-	var pushRefLimit int
-	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit FROM delivery_repositories
-		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&branch, &pushRefLimit); err != nil {
+	var policy githttp.PushPolicy
+	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs FROM delivery_repositories
+		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs); err != nil {
 		release()
-		return "", 0, nil, fmt.Errorf("lock Git default branch: %w", err)
+		return githttp.PushPolicy{}, nil, fmt.Errorf("lock Git default branch: %w", err)
 	}
-	return branch, pushRefLimit, release, nil
+	return policy, release, nil
 }
 
 func (s *Store) ListGitCredentials(ctx context.Context, organizationID, repository, actorID string) ([]githttp.CredentialSummary, error) {

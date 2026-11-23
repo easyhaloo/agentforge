@@ -68,8 +68,8 @@ func (s *testGitCredentials) AuthorizeGitCredential(_ context.Context, hash []by
 	return "", "", "", identity.ErrUnauthenticated
 }
 
-func (s *testGitCredentials) LockGitDefaultBranch(context.Context, string, string) (string, int, func(), error) {
-	return "main", 0, func() {}, nil
+func (s *testGitCredentials) LockGitPolicy(context.Context, string, string) (githttp.PushPolicy, func(), error) {
+	return githttp.PushPolicy{DefaultBranch: "main"}, func() {}, nil
 }
 
 func TestGitSmartHTTPCloneFetchPushAndCredentials(t *testing.T) {

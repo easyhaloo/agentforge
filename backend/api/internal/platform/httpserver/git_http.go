@@ -24,7 +24,7 @@ type GitCredentialStore interface {
 	CreateGitCredential(ctx context.Context, id, organizationID, repository, actorID, scope string, hash []byte, expiresAt time.Time) error
 	RevokeGitCredential(ctx context.Context, id, organizationID, repository, actorID string) error
 	AuthorizeGitCredential(ctx context.Context, hash []byte, organization, repository string, write bool) (organizationID, actorID, defaultBranch string, err error)
-	LockGitDefaultBranch(ctx context.Context, organization, repository string) (branch string, pushRefLimit int, release func(), err error)
+	LockGitPolicy(ctx context.Context, organization, repository string) (githttp.PushPolicy, func(), error)
 }
 
 func (d DeliveryDependencies) gitHTTPRoutes(mux *http.ServeMux) {
@@ -98,33 +98,33 @@ func (d DeliveryDependencies) gitHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if service == githttp.UploadPack && r.Method == http.MethodGet && !d.GitHTTP.DefaultBranchMatches(organization, repository, defaultBranch) {
-		branch, _, release, err := d.GitCredentials.LockGitDefaultBranch(ctx, organization, repository)
+		policy, release, err := d.GitCredentials.LockGitPolicy(ctx, organization, repository)
 		if err != nil {
 			http.Error(w, "Clone policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		err = d.GitHTTP.SyncDefaultBranch(ctx, organization, repository, branch)
+		err = d.GitHTTP.SyncDefaultBranch(ctx, organization, repository, policy.DefaultBranch)
 		release()
 		if err != nil {
 			http.Error(w, "Clone policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
 	}
-	var pushRefLimit int
+	var policy githttp.PushPolicy
 	if service == githttp.ReceivePack && r.Method == http.MethodPost {
-		branch, limit, release, err := d.GitCredentials.LockGitDefaultBranch(ctx, organization, repository)
+		lockedPolicy, release, err := d.GitCredentials.LockGitPolicy(ctx, organization, repository)
 		if err != nil {
 			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		defer release()
-		if err := d.GitHTTP.SyncDefaultBranch(ctx, organization, repository, branch); err != nil {
+		if err := d.GitHTTP.SyncDefaultBranch(ctx, organization, repository, lockedPolicy.DefaultBranch); err != nil {
 			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		defaultBranch, pushRefLimit = branch, limit
+		policy = lockedPolicy
 	}
-	d.GitHTTP.Serve(w, r, service, organization, repository, actor, defaultBranch, pushRefLimit)
+	d.GitHTTP.Serve(w, r, service, organization, repository, actor, policy)
 }
 
 func (d DeliveryDependencies) listGitCredentials(w http.ResponseWriter, r *http.Request) {

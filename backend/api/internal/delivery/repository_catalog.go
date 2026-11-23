@@ -14,6 +14,7 @@ type RepositoryMetadata struct {
 	Fork           bool      `json:"fork"`
 	IsTemplate     bool      `json:"is_template"`
 	PushRefLimit   int       `json:"push_ref_limit"`
+	ProtectedRefs  []string  `json:"protected_refs,omitempty"`
 	CreatedBy      string    `json:"created_by"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
