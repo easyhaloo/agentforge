@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -201,12 +201,37 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     expect(git(worktree, "push", "origin", `:${shipping}`, ":refs/heads/shipping/scratch/next").stderr).toContain(`blocks deletion of ${shipping}`);
     expect(checkedGit(folder, "ls-remote", gitURL, scratch)).toContain(scratch);
 
-    await content.getByRole("button", { name: "New ruleset" }).click();
-    await content.getByRole("textbox", { name: "Ruleset name" }).fill("Release tags");
-    await selectOption(page, content.getByRole("combobox", { name: "Target", exact: true }), "Tags");
-    await content.getByRole("textbox", { name: "Include patterns" }).fill("locked-*");
-    await content.getByRole("checkbox", { name: "Restrict updates" }).check();
+    const tagRule = {
+      name: "Release tags", target: "tag", enforcement: "active",
+      conditions: { ref_name: { include: ["refs/tags/locked-*"], exclude: [] } },
+      rules: [{ type: "update", parameters: { update_allows_fetch_and_merge: false } }],
+    };
+    async function importRuleset(value: object) {
+      const picker = page.waitForEvent("filechooser");
+      await content.getByRole("button", { name: "Import JSON" }).click();
+      await (await picker).setFiles({
+        name: "ruleset.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(value)),
+      });
+    }
+    await importRuleset({ ...tagRule, rules: [{ type: "required_signatures" }] });
+    await expect(content.getByRole("alert")).toContainText("Choose a supported ruleset JSON file");
+    await expect(content.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    await importRuleset(tagRule);
+    await expect(content.getByRole("textbox", { name: "Ruleset name" })).toHaveValue("Release tags");
+    await expect(content.getByRole("textbox", { name: "Include patterns" })).toHaveValue("locked-*");
+    await expect(content.getByRole("checkbox", { name: "Restrict updates" })).toBeChecked();
+    await expect(content.getByRole("button", { name: "Export Release tags as JSON" })).toHaveCount(0);
+    await capture("rulesets-import");
     await saveRulesets();
+    const download = page.waitForEvent("download");
+    await content.getByRole("button", { name: "Export Release tags as JSON" }).click();
+    const exported = await download;
+    expect(exported.suggestedFilename()).toBe("ruleset-Release-tags.json");
+    expect(JSON.parse(readFileSync((await exported.path())!, "utf8"))).toMatchObject({
+      name: "Release tags", target: "tag", enforcement: "active",
+      conditions: { ref_name: { include: ["locked-*"], exclude: [] } },
+      rules: [{ type: "update" }],
+    });
     const lockedTag = "refs/tags/locked-release";
     checkedGit(worktree, "push", "origin", `HEAD:${lockedTag}`);
     expect(git(worktree, "push", "origin", `+HEAD^:${lockedTag}`).stderr).toContain(`blocks updates to ${lockedTag}`);

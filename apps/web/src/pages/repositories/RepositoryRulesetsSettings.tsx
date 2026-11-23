@@ -4,6 +4,7 @@ import { repositoryAPI, type OrganizationSummary, type RepositorySettings, type 
 import { translateError } from "../../shared/api/errors";
 import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
+import { maxRulesetFileBytes, parseRulesetJson, serializeRulesetJson } from "./rulesetJson";
 
 const maxRules = 10;
 const maxNameLength = 80;
@@ -40,13 +41,16 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
   const [rules, setRules] = useState<RuleDraft[]>([]);
   const [editing, setEditing] = useState<number>();
   const [invalidRule, setInvalidRule] = useState<number>();
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const busy = saving || importing;
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [retry, setRetry] = useState(0);
   const nextId = useRef(0);
   const addButton = useRef<HTMLButtonElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const focusAdd = useRef(false);
   const validationAlert = useRef<HTMLParagraphElement>(null);
   const errorId = useId();
@@ -110,6 +114,44 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     return "";
   }
 
+  async function importRuleset(file: File) {
+    if (!canEdit || busy || rules.length >= maxRules) return;
+    setImporting(true);
+    setError("");
+    setInvalidRule(undefined);
+    setSaved(false);
+    try {
+      const rule = file.size <= maxRulesetFileBytes ? parseRulesetJson(await file.text()) : undefined;
+      if (!rule) {
+        setError(t("settings.rulesets.importInvalid"));
+        return;
+      }
+      const validation = validationError(rule, rules.length);
+      if (validation) {
+        setError(validation);
+        return;
+      }
+      const id = nextId.current++;
+      changeRules([...rules, toDraft(rule, id)]);
+      setEditing(id);
+    } catch {
+      setError(t("settings.rulesets.importUnreadable"));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function exportRuleset(rule: RepositoryRefRule) {
+    const url = URL.createObjectURL(new Blob([serializeRulesetJson(rule)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ruleset-${rule.name.replace(/[^a-zA-Z0-9_-]/g, "-")}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   async function save() {
     if (!settings || !canEdit || !changed || busy) return;
     if (rules.length > maxRules) {
@@ -126,7 +168,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
       setError(validationErrors[invalidIndex]);
       return;
     }
-    setBusy(true);
+    setSaving(true);
     setSaved(false);
     setError("");
     try {
@@ -140,7 +182,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     } catch (cause) {
       setError(translateError(cause, t, "repositories:sections.settingsFailed"));
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   }
 
@@ -156,9 +198,22 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
       <p>{t("settings.rulesets.help")}</p>
       {settings.hosting_kind === "registered" && <p>{t("settings.rulesets.hostedOnly")}</p>}
       {!canManage && <p>{t("sections.settingsDenied")}</p>}
-      {canEdit && <Button ref={addButton} disabled={busy || rules.length >= maxRules} onClick={addRule}>
-        {t("settings.rulesets.add")}
-      </Button>}
+      {canEdit && <div className="repo-settings-controls">
+        <Button ref={addButton} disabled={busy || rules.length >= maxRules} onClick={addRule}>
+          {t("settings.rulesets.add")}
+        </Button>
+        <Button disabled={busy || rules.length >= maxRules} onClick={() => fileInput.current?.click()}>
+          {t("settings.rulesets.import")}
+        </Button>
+        <div hidden>
+          <Input ref={fileInput} type="file" accept=".json,application/json" disabled={busy || rules.length >= maxRules}
+            aria-label={t("settings.rulesets.importFile")} onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void importRuleset(file);
+            }} />
+        </div>
+      </div>}
       {canEdit && rules.length >= maxRules && <p>{t("settings.rulesets.limit", { max: maxRules })}</p>}
     </div>
     {!rules.length && <div className="repo-settings-card"><p>{t("settings.rulesets.empty")}</p></div>}
@@ -166,6 +221,8 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
       const name = rule.name.trim() || t("settings.rulesets.untitled");
       const isEditing = canEdit && editing === rule.id;
       const isInvalid = invalidRule === rule.id;
+      const currentRule = toRule(rule);
+      const canExport = baseline.some(item => JSON.stringify(item) === JSON.stringify(currentRule));
       return <section key={rule.id} className="repo-settings-card" aria-label={name}>
         <div className="repo-settings-rule-header">
           <div>
@@ -178,6 +235,8 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
               onClick={() => setEditing(isEditing ? undefined : rule.id)}>
               {isEditing ? t("common:actions.close") : t("common:actions.edit")}
             </Button>
+            {canExport && <Button disabled={busy} aria-label={t("settings.rulesets.exportNamed", { name })}
+              onClick={() => exportRuleset(currentRule)}>{t("settings.rulesets.export")}</Button>}
             <Button disabled={busy} aria-label={t("settings.rulesets.removeNamed", { name })}
               onClick={() => {
                 if (editing === rule.id) setEditing(undefined);
@@ -201,7 +260,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
       </section>;
     })}
     {canEdit && <div className="repo-settings-controls">
-      <Button type="submit" variant="primary" loading={busy} disabled={!changed}>{t("settings.rulesets.save")}</Button>
+      <Button type="submit" variant="primary" loading={saving} disabled={busy || !changed}>{t("settings.rulesets.save")}</Button>
     </div>}
     {saved && <p role="status">{t("settings.rulesets.saved")}</p>}
     {error && (invalidRule === undefined || editing !== invalidRule || !canEdit) && <p role="alert" className="org-error">{error}</p>}
