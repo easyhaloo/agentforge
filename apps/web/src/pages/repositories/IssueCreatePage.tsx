@@ -277,12 +277,6 @@ export function IssueCreatePage({ organization, owner, repo, currentUser, onNoti
           setAttachmentError(t("issues.composer.attachmentUnsupported", { name: file.name }));
           continue;
         }
-        // Keep oversized uploads out of the proxy. The API independently enforces the same limits.
-        const sizeLimit = /\.(png|gif|jpe?g|svg|mp4|mov|webm)$/i.test(file.name) ? 10 << 20 : 25 << 20;
-        if (file.size > sizeLimit) {
-          setAttachmentError(t("issues.composer.attachmentTooLarge", { name: file.name }));
-          continue;
-        }
         try {
           const attachment = await issuesAPI.uploadAttachment(organization.id, repository, file);
           const name = attachment.name.replace(/[\\\[\]]/g, "\\$&");

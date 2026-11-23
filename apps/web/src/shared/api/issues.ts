@@ -1,3 +1,4 @@
+import { APIError } from "./errors";
 import { request } from "./identity";
 
 export const issueTypes = ["task", "bug", "feature"] as const;
@@ -130,7 +131,10 @@ export const issuesAPI = {
       method: "POST", body: JSON.stringify({ name, repository }),
     }),
 
-  uploadAttachment: (organizationID: string, repository: string, file: File) => {
+  uploadAttachment: async (organizationID: string, repository: string, file: File) => {
+    // Reject oversized files before the proxy receives them. The API enforces the same limits.
+    const sizeLimit = /\.(png|gif|jpe?g|svg|mp4|mov|webm)$/i.test(file.name.trim()) ? 10 << 20 : 25 << 20;
+    if (file.size > sizeLimit) throw new APIError("Attachment too large", 413);
     const query = new URLSearchParams({ repository, filename: file.name });
     return request<UploadedIssueAttachment>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/issue-attachments?${query}`, {
       method: "POST",
