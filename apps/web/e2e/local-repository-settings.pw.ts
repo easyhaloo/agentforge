@@ -446,6 +446,47 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     expect(git(worktree, "push", "origin", `HEAD:${release}`).stderr).toContain("direct updates to the default branch are prohibited");
     expect(checkedGit(folder, "ls-remote", gitURL, release)).toBe(releaseBeforeQueue);
 
+    await page.goto(`${repositoryURL}/actions`);
+    await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
+    const workflowDialog = page.getByRole("dialog", { name: "Create pipeline" });
+    await workflowDialog.getByRole("radio", { name: "Check then approve" }).check();
+    await workflowDialog.getByLabel("Workflow name").fill("branch-ci");
+    await workflowDialog.getByRole("button", { name: "Create", exact: true }).click();
+    await page.getByRole("button", { name: "Publish version" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
+    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("button", { name: "Triggers" }).click();
+    const triggers = page.getByRole("dialog", { name: "Triggers" });
+    await triggers.getByRole("button", { name: "Enable trigger" }).click();
+    await expect(triggers.getByText("Changeset revision · Version 1")).toBeVisible();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    const checkedBranch = "refs/heads/checked-existing";
+    const newCheckedBranch = "refs/heads/checked-new";
+    checkedGit(worktree, "push", "origin", `HEAD^:${checkedBranch}`);
+    await page.goto(`${repositoryURL}/settings/rulesets`);
+    await importRuleset({
+      name: "Require checks before writing branches", target: "branch", enforcement: "active",
+      conditions: { ref_name: { include: ["refs/heads/checked-*"], exclude: [] } },
+      rules: [{ type: "required_status_checks", parameters: {
+        strict_required_status_checks_policy: false, do_not_enforce_on_create: false,
+        required_status_checks: [{ context: "branch-ci" }],
+      } }],
+    });
+    await selectOption(page, content.getByRole("combobox", { name: "branch-ci (any GitHub source)", exact: true }), /^branch-ci \(/);
+    await content.getByRole("button", { name: "Add mapped ruleset" }).click();
+    await saveRulesets();
+    await page.reload();
+    await content.getByRole("button", { name: "Edit Require checks before writing branches" }).click();
+    await expect(content.getByRole("checkbox", { name: "branch-ci", exact: true })).toBeChecked();
+
+    const checkedBefore = checkedGit(folder, "ls-remote", gitURL, checkedBranch);
+    expect(checkedBefore).toContain(checkedBranch);
+    expect(git(worktree, "push", "origin", `HEAD:${checkedBranch}`).stderr).toContain(`requires verified workflows to write ${checkedBranch}`);
+    expect(git(worktree, "push", "origin", `HEAD:${newCheckedBranch}`).stderr).toContain(`requires verified workflows to write ${newCheckedBranch}`);
+    expect(checkedGit(folder, "ls-remote", gitURL, checkedBranch, newCheckedBranch)).toBe(checkedBefore);
+    await capture("rulesets-required-workflows-direct-push");
+
     await page.goto(`${repositoryURL}/settings/git-tokens`);
     await content.getByRole("button", { name: "Revoke credential" }).click();
     await expect(content.getByText("No active Git tokens.")).toBeVisible();
