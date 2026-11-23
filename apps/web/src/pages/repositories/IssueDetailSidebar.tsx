@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Settings } from "lucide-react";
 import { changesetAPI } from "../../shared/api/identity";
 import type { Issue, IssueUpdate } from "../../shared/api/issues";
-import { changesetPath, pullRequestComparePath } from "../../shared/routing";
+import { changesetPath, pullRequestComparePath, repositoryPath } from "../../shared/routing";
 import { Button, Checkbox, Input, Modal } from "../../shared/ui";
 import { IssueBranches } from "./IssueBranches";
 
@@ -101,6 +101,13 @@ export function IssueDevelopment({ issue, context, editable, busy, error, resetE
     </div>
     {linked.length ? <ul>{linked.map(({ id, title }) => <li key={id}><Link to={changesetPath(handle, id)}>{title}</Link></li>)}</ul>
       : <p className="issue-sidebar-empty">{t("issues.detail.noChangesets")}</p>}
+    {!!issue.commits?.length && <ul aria-label={t("issues.detail.linkedCommits")}>
+      {issue.commits.map(({ sha, subject }) => <li key={sha}>
+        <Link to={`${repositoryPath(handle, repository)}?${new URLSearchParams({ change: sha })}`}>
+          <code title={sha}>{sha.slice(0, 7)}</code>{subject && ` ${subject}`}
+        </Link>
+      </li>)}
+    </ul>}
     <IssueBranches key={issue.id} issue={issue} context={context} editable={editable} />
     {editable && <Link to={`${pullRequestComparePath(handle, repository)}?issue=${issue.number}`}>{t("issues.detail.createPullRequest")}</Link>}
     {draft && <Modal open title={label} okText={t("common:actions.save")} confirmLoading={busy} onCancel={() => setDraft(undefined)}

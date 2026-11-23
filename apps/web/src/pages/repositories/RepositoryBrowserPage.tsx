@@ -5,8 +5,9 @@ import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { organizationHandle, webIDEPath } from "../../shared/routing";
+import { issueDetailPath, organizationHandle, webIDEPath } from "../../shared/routing";
 import { Button, Input, Select } from "../../shared/ui";
+import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
@@ -22,6 +23,7 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   const [refs, setRefs] = useState<RepositoryPreviewRefs>();
   const [refError, setRefError] = useState("");
   const [copyError, setCopyError] = useState("");
+  const [cloneOpen, setCloneOpen] = useState(false);
   const selectedRef = search.get("ref") || "";
   const snapshot = search.get("commit") || "";
   const change = search.get("change") || "";
@@ -78,11 +80,13 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   </div>;
   return <section className="repo-layout repo-browser" aria-label={t("repositories:preview.ariaLabel")}>
     <div className="repo-code-actions">
+      <Button onClick={() => setCloneOpen(true)}>{t("clone.title")}</Button>
       <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
     </div>
+    <RepositoryCloneDialog open={cloneOpen} onClose={() => setCloneOpen(false)} organization={organization} repository={repository} />
     {refError && <p className="org-error" role="alert">{refError}</p>}
     {copyError && <p className="org-error" role="alert">{copyError}</p>}
-    {change ? <CommitDetails key={`${change}:${compareBase}`} {...browse} change={change} base={compareBase} onCopy={anchor => void copyPermalink(change, anchor)}
+    {change ? <CommitDetails key={`${change}:${compareBase}`} {...browse} handle={handle} change={change} base={compareBase} onCopy={anchor => void copyPermalink(change, anchor)}
       onCopySHA={sha => void copy(sha, t("repositories:browser.shaCopied"))} author={author} day={day}/>
       : isHistory ? <CommitHistory key={refName} {...browse} referencePicker={referencePicker} author={author} day={day}
         onFilter={(nextAuthor, nextDay) => setSearch(makeQuery({ view: "commits", author: nextAuthor, day: nextDay }).slice(1))}
@@ -159,15 +163,27 @@ function CommitHistory({ organizationID, repository, refName, makeQuery, referen
   </section>;
 }
 
-function CommitDetails({ organizationID, repository, makeQuery, change, base, onCopy, onCopySHA, author, day }: BrowseProps & {
-  change: string; base: string; onCopy: (anchor?: string) => void; onCopySHA: (sha: string) => void; author: string; day: string;
+function CommitDetails({ organizationID, repository, makeQuery, handle, change, base, onCopy, onCopySHA, author, day }: BrowseProps & {
+  handle: string; change: string; base: string; onCopy: (anchor?: string) => void; onCopySHA: (sha: string) => void; author: string; day: string;
 }) {
   const { t } = useTranslation("repositories");
   const { formatDateTime, formatRelativeTime } = useDateFormatting();
   const [commit, setCommit] = useState<RepositoryCommit>();
   const [patch, setPatch] = useState<string>();
   const [error, setError] = useState("");
+  const [issueNumbers, setIssueNumbers] = useState<number[]>([]);
+  const [issueError, setIssueError] = useState("");
   const parent = base || commit?.parents[0] || "";
+  const sha = commit?.sha;
+  useEffect(() => {
+    if (!sha) return;
+    const controller = new AbortController();
+    void repositoryPreviewAPI.commitIssues(organizationID, repository, sha, controller.signal).then(
+      ({ items }) => { if (!controller.signal.aborted) setIssueNumbers(items); },
+      () => { if (!controller.signal.aborted) setIssueError(t("repositories:browser.linkedIssuesFailed")); },
+    );
+    return () => controller.abort();
+  }, [organizationID, repository, sha, t]);
   useEffect(() => {
     let active = true;
     void repositoryPreviewAPI.history(organizationID, repository, change, 1)
@@ -201,6 +217,10 @@ function CommitDetails({ organizationID, repository, makeQuery, change, base, on
     {commit && <div className="repo-meta repo-commit-author"><UserRound size={15} aria-hidden="true"/><strong>{commit.author}</strong><time dateTime={commit.authored_at} title={formatDateTime(commit.authored_at)}>{formatRelativeTime(commit.authored_at)}</time></div>}
     {commit && <div className="repo-panel repo-commit-card">
       <h3 className="repo-commit-subject">{commit.subject || t("repositories:history.noSubject")}</h3>
+      {issueError && <p className="repo-meta" role="status">{issueError}</p>}
+      {issueNumbers.length > 0 && <ul aria-label={t("repositories:browser.linkedIssues")}>
+        {issueNumbers.map(number => <li key={number}><Link to={issueDetailPath(handle, repository, number)}>#{number}</Link></li>)}
+      </ul>}
       <div className="repo-toolbar repo-commit-metadata repo-meta">
         {base ? <span>{t("repositories:compare.range", { base: base.slice(0, 12), head: commit.sha.slice(0, 12) })}</span>
           : commit.parents.map(sha => <Link key={sha} className="repo-quiet-action" to={makeQuery({ change: sha, author, day })}>

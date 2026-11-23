@@ -220,8 +220,16 @@ func scanIssue(row pgx.Row) (*issues.Issue, error) {
 
 // Get retrieves an issue by repository and number.
 func (r *IssueRepository) Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error) {
-	return scanIssue(r.store.pool.QueryRow(ctx, `SELECT `+issueColumns+`
+	issue, err := scanIssue(r.store.pool.QueryRow(ctx, `SELECT `+issueColumns+`
 		FROM issues WHERE organization_id = $1 AND repository = $2 AND number = $3`, organizationID, repository, number))
+	if err != nil {
+		return nil, err
+	}
+	issue.Commits, err = r.listLinkedCommits(ctx, organizationID, repository, issue.ID)
+	if err != nil {
+		return nil, err
+	}
+	return issue, nil
 }
 
 // ExistingNumbers resolves Issue references without loading their full bodies or metadata.

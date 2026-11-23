@@ -46,8 +46,8 @@ func TestInitializeRepository_Templates(t *testing.T) {
 			if got := runTestGit(t, repoPath, "rev-list", "--count", "refs/heads/main"); got != "1" {
 				t.Fatalf("main commit count = %q, want 1", got)
 			}
-			if got := runTestGit(t, repoPath, "rev-parse", "--is-bare-repository"); got != "false" {
-				t.Fatalf("is-bare-repository = %q, want false", got)
+			if got := runTestGit(t, repoPath, "rev-parse", "--is-bare-repository"); got != "true" {
+				t.Fatalf("is-bare-repository = %q, want true", got)
 			}
 			tracked := strings.Fields(runTestGit(t, repoPath, "ls-tree", "--name-only", "HEAD"))
 			slices.Sort(tracked)
@@ -56,10 +56,10 @@ func TestInitializeRepository_Templates(t *testing.T) {
 				t.Fatalf("tracked files = %v, want %v", tracked, tt.wantFiles)
 			}
 			for _, file := range tt.wantFiles {
-				if _, err := os.Stat(filepath.Join(repoPath, file)); err != nil {
-					t.Errorf("missing file %s: %v", file, err)
-				}
+				mustNotExist(t, filepath.Join(repoPath, file))
 			}
+
+			mustNotExist(t, filepath.Join(repoPath, "index"))
 
 			if tt.checkFile != "" {
 				content := runTestGit(t, repoPath, "show", "HEAD:"+tt.checkFile)
@@ -69,9 +69,9 @@ func TestInitializeRepository_Templates(t *testing.T) {
 			}
 
 			if tt.init.Description != "" {
-				desc := mustReadFile(t, filepath.Join(repoPath, ".git", "description"))
+				desc := mustReadFile(t, filepath.Join(repoPath, "description"))
 				if !strings.Contains(desc, tt.init.Description) {
-					t.Errorf(".git/description missing %q", tt.init.Description)
+					t.Errorf("description missing %q", tt.init.Description)
 				}
 			}
 		})
@@ -92,6 +92,8 @@ func TestInitializeRepository_ValidationErrors(t *testing.T) {
 		{"slug_no_slash", "org1", "repo", RepositoryInitialization{}},
 		{"slug_three_parts", "org1", "a/b/c", RepositoryInitialization{}},
 		{"owner_empty", "org1", "/repo", RepositoryInitialization{}},
+		{"name_digits_only", "org1", "owner/12345678", RepositoryInitialization{}},
+		{"name_no_letters", "org1", "owner/123-456", RepositoryInitialization{}},
 		{"desc_too_long", "org1", "owner/repo", RepositoryInitialization{Description: strings.Repeat("a", 351)}},
 		{"desc_nul", "org1", "owner/repo", RepositoryInitialization{Description: "test\x00"}},
 		{"gitignore_invalid", "org1", "owner/repo", RepositoryInitialization{Gitignore: "rust"}},
