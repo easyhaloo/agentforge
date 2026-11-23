@@ -46,7 +46,7 @@ func (r *CommentRepository) Create(ctx context.Context, organizationID string, c
 	}
 
 	if comment.ResourceType == comments.ResourceTypeIssue {
-		if err := notifyIssueActivity(ctx, tx, organizationID, string(comment.ResourceID), string(comment.ID), comment.AuthorID, comment.Body, comment.CreatedAt); err != nil {
+		if err := notifyIssueActivity(ctx, tx, organizationID, string(comment.ResourceID), string(comment.ID), comment.AuthorID, comment.Body, comment.CreatedAt, r.store.notificationMailOrigin); err != nil {
 			return nil, err
 		}
 	}

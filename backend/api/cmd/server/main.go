@@ -14,6 +14,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/config"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/email"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/httpserver"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
@@ -39,6 +40,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer store.Close()
+
+	if providerName := os.Getenv("NOTIFICATION_EMAIL_PROVIDER"); providerName != "" {
+		provider, err := email.NewProvider(email.Config{
+			Provider: providerName, From: os.Getenv("NOTIFICATION_EMAIL_FROM"),
+			SendGridAPIKey: os.Getenv("SENDGRID_API_KEY"), SESRegion: os.Getenv("AWS_REGION"),
+		})
+		if err != nil {
+			logger.Error("invalid notification email configuration", "error", err)
+			os.Exit(1)
+		}
+		store.EnableNotificationMail(configuration.AppOrigin)
+		go email.DeliverQueued(ctx, email.NewPostgresQueue(store.Pool()), provider, logger)
+	}
+
+	go store.RunRepositoryWebhookWorker(ctx, logger)
 
 	providers := make(map[string]identity.OIDCHandler)
 	for _, provider := range []struct {
@@ -77,15 +93,17 @@ func main() {
 	deps := httpserver.DeliveryDependencies{
 		Repository: store, Identity: store, RevokeSession: store.RevokeSession, CSRF: store, Membership: store, Account: store, Settings: store,
 		AllowedOrigin: configuration.AppOrigin, SSO: providers, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store, Workspaces: store, Tasks: tasks.NewPostgresStore(store.Pool()),
-		IssueRepo:        issueRepo,
-		IssueDetailRepo:  issueRepo,
-		ProjectRepo:      store,
-		CommentRepo:      postgres.NewCommentRepository(store),
-		LabelRepo:        postgres.NewLabelRepository(store),
-		MilestoneRepo:    postgres.NewMilestoneRepository(store),
-		ReactionRepo:     postgres.NewReactionRepository(store),
-		EventRepo:        postgres.NewEventRepository(store),
-		NotificationRepo: postgres.NewNotificationRepository(store),
+		IssueRepo:          issueRepo,
+		IssueDetailRepo:    issueRepo,
+		ProjectRepo:        store,
+		CommentRepo:        postgres.NewCommentRepository(store),
+		LabelRepo:          postgres.NewLabelRepository(store),
+		MilestoneRepo:      postgres.NewMilestoneRepository(store),
+		ReactionRepo:       postgres.NewReactionRepository(store),
+		EventRepo:          postgres.NewEventRepository(store),
+		NotificationRepo:   postgres.NewNotificationRepository(store),
+		NotificationEmail:  store,
+		RepositoryWebhooks: store,
 	}
 	if err := configureGit(&deps, configuration, os.Getenv("GIT_REMOTE_BINDINGS_FILE"), logger); err != nil {
 		logger.Error("invalid remote integration Git bindings", "error", err)

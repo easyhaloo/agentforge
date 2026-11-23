@@ -107,40 +107,43 @@ type EventRepository interface {
 type NotificationRepository = notifications.Repository
 
 type DeliveryDependencies struct {
-	Repository       delivery.Repository
-	Identity         identity.PrincipalResolver
-	RevokeSession    func(context.Context, string) error
-	CSRF             identity.CSRFValidator
-	AllowedOrigin    string
-	SSO              map[string]identity.OIDCHandler
-	LocalAuth        LocalAuthHandler
-	Membership       MembershipRepository
-	Account          AccountRepository
-	Settings         SettingsRepository
-	Git              delivery.GitProvider
-	IntegrationGit   delivery.IntegrationGitProvider
-	GitHTTP          *githttp.Transport
-	GitCredentials   GitCredentialStore
-	Evaluator        delivery.Evaluator
-	Evidence         delivery.EvidenceStore
-	Reviewers        ReviewerAuthorizer
-	WebhookDirectory string
-	Runs             execution.Store
-	Pipelines        pipeline.Store
-	Catalog          delivery.RepositoryCatalog
-	Preview          delivery.RepositoryPreviewReader
-	Locker           delivery.ChangesetLocker
-	Workspaces       workspace.Repository
-	Tasks            *tasks.PostgresStore
-	IssueRepo        issues.Repository
-	IssueDetailRepo  issues.DetailRepository
-	ProjectRepo      issues.ProjectRepository
-	CommentRepo      CommentRepository
-	LabelRepo        LabelRepository
-	MilestoneRepo    MilestoneRepository
-	ReactionRepo     ReactionRepository
-	EventRepo        EventRepository
-	NotificationRepo NotificationRepository
+	Repository        delivery.Repository
+	Identity          identity.PrincipalResolver
+	RevokeSession     func(context.Context, string) error
+	CSRF              identity.CSRFValidator
+	AllowedOrigin     string
+	SSO               map[string]identity.OIDCHandler
+	LocalAuth         LocalAuthHandler
+	Membership        MembershipRepository
+	Account           AccountRepository
+	Settings          SettingsRepository
+	NotificationEmail NotificationEmailRepository
+	Git               delivery.GitProvider
+	IntegrationGit    delivery.IntegrationGitProvider
+	GitHTTP           *githttp.Transport
+	GitCredentials    GitCredentialStore
+	Evaluator         delivery.Evaluator
+	Evidence          delivery.EvidenceStore
+	Reviewers         ReviewerAuthorizer
+	WebhookDirectory  string
+	Runs              execution.Store
+	Pipelines         pipeline.Store
+	Catalog           delivery.RepositoryCatalog
+	Preview           delivery.RepositoryPreviewReader
+	Locker            delivery.ChangesetLocker
+	Workspaces        workspace.Repository
+	Tasks             *tasks.PostgresStore
+	IssueRepo         issues.Repository
+	IssueDetailRepo   issues.DetailRepository
+	ProjectRepo       issues.ProjectRepository
+	CommentRepo       CommentRepository
+	LabelRepo         LabelRepository
+	MilestoneRepo     MilestoneRepository
+	ReactionRepo      ReactionRepository
+	EventRepo         EventRepository
+	NotificationRepo  NotificationRepository
+
+	RepositoryWebhooks RepositoryWebhookStore
 }
 
 type storedChangesetResponse struct {
@@ -181,6 +184,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	deps.pipelineRoutes(mux)
 	deps.executionRoutes(mux)
 	deps.mergePreviewRoutes(mux)
+	deps.repositoryWebhookRoutes(mux)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces", deps.createWorkspace)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}", deps.getWorkspaceHandler)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/tree", deps.listWorkspaceTree)

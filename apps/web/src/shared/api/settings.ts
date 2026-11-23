@@ -47,6 +47,14 @@ export interface NotificationPreferences {
   inbox_watching: boolean;
 }
 
+export interface NotificationEmailSettings {
+  available: boolean;
+  address: string;
+  pending_address: string;
+  participating: boolean;
+  watching: boolean;
+}
+
 export interface SSHKey {
   key_id: string;
   title: string;
@@ -133,6 +141,19 @@ export const settingsAPI = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  getNotificationEmail: (signal?: AbortSignal) => fetchAPI<NotificationEmailSettings>("/notification-email", { signal }),
+
+  requestNotificationEmail: (address: string) => fetchAPI<NotificationEmailSettings>("/notification-email/verification", {
+    method: "POST", body: JSON.stringify({ address }),
+  }),
+
+  verifyNotificationEmail: (code: string) => fetchAPI<NotificationEmailSettings>("/notification-email/verify", {
+    method: "POST", body: JSON.stringify({ code }),
+  }),
+
+  updateNotificationEmail: (data: Partial<Pick<NotificationEmailSettings, "participating" | "watching">>) =>
+    fetchAPI<NotificationEmailSettings>("/notification-email", { method: "PATCH", body: JSON.stringify(data) }),
 
   // SSH Keys
   getSSHKeys: () => fetchAPI<{ keys: SSHKey[] }>("/ssh-keys").then(result => result.keys),

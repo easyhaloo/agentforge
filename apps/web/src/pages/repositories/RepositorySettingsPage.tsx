@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GitBranch, KeyRound, Settings, Tag } from "lucide-react";
+import { GitBranch, KeyRound, Settings, Tag, Webhook } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
@@ -9,6 +9,7 @@ import { organizationHandle, repositoryNewPath, repositoryPath, repositorySettin
 import { Button, Checkbox, Input, Modal, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
+import { RepositoryWebhooks } from "./RepositoryWebhooks";
 import "./repositories.css";
 import "./repository-settings.css";
 
@@ -30,7 +31,8 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
     return () => { active = false; };
   }, [organization.id, repository, t, attempt]);
 
-  const title = t({ general: "settings.general", branches: "sections.branches", tags: "settings.tags", "git-tokens": "git.tokens" }[section]);
+  const title = t({ general: "settings.general", branches: "sections.branches", tags: "settings.tags", "git-tokens": "git.tokens", webhooks: "webhooks.title" }[section]);
+  const canManage = canManageRepository(organization);
   return <div className="repo-layout repo-browser repo-settings">
     <nav className="repo-settings-nav" aria-label={t("sections.settingsFor", { repository })}>
       <NavLink to={path("general")} end><Settings size={16} aria-hidden="true"/>{t("settings.general")}</NavLink>
@@ -43,16 +45,22 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
         <NavLink to={path("branches")} end><GitBranch size={16} aria-hidden="true"/>{t("sections.branches")}</NavLink>
         <NavLink to={path("tags")} end><Tag size={16} aria-hidden="true"/>{t("settings.tags")}</NavLink>
       </div>
+      {canManage && <div className="repo-settings-nav-group">
+        <NavLink to={path("webhooks")} end><Webhook size={16} aria-hidden="true"/>{t("webhooks.title")}</NavLink>
+      </div>}
     </nav>
     <section className="repo-settings-content" aria-labelledby="repository-settings-title">
       <header className="repo-settings-heading">
         <h1 id="repository-settings-title">{title}</h1>
       </header>
-      {error && <div className="repo-settings-card">
+      {section === "webhooks" && (canManage
+        ? <RepositoryWebhooks organization={organization.id} repository={repository} />
+        : <p role="alert">{t("sections.settingsDenied")}</p>)}
+      {section !== "webhooks" && error && <div className="repo-settings-card">
         <p role="alert" className="org-error">{error}</p>
         <Button onClick={() => { setError(""); setAttempt(attempt + 1); }}>{t("app:organizationGate.retry")}</Button>
       </div>}
-      {!refs && !error && <p role="status">{t("common:components.loading")}</p>}
+      {section !== "webhooks" && !refs && !error && <p role="status">{t("common:components.loading")}</p>}
       {refs && section === "general" && <>
         <section className="repo-settings-card">
           <h2>{t("settings.repositoryName")}</h2>

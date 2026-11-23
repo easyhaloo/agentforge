@@ -98,7 +98,7 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 		}
 	}
 
-	if err := notifyIssueActivity(ctx, tx, organizationID, string(issue.ID), "", issue.CreatedBy, issue.Body, issue.CreatedAt); err != nil {
+	if err := notifyIssueActivity(ctx, tx, organizationID, string(issue.ID), "", issue.CreatedBy, issue.Body, issue.CreatedAt, r.store.notificationMailOrigin); err != nil {
 		return nil, err
 	}
 

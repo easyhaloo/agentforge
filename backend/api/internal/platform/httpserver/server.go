@@ -47,6 +47,10 @@ func NewHandlerWithDependencies(deps DeliveryDependencies) http.Handler {
 		mux.HandleFunc("PATCH "+prefix+"agent-preferences", deps.updateAgentPreferences)
 		mux.HandleFunc("POST "+prefix+"agent-memory/clear", deps.clearAgentMemory)
 	}
+	mux.HandleFunc("GET /api/v1/users/me/notification-email", deps.notificationEmail)
+	mux.HandleFunc("PATCH /api/v1/users/me/notification-email", deps.notificationEmail)
+	mux.HandleFunc("POST /api/v1/users/me/notification-email/verification", deps.notificationEmail)
+	mux.HandleFunc("POST /api/v1/users/me/notification-email/verify", deps.notificationEmail)
 	mux.HandleFunc("GET /api/v1/users/me/saved-replies", deps.listSavedReplies)
 	mux.HandleFunc("POST /api/v1/users/me/saved-replies", deps.writeSavedReply)
 	mux.HandleFunc("PATCH /api/v1/users/me/saved-replies/{replyID}", deps.writeSavedReply)

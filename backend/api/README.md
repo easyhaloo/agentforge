@@ -98,6 +98,18 @@ The PostgreSQL store owns organization-scoped changesets and repository metadata
 - `GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/watch` returns `{ "watching": false }` until the current user watches that repository. `PATCH` accepts `{ "watching": true }` to watch or `{ "watching": false }` to unwatch and returns the persisted state. The endpoint requires active organization membership and a registered repository. A missing or invalid `watching` value returns `400`.
 - Both writes require the session and CSRF token. The web UI loads saved settings before accepting changes and retains the last confirmed value if saving fails. Changes affect future inbox delivery. Legacy email and push fields are stored for API compatibility.
 
+## Issue notification email
+
+Set `NOTIFICATION_EMAIL_PROVIDER` to `ses` or `sendgrid` and set `NOTIFICATION_EMAIL_FROM` to a sender address authorized by the provider. SES uses the AWS SDK credential chain and `AWS_REGION`. SendGrid uses `SENDGRID_API_KEY`. An unset provider disables email delivery while the inbox keeps working.
+
+`GET /api/v1/users/me/notification-email` returns delivery availability, the verified and pending addresses, and the `participating` and `watching` preferences. `POST /verification` under that path accepts `{ "address": "…" }` and queues a 30-minute code, with a one-minute limit per account and destination. `POST /verify` accepts `{ "code": "…" }` and makes that address the default for notifications. `PATCH` on the settings path updates either or both preferences after verification. All writes require a session and CSRF token. Preferences default to off and apply to future issue creations and comments. Each recipient gets one email when both subscriptions match.
+
+## Repository webhooks
+
+Organization owners and admins manage webhooks in **Repository settings → Webhooks**. The API serves `GET` and `POST` at `/api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/webhooks`, `PATCH` and `DELETE` at `/{webhookID}`, and `GET` at `/{webhookID}/deliveries` under the same path. Writes require a session and CSRF token. Signing secrets are write-only.
+
+The API sends JSON over public HTTPS for `issues` with action `opened` and `issue_comment` with action `created`. Recipients can verify the raw request body with `X-Hub-Signature-256` (HMAC-SHA256) and use `X-GitHub-Delivery` as the delivery ID. `X-GitHub-Event` identifies the event. The worker blocks private destinations and redirects. Each delivery gets one attempt, and the latest 100 results include status and the HTTP code when available. A configuration change marks pending deliveries failed without sending them. A request already in flight can finish.
+
 ## Single sign-on
 
 Google and GitHub are independently optional. Set each enabled provider's Client ID and Client Secret in the API environment using secret-managed values. Register the exact callback URL with the provider.

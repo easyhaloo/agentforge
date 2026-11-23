@@ -92,3 +92,13 @@
   accent-color: var(--color-primary);
 }
 .preferences-settings :is(.theme-card, .preference-row, .preference-checkbox):hover { background: var(--color-bg-hover); }
+
+.notification-email-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.notification-email-form .af-field { flex: 1 1 18rem; }
+.preferences-settings .settings-note { overflow-wrap: anywhere; }

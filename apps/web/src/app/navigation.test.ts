@@ -7,6 +7,7 @@ import { itemHref, navigationGroups, navigationItems, repositorySectionForPath }
 it("selects the Settings repository tab for its panels and omits the former Branches tab", () => {
   const repository = "/orgs/demo/repositories/team/repo";
   expect(repositorySectionForPath(`${repository}/settings/branches`)).toBe("settings");
+  expect(repositorySectionForPath(`${repository}/settings/webhooks`)).toBe("settings");
   expect(repositorySectionForPath(`${repository}/branches`)).toBeUndefined();
 });
 

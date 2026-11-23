@@ -820,5 +820,43 @@
     "empty": "No active Git tokens.",
     "failed": "The Git token action failed.",
     "manage": "New Git access token"
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "description": "Send signed requests to an HTTPS endpoint when selected repository events occur.",
+    "add": "Add webhook",
+    "edit": "Edit webhook",
+    "empty": "No webhooks configured.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "remove": "Delete",
+    "confirm": "Delete this webhook and its delivery history?",
+    "confirmRemove": "Delete webhook",
+    "history": "Recent deliveries",
+    "refreshHistory": "Refresh deliveries",
+    "noDeliveries": "No deliveries yet.",
+    "loadError": "Could not load webhooks.",
+    "saveError": "Could not save webhook changes.",
+    "historyError": "Could not load deliveries.",
+    "invalid": "Enter a public HTTPS URL, a secret of at least 16 characters, and at least one event.",
+    "saved": "Webhook changes saved.",
+    "url": "Payload URL",
+    "secret": "Signing secret",
+    "secretHelp": "Use at least 16 characters. The secret is used to sign each request.",
+    "replaceSecret": "Leave blank to keep the current secret.",
+    "subscriptions": "Events",
+    "events": {
+      "issues": "Issue opened",
+      "issue_comment": "Issue comment created"
+    },
+    "status": {
+      "pending": "Pending",
+      "sending": "Sending",
+      "delivering": "Sending",
+      "delivered": "Delivered",
+      "succeeded": "Delivered",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    }
   }
 }
