@@ -37,10 +37,10 @@ function patterns(value: string) {
   return value.split(/\r?\n/).map(pattern => pattern.trim()).filter(Boolean);
 }
 
-function toRule({ id: _id, name, include, exclude, require_pull_request, allowed_merge_methods, require_merge_queue, require_linear_history, merge_queue_method, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
+function toRule({ id: _id, name, include, exclude, require_pull_request, required_review_thread_resolution, allowed_merge_methods, require_merge_queue, require_linear_history, merge_queue_method, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
   return { ...rule, name: name.trim(), include: patterns(include), exclude: patterns(exclude),
     ...(require_pull_request && { require_pull_request,
-      ...(rule.target === "branch" && allowed_merge_methods && { allowed_merge_methods }),
+      ...(rule.target === "branch" && { allowed_merge_methods, required_review_thread_resolution }),
     }),
     ...(require_merge_queue && { require_merge_queue, ...(merge_queue_method && { merge_queue_method }) }),
     ...(require_linear_history && { require_linear_history }),
@@ -303,6 +303,7 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
           {rule.target === "branch" && rule.require_pull_request && <>
             <dt>{t("settings.rulesets.allowedMergeMethods")}</dt>
             <dd>{(rule.allowed_merge_methods ?? mergeMethods).map(method => t(`settings.rulesets.mergeQueueMethods.${method}`)).join(", ")}</dd>
+            {rule.required_review_thread_resolution && <dd>{t("settings.rulesets.requiredReviewThreadResolution")}</dd>}
           </>}
           {rule.required_workflows && <>
             <dt>{t("settings.rulesets.requiredWorkflows")}</dt>
@@ -345,7 +346,7 @@ function RulesetEditor({ rule, busy, errorId, organization, repository, onChange
           { value: "branch", label: t("settings.rulesets.branch") },
           { value: "tag", label: t("settings.rulesets.tag") },
         ]}
-        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", require_pull_request: false, allowed_merge_methods: undefined, require_merge_queue: false, require_linear_history: false, required_workflows: undefined } : { target: "branch" })} />
+        onChange={event => onChange(event.target.value === "tag" ? { target: "tag", require_pull_request: false, required_review_thread_resolution: undefined, allowed_merge_methods: undefined, require_merge_queue: false, require_linear_history: false, required_workflows: undefined } : { target: "branch" })} />
     </div>
     <Checkbox label={t("settings.rulesets.active")} checked={rule.enabled} disabled={busy} onChange={event => onChange({ enabled: event.target.checked })} />
     <div className="repo-settings-rule-fields">
@@ -360,17 +361,21 @@ function RulesetEditor({ rule, busy, errorId, organization, repository, onChange
         <Fragment key={key}>
           <Checkbox label={t(restrictionLabels[key])} checked={Boolean(rule[key])} disabled={busy}
             onChange={event => onChange({ [key]: event.target.checked,
-              ...(key === "require_pull_request" && !event.target.checked && { allowed_merge_methods: undefined }),
+              ...(key === "require_pull_request" && !event.target.checked && { allowed_merge_methods: undefined, required_review_thread_resolution: undefined }),
             })} />
-          {key === "require_pull_request" && rule.require_pull_request && <fieldset className="repo-settings-rule-restrictions"
-            disabled={busy} aria-describedby={methods.length === 0 ? errorId : undefined}>
-            <legend>{t("settings.rulesets.allowedMergeMethods")}</legend>
-            {mergeMethods.map(method => <Checkbox key={method} label={t(`settings.rulesets.mergeQueueMethods.${method}`)}
-              checked={methods.includes(method)} onChange={event => {
-                const checked = event.target.checked;
-                onChange({ allowed_merge_methods: mergeMethods.filter(option => option === method ? checked : methods.includes(option)) });
-              }} />)}
-          </fieldset>}
+          {key === "require_pull_request" && rule.require_pull_request && <>
+            <Checkbox label={t("settings.rulesets.requiredReviewThreadResolution")} checked={Boolean(rule.required_review_thread_resolution)} disabled={busy}
+              onChange={event => onChange({ required_review_thread_resolution: event.target.checked })} />
+            <fieldset className="repo-settings-rule-restrictions" disabled={busy}
+              aria-describedby={methods.length === 0 ? errorId : undefined}>
+              <legend>{t("settings.rulesets.allowedMergeMethods")}</legend>
+              {mergeMethods.map(method => <Checkbox key={method} label={t(`settings.rulesets.mergeQueueMethods.${method}`)}
+                checked={methods.includes(method)} onChange={event => {
+                  const checked = event.target.checked;
+                  onChange({ allowed_merge_methods: mergeMethods.filter(option => option === method ? checked : methods.includes(option)) });
+                }} />)}
+            </fieldset>
+          </>}
         </Fragment>)}
       {rule.target === "branch" && <>
         <Checkbox label={t("settings.rulesets.requiredWorkflows")} checked={Boolean(rule.required_workflows)} disabled={busy}

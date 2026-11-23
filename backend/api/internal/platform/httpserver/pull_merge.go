@@ -75,6 +75,8 @@ func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Req
 		return
 	}
 	intent := delivery.PullMergeIntent{ID: delivery.ID(id), RevisionID: revision.ID, Actor: actor, CreatedAt: time.Now().UTC(), Candidate: candidate}
+	// Compare-and-set fences the policy-checked Changeset version. Comment mutations
+	// cannot commit while the intent is present, including during receipt recovery.
 	if err := store.WritePullMergeIntent(ctx, org, c.ID, stored.Version, &intent); err != nil {
 		writeRepositoryError(w, err)
 		return

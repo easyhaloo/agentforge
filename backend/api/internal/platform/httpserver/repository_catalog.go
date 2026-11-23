@@ -139,8 +139,9 @@ func (d DeliveryDependencies) listRepositoryWorkflows(w http.ResponseWriter, r *
 
 type repositorySettingsResponse struct {
 	delivery.RepositoryMetadata
-	HostingKind        string    `json:"hosting_kind"`
-	PullRequestMethods *[]string `json:"pull_request_merge_methods,omitempty"`
+	HostingKind                               string    `json:"hosting_kind"`
+	PullRequestMethods                        *[]string `json:"pull_request_merge_methods,omitempty"`
+	PullRequestRequiresConversationResolution *bool     `json:"pull_request_requires_conversation_resolution,omitempty"`
 }
 
 func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.Request) {
@@ -154,9 +155,13 @@ func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
 	response := repositorySettingsResponse{RepositoryMetadata: repository, HostingKind: d.repositoryHostingKind(r.Context(), repository)}
-	if branch := r.URL.Query().Get("target_branch"); branch != "" && response.HostingKind == "hosted" {
-		methods := repository.MergeMethods.PullRequestMethods(repository.RefRules, branch, repository.DefaultBranch)
-		response.PullRequestMethods = &methods
+	if branch := r.URL.Query().Get("target_branch"); branch != "" {
+		requireResolution := githttp.BranchRequiresConversationResolution(repository.RefRules, branch, repository.DefaultBranch)
+		response.PullRequestRequiresConversationResolution = &requireResolution
+		if response.HostingKind == "hosted" {
+			methods := repository.MergeMethods.PullRequestMethods(repository.RefRules, branch, repository.DefaultBranch)
+			response.PullRequestMethods = &methods
+		}
 	}
 	writeJSON(w, http.StatusOK, response)
 }

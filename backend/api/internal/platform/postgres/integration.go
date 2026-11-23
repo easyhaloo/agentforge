@@ -150,6 +150,20 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	if _, err = tx.Exec(ctx, `LOCK TABLE delivery_changesets IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return err
 	}
+	if !recorded && githttp.BranchRequiresConversationResolution(rules, candidate.Target.Ref, candidate.Target.Ref) {
+		if len(candidate.Sources) == 0 {
+			return githttp.ErrBranchPullRequestRequired
+		}
+		for _, source := range candidate.Sources {
+			pull, _, err := lockCandidatePullRequest(ctx, tx, org, candidate.Repository, candidate.Target.Ref, source)
+			if err != nil {
+				return err
+			}
+			if pull.HasUnresolvedPRConversations() {
+				return githttp.ErrUnresolvedConversations
+			}
+		}
+	}
 	rows, err := tx.Query(ctx, `SELECT state FROM delivery_changesets WHERE organization_id=$1 AND repository=$2 AND EXISTS (SELECT FROM jsonb_array_elements(COALESCE(NULLIF(state->'revisions','null'::jsonb),'[]'::jsonb)) r WHERE r->>'commit_sha'=ANY($3::text[]))`, org, candidate.Repository, commits)
 	if err != nil {
 		return err

@@ -817,6 +817,7 @@
       "restrictUpdate": "Restrict updates",
       "restrictDeletion": "Restrict deletion",
       "blockForcePush": "Block force pushes",
+      "requiredReviewThreadResolution": "Require conversation resolution before merging",
       "requirePullRequest": "Require a pull request before merging",
       "requiredWorkflows": "Require status checks to pass",
       "workflowSelection": "Required repository workflows",

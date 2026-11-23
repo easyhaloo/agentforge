@@ -18,22 +18,23 @@ import (
 
 // RefRule restricts writes to matching branches or tags.
 type RefRule struct {
-	Name                 string             `json:"name"`
-	Target               string             `json:"target"`
-	Enabled              bool               `json:"enabled"`
-	Include              []string           `json:"include"`
-	Exclude              []string           `json:"exclude"`
-	RestrictCreation     bool               `json:"restrict_creation"`
-	RestrictUpdate       bool               `json:"restrict_update"`
-	RestrictDeletion     bool               `json:"restrict_deletion"`
-	BlockForcePush       bool               `json:"block_force_push"`
-	RequirePullRequest   bool               `json:"require_pull_request"`
-	AllowedMergeMethods  []string           `json:"allowed_merge_methods,omitempty"`
-	RequireLinearHistory bool               `json:"require_linear_history,omitempty"`
-	RequireMergeQueue    bool               `json:"require_merge_queue,omitempty"`
-	MergeQueueMethod     string             `json:"merge_queue_method,omitempty"`
-	RequiredWorkflows    *RequiredWorkflows `json:"required_workflows,omitempty"`
-	NamePatterns         []RefNamePattern   `json:"name_patterns,omitempty"`
+	Name                           string             `json:"name"`
+	Target                         string             `json:"target"`
+	Enabled                        bool               `json:"enabled"`
+	Include                        []string           `json:"include"`
+	Exclude                        []string           `json:"exclude"`
+	RestrictCreation               bool               `json:"restrict_creation"`
+	RestrictUpdate                 bool               `json:"restrict_update"`
+	RestrictDeletion               bool               `json:"restrict_deletion"`
+	BlockForcePush                 bool               `json:"block_force_push"`
+	RequiredReviewThreadResolution bool               `json:"required_review_thread_resolution,omitempty"`
+	RequirePullRequest             bool               `json:"require_pull_request"`
+	AllowedMergeMethods            []string           `json:"allowed_merge_methods,omitempty"`
+	RequireLinearHistory           bool               `json:"require_linear_history,omitempty"`
+	RequireMergeQueue              bool               `json:"require_merge_queue,omitempty"`
+	MergeQueueMethod               string             `json:"merge_queue_method,omitempty"`
+	RequiredWorkflows              *RequiredWorkflows `json:"required_workflows,omitempty"`
+	NamePatterns                   []RefNamePattern   `json:"name_patterns,omitempty"`
 }
 
 func ValidRefRules(rules []RefRule) bool {
@@ -46,6 +47,9 @@ func ValidRefRules(rules []RefRule) bool {
 			(rule.Target != "branch" && rule.Target != "tag") || (rule.Target == "tag" && (rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || rule.RequiredWorkflows != nil)) ||
 			!(rule.RestrictCreation || rule.RestrictUpdate || rule.RestrictDeletion || rule.BlockForcePush || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || rule.RequiredWorkflows != nil || len(rule.NamePatterns) > 0) ||
 			!validNamePatterns(rule.NamePatterns) || len(rule.Include) == 0 || len(rule.Include)+len(rule.Exclude) > 10 || !validRulePatterns(rule.Target, rule.Include) || !validRulePatterns(rule.Target, rule.Exclude) {
+			return false
+		}
+		if rule.RequiredReviewThreadResolution && !rule.RequirePullRequest {
 			return false
 		}
 		if rule.RequiredWorkflows != nil && !rule.RequiredWorkflows.valid() {
@@ -296,6 +300,14 @@ func QueueMergeStrategy(rules []RefRule, branch, defaultBranch string) (string, 
 		return "ff-only", nil
 	}
 	return "merge-commit", nil
+}
+
+var ErrUnresolvedConversations = errors.New("resolve all inline pull request conversations before merging")
+
+func BranchRequiresConversationResolution(rules []RefRule, branch, defaultBranch string) bool {
+	return slices.ContainsFunc(rules, func(rule RefRule) bool {
+		return rule.RequiredReviewThreadResolution && rule.matches("branch", branch, defaultBranch)
+	})
 }
 
 // CheckBranchMerge applies matching rules that govern server-authorized branch updates.

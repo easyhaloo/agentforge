@@ -207,6 +207,8 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 		writeProblem(w, 404, "Run unavailable", "Select a run in this organization")
 	case errors.Is(err, githttp.ErrMergeMethodDisabled):
 		writeProblem(w, 409, "Merge method disabled", err.Error())
+	case errors.Is(err, githttp.ErrUnresolvedConversations):
+		writeUnresolvedConversations(w)
 	case errors.Is(err, githttp.ErrBranchUpdatesRestricted), errors.Is(err, githttp.ErrBranchPullRequestRequired),
 		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRequiredWorkflows), errors.Is(err, githttp.ErrStrictWorkflowBase), errors.Is(err, githttp.ErrRefNameRestricted), errors.Is(err, githttp.ErrLinearHistoryRequired):
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks promotion", err.Error())
@@ -223,6 +225,8 @@ func writeQueueError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, githttp.ErrMergeMethodDisabled):
 		writeProblem(w, 409, "Merge method disabled", err.Error())
+	case errors.Is(err, githttp.ErrUnresolvedConversations):
+		writeUnresolvedConversations(w)
 	case errors.Is(err, githttp.ErrBranchPullRequestRequired), errors.Is(err, githttp.ErrRequiredWorkflows), errors.Is(err, githttp.ErrStrictWorkflowBase):
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks queue admission", err.Error())
 	case errors.Is(err, execution.ErrRepositoryActionsDisabled):

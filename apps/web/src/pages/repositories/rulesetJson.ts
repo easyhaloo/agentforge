@@ -33,7 +33,7 @@ function supportedRuleParameters(type: string, value: unknown): boolean {
   return hasOnlyKeys(value, []);
 }
 
-function readPullRequestParameters(value: unknown): Pick<RepositoryRefRule, "allowed_merge_methods"> | undefined {
+function readPullRequestParameters(value: unknown): Pick<RepositoryRefRule, "allowed_merge_methods" | "required_review_thread_resolution"> | undefined {
   if (value === undefined) return {};
   if (!record(value)) return undefined;
 
@@ -49,14 +49,16 @@ function readPullRequestParameters(value: unknown): Pick<RepositoryRefRule, "all
     "require_extra_approval_for_unattributed_changes"]) &&
     (count === undefined || count === 0 || count === 1) &&
     (dismissStale === undefined || typeof dismissStale === "boolean") &&
-    [codeOwners, lastPush, resolveThreads].every(setting => setting === undefined || setting === false) &&
+    [codeOwners, lastPush].every(setting => setting === undefined || setting === false) &&
+    (resolveThreads === undefined || typeof resolveThreads === "boolean") &&
     (extraApproval === undefined || extraApproval === false || (extraApproval === true && count === 0)) &&
     (reviewers === undefined || (Array.isArray(reviewers) && reviewers.length === 0));
   if (!supported) return undefined;
-  if (methods === undefined) return {};
+  const resolution = typeof resolveThreads === "boolean" ? { required_review_thread_resolution: resolveThreads } : {};
+  if (methods === undefined) return resolution;
   if (!Array.isArray(methods) || methods.length === 0 || new Set(methods).size !== methods.length ||
     !methods.every((method: unknown): method is PullRequestMergeMethod => mergeMethods.some(option => option === method))) return undefined;
-  return { allowed_merge_methods: methods };
+  return { ...resolution, allowed_merge_methods: methods };
 }
 
 function readNamePattern(value: unknown): RefNamePattern | undefined {
@@ -145,7 +147,7 @@ export function inspectRulesetJson(text: string): RulesetImport | undefined {
   let queueMethod: RepositoryRefRule["merge_queue_method"];
   let workflowChecks: RepositoryRefRule["required_workflows"];
   let githubWorkflows: GitHubWorkflowImport | undefined;
-  let pullRequestParameters: Pick<RepositoryRefRule, "allowed_merge_methods"> | undefined;
+  let pullRequestParameters: Pick<RepositoryRefRule, "allowed_merge_methods" | "required_review_thread_resolution"> | undefined;
   for (const rule of rules as unknown[]) {
     if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string") return undefined;
     if (rule.type === `${target}_name_pattern`) {
@@ -215,7 +217,12 @@ export function serializeRulesetJson(rule: RepositoryRefRule): string {
     rules: [
       ...Object.entries(ruleTypes).flatMap(([key, type]) => rule[key as keyof typeof ruleTypes] ? [{
         type,
-        ...(type === "pull_request" && rule.target === "branch" && rule.allowed_merge_methods && { parameters: { allowed_merge_methods: rule.allowed_merge_methods } }),
+        ...(type === "pull_request" && rule.target === "branch" && (rule.allowed_merge_methods || rule.required_review_thread_resolution !== undefined) && {
+          parameters: {
+            allowed_merge_methods: rule.allowed_merge_methods,
+            required_review_thread_resolution: rule.required_review_thread_resolution,
+          },
+        }),
         ...(type === "merge_queue" && rule.merge_queue_method && { parameters: { merge_method: rule.merge_queue_method.toUpperCase() } }),
         ...(type === "required_status_checks" && { parameters: rule.required_workflows }),
       }] : []),

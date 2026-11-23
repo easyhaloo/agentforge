@@ -76,9 +76,26 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	if err = checkRepositoryActions(ctx, tx, org, pipelineID, repo); err != nil {
 		return entry, err
 	}
-	if checks := githttp.BranchRequiredWorkflows(policy.RefRules, target, policy.DefaultBranch); len(checks) > 0 {
-		if err = checkQueueRequiredWorkflows(ctx, tx, org, candidate, checks, git); err != nil {
+	checks := githttp.BranchRequiredWorkflows(policy.RefRules, target, policy.DefaultBranch)
+	requireResolution := githttp.BranchRequiresConversationResolution(policy.RefRules, target, policy.DefaultBranch)
+	if len(checks) > 0 || requireResolution {
+		pull, revision, err := lockCandidatePullRequest(ctx, tx, org, candidate.Repository, target, candidate.Sources[0])
+		if err != nil {
 			return entry, err
+		}
+		if requireResolution && pull.HasUnresolvedPRConversations() {
+			return entry, githttp.ErrUnresolvedConversations
+		}
+		if len(checks) > 0 {
+			if candidate.Target.SHA == "" {
+				return entry, execution.ErrInputs
+			}
+			if err := git.CheckRequiredWorkflowBase(ctx, org, repo, candidate.Target.SHA, revision.CommitSHA, checks); err != nil {
+				return entry, err
+			}
+			if err := checkRequiredWorkflows(ctx, tx, org, &pull, revision, candidate.Target.SHA, checks); err != nil {
+				return entry, err
+			}
 		}
 	}
 	var id int64
@@ -114,36 +131,33 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	return entry, tx.Commit(ctx)
 }
 
-func checkQueueRequiredWorkflows(ctx context.Context, tx pgx.Tx, org string, candidate execution.Integration, checks map[string]bool, git *delivery.LocalGitProvider) error {
-	source := candidate.Sources[0]
+// The row lock serializes admission with comment writes on this pull request.
+func lockCandidatePullRequest(ctx context.Context, tx pgx.Tx, org, repo, target string, source delivery.PinnedRef) (delivery.Changeset, delivery.Revision, error) {
 	noPull := fmt.Errorf("%w: expected exactly one open pull request matching the candidate branches and source commit", githttp.ErrBranchPullRequestRequired)
-	if source.SHA == "" || candidate.Target.SHA == "" {
-		return execution.ErrInputs
+	if source.SHA == "" {
+		return delivery.Changeset{}, delivery.Revision{}, execution.ErrInputs
 	}
 	rows, err := tx.Query(ctx, `SELECT state FROM delivery_changesets
 		WHERE organization_id=$1 AND repository=$2
 		  AND state->'pull_request'->>'base_branch'=$3 AND state->'pull_request'->>'source_branch'=$4
 		  AND state->'pull_request'->>'closed'='false' AND state->>'merge' IS NULL
 		  AND state->'revisions'->-1->>'commit_sha'=$5
-		LIMIT 2 FOR SHARE`, org, candidate.Repository, candidate.Target.Ref, source.Ref, source.SHA)
+		LIMIT 2 FOR SHARE`, org, repo, target, source.Ref, source.SHA)
 	if err != nil {
-		return fmt.Errorf("find pull request for queue admission: %w", err)
+		return delivery.Changeset{}, delivery.Revision{}, fmt.Errorf("find pull request for candidate: %w", err)
 	}
 	pull, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[delivery.Changeset])
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, pgx.ErrTooManyRows) {
-		return noPull
+		return delivery.Changeset{}, delivery.Revision{}, noPull
 	}
 	if err != nil {
-		return fmt.Errorf("read pull request for queue admission: %w", err)
+		return delivery.Changeset{}, delivery.Revision{}, fmt.Errorf("read pull request for candidate: %w", err)
 	}
 	revision, ok := pull.CurrentRevision()
 	if !ok || revision.ID == "" || revision.Ref != source.Ref || revision.CommitSHA != source.SHA {
-		return noPull
+		return delivery.Changeset{}, delivery.Revision{}, noPull
 	}
-	if err := git.CheckRequiredWorkflowBase(ctx, org, candidate.Repository, candidate.Target.SHA, revision.CommitSHA, checks); err != nil {
-		return err
-	}
-	return checkRequiredWorkflows(ctx, tx, org, &pull, revision, candidate.Target.SHA, checks)
+	return pull, revision, nil
 }
 
 func attachTrainRun(ctx context.Context, tx pgx.Tx, id int64, run execution.Run) error {

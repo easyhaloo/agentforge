@@ -38,6 +38,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const { t } = useTranslation(["pulls", "common", "changesets"]);
   const navigate = useNavigate();
   const [changeset, setChangeset] = useState<StoredChangeset | null>(null);
+  const updateChangeset = (next: StoredChangeset) => setChangeset(current =>
+    current?.changeset.id === next.changeset.id && current.version > next.version ? current : next);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
@@ -224,7 +226,9 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   };
   const queueRequired = mergeSettings?.default_branch === pr.base_branch &&
     mergeSettings.ref_rules?.some(rule => rule.enabled && rule.require_merge_queue);
-  const mergeEnabled = canMerge && !queueRequired && hasMethod && workflowsAllowMerge && !actionBusy;
+  const conversationsBlockMerge = mergeSettings?.pull_request_requires_conversation_resolution &&
+    pr.comments.some(comment => comment.revision_id && !(comment.resolved_at && comment.resolved_by));
+  const mergeEnabled = canMerge && !queueRequired && hasMethod && workflowsAllowMerge && !conversationsBlockMerge && !actionBusy;
   const queueSearch = new URLSearchParams({ queueRepository: repository, queueTarget: pr.base_branch, queueSource: pr.source_branch });
   const StateIcon = stateIcons[state];
   const stateClass = `pull-state pull-state-${state}`;
@@ -369,7 +373,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           organization={organization}
           changeset={changeset}
           pullNumber={pullNumber}
-          onUpdate={setChangeset}
+          onUpdate={updateChangeset}
           memberName={memberName}
           lifecycleAction={lifecycleAction}
           lifecycleError={lifecycleError}
@@ -382,7 +386,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               <div>
                 <h3>{state === "merged" ? t("pulls:gate.merged") : t("pulls:gate.mergeTitle")}</h3>
                 {state === "merged" && changeset.changeset.merge ? <code title={changeset.changeset.merge.commit_sha}>{changeset.changeset.merge.commit_sha.slice(0, 12)}</code>
-                  : canMerge ? workflowsAllowMerge && <p>{t(queueRequired ? "pulls:gate.queueRequired" : "pulls:gate.ready")}</p>
+                  : canMerge ? conversationsBlockMerge ? <p role="status">{t("pulls:gate.conversationsRequired")}</p>
+                    : workflowsAllowMerge && <p>{t(queueRequired ? "pulls:gate.queueRequired" : "pulls:gate.ready")}</p>
                   : <p>{state === "open" ? t("pulls:actions.mergeRequirements") : t(`pulls:state.${state}`)}</p>}
               </div>
             </div>
@@ -392,7 +397,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               {workflowNeedsRetry && <Button onClick={retryWorkflows}>{t("pulls:actions.retry")}</Button>}
             </div>}
             {canMerge && (queueRequired
-              ? workflowsAllowMerge && !actionBusy
+              ? workflowsAllowMerge && !conversationsBlockMerge && !actionBusy
                 ? <Link to={`${orgPath(handle, "pipelines")}?${queueSearch}`}>{t("pulls:actions.openMergeQueue")}</Link>
                 : <Button disabled>{t("pulls:actions.openMergeQueue")}</Button>
               : <div className="pull-merge-actions">
@@ -456,10 +461,11 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
         <PullRequestFilesTab
           key={revisionKey}
           files={files}
+          memberName={memberName}
           organization={organization}
           changeset={changeset}
           pullNumber={pullNumber}
-          onUpdate={setChangeset}
+          onUpdate={updateChangeset}
         />
       )}
     </div>

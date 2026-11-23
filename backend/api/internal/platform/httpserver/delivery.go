@@ -237,6 +237,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state", deps.changePRState)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title", deps.changePRTitle)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments/{commentID}/resolution", deps.setPRCommentResolution)
 
 	// Issue tracking routes
 	deps.registerIssueDetail(mux)
@@ -1188,6 +1189,10 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	}
 	if err := githttp.CheckBranchMerge(policy.RefRules, allowedTarget, policy.DefaultBranch, pull != nil && pull.BaseBranch == allowedTarget, false); err != nil {
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks merge", err.Error())
+		return
+	}
+	if githttp.BranchRequiresConversationResolution(policy.RefRules, allowedTarget, policy.DefaultBranch) && stored.Changeset.HasUnresolvedPRConversations() {
+		writeUnresolvedConversations(w)
 		return
 	}
 	baseRef := allowedTarget

@@ -676,7 +676,7 @@ paths:
       parameters:
         - in: query
           name: target_branch
-          description: Include the methods allowed by repository settings and matching rulesets for this hosted pull request target.
+          description: Include conversation-resolution requirements and allowed hosted merge methods for this pull request target.
           schema: { type: string }
       security: [{ sessionCookie: [] }]
       responses:
@@ -1571,7 +1571,7 @@ paths:
     post:
       operationId: mergeChangeset
       summary: Merge the current revision after server-side gate revalidation
-      description: Requires a passing evaluation, active revision-bound evidence and an approved review. Matching branch rulesets may block the merge or require a linked pull request targeting this exact branch. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
+      description: Requires a passing evaluation, active revision-bound evidence and an approved review. Matching branch rulesets may block the merge or require a linked pull request targeting this exact branch with all inline conversations resolved. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -1778,6 +1778,47 @@ paths:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments/{commentID}/resolution:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+      - in: path
+        name: commentID
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: setPullRequestCommentResolution
+      summary: Resolve or reopen an inline pull request conversation
+      description: Requires organization write membership. Works on current and outdated lines. Setting the same state again preserves the original resolver and timestamp.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [resolved]
+              properties:
+                resolved: { type: boolean }
+      responses:
+        "200":
+          description: Updated changeset with the conversation's resolution state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces:
@@ -2266,6 +2307,10 @@ components:
             description: >-
               Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
               Integration promotion requires each candidate source branch and commit to match a current, verified pull request into the target.
+          required_review_thread_resolution:
+            type: boolean
+            default: false
+            description: Valid with require_pull_request on branch rulesets. Blocks manual merge, merge queue admission and promotion until all inline conversations are resolved, including those on outdated revisions.
           allowed_merge_methods:
             type: array
             minItems: 1
@@ -2328,6 +2373,9 @@ components:
           required: [hosting_kind]
           properties:
             hosting_kind: { type: string, enum: [hosted, registered] }
+            pull_request_requires_conversation_resolution:
+              type: boolean
+              description: Whether a matching active branch ruleset requires resolution of all inline conversations on the requested target branch.
             pull_request_merge_methods:
               type: array
               items: { type: string, enum: [merge, squash, rebase] }
@@ -2479,6 +2527,8 @@ components:
         path: { type: string, description: "For inline comments, the file path." }
         side: { type: string, enum: [left, right], description: "For inline comments, which side of the diff." }
         line: { type: integer, minimum: 1, description: "For inline comments, the line number." }
+        resolved_by: { type: string, description: "User ID of the resolver. Present only for resolved inline conversations." }
+        resolved_at: { type: string, format: date-time, description: "When the inline conversation was resolved." }
     PullRequest:
       type: object
       required: [base_branch, source_branch, draft, closed, comments]

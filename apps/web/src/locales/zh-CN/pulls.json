@@ -91,6 +91,11 @@
     "branchSummary_other": "<author/> 提议将 <source/> 的 {{count}} 个提交合并到 <base/>"
   },
   "conversation": {
+    "threadResolved": "{{actor}} 于 {{date}} 解决了对话",
+    "threadUnresolved": "未解决",
+    "resolveThread": "解决对话",
+    "reopenThread": "重新打开对话",
+    "resolutionFailed": "无法更新对话状态。",
     "title": "对话",
     "description": "时间线和讨论",
     "writeComment": "写评论",
@@ -243,6 +248,7 @@
     "changes_requested": "已请求修改"
   },
   "gate": {
+    "conversationsRequired": "合并前请解决所有行内讨论。",
     "queueRequired": "仓库要求此已验证的拉取请求通过合并队列。",
     "changeset": "变更集",
     "currentRevision": "当前修订",

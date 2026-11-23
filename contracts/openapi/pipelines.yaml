@@ -90,6 +90,7 @@ paths:
     post:
       operationId: enqueueMergeCandidate
       summary: Admit one pinned source to the default branch queue
+      description: When conversation resolution is required by the target ruleset, admission returns 409 for an unresolved inline conversation, including an outdated one.
       security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
       requestBody:
         required: true

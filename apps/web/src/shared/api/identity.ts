@@ -121,6 +121,8 @@ export type PullRequestComment = {
   path?: string;
   side?: "left" | "right";
   line?: number;
+  resolved_by?: string;
+  resolved_at?: string;
 };
 
 export type PullRequestMetadata = {
@@ -172,6 +174,7 @@ export type RepositoryRefRule = {
   restrict_deletion: boolean;
   block_force_push: boolean;
   require_pull_request?: boolean;
+  required_review_thread_resolution?: boolean;
   allowed_merge_methods?: PullRequestMergeMethod[];
   require_merge_queue?: boolean;
   merge_queue_method?: "merge" | "squash" | "rebase";
@@ -189,7 +192,11 @@ type RepositoryMergeMethods = {
 };
 export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; actions_retention_days?: number; issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
-export type RepositorySettings = RepositoryMetadata & { hosting_kind: "hosted" | "registered"; pull_request_merge_methods?: PullRequestMergeMethod[] };
+export type RepositorySettings = RepositoryMetadata & {
+  hosting_kind: "hosted" | "registered";
+  pull_request_merge_methods?: PullRequestMergeMethod[];
+  pull_request_requires_conversation_resolution?: boolean;
+};
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
 export type RepositoryPreviewRefs = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; issues_disabled?: boolean; description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
@@ -392,6 +399,10 @@ export const changesetAPI = {
   addPullRequestComment: (organizationID: string, id: string, body: string, revisionID?: string, path?: string, side?: "left" | "right", line?: number) =>
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/comments`, {
       method: "POST", body: JSON.stringify({ body, revision_id: revisionID, path, side, line }),
+    }),
+  setPullRequestCommentResolution: (organizationID: string, id: string, commentID: string, resolved: boolean) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/comments/${encodeURIComponent(commentID)}/resolution`, {
+      method: "PATCH", body: JSON.stringify({ resolved }),
     }),
   getComparison: (organizationID: string, id: string) =>
     request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/comparison`),

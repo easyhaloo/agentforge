@@ -36,6 +36,18 @@ describe("ruleset JSON portability", () => {
     });
   });
 
+  it.each([true, false])("round-trips GitHub conversation resolution set to %s", resolved => {
+    const pullRequest = { type: "pull_request", parameters: {
+      required_review_thread_resolution: resolved, allowed_merge_methods: ["squash"],
+    } };
+    const rule = githubImport({ rules: [pullRequest] });
+    if (!rule) throw new Error("Expected supported ruleset");
+    expect(rule.required_review_thread_resolution).toBe(resolved);
+    const exported = serializeRulesetJson(rule);
+    expect(JSON.parse(exported).rules).toEqual([pullRequest]);
+    expect(parseRulesetJson(exported)).toEqual(rule);
+  });
+
   it("imports GitHub pull-request parameters covered by AgentForge's active revision review", () => {
     const parameters = {
       required_approving_review_count: 1, dismiss_stale_reviews_on_push: true, require_code_owner_review: false,
@@ -137,7 +149,7 @@ describe("ruleset JSON portability", () => {
     { rules: [{ type: "pull_request", parameters: { require_code_owner_review: true } }] },
     { rules: [{ type: "pull_request", parameters: { require_last_push_approval: true } }] },
     { rules: [{ type: "pull_request", parameters: { require_extra_approval_for_unattributed_changes: true } }] },
-    { rules: [{ type: "pull_request", parameters: { required_review_thread_resolution: true } }] },
+    { rules: [{ type: "pull_request", parameters: { required_review_thread_resolution: "true" } }] },
     { rules: [{ type: "pull_request", parameters: { allowed_merge_methods: ["squash"], unexpected: true } }] },
     { rules: [{ type: "deletion", parameters: { allowed_merge_methods: ["squash"] } }] },
     { target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules: [{ type: "pull_request", parameters: { allowed_merge_methods: ["squash"] } }] },

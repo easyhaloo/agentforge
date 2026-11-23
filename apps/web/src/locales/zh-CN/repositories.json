@@ -817,6 +817,7 @@
       "restrictUpdate": "限制更新",
       "restrictDeletion": "限制删除",
       "blockForcePush": "禁止强制推送",
+      "requiredReviewThreadResolution": "合并前要求解决所有对话",
       "requirePullRequest": "合并前要求提交拉取请求",
       "requiredWorkflows": "要求状态检查通过",
       "workflowSelection": "必需的仓库工作流",
