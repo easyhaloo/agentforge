@@ -2154,6 +2154,13 @@ components:
             description: >-
               Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
               Integration promotion requires each candidate source branch and commit to match a current, verified pull request into the target.
+          require_merge_queue:
+            type: boolean
+            default: false
+            description: >-
+              Valid only for branch rulesets targeting ~DEFAULT_BRANCH with no exclusions.
+              Requires a verified pull request for each source and a successful run at the head of the repository merge queue.
+              Blocks native pushes and other writers from directly updating the existing default branch.
           name_patterns:
             type: array
             maxItems: 10

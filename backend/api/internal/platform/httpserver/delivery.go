@@ -1131,7 +1131,7 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeDeliveryError(w, err)
 		return
 	}
-	if err := githttp.CheckBranchMerge(policy.RefRules, allowedTarget, policy.DefaultBranch, pull != nil && pull.BaseBranch == allowedTarget); err != nil {
+	if err := githttp.CheckBranchMerge(policy.RefRules, allowedTarget, policy.DefaultBranch, pull != nil && pull.BaseBranch == allowedTarget, false); err != nil {
 		writeProblem(w, http.StatusConflict, "Repository ruleset blocks merge", err.Error())
 		return
 	}
@@ -1205,7 +1205,7 @@ func (d DeliveryDependencies) lockBranchMergePolicy(w http.ResponseWriter, r *ht
 			continue
 		}
 		for _, rule := range repository.RefRules {
-			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest) {
+			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest || rule.RequireMergeQueue || len(rule.NamePatterns) > 0) {
 				writeProblem(w, 503, "Repository merge lock unavailable", "The repository ruleset requires a policy lock")
 				return githttp.PushPolicy{}, nil, false
 			}

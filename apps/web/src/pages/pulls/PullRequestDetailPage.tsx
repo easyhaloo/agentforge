@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { changesetAPI, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
+import { changesetAPI, repositoryAPI, type RepositorySettings, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
-import { changesetPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
+import { changesetPath, orgPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
 import { Button, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
@@ -46,6 +46,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [reviewerID, setReviewerID] = useState("");
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+  const [mergeSettings, setMergeSettings] = useState<RepositorySettings>();
   const [comparison, setComparison] = useState<{ revisionKey: string; data?: PullRequestComparison; error?: string }>();
   const [comparisonRetry, setComparisonRetry] = useState(0);
   const current = changeset?.changeset.id === pullNumber && changeset.changeset.repository === repository && changeset.changeset.pull_request
@@ -87,6 +88,16 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   }, [organization.id, pullNumber, repository, t]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const mergeReady = current?.status === "ready_to_merge";
+  useEffect(() => {
+    if (!mergeReady) return;
+    let live = true;
+    void repositoryAPI.settings(organization.id, repository)
+      .then(settings => { if (live) setMergeSettings(settings); })
+      .catch(() => { /* The merge endpoint enforces the live policy. */ });
+    return () => { live = false; };
+  }, [organization.id, repository, mergeReady]);
 
   useEffect(() => {
     let live = true;
@@ -150,7 +161,10 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     if (saved) finishTitleEdit();
   };
   const lifecycleAction = canManage && state !== "merged" ? (state === "closed" ? "reopen" : "close") : undefined;
-  const canMerge = canWrite && state === "open" && changeset.status === "ready_to_merge";
+  const canMerge = canWrite && state === "open" && mergeReady;
+  const queueRequired = mergeSettings?.default_branch === pr.base_branch &&
+    mergeSettings.ref_rules?.some(rule => rule.enabled && rule.require_merge_queue);
+  const queueSearch = new URLSearchParams({ queueRepository: repository, queueTarget: pr.base_branch, queueSource: pr.source_branch });
   const StateIcon = stateIcons[state];
   const stateClass = `pull-state pull-state-${state}`;
   const stateLabel = <><StateIcon size={16} aria-hidden="true"/>{t(`pulls:state.${state}`)}</>;
@@ -303,10 +317,12 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               <div>
                 <h3>{state === "merged" ? t("pulls:gate.merged") : t("pulls:gate.mergeTitle")}</h3>
                 {state === "merged" && changeset.changeset.merge ? <code title={changeset.changeset.merge.commit_sha}>{changeset.changeset.merge.commit_sha.slice(0, 12)}</code>
-                  : <p>{canMerge ? t("pulls:gate.ready") : state === "open" ? t("pulls:actions.mergeRequirements") : t(`pulls:state.${state}`)}</p>}
+                  : <p>{canMerge ? t(queueRequired ? "pulls:gate.queueRequired" : "pulls:gate.ready") : state === "open" ? t("pulls:actions.mergeRequirements") : t(`pulls:state.${state}`)}</p>}
               </div>
             </div>
-            {canMerge && <Button variant="primary" onClick={() => setShowMergeConfirm(true)} disabled={actionBusy}>{t("pulls:actions.merge")}</Button>}
+            {canMerge && (queueRequired
+              ? <Link to={`${orgPath(handle, "pipelines")}?${queueSearch}`}>{t("pulls:actions.openMergeQueue")}</Link>
+              : <Button variant="primary" onClick={() => setShowMergeConfirm(true)} disabled={actionBusy}>{t("pulls:actions.merge")}</Button>)}
           </section>
         </PullRequestConversationTab>
         <aside className="pull-review-sidebar">

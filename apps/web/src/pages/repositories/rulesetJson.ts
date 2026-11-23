@@ -9,6 +9,7 @@ const ruleTypes = {
   restrict_deletion: "deletion",
   block_force_push: "non_fast_forward",
   require_pull_request: "pull_request",
+  require_merge_queue: "merge_queue",
 } as const;
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -17,6 +18,32 @@ function record(value: unknown): value is Record<string, unknown> {
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: string[]) {
   return Object.keys(value).every(key => keys.includes(key));
+}
+
+function supportedRuleParameters(type: string, value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!record(value)) return false;
+  if (type === "update") {
+    return hasOnlyKeys(value, ["update_allows_fetch_and_merge"]) &&
+      (value.update_allows_fetch_and_merge === undefined || value.update_allows_fetch_and_merge === false);
+  }
+  if (type !== "pull_request") return hasOnlyKeys(value, []);
+
+  // AgentForge requires approval on the active revision, even when the source
+  // ruleset permits zero approvals or allows approvals from older revisions.
+  const { required_approving_review_count: count, dismiss_stale_reviews_on_push: dismissStale,
+    require_code_owner_review: codeOwners, require_last_push_approval: lastPush,
+    required_review_thread_resolution: resolveThreads, allowed_merge_methods: methods,
+    required_reviewers: reviewers, require_extra_approval_for_unattributed_changes: extraApproval } = value;
+  return hasOnlyKeys(value, ["required_approving_review_count", "dismiss_stale_reviews_on_push", "require_code_owner_review",
+    "require_last_push_approval", "required_review_thread_resolution", "allowed_merge_methods", "required_reviewers",
+    "require_extra_approval_for_unattributed_changes"]) &&
+    (count === undefined || count === 0 || count === 1) &&
+    (dismissStale === undefined || typeof dismissStale === "boolean") &&
+    [codeOwners, lastPush, resolveThreads, extraApproval].every(setting => setting === undefined || setting === false) &&
+    (reviewers === undefined || (Array.isArray(reviewers) && reviewers.length === 0)) &&
+    (methods === undefined || (Array.isArray(methods) && methods.length === 3 &&
+      ["merge", "squash", "rebase"].every(method => methods.includes(method))));
 }
 
 function readNamePattern(value: unknown): RefNamePattern | undefined {
@@ -85,17 +112,17 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
       continue;
     }
     if (!Object.values<string>(ruleTypes).includes(rule.type) || types.has(rule.type)) return undefined;
-    if (rule.parameters !== undefined && (!record(rule.parameters) ||
-      !hasOnlyKeys(rule.parameters, rule.type === "update" ? ["update_allows_fetch_and_merge"] : []) ||
-      (rule.parameters.update_allows_fetch_and_merge !== undefined && rule.parameters.update_allows_fetch_and_merge !== false))) return undefined;
+    if (!supportedRuleParameters(rule.type, rule.parameters)) return undefined;
     types.add(rule.type);
   }
-  if (target === "tag" && (types.has("non_fast_forward") || types.has("pull_request"))) return undefined;
+  if (target === "tag" && (types.has("non_fast_forward") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
+  if (types.has("merge_queue") && (include.length !== 1 || include[0] !== "~DEFAULT_BRANCH" || exclude.length)) return undefined;
   return {
     name, target, enabled: enforcement === "active", include, exclude,
     restrict_creation: types.has("creation"), restrict_update: types.has("update"),
     restrict_deletion: types.has("deletion"), block_force_push: types.has("non_fast_forward"),
     ...(types.has("pull_request") && { require_pull_request: true }),
+    ...(types.has("merge_queue") && { require_merge_queue: true }),
     ...(namePatterns.length > 0 && { name_patterns: namePatterns }),
   };
 }

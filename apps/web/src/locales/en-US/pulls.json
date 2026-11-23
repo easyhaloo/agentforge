@@ -161,6 +161,7 @@
     "commentOnly": "Comment"
   },
   "actions": {
+    "openMergeQueue": "Open merge queue",
     "markReady": "Ready for review",
     "markDraft": "Convert to draft",
     "close": "Close pull request",
@@ -221,6 +222,7 @@
     "changes_requested": "Changes requested"
   },
   "gate": {
+    "queueRequired": "The repository requires this verified pull request to go through the merge queue.",
     "changeset": "Changeset",
     "currentRevision": "Active revision",
     "revisionNumber": "Revision {{number}}",

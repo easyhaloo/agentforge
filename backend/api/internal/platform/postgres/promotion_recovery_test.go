@@ -11,6 +11,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
@@ -123,7 +124,7 @@ func TestMergeQueueRecoveryAfterPromotionCommitFailure(t *testing.T) {
 		t.Fatalf("unauthorized retry: %v", err)
 	}
 	// A ruleset enabled after Git wrote its receipt cannot invalidate recovery.
-	setMainMergeRuleset(t, s, org, true, true)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RestrictUpdate: true, RequirePullRequest: true})
 	// A later branch move must survive replay of the receipt.
 	path := filepath.Join(git.Root, org, repo)
 	if out, err := exec.CommandContext(ctx, "git", "-C", path, "update-ref", "refs/heads/main", tail.SourceSHA, head.CandidateSHA).CombinedOutput(); err != nil {

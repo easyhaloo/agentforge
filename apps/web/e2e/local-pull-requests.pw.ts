@@ -454,6 +454,20 @@ test("reviews an updated pull request and merges only its verified revision", as
       await expect(merge).toBeEnabled();
     };
     await verifyAndApprove();
+    const settingsEndpoint = `**/api/v1/organizations/${orgID}/repositories/${repository}/settings`;
+    await page.route(settingsEndpoint, route => route.fulfill({ json: {
+      default_branch: "release", ref_rules: [{ enabled: true, require_merge_queue: true }],
+    } }));
+    await page.reload();
+    const openQueue = page.getByRole("link", { name: "Open merge queue", exact: true });
+    await expect(openQueue).toBeVisible();
+    await expect(merge).toHaveCount(0);
+    await expect(openQueue).toHaveAttribute("href", `${orgPath}/pipelines?${new URLSearchParams({
+      queueRepository: repository, queueTarget: "release", queueSource: "feature/docs",
+    })}`);
+    await page.unroute(settingsEndpoint);
+    await page.reload();
+    await expect(merge).toBeEnabled();
     git("switch", "--quiet", "feature/docs");
     const secondHead = commit("# Documentation\n\nFirst revision.\nSecond revision.\n", "Clarify revision notes");
     git("switch", "--quiet", "main");

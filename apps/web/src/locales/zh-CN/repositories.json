@@ -815,6 +815,9 @@
       "restrictDeletion": "限制删除",
       "blockForcePush": "禁止强制推送",
       "requirePullRequest": "合并前要求提交拉取请求",
+      "requireMergeQueue": "要求使用合并队列",
+      "mergeQueueHelp": "通过验证的拉取请求必须经由合并队列合并。",
+      "mergeQueueTarget": "要启用合并队列，请仅包含 ~DEFAULT_BRANCH 并清空排除规则。",
       "none": "无",
       "editNamed": "编辑 {{name}}",
       "closeNamed": "关闭 {{name}} 的编辑器",
@@ -846,7 +849,7 @@
         "contains": "包含",
         "regex": "符合正则表达式"
       },
-      "tagBranchRestrictions": "标签规则集不能禁止强制推送或要求拉取请求。",
+      "tagBranchRestrictions": "标签规则集不能禁止强制推送、要求拉取请求或要求使用合并队列。",
       "restrictionRequired": "请至少选择一项限制。"
     },
     "refProtection": "直接推送保护",

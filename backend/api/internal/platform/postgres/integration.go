@@ -67,7 +67,7 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	}
 	var pullRequestRule error
 	if !recorded {
-		err = githttp.CheckBranchMerge(rules, candidate.Target.Ref, candidate.Target.Ref, false)
+		err = githttp.CheckBranchMerge(rules, candidate.Target.Ref, candidate.Target.Ref, false, candidate.QueueEntry != 0)
 		if errors.Is(err, githttp.ErrBranchPullRequestRequired) {
 			pullRequestRule = err
 		} else if err != nil {

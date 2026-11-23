@@ -79,6 +79,7 @@
   "published": "published",
   "archived": "archived",
   "queued": "queued",
+  "chooseQueueWorkflow": "Choose a published workflow to run checks for this merge queue entry.",
   "mergeQueue": "Merge queue",
   "queueRepo": "Registered repository",
   "queueTarget": "Target branch",

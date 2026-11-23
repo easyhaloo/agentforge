@@ -235,6 +235,24 @@ test("repository settings persist and update the native Git endpoint", async ({ 
         name: "ruleset.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(value)),
       });
     }
+    const importedPR = "refs/heads/imported-pr";
+    await importRuleset({
+      name: "Imported pull request rule", target: "branch", enforcement: "active", bypass_actors: [],
+      conditions: { ref_name: { include: [importedPR], exclude: [] } },
+      rules: [{ type: "pull_request", parameters: {
+        required_approving_review_count: 1, dismiss_stale_reviews_on_push: true, require_code_owner_review: false,
+        require_last_push_approval: false, required_review_thread_resolution: false,
+        allowed_merge_methods: ["merge", "squash", "rebase"], required_reviewers: [],
+        require_extra_approval_for_unattributed_changes: false,
+      } }],
+    });
+    await expect(content.getByRole("checkbox", { name: "Require a pull request before merging" })).toBeChecked();
+    await capture("rulesets-import-pull-request");
+    await saveRulesets();
+    checkedGit(worktree, "push", "origin", `HEAD^:${importedPR}`);
+    expect(git(worktree, "push", "origin", `HEAD:${importedPR}`).stderr).toContain(`requires a pull request to update ${importedPR}`);
+    expect(checkedGit(folder, "ls-remote", gitURL, importedPR).trim()).toBe(`${previousSHA}\t${importedPR}`);
+
     await importRuleset({ ...tagRule, rules: [{ type: "required_signatures" }] });
     await expect(content.getByRole("alert")).toContainText("Choose a supported ruleset JSON file");
     await expect(content.getByRole("button", { name: "Save changes" })).toBeDisabled();
@@ -267,6 +285,20 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await content.getByRole("checkbox", { name: "Enable ruleset" }).uncheck();
     await saveRulesets();
     checkedGit(worktree, "push", "origin", "HEAD:refs/tags/locked-next");
+
+    await content.getByRole("button", { name: "New ruleset" }).click();
+    await content.getByRole("textbox", { name: "Ruleset name" }).fill("Default branch queue");
+    await content.getByRole("textbox", { name: "Include patterns" }).fill("~ALL");
+    await content.getByRole("checkbox", { name: "Require merge queue" }).check();
+    await content.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(content.getByRole("alert")).toContainText("Use ~DEFAULT_BRANCH as the only include pattern");
+    await content.getByRole("textbox", { name: "Include patterns" }).fill("~DEFAULT_BRANCH");
+    await capture("rulesets-merge-queue");
+    await saveRulesets();
+    const release = "refs/heads/release";
+    const releaseBeforeQueue = checkedGit(folder, "ls-remote", gitURL, release);
+    expect(git(worktree, "push", "origin", `HEAD:${release}`).stderr).toContain("direct updates to the default branch are prohibited");
+    expect(checkedGit(folder, "ls-remote", gitURL, release)).toBe(releaseBeforeQueue);
 
     await page.goto(`${repositoryURL}/settings/git-tokens`);
     await content.getByRole("button", { name: "Revoke credential" }).click();

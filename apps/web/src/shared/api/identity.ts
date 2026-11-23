@@ -172,6 +172,7 @@ export type RepositoryRefRule = {
   restrict_deletion: boolean;
   block_force_push: boolean;
   require_pull_request?: boolean;
+  require_merge_queue?: boolean;
   name_patterns?: RefNamePattern[];
 };
 export type RepositoryMetadata = { ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };

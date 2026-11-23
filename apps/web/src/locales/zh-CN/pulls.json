@@ -161,6 +161,7 @@
     "commentOnly": "仅评论"
   },
   "actions": {
+    "openMergeQueue": "打开合并队列",
     "markReady": "标记为就绪",
     "markDraft": "转换为草稿",
     "close": "关闭拉取请求",
@@ -221,6 +222,7 @@
     "changes_requested": "已请求修改"
   },
   "gate": {
+    "queueRequired": "仓库要求此已验证的拉取请求通过合并队列。",
     "changeset": "变更集",
     "currentRevision": "当前修订",
     "revisionNumber": "修订 {{number}}",

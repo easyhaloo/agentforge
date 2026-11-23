@@ -815,6 +815,9 @@
       "restrictDeletion": "Restrict deletion",
       "blockForcePush": "Block force pushes",
       "requirePullRequest": "Require a pull request before merging",
+      "requireMergeQueue": "Require merge queue",
+      "mergeQueueHelp": "Verified pull requests must pass through the merge queue.",
+      "mergeQueueTarget": "Use ~DEFAULT_BRANCH as the only include pattern and remove exclusions to require the merge queue.",
       "none": "None",
       "editNamed": "Edit {{name}}",
       "closeNamed": "Close editor for {{name}}",
@@ -846,7 +849,7 @@
         "contains": "Contains",
         "regex": "Matches regex"
       },
-      "tagBranchRestrictions": "Tag rulesets cannot block force pushes or require a pull request.",
+      "tagBranchRestrictions": "Tag rulesets cannot block force pushes, require a pull request, or require the merge queue.",
       "restrictionRequired": "Select at least one restriction."
     },
     "refProtection": "Direct push protection",

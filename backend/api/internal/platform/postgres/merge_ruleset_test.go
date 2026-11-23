@@ -18,7 +18,7 @@ import (
 
 const rulesetTestRepo = "team/repo"
 
-func setMainMergeRuleset(t *testing.T, s *Store, org string, restrictUpdate, requirePR bool) {
+func setMainMergeRuleset(t *testing.T, s *Store, org string, rule githttp.RefRule) {
 	t.Helper()
 	metadata, err := s.ListRepositories(t.Context(), org)
 	lockMust(t, err)
@@ -26,10 +26,11 @@ func setMainMergeRuleset(t *testing.T, s *Store, org string, restrictUpdate, req
 		if repository.Slug != rulesetTestRepo {
 			continue
 		}
-		repository.RefRules = nil
-		if restrictUpdate || requirePR {
-			repository.RefRules = []githttp.RefRule{{Name: "main policy", Enabled: true, Target: "branch", Include: []string{"~DEFAULT_BRANCH"}, RestrictUpdate: restrictUpdate, RequirePullRequest: requirePR}}
-		}
+		rule.Name = "main policy"
+		rule.Enabled = true
+		rule.Target = "branch"
+		rule.Include = []string{"~DEFAULT_BRANCH"}
+		repository.RefRules = []githttp.RefRule{rule}
 		_, err := s.SetRepositoryGeneralSettings(t.Context(), repository)
 		lockMust(t, err)
 		return
@@ -88,16 +89,19 @@ func TestRepositoryRulesetChangesetMerge(t *testing.T) {
 			}
 		}
 	}
-	setMainMergeRuleset(t, s, org, false, true)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
 	merge(plain.ID, "main", http.StatusConflict, "verified pull request is required")
 	merge(pull.ID, "other", http.StatusUnprocessableEntity, "Invalid merge target")
 	merge(pull.ID, "main", http.StatusConflict, "Delivery precondition failed")
 	approveRulesetTestRevision(t, pull, h.userID, base.CommitSHA, "current")
 	_, err = s.Update(ctx, org, pull, stored.Version)
 	lockMust(t, err)
-	setMainMergeRuleset(t, s, org, true, true)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RestrictUpdate: true, RequirePullRequest: true})
 	merge(pull.ID, "main", http.StatusConflict, "branch updates are restricted")
-	setMainMergeRuleset(t, s, org, false, true)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true})
+	merge(pull.ID, "main", http.StatusConflict, "the merge queue is required")
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
 	merge(pull.ID, "main", http.StatusOK, "current")
 	merged := h.stored(t, string(pull.ID)).Changeset.Merge
 	target, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/main")
@@ -150,9 +154,11 @@ func TestRepositoryRulesetIntegrationPromotion(t *testing.T) {
 			}
 		}
 	}
-	setMainMergeRuleset(t, s, org, true, false)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true})
+	promote(http.StatusConflict, "the merge queue is required")
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RestrictUpdate: true})
 	promote(http.StatusConflict, "branch updates are restricted")
-	setMainMergeRuleset(t, s, org, false, true)
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequirePullRequest: true})
 	promote(http.StatusConflict, "cannot verify pull request coverage")
 	other, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/other")
 	lockMust(t, err)
@@ -183,5 +189,60 @@ func TestRepositoryRulesetIntegrationPromotion(t *testing.T) {
 		if merged == nil || merged.RevisionID != "current" || merged.CommitSHA != run.Integration.CandidateSHA {
 			t.Fatalf("verified pull request %s did not record the promoted revision: %+v", id, merged)
 		}
+	}
+}
+
+func TestRepositoryRulesetRequiresVerifiedQueueEntry(t *testing.T) {
+	ctx := t.Context()
+	s, h, git, _, _ := integrationFixture(t)
+	org := h.organizationID
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RequireMergeQueue: true})
+	api := "/api/v1/organizations/" + org
+	response := h.do(ctx, http.MethodPost, api+"/pipelines/p/versions/1/merge-queue", `{"repository":"team/repo","target":"main","sources":["topic"]}`)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("enqueue: %d %s", response.Code, response.Body)
+	}
+	var entry execution.QueueEntry
+	lockMust(t, json.Unmarshal(response.Body.Bytes(), &entry))
+	run, err := s.GetRun(ctx, org, entry.RunID)
+	lockMust(t, err)
+	if run.Integration == nil || run.Integration.QueueEntry != entry.ID {
+		t.Fatal("missing queue-bound run")
+	}
+	task, err := s.ClaimTask(ctx, registerTestRunner(t, s, org, pipeline.ContainerCheck))
+	lockMust(t, err)
+	if task == nil || task.RunID != entry.RunID {
+		t.Fatal("missing candidate task")
+	}
+	lockMust(t, s.FinishTask(ctx, *task, "succeeded", "tested"))
+	promote := func(want int, detail string) {
+		t.Helper()
+		response := h.do(ctx, http.MethodPost, api+"/pipeline-runs/"+entry.RunID+"/promote", `{"candidateSHA":"`+entry.CandidateSHA+`"}`)
+		if response.Code != want || !strings.Contains(response.Body.String(), detail) {
+			t.Fatalf("promote: %d %s; want %d containing %q", response.Code, response.Body, want, detail)
+		}
+	}
+	promote(http.StatusConflict, "cannot verify pull request coverage")
+	target, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/main")
+	lockMust(t, err)
+	if target.CommitSHA != run.Integration.Target.SHA {
+		t.Fatal("unverified queue moved main")
+	}
+	source, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/topic")
+	lockMust(t, err)
+	now := time.Now()
+	pull, err := delivery.NewChangeset("queue-pr", rulesetTestRepo, "queued pull request", h.userID, now)
+	lockMust(t, err)
+	pull.PullRequest = &delivery.PullRequest{SourceBranch: "topic", BaseBranch: "main"}
+	lockMust(t, pull.AddPullRequestRevision("current", source, target.CommitSHA, h.userID, now))
+	approveRulesetTestRevision(t, pull, h.userID, target.CommitSHA, "current")
+	_, err = s.Create(ctx, org, pull)
+	lockMust(t, err)
+	promote(http.StatusOK, entry.CandidateSHA)
+	target, err = git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/main")
+	lockMust(t, err)
+	merged := h.stored(t, string(pull.ID)).Changeset.Merge
+	if target.CommitSHA != entry.CandidateSHA || merged == nil || merged.RevisionID != "current" || merged.CommitSHA != entry.CandidateSHA {
+		t.Fatalf("verified queue did not advance main and record the current revision: %s %+v", target.CommitSHA, merged)
 	}
 }

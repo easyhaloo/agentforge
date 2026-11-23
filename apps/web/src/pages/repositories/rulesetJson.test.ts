@@ -34,8 +34,14 @@ describe("ruleset JSON portability", () => {
     });
   });
 
-  it("imports a GitHub pull-request rule without extra requirements", () => {
-    expect(githubImport({ rules: [{ type: "pull_request", parameters: {} }] })).toMatchObject({ require_pull_request: true });
+  it("imports GitHub pull-request parameters covered by AgentForge's active revision review", () => {
+    const parameters = {
+      required_approving_review_count: 1, dismiss_stale_reviews_on_push: true, require_code_owner_review: false,
+      require_last_push_approval: false, required_review_thread_resolution: false,
+      allowed_merge_methods: ["merge", "squash", "rebase"], required_reviewers: [],
+      require_extra_approval_for_unattributed_changes: false,
+    };
+    expect(githubImport({ rules: [{ type: "pull_request", parameters }] })).toMatchObject({ require_pull_request: true });
   });
 
   it("round trips GitHub tag name patterns with literal and negative requirements", () => {
@@ -51,6 +57,11 @@ describe("ruleset JSON portability", () => {
 
   it.each([
     { rules: [{ type: "pull_request", parameters: { required_approving_review_count: 2 } }] },
+    { rules: [{ type: "pull_request", parameters: { require_code_owner_review: true } }] },
+    { rules: [{ type: "pull_request", parameters: { require_last_push_approval: true } }] },
+    { rules: [{ type: "pull_request", parameters: { require_extra_approval_for_unattributed_changes: true } }] },
+    { rules: [{ type: "pull_request", parameters: { required_review_thread_resolution: true } }] },
+    { rules: [{ type: "pull_request", parameters: { allowed_merge_methods: ["squash"] } }] },
     { target: "tag", conditions: { ref_name: { include: ["~ALL"] } }, rules: [{ type: "pull_request" }] },
     { bypass_actors: [{ actor_id: 5, bypass_mode: "always" }] },
     { enforcement: "evaluate" },

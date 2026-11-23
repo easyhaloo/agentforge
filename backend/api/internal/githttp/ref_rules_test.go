@@ -56,7 +56,7 @@ func TestBranchMergeRulesStack(t *testing.T) {
 		{"release/locked", "release/locked", true, ErrBranchUpdatesRestricted},
 		{"release/allowed", "main", false, nil},
 	} {
-		if err := CheckBranchMerge(rules, tc.branch, tc.defaultBranch, tc.pullRequest); !errors.Is(err, tc.want) {
+		if err := CheckBranchMerge(rules, tc.branch, tc.defaultBranch, tc.pullRequest, false); !errors.Is(err, tc.want) {
 			t.Errorf("branch %s, default %s, linked %t: got %v, want %v", tc.branch, tc.defaultBranch, tc.pullRequest, err, tc.want)
 		}
 	}
@@ -83,7 +83,7 @@ func TestRulesetNamePatterns(t *testing.T) {
 		if errors.Is(err, ErrRefNameRestricted) != tc.denied {
 			t.Errorf("push of %s denied=%v, want %t", tc.branch, err, tc.denied)
 		}
-		err = CheckBranchMerge([]RefRule{rule}, tc.branch, "main", true)
+		err = CheckBranchMerge([]RefRule{rule}, tc.branch, "main", true, false)
 		if errors.Is(err, ErrRefNameRestricted) != tc.denied {
 			t.Errorf("merge into %s denied=%v, want %t", tc.branch, err, tc.denied)
 		}
@@ -117,5 +117,28 @@ func TestBranchWriteRulesUseExactRefNamespace(t *testing.T) {
 		if err := policy.CheckBranchWrite(tc.ref, tc.creating); !errors.Is(err, tc.want) {
 			t.Errorf("ref %s (creating %t): got %v, want %v", tc.ref, tc.creating, err, tc.want)
 		}
+	}
+}
+
+func TestMergeQueueRequirement(t *testing.T) {
+	rule := RefRule{Name: "main queue", Target: "branch", Enabled: true, Include: []string{"~DEFAULT_BRANCH"}, RequireMergeQueue: true}
+	rules := []RefRule{rule}
+	if !ValidRefRules(rules) {
+		t.Fatal("default branch queue rule is invalid")
+	}
+	for _, tc := range []struct {
+		pull, queued bool
+		want         error
+	}{
+		{false, false, ErrBranchMergeQueueRequired}, {true, false, ErrBranchMergeQueueRequired},
+		{false, true, ErrBranchPullRequestRequired}, {true, true, nil},
+	} {
+		if err := CheckBranchMerge(rules, "main", "main", tc.pull, tc.queued); !errors.Is(err, tc.want) {
+			t.Errorf("pull=%t queued=%t: got %v, want %v", tc.pull, tc.queued, err, tc.want)
+		}
+	}
+	rules[0].Include = []string{"~ALL"}
+	if ValidRefRules(rules) {
+		t.Fatal("non-default queue rule accepted")
 	}
 }
