@@ -389,7 +389,9 @@ This repository currently contains a frontend prototype with seeded data and bro
 
 ### Repository Issues
 
-The repository and organization Issues pages use the same authenticated client. The legacy Issues tab links to the canonical repository page. The [Issues API contract](../../contracts/openapi/issues.yaml) defines the repository-scoped list, search, filters, pagination, and issue mutations. The list shows loading and retry states, and the issue dialog displays failed saves without discarding input. Viewers can read issues. Authors and organization admins or owners can edit, close, and reopen issues, subject to API authorization. The Project filter stays disabled until the issue model supports a project association.
+The repository and organization Issues pages use the same authenticated client. The legacy Issues tab links to the canonical repository page. The list shows loading and retry states. **New issue** checks the registered repository’s default branch at `/issues/new/choose`. Valid templates open `/issues/new?template=<filename>`. Repositories with no template configuration continue to `/issues/new`. Template reads reuse the authenticated Git tree and blob endpoints with a pinned commit after the initial tree request. Its Write and Preview tabs share the published issue's Markdown renderer. The composer preserves input on request failures and guards navigation away from unsaved edits. Attachments upload as drafts and are published with the issue. See the [Issues API contract](../../contracts/openapi/issues.yaml) for limits and response codes.
+
+Viewers can read issues. Organization members can create issues. Owners and admins can set assignees, labels, milestone, and type at creation. Authors and organization admins or owners can edit, close, and reopen issues, subject to API authorization. The Project filter requires an Issue association in the data model and stays disabled.
 
 ## Testing
 

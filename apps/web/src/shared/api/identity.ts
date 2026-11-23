@@ -42,7 +42,7 @@ export const accountAPI = {
   current: () => request<AccountContext>("/api/v1/me"),
 };
 export const organizationAPI = {
-  members: (organizationID: string) => request<Page<OrganizationMember>>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/members?limit=100&offset=0`),
+  members: (organizationID: string, offset = 0) => request<Page<OrganizationMember>>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/members?limit=100&offset=${offset}`),
   updateMember: (organizationID: string, userID: string, update: { role?: string; status?: string }) =>
     request<OrganizationMember>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/members/${encodeURIComponent(userID)}`, { method: "PATCH", body: JSON.stringify(update) }),
   removeMember: (organizationID: string, userID: string) =>
@@ -185,11 +185,11 @@ export const repositoryPreviewAPI = {
     const query = new URLSearchParams({ base: `refs/heads/${base}`, head: `refs/heads/${head}`, mode: "merge-base", include_commits: "true" });
     return request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/compare?${query}`);
   },
-  history: (organizationID: string, repository: string, ref = "", limit = 30) => {
+  history: (organizationID: string, repository: string, ref = "", limit = 30, signal?: AbortSignal) => {
     const [owner, name] = repository.split("/");
     const query = new URLSearchParams({ limit: String(limit) });
     if (ref) query.set("ref", ref);
-    return request<{ repository: string; commit_sha: string; items: RepositoryCommit[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/history?${query.toString()}`);
+    return request<{ repository: string; commit_sha: string; items: RepositoryCommit[] }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/history?${query.toString()}`, { signal });
   },
   fileHistory: (organizationID: string, repository: string, path: string, ref = "", limit = 30) => {
     const [owner, name] = repository.split("/");
@@ -303,7 +303,7 @@ export const changesetAPI = {
   assignReview: (organizationID: string,id: string,reviewerID: string,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews`,{method:"POST",body:JSON.stringify({reviewer_id:reviewerID,comment})}),
   decideReview: (organizationID: string,id: string,reviewID: string,approved: boolean,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewID)}/decision`,{method:"POST",body:JSON.stringify({approved,comment})}),
   merge: (organizationID: string,id: string,targetRef: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef})}),
-  list: (organizationID: string, filters: ChangesetListFilters = {}) => {
+  list: (organizationID: string, filters: ChangesetListFilters = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (filters.q) query.set("q", filters.q);
     if (filters.repository) query.set("repository", filters.repository);
@@ -312,15 +312,15 @@ export const changesetAPI = {
     if (filters.reviewer) query.set("reviewer", filters.reviewer);
     query.set("limit", String(filters.limit ?? 20));
     query.set("offset", String(filters.offset ?? 0));
-    return request<ChangesetPage>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?${query.toString()}`);
+    return request<ChangesetPage>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets?${query.toString()}`, { signal });
   },
   create: (organizationID: string, repository: string, title: string) =>
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
       method: "POST", body: JSON.stringify({ repository, title }),
     }),
-  createPullRequest: (organizationID: string, repository: string, title: string, baseBranch: string, sourceBranch: string, expectedHeadSHA: string, description: string, draft: boolean) =>
+  createPullRequest: (organizationID: string, repository: string, title: string, baseBranch: string, sourceBranch: string, expectedHeadSHA: string, description: string, draft: boolean, issueNumber?: number) =>
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets`, {
-      method: "POST", body: JSON.stringify({ repository, title, base_branch: baseBranch, source_branch: sourceBranch, expected_head_sha: expectedHeadSHA, description, draft }),
+      method: "POST", body: JSON.stringify({ repository, title, base_branch: baseBranch, source_branch: sourceBranch, expected_head_sha: expectedHeadSHA, description, draft, issue_number: issueNumber }),
     }),
   updatePullRequestTitle: (organizationID: string, id: string, title: string, version: number) =>
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/title`, {

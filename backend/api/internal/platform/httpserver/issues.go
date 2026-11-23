@@ -6,19 +6,30 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
 	"github.com/easyhaloo/agentforge/backend/api/internal/issues"
 )
 
 type createIssueRequest struct {
-	Repository string `json:"repository"`
-	Title      string `json:"title"`
-	Body       string `json:"body"`
+	Repository    string      `json:"repository"`
+	Title         string      `json:"title"`
+	Body          string      `json:"body"`
+	Assignees     []string    `json:"assignees,omitempty"`
+	LabelIDs      []string    `json:"label_ids,omitempty"`
+	MilestoneID   string      `json:"milestone_id,omitempty"`
+	Type          issues.Type `json:"issue_type,omitempty"`
+	AttachmentIDs []string    `json:"attachment_ids,omitempty"`
+	ProjectIDs    []string    `json:"project_ids,omitempty"`
+	ParentNumber  int32       `json:"parent_number,omitempty"`
 }
 
 type updateIssueRequest struct {
-	Title *string `json:"title,omitempty"`
-	Body  *string `json:"body,omitempty"`
+	issues.MetadataUpdate
+	Title             *string    `json:"title,omitempty"`
+	Body              *string    `json:"body,omitempty"`
+	ExpectedUpdatedAt *time.Time `json:"expected_updated_at,omitempty"`
 }
 
 type closeIssueRequest struct {
@@ -134,6 +145,65 @@ func (d DeliveryDependencies) listIssues(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, response)
 }
 
+// issueReferences resolves a bounded set of Issue numbers in the requested repository.
+func (d DeliveryDependencies) issueReferences(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	if d.IssueRepo == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Issue tracking unavailable", "The issue repository is not configured")
+		return
+	}
+	query := r.URL.Query()
+	repository := query.Get("repository")
+	values := query["number"]
+	if repository == "" || len(values) < 1 || len(values) > 100 {
+		writeProblem(w, http.StatusBadRequest, "Invalid issue reference lookup", "A repository and 1 to 100 issue numbers are required")
+		return
+	}
+	numbers := make([]int32, 0, len(values))
+	for _, value := range values {
+		number, err := strconv.ParseInt(value, 10, 32)
+		if err != nil || number < 1 {
+			writeProblem(w, http.StatusBadRequest, "Invalid issue number", "number must be a positive 32-bit integer")
+			return
+		}
+		numbers = append(numbers, int32(number))
+	}
+	found, err := d.IssueRepo.ExistingNumbers(r.Context(), principal.OrganizationID, repository, numbers)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Unable to resolve issues", "The issue reference query failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, found)
+}
+
+func (d DeliveryDependencies) findIssueMemberMentions(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, true)
+	if !ok {
+		return
+	}
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if !wellFormedText(query) || utf8.RuneCountInString(query) > 100 {
+		writeProblem(w, http.StatusBadRequest, "Invalid member query", "The member query must contain at most 100 characters")
+		return
+	}
+	if d.Membership == nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Member lookup unavailable", "The organization membership repository is not configured")
+		return
+	}
+	items, err := d.Membership.FindMemberMentions(r.Context(), principal.OrganizationID, query)
+	if err != nil {
+		writeProblem(w, http.StatusInternalServerError, "Member lookup failed", "The organization members could not be queried")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, struct {
+		Items []identity.MemberMention `json:"items"`
+	}{Items: items})
+}
+
 // createIssue handles POST /api/v1/organizations/{organizationID}/issues
 func (d DeliveryDependencies) createIssue(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true)
@@ -152,7 +222,9 @@ func (d DeliveryDependencies) createIssue(w http.ResponseWriter, r *http.Request
 
 	req.Repository = strings.TrimSpace(req.Repository)
 	req.Title = strings.TrimSpace(req.Title)
-	req.Body = strings.TrimSpace(req.Body)
+	if strings.TrimSpace(req.Body) == "" {
+		req.Body = ""
+	}
 
 	if req.Repository == "" {
 		writeProblem(w, http.StatusBadRequest, "Repository required", "repository must not be empty")
@@ -160,6 +232,47 @@ func (d DeliveryDependencies) createIssue(w http.ResponseWriter, r *http.Request
 	}
 	if req.Title == "" {
 		writeProblem(w, http.StatusBadRequest, "Title required", "title must not be empty")
+		return
+	}
+
+	if utf8.RuneCountInString(req.Title) > 500 {
+		writeProblem(w, http.StatusUnprocessableEntity, "Title too long", "Title must be at most 500 characters")
+		return
+	}
+	if len(req.Assignees) > 0 || len(req.LabelIDs) > 0 || req.MilestoneID != "" || req.Type != "" || len(req.ProjectIDs) > 0 {
+		if principal.Role != "owner" && principal.Role != "admin" {
+			writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only organization admins and owners can set metadata when creating an issue")
+			return
+		}
+	}
+
+	if _, ok := d.resolveRegisteredRepository(w, r, principal, req.Repository); !ok {
+		return
+	}
+
+	if req.ParentNumber < 0 {
+		writeProblem(w, http.StatusBadRequest, "Invalid parent number", "The parent number must be a positive integer")
+		return
+	}
+
+	if !req.Type.Valid() {
+		writeProblem(w, http.StatusUnprocessableEntity, "Issue type unavailable", "Choose Task, Bug, or Feature")
+		return
+	}
+
+	if len(req.ProjectIDs) > 100 {
+		writeProblem(w, http.StatusUnprocessableEntity, "Issue projects unavailable", "Choose at most 100 projects")
+		return
+	}
+	for _, id := range req.ProjectIDs {
+		if len(id) != 32 || !wellFormedText(id) {
+			writeProblem(w, http.StatusUnprocessableEntity, "Issue projects unavailable", "A project identifier is invalid")
+			return
+		}
+	}
+
+	if !validIssueAttachmentIDs(principal.OrganizationID, req.Body, req.AttachmentIDs) {
+		writeProblem(w, http.StatusUnprocessableEntity, "Issue attachments unavailable", "The issue must reference at most 20 uploaded files")
 		return
 	}
 
@@ -171,17 +284,42 @@ func (d DeliveryDependencies) createIssue(w http.ResponseWriter, r *http.Request
 
 	now := time.Now().UTC()
 	issue := &issues.Issue{
-		ID:         issues.ID(id),
-		Repository: req.Repository,
-		Title:      req.Title,
-		Body:       req.Body,
-		State:      issues.StateOpen,
-		CreatedBy:  principal.UserID,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:              issues.ID(id),
+		Repository:      req.Repository,
+		Title:           req.Title,
+		Body:            req.Body,
+		State:           issues.StateOpen,
+		CreatedBy:       principal.UserID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		MilestoneID:     req.MilestoneID,
+		Type:            req.Type,
+		AttachmentIDs:   req.AttachmentIDs,
+		ProjectIDs:      req.ProjectIDs,
+		ParentNumber:    int(req.ParentNumber),
+		ParentCanManage: principal.Role == "owner" || principal.Role == "admin",
+	}
+
+	for _, userID := range req.Assignees {
+		issue.Assignees = append(issue.Assignees, issues.Assignee{UserID: userID})
+	}
+	for _, labelID := range req.LabelIDs {
+		issue.Labels = append(issue.Labels, issues.Label{ID: labelID})
 	}
 
 	created, err := d.IssueRepo.Create(r.Context(), principal.OrganizationID, issue)
+	if errors.Is(err, issues.ErrDetailNotFound) || errors.Is(err, issues.ErrDetailForbidden) {
+		issueDetailError(w, err)
+		return
+	}
+	if errors.Is(err, issues.ErrInvalidAttachments) {
+		writeProblem(w, http.StatusUnprocessableEntity, "Issue attachments unavailable", "An uploaded file is expired or unavailable for this issue")
+		return
+	}
+	if errors.Is(err, issues.ErrInvalidMetadata) {
+		writeProblem(w, http.StatusUnprocessableEntity, "Issue metadata unavailable", "An assignee, label, milestone, or project is invalid for this repository")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to create issue", "The issue could not be persisted")
 		return
@@ -215,6 +353,14 @@ func (d DeliveryDependencies) getIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	issue, err := d.IssueRepo.Get(r.Context(), principal.OrganizationID, repository, number)
+	if err != nil && d.IssueDetailRepo != nil {
+		issue, err = d.IssueDetailRepo.MovedIssue(r.Context(), principal.OrganizationID, repository, number)
+		if err == nil {
+			if _, ok := d.resolveRegisteredRepository(w, r, principal, issue.Repository); !ok {
+				return
+			}
+		}
+	}
 	if err != nil {
 		writeProblem(w, http.StatusNotFound, "Issue not found", "No issue exists with this number in the repository")
 		return
@@ -265,22 +411,75 @@ func (d DeliveryDependencies) updateIssue(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if req.MetadataUpdate.HasChanges() {
+		if principal.Role != "owner" && principal.Role != "admin" {
+			writeProblem(w, http.StatusForbidden, "Insufficient permissions", "Only organization admins and owners can change issue metadata")
+			return
+		}
+		if (req.Type != nil && !req.Type.Valid()) || len(req.AssigneeIDs) > 100 || len(req.LabelIDs) > 100 || len(req.ProjectIDs) > 100 || len(req.ChangesetIDs) > 100 || len(req.Fields) > 20 {
+			writeProblem(w, http.StatusUnprocessableEntity, "Issue metadata unavailable", "Select a valid issue type and at most 100 entries per field")
+			return
+		}
+		for _, values := range [][]string{req.AssigneeIDs, req.LabelIDs, req.ProjectIDs, req.ChangesetIDs} {
+			for _, value := range values {
+				if value == "" || len(value) > 128 || !wellFormedText(value) {
+					writeProblem(w, http.StatusUnprocessableEntity, "Issue metadata unavailable", "Select valid metadata identifiers")
+					return
+				}
+			}
+		}
+		if req.MilestoneID != nil && (len(*req.MilestoneID) > 128 || !wellFormedText(*req.MilestoneID)) {
+			writeProblem(w, http.StatusUnprocessableEntity, "Issue metadata unavailable", "Select a valid milestone")
+			return
+		}
+		for name, value := range req.Fields {
+			if name == "" || strings.TrimSpace(name) != name || utf8.RuneCountInString(name) > 64 || utf8.RuneCountInString(value) > 500 || !wellFormedText(name) || !wellFormedText(value) {
+				writeProblem(w, http.StatusUnprocessableEntity, "Issue fields unavailable", "Field names must have 1–64 characters and values at most 500")
+				return
+			}
+		}
+		issue.MetadataUpdate = req.MetadataUpdate
+	}
+
+	if req.ExpectedUpdatedAt != nil && !req.ExpectedUpdatedAt.Equal(issue.UpdatedAt) {
+		writeProblem(w, http.StatusConflict, "Issue changed", "Reload the issue before saving your edits")
+		return
+	}
+	previousUpdate := issue.UpdatedAt
+	issue.ExpectedUpdatedAt = &previousUpdate
+	issue.EditorID = principal.UserID
+
 	// Apply updates
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
-		if title == "" {
+		if title == "" || utf8.RuneCountInString(title) > 500 {
 			writeProblem(w, http.StatusBadRequest, "Invalid title", "title must not be empty")
 			return
 		}
 		issue.Title = title
 	}
 	if req.Body != nil {
-		issue.Body = strings.TrimSpace(*req.Body)
+		if utf8.RuneCountInString(*req.Body) > 65536 {
+			writeProblem(w, http.StatusBadRequest, "Invalid body", "Issue body must contain at most 65,536 characters")
+			return
+		}
+		issue.Body = *req.Body
+		if strings.TrimSpace(issue.Body) == "" {
+			issue.Body = ""
+		}
 	}
 
 	issue.UpdatedAt = time.Now().UTC()
 
 	updated, err := d.IssueRepo.Update(r.Context(), principal.OrganizationID, issue)
+	if errors.Is(err, issues.ErrInvalidMetadata) {
+		writeProblem(w, http.StatusUnprocessableEntity, "Issue metadata unavailable", "An assignee, label, milestone, or project is invalid for this repository")
+		return
+	}
+	if errors.Is(err, issues.ErrStateConflict) {
+		writeProblem(w, http.StatusConflict, "Issue changed", "Reload the issue before saving your edits")
+		return
+	}
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to update issue", "The issue could not be updated")
 		return
@@ -400,7 +599,7 @@ func (d DeliveryDependencies) reopenIssue(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	reopened, err := d.IssueRepo.Reopen(r.Context(), principal.OrganizationID, issue.ID, time.Now().UTC())
+	reopened, err := d.IssueRepo.Reopen(r.Context(), principal.OrganizationID, issue.ID, principal.UserID, time.Now().UTC())
 	if errors.Is(err, issues.ErrStateConflict) {
 		writeProblem(w, http.StatusConflict, "Issue state changed", "Refresh the issue and try again")
 		return
@@ -526,7 +725,7 @@ func (d DeliveryDependencies) unlockIssue(w http.ResponseWriter, r *http.Request
 	}
 
 	// Unlock the issue
-	unlocked, err := d.IssueRepo.Unlock(r.Context(), principal.OrganizationID, issue.ID)
+	unlocked, err := d.IssueRepo.Unlock(r.Context(), principal.OrganizationID, issue.ID, principal.UserID)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to unlock issue", "The issue could not be unlocked")
 		return

@@ -2,7 +2,11 @@ package reactions
 
 import (
 	"context"
+	"errors"
 )
+
+var ErrDuplicate = errors.New("user already reacted with this emoji")
+var ErrNotFound = errors.New("reaction not found")
 
 // Repository defines the persistence interface for reactions
 type Repository interface {
@@ -13,6 +17,5 @@ type Repository interface {
 	// List retrieves all reactions for a specific resource
 	List(ctx context.Context, organizationID string, reactableType ReactableType, reactableID ID) ([]*Reaction, error)
 
-	// Remove deletes a reaction by ID
-	Remove(ctx context.Context, organizationID string, reactionID ID) error
+	RemoveOwn(ctx context.Context, organizationID string, resourceType ReactableType, resourceID, reactionID ID, userID string) error
 }

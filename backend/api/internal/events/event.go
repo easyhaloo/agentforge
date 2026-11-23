@@ -48,10 +48,10 @@ const (
 
 // Event represents a timeline event for an issue
 type Event struct {
-	ID        ID
-	IssueID   string
-	EventType EventType
-	ActorID   string                 // User who performed the action (may be empty for system events)
-	Metadata  map[string]interface{} // Additional event-specific data
-	CreatedAt time.Time
+	ID        ID                     `json:"id"`
+	IssueID   string                 `json:"issue_id"`
+	EventType EventType              `json:"event_type"`
+	ActorID   string                 `json:"actor_id"` // User who performed the action (may be empty for system events)
+	Metadata  map[string]interface{} `json:"metadata"` // Additional event-specific data
+	CreatedAt time.Time              `json:"created_at"`
 }

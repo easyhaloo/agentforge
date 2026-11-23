@@ -11,6 +11,10 @@ import (
 )
 
 type SettingsRepository interface {
+	ListSavedReplies(context.Context, string) ([]identity.SavedReply, error)
+	CreateSavedReply(context.Context, string, string, string) (identity.SavedReply, error)
+	UpdateSavedReply(context.Context, string, string, string, string) (identity.SavedReply, error)
+	DeleteSavedReply(context.Context, string, string) error
 	GetUserProfile(context.Context, string) (identity.UserProfile, error)
 	UpdateUserProfile(context.Context, string, *string, *string, *string) (identity.UserProfile, error)
 	GetUserPreferences(context.Context, string) (identity.UserPreferences, error)

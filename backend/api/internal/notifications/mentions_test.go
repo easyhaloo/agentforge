@@ -23,7 +23,7 @@ func TestParseMentions(t *testing.T) {
 		},
 		{
 			name:     "duplicate mentions",
-			input:    "@user1 told @user1 about this",
+			input:    "@user1 told @USER1 about this",
 			expected: []string{"user1"},
 		},
 		{
@@ -44,7 +44,12 @@ func TestParseMentions(t *testing.T) {
 		{
 			name:     "mention in markdown",
 			input:    "cc @reviewer in `code @fake` and **@bold**",
-			expected: []string{"reviewer", "fake"}, // @bold not matched (no space before @)
+			expected: []string{"reviewer", "bold"},
+		},
+		{
+			name:     "non-prose and escaped syntax",
+			input:    "\\@escaped <person@domain.test> [work @alice](https://github.com/@url)\n\n```go\n@fenced\n```\n\n    @indented\n\n![alt @image](image.png)",
+			expected: []string{"alice"},
 		},
 		{
 			name:     "email should not be a mention",

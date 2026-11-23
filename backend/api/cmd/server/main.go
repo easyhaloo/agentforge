@@ -53,10 +53,13 @@ func main() {
 		}
 	}
 
+	issueRepo := postgres.NewIssueRepository(store)
 	deps := httpserver.DeliveryDependencies{
 		Repository: store, Identity: store, RevokeSession: store.RevokeSession, CSRF: store, Membership: store, Account: store, Settings: store,
 		AllowedOrigin: configuration.AppOrigin, OIDC: oidcHandler, Reviewers: store, Catalog: store, Pipelines: store, Runs: store, WebhookDirectory: os.Getenv("PIPELINE_WEBHOOKS_DIR"), Locker: store, Workspaces: store, Tasks: tasks.NewPostgresStore(store.Pool()),
-		IssueRepo:        postgres.NewIssueRepository(store),
+		IssueRepo:        issueRepo,
+		IssueDetailRepo:  issueRepo,
+		ProjectRepo:      store,
 		CommentRepo:      postgres.NewCommentRepository(store),
 		LabelRepo:        postgres.NewLabelRepository(store),
 		MilestoneRepo:    postgres.NewMilestoneRepository(store),

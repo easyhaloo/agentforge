@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { AlertTriangle, ArrowLeft, FileDiff, GitCommitHorizontal } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, repositoryPreviewAPI, type OrganizationSummary, type PullRequestComparison, type RepositoryPreviewRef } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { pullRequestPath } from "../../shared/routing";
+import { issueDetailPath, pullRequestPath } from "../../shared/routing";
 import { Button, Input, Select, TextArea, Checkbox } from "../../shared/ui";
 import { RepositoryDiffViewer } from "../repositories/RepositoryDiffViewer";
 import "./list-compare.css";
@@ -14,6 +14,10 @@ type Props = { organization: OrganizationSummary; repository: string; handle: st
 export function PullRequestComparePage({ organization, repository, handle }: Props) {
   const { t } = useTranslation(["pulls", "common"]);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const issue = searchParams.get("issue");
+  const issueNumber = issue !== null && /^[1-9]\d*$/.test(issue) && Number(issue) <= 2147483647 ? Number(issue) : undefined;
+  const invalidIssue = issue !== null && issueNumber === undefined;
   const [refs, setRefs] = useState<RepositoryPreviewRef[]>([]);
   const [baseBranch, setBaseBranch] = useState("");
   const [compareBranch, setCompareBranch] = useState("");
@@ -56,7 +60,7 @@ export function PullRequestComparePage({ organization, repository, handle }: Pro
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    if (!currentComparison?.patch || creating || !title.trim()) return;
+    if (!currentComparison?.patch || creating || !title.trim() || invalidIssue) return;
     setCreating(true); setError("");
     try {
       const result = await changesetAPI.createPullRequest(
@@ -67,7 +71,8 @@ export function PullRequestComparePage({ organization, repository, handle }: Pro
         compareBranch,
         currentComparison.head_sha,
         description.trim(),
-        draft
+        draft,
+        issueNumber
       );
       navigate(pullRequestPath(handle, repository, result.changeset.id));
     } catch (cause) { setError(translateError(cause, t, "pulls:create.failed")); }
@@ -80,6 +85,8 @@ export function PullRequestComparePage({ organization, repository, handle }: Pro
     <header className="af-pr-compare__heading">
       <h2 id="af-pr-compare-title">{t("pulls:compare.title")}</h2>
       <p>{t("pulls:compare.description")}</p>
+      {issueNumber !== undefined && <p><Link to={issueDetailPath(handle, repository, issueNumber)}>{t("pulls:create.linkIssue", { number: issueNumber })}</Link></p>}
+      {invalidIssue && <p role="alert">{t("pulls:create.invalidIssue")}</p>}
     </header>
 
     <div className="af-pr-compare__branch-panel">
@@ -149,7 +156,7 @@ export function PullRequestComparePage({ organization, repository, handle }: Pro
               />
               <p id="af-pr-compare-draft-help">{t("pulls:create.draftHelp")}</p>
             </div>
-            <Button type="submit" className="button primary" disabled={creating || !title.trim()}>
+            <Button type="submit" className="button primary" disabled={creating || !title.trim() || invalidIssue}>
               {creating ? t("pulls:create.creating") : (draft ? t("pulls:create.createDraftButton") : t("pulls:create.createButton"))}
             </Button>
           </div>

@@ -15,7 +15,7 @@ type notificationListResponse struct {
 	Offset int                           `json:"offset"`
 }
 
-// listNotifications handles GET /api/v1/notifications
+// listNotifications handles GET /api/v1/organizations/{organizationID}/notifications
 func (d DeliveryDependencies) listNotifications(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, false)
 	if !ok {
@@ -56,6 +56,7 @@ func (d DeliveryDependencies) listNotifications(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	response := notificationListResponse{
 		Items:  items,
 		Total:  total,
@@ -65,9 +66,9 @@ func (d DeliveryDependencies) listNotifications(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, response)
 }
 
-// markNotificationAsRead handles PATCH /api/v1/notifications/{id}/read
+// markNotificationAsRead handles PATCH /api/v1/organizations/{organizationID}/notifications/{id}/read
 func (d DeliveryDependencies) markNotificationAsRead(w http.ResponseWriter, r *http.Request) {
-	principal, ok := d.principal(w, r, true)
+	principal, ok := d.principal(w, r, false)
 	if !ok {
 		return
 	}
@@ -85,7 +86,7 @@ func (d DeliveryDependencies) markNotificationAsRead(w http.ResponseWriter, r *h
 	err := d.NotificationRepo.MarkAsRead(r.Context(), principal.OrganizationID, notifications.ID(notificationID), principal.UserID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			writeProblem(w, http.StatusNotFound, "Notification not found", "No notification exists with this ID or it's already read")
+			writeProblem(w, http.StatusNotFound, "Notification not found", "No notification exists with this ID")
 			return
 		}
 		writeProblem(w, http.StatusInternalServerError, "Unable to mark notification as read", "The notification could not be updated")
@@ -95,9 +96,9 @@ func (d DeliveryDependencies) markNotificationAsRead(w http.ResponseWriter, r *h
 	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true})
 }
 
-// markAllNotificationsAsRead handles POST /api/v1/notifications/read-all
+// markAllNotificationsAsRead handles POST /api/v1/organizations/{organizationID}/notifications/read-all
 func (d DeliveryDependencies) markAllNotificationsAsRead(w http.ResponseWriter, r *http.Request) {
-	principal, ok := d.principal(w, r, true)
+	principal, ok := d.principal(w, r, false)
 	if !ok {
 		return
 	}
@@ -117,7 +118,7 @@ func (d DeliveryDependencies) markAllNotificationsAsRead(w http.ResponseWriter, 
 
 // subscribeToIssue handles POST /api/v1/organizations/{organizationID}/issues/{number}/subscription
 func (d DeliveryDependencies) subscribeToIssue(w http.ResponseWriter, r *http.Request) {
-	principal, ok := d.principal(w, r, true)
+	principal, ok := d.principal(w, r, false)
 	if !ok {
 		return
 	}
@@ -158,7 +159,7 @@ func (d DeliveryDependencies) subscribeToIssue(w http.ResponseWriter, r *http.Re
 
 // unsubscribeFromIssue handles DELETE /api/v1/organizations/{organizationID}/issues/{number}/subscription
 func (d DeliveryDependencies) unsubscribeFromIssue(w http.ResponseWriter, r *http.Request) {
-	principal, ok := d.principal(w, r, true)
+	principal, ok := d.principal(w, r, false)
 	if !ok {
 		return
 	}

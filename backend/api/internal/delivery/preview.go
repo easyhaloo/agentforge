@@ -264,18 +264,29 @@ func (p *LocalGitProvider) listCommitRange(ctx context.Context, organizationID, 
 }
 
 // RepositoryCompareReader exposes a bounded, read-only diff between immutable commits.
+// Compare accepts an empty base SHA to compare the head against an empty tree.
 type RepositoryCompareReader interface {
 	Compare(context.Context, string, string, string, string) (string, error)
 	CompareWithMergeBase(context.Context, string, string, string, string) (string, error)
 }
 
 func (p *LocalGitProvider) Compare(ctx context.Context, organizationID, repository, baseSHA, headSHA string) (string, error) {
-	if !validGitObjectID(baseSHA) || !validGitObjectID(headSHA) {
+	if (baseSHA != "" && !validGitObjectID(baseSHA)) || !validGitObjectID(headSHA) {
 		return "", ErrPreviewPathInvalid
 	}
 	repoPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return "", err
+	}
+	if baseSHA == "" {
+		output, err := p.runPreview(ctx, repoPath, 128, "hash-object", "-t", "tree", "--stdin")
+		if err != nil {
+			return "", fmt.Errorf("resolve empty Git tree: %w", err)
+		}
+		baseSHA = strings.TrimSpace(string(output))
+		if !validGitObjectID(baseSHA) {
+			return "", ErrRepositoryInvalid
+		}
 	}
 	output, err := p.runPreview(ctx, repoPath, 1<<20,
 		"diff", "--no-ext-diff", "--no-renames", "--no-color",

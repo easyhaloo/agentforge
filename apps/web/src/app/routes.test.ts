@@ -34,6 +34,10 @@ describe("route table", () => {
     }
   });
 
+  it("routes the personal saved replies settings", () => {
+    expect(leafOf("/settings/saved-replies")?.route.handle).toEqual({ label: "Saved replies" });
+  });
+
   it("routes the repository create page with the Repositories label (reused, no duplicate sidebar item)", () => {
     const createPath = repositoryNewPath("demo");
     const leaf = leafOf(createPath);
@@ -47,7 +51,7 @@ describe("route table", () => {
   });
 
   it("serves the live pages and their aliases under /orgs/:org", () => {
-    const labels: Record<string, string> = { webide: "WebIDE", issues: "Issues", changesets: "Changesets", trails: "Trails", review: "Review", eval: "Eval", settings: "Organization" };
+    const labels: Record<string, string> = { webide: "WebIDE", issues: "Issues", notifications: "Inbox", changesets: "Changesets", trails: "Trails", review: "Review", eval: "Eval", settings: "Organization" };
     for (const [section, label] of Object.entries(labels)) {
       const leaf = leafOf(`/orgs/x/${section}`);
       expect(leaf?.params.org, section).toBe("x");
@@ -93,7 +97,15 @@ describe("route table", () => {
     }
   });
 
-  it("matches issue details and preserves the legacy repository route", () => {
+  it("matches issue creation and detail routes, and preserves the legacy repository route", () => {
+    const create = leafOf("/orgs/demo/repositories/team/repo/issues/new");
+    expect(create?.params).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
+    expect(create?.route.handle).toEqual({ label: "New Issue" });
+
+    const chooser = leafOf("/orgs/demo/repositories/team/repo/issues/new/choose");
+    expect(chooser?.params).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
+    expect(chooser?.route.handle).toEqual({ label: "New Issue" });
+
     const detail = leafOf("/orgs/demo/repositories/team/repo/issues/42");
     expect(detail?.params).toMatchObject({ org: "demo", owner: "team", repo: "repo", number: "42" });
     expect(detail?.route.handle).toEqual({ label: "Issue" });

@@ -9,6 +9,12 @@ function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   return request<T>(`/api/v1/users/me${endpoint}`, options);
 }
 
+export interface SavedReply {
+  id: string;
+  title: string;
+  body: string;
+}
+
 // Type definitions
 export interface UserPreferences {
   theme: "light" | "dark" | "auto";
@@ -93,6 +99,17 @@ export interface AgentPreferences {
  * Settings API client
  */
 export const settingsAPI = {
+  listSavedReplies: (signal?: AbortSignal) =>
+    fetchAPI<{ items: SavedReply[] }>("/saved-replies", { signal }).then(({ items }) => items),
+
+  saveReply: ({ id, title, body }: SavedReply) =>
+    fetchAPI<SavedReply>(id ? `/saved-replies/${encodeURIComponent(id)}` : "/saved-replies", {
+      method: id ? "PATCH" : "POST",
+      body: JSON.stringify({ title, body }),
+    }),
+
+  deleteSavedReply: (id: string) => fetchAPI<void>(`/saved-replies/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
   // Preferences
   getPreferences: () => fetchAPI<UserPreferences>("/preferences"),
 

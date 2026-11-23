@@ -19,7 +19,7 @@ export function RepositorySectionPage({ organization, repository, section, curre
   const handle = organizationHandle(organization);
   return <section className="repo-layout repo-browser">
     {section === "issues" ? (
-      <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} currentUser={currentUser} onNotify={onNotify} />
+      <RepositoryIssues organization={organization} repository={repository} organizationHandle={handle} currentUser={currentUser} />
     ) : section === "actions" ? (
       <RepositoryActions key={`${organization.id}/${repository}`} organization={organization} repository={repository} />
     ) : (
