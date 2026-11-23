@@ -175,9 +175,34 @@ func (rule RefRule) matches(target, name, defaultBranch string) bool {
 
 var (
 	ErrRefNameRestricted         = errors.New("ref name does not match the required pattern")
+	ErrBranchCreationRestricted  = errors.New("branch creation is restricted")
 	ErrBranchUpdatesRestricted   = errors.New("branch updates are restricted")
 	ErrBranchPullRequestRequired = errors.New("a verified pull request is required")
 )
+
+// CheckBranchWrite checks a platform writer's exact destination ref. The caller
+// must use the same observed ref state for the policy check and the Git CAS.
+func (policy PushPolicy) CheckBranchWrite(ref string, creating bool) error {
+	branch, isBranch := strings.CutPrefix(ref, "refs/heads/")
+	if !isBranch {
+		return nil
+	}
+	if !creating {
+		return CheckBranchMerge(policy.RefRules, branch, policy.DefaultBranch, false)
+	}
+	for _, rule := range policy.RefRules {
+		if !rule.matches("branch", branch, policy.DefaultBranch) {
+			continue
+		}
+		if err := rule.checkName(branch); err != nil {
+			return err
+		}
+		if rule.RestrictCreation {
+			return fmt.Errorf("ruleset %q blocks creation of %s: %w", rule.Name, ref, ErrBranchCreationRestricted)
+		}
+	}
+	return nil
+}
 
 // CheckBranchMerge applies matching rules that govern server-authorized branch updates.
 // Callers must enforce revision, evidence and review gates independently.

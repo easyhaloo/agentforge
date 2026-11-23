@@ -76,13 +76,21 @@ func (s *Store) LockGitPolicy(ctx context.Context, organization, repository stri
 		defer cancel()
 		_ = tx.Rollback(ctx)
 	}
+	policy, err := lockGitPolicyRow(ctx, tx, organization, repository)
+	if err != nil {
+		release()
+		return githttp.PushPolicy{}, nil, err
+	}
+	return policy, release, nil
+}
+
+func lockGitPolicyRow(ctx context.Context, tx pgx.Tx, organization, repository string) (githttp.PushPolicy, error) {
 	var policy githttp.PushPolicy
 	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs, ref_rules FROM delivery_repositories
 		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs, &policy.RefRules); err != nil {
-		release()
-		return githttp.PushPolicy{}, nil, fmt.Errorf("lock Git default branch: %w", err)
+		return githttp.PushPolicy{}, fmt.Errorf("lock Git repository policy: %w", err)
 	}
-	return policy, release, nil
+	return policy, nil
 }
 
 func (s *Store) ListGitCredentials(ctx context.Context, organizationID, repository, actorID string) ([]githttp.CredentialSummary, error) {

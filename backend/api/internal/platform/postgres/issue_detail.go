@@ -64,7 +64,7 @@ func (r *IssueRepository) SetGitHubSource(ctx context.Context, scope issues.Deta
 
 // CreateBranch holds the issue at this repository and number until Git finishes.
 // A later transfer leaves its Git refs in the original repository.
-func (r *IssueRepository) CreateBranch(ctx context.Context, scope issues.DetailScope, write func(issues.ID) (delivery.RepositoryRef, error)) (delivery.RepositoryRef, error) {
+func (r *IssueRepository) CreateBranch(ctx context.Context, scope issues.DetailScope, write func(issues.ID, delivery.BranchWriteCheck) (delivery.RepositoryRef, error)) (delivery.RepositoryRef, error) {
 	if !scope.CanManage {
 		return delivery.RepositoryRef{}, issues.ErrDetailForbidden
 	}
@@ -77,7 +77,13 @@ func (r *IssueRepository) CreateBranch(ctx context.Context, scope issues.DetailS
 	if err != nil {
 		return delivery.RepositoryRef{}, err
 	}
-	return write(issues.ID(id))
+	// Take the repository policy lock after the Issue row lock, on the same
+	// transaction. Neither native pushes nor merges take an Issue row lock.
+	policy, err := lockGitPolicyRow(ctx, tx, scope.OrganizationID, scope.Repository)
+	if err != nil {
+		return delivery.RepositoryRef{}, err
+	}
+	return write(issues.ID(id), policy.CheckBranchWrite)
 }
 
 func (r *IssueRepository) CreateLinkedPullRequest(ctx context.Context, scope issues.DetailScope, changeset *delivery.Changeset) (delivery.StoredChangeset, error) {

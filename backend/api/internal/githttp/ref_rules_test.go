@@ -96,3 +96,26 @@ func TestRulesetNamePatterns(t *testing.T) {
 		t.Fatal("invalid RE2 syntax was accepted")
 	}
 }
+
+func TestBranchWriteRulesUseExactRefNamespace(t *testing.T) {
+	policy := PushPolicy{DefaultBranch: "trunk", RefRules: []RefRule{
+		{Name: "protect default", Target: "branch", Enabled: true, Include: []string{"~DEFAULT_BRANCH"}, RestrictCreation: true},
+		{Name: "freeze", Target: "branch", Enabled: true, Include: []string{"~ALL"}, Exclude: []string{"trunk"}, RestrictUpdate: true},
+	}}
+	for _, tc := range []struct {
+		ref      string
+		creating bool
+		want     error
+	}{
+		{"refs/heads/trunk", true, ErrBranchCreationRestricted},
+		{"refs/heads/trunk", false, nil},
+		{"refs/heads/main", true, nil},
+		{"refs/heads/agentforge/changesets/one", false, ErrBranchUpdatesRestricted},
+		{"refs/agentforge/changesets/one", false, nil},
+		{"refs/tags/trunk", true, nil},
+	} {
+		if err := policy.CheckBranchWrite(tc.ref, tc.creating); !errors.Is(err, tc.want) {
+			t.Errorf("ref %s (creating %t): got %v, want %v", tc.ref, tc.creating, err, tc.want)
+		}
+	}
+}

@@ -16,8 +16,11 @@ import (
 var ErrWriteConflict = errors.New("repository write conflict")
 var ErrWriteInvalid = errors.New("repository write input is invalid")
 
+// BranchWriteCheck authorizes the destination and the operation pinned by the writer's CAS.
+type BranchWriteCheck func(ref string, creating bool) error
+
 type RepositoryFileWriter interface {
-	SaveTextFile(context.Context, string, string, string, string, string, string, []byte) (GitFileWrite, error)
+	SaveTextFile(context.Context, string, string, string, string, string, string, []byte, BranchWriteCheck) (GitFileWrite, error)
 }
 
 type GitFileWrite struct {
@@ -47,7 +50,7 @@ func validEditablePath(path string) bool {
 	return true
 }
 
-func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte) (GitFileWrite, error) {
+func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte, check BranchWriteCheck) (GitFileWrite, error) {
 	var result GitFileWrite
 	branch, err := ChangesetBranch(changesetID)
 	if err != nil || !objectID.MatchString(baseCommit) || !objectID.MatchString(baseBlob) || !validEditablePath(filePath) || len(content) > 1<<20 || !utf8.Valid(content) {
@@ -80,6 +83,19 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	mode := "100644"
 	if bytes.HasPrefix(meta, []byte("100755 blob ")) {
 		mode = "100755"
+	}
+
+	ref := "refs/heads/" + branch
+	old, readErr := isolatedGit(ctx, repo, nil, nil, "show-ref", "--verify", "--hash", ref)
+	expected := strings.TrimSpace(string(old))
+	creating := readErr != nil
+	if creating {
+		expected = strings.Repeat("0", len(baseCommit))
+	} else if expected != baseCommit {
+		return result, ErrWriteConflict
+	}
+	if err := check(ref, creating); err != nil {
+		return result, err
 	}
 
 	temp, err := os.MkdirTemp("", "agentforge-edit-*")
@@ -117,22 +133,13 @@ func (p *LocalGitProvider) SaveTextFile(ctx context.Context, org, repository, ch
 	if !objectID.MatchString(commit) {
 		return result, ErrProviderUnavailable
 	}
-	ref := "refs/heads/" + branch
-	old, readErr := isolatedGit(ctx, repo, nil, nil, "rev-parse", "--verify", "--quiet", ref)
-	expected := strings.TrimSpace(string(old))
-	if readErr != nil {
-		expected = strings.Repeat("0", len(commit))
-	}
-	if expected != strings.Repeat("0", len(commit)) && expected != baseCommit {
-		return result, ErrWriteConflict
-	}
-	if _, err = isolatedGit(ctx, repo, nil, nil, "update-ref", ref, commit, expected); err != nil {
+	if _, err = isolatedGit(ctx, repo, nil, nil, "update-ref", "--no-deref", ref, commit, expected); err != nil {
 		return result, ErrWriteConflict
 	}
 	return GitFileWrite{Branch: branch, CommitSHA: commit, BlobSHA: blob}, nil
 }
 
-func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte) (GitFileWrite, error) {
+func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, changesetID, baseCommit, baseBlob, filePath string, content []byte, check BranchWriteCheck) (GitFileWrite, error) {
 	var result GitFileWrite
 	branch, err := ChangesetBranch(changesetID)
 	if err != nil || !objectID.MatchString(baseCommit) || !objectID.MatchString(baseBlob) || !validEditablePath(filePath) || len(content) > 1<<20 || !utf8.Valid(content) {
@@ -150,6 +157,9 @@ func (p *RemoteGitProvider) SaveTextFile(ctx context.Context, org, repository, c
 	}
 	if old != "" && old != baseCommit {
 		return result, ErrWriteConflict
+	}
+	if err := check(ref, old == ""); err != nil {
+		return result, err
 	}
 	// Fetch the immutable parent and, when present, the current changeset branch.
 	fetchArgs := []string{"fetch", "--no-tags", "--no-recurse-submodules", "--", w.repo.URL, baseCommit}
