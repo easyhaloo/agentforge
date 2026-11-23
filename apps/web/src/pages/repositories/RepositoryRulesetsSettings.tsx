@@ -4,7 +4,7 @@ import { repositoryAPI, type RefNamePattern, type OrganizationSummary, type Repo
 import { translateError } from "../../shared/api/errors";
 import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
-import { maxRulesetFileBytes, namePatternOperators, parseRulesetJson, serializeRulesetJson } from "./rulesetJson";
+import { maxRulesetFileBytes, namePatternOperators, parseRulesetJson, queueMergeMethods, serializeRulesetJson } from "./rulesetJson";
 
 const maxRules = 10;
 const maxNameLength = 80;
@@ -36,10 +36,10 @@ function patterns(value: string) {
   return value.split(/\r?\n/).map(pattern => pattern.trim()).filter(Boolean);
 }
 
-function toRule({ id: _id, name, include, exclude, require_pull_request, require_merge_queue, require_linear_history, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
+function toRule({ id: _id, name, include, exclude, require_pull_request, require_merge_queue, require_linear_history, merge_queue_method, name_patterns, ...rule }: RuleDraft): RepositoryRefRule {
   return { ...rule, name: name.trim(), include: patterns(include), exclude: patterns(exclude),
     ...(require_pull_request && { require_pull_request }),
-    ...(require_merge_queue && { require_merge_queue }),
+    ...(require_merge_queue && { require_merge_queue, ...(merge_queue_method && { merge_queue_method }) }),
     ...(require_linear_history && { require_linear_history }),
     ...(name_patterns?.length && { name_patterns: name_patterns.map(({ operator, pattern, name, negate }) => ({
       operator, pattern, ...(name && { name }), ...(negate && { negate }),
@@ -124,6 +124,10 @@ export function RepositoryRulesetsSettings({ organization, repository }: Props) 
     if (rule.target === "tag" && (rule.require_pull_request || rule.require_merge_queue || rule.require_linear_history)) return t("settings.rulesets.tagBranchRestrictions");
     if (rule.require_merge_queue && (rule.include.length !== 1 || rule.include[0] !== "~DEFAULT_BRANCH" || rule.exclude.length)) {
       return t("settings.rulesets.mergeQueueTarget");
+    }
+    if (rule.enabled && rule.require_merge_queue && rule.merge_queue_method && payload.some((other, i) =>
+      i !== index && other.enabled && other.require_merge_queue && other.merge_queue_method && other.merge_queue_method !== rule.merge_queue_method)) {
+      return t("settings.rulesets.mergeQueueMethodConflict");
     }
     if (rule.name_patterns?.some(({ pattern, name }) => !pattern || new TextEncoder().encode(pattern).length > maxNamePatternBytes ||
       (name && [...name].length > maxNameLength)) || (rule.name_patterns?.length ?? 0) > maxNamePatterns) return t("settings.rulesets.namePatternInvalid");
@@ -322,7 +326,15 @@ function RulesetEditor({ rule, busy, errorId, onChange }: {
         <Checkbox key={key} label={t(restrictionLabels[key])} checked={Boolean(rule[key])} disabled={busy}
           onChange={event => onChange({ [key]: event.target.checked })} />)}
       {rule.require_linear_history && <p>{t("settings.rulesets.linearHistoryHelp")}</p>}
-      {rule.require_merge_queue && <p>{t("settings.rulesets.mergeQueueHelp")}</p>}
+      {rule.require_merge_queue && <>
+        <p>{t("settings.rulesets.mergeQueueHelp")}</p>
+        <Select label={t("settings.rulesets.mergeQueueMethod")} value={rule.merge_queue_method ?? ""} disabled={busy}
+          options={[
+            { value: "", label: t("settings.rulesets.mergeQueueMethods.automatic") },
+            ...queueMergeMethods.map(method => ({ value: method, label: t(`settings.rulesets.mergeQueueMethods.${method}`) })),
+          ]}
+          onChange={event => onChange({ merge_queue_method: queueMergeMethods.find(method => method === event.target.value) })} />
+      </>}
     </fieldset>
     <fieldset className="repo-settings-rule-restrictions">
       <legend>{t("settings.rulesets.namePatterns")}</legend>

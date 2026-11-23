@@ -2,6 +2,7 @@ import type { RefNamePattern, RepositoryRefRule } from "../../shared/api/identit
 
 export const maxRulesetFileBytes = 64 * 1024;
 const format = "agentforge-repository-ruleset-v1";
+export const queueMergeMethods = ["merge", "squash", "rebase"] as const;
 export const namePatternOperators = ["starts_with", "ends_with", "contains", "regex"] as const;
 const ruleTypes = {
   restrict_creation: "creation",
@@ -104,6 +105,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
   if (!include?.length || !exclude) return undefined;
   const types = new Set<string>();
   const namePatterns: RefNamePattern[] = [];
+  let queueMethod: RepositoryRefRule["merge_queue_method"];
   for (const rule of rules as unknown[]) {
     if (!record(rule) || !hasOnlyKeys(rule, ["type", "parameters"]) || typeof rule.type !== "string") return undefined;
     if (rule.type === `${target}_name_pattern`) {
@@ -113,7 +115,15 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
       continue;
     }
     if (!Object.values<string>(ruleTypes).includes(rule.type) || types.has(rule.type)) return undefined;
-    if (!supportedRuleParameters(rule.type, rule.parameters)) return undefined;
+    if (rule.type === "merge_queue" && rule.parameters !== undefined) {
+      const parameters = rule.parameters;
+      if (!record(parameters) || !hasOnlyKeys(parameters, ["merge_method"])) return undefined;
+      const method = parameters.merge_method;
+      if (method !== undefined) {
+        queueMethod = queueMergeMethods.find(option => option.toUpperCase() === method);
+        if (!queueMethod) return undefined;
+      }
+    } else if (!supportedRuleParameters(rule.type, rule.parameters)) return undefined;
     types.add(rule.type);
   }
   if (target === "tag" && (types.has("required_linear_history") || types.has("pull_request") || types.has("merge_queue"))) return undefined;
@@ -125,6 +135,7 @@ export function parseRulesetJson(text: string): RepositoryRefRule | undefined {
     ...(types.has("required_linear_history") && { require_linear_history: true }),
     ...(types.has("pull_request") && { require_pull_request: true }),
     ...(types.has("merge_queue") && { require_merge_queue: true }),
+    ...(queueMethod && { merge_queue_method: queueMethod }),
     ...(namePatterns.length > 0 && { name_patterns: namePatterns }),
   };
 }
@@ -137,7 +148,10 @@ export function serializeRulesetJson(rule: RepositoryRefRule): string {
     enforcement: rule.enabled ? "active" : "disabled",
     conditions: { ref_name: { include: rule.include, exclude: rule.exclude } },
     rules: [
-      ...Object.entries(ruleTypes).flatMap(([key, type]) => rule[key as keyof typeof ruleTypes] ? [{ type }] : []),
+      ...Object.entries(ruleTypes).flatMap(([key, type]) => rule[key as keyof typeof ruleTypes] ? [{
+        type,
+        ...(type === "merge_queue" && rule.merge_queue_method && { parameters: { merge_method: rule.merge_queue_method.toUpperCase() } }),
+      }] : []),
       ...(rule.name_patterns ?? []).map(parameters => ({ type: `${rule.target}_name_pattern`, parameters })),
     ],
   }, null, 2) + "\n";

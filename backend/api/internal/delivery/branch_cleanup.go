@@ -7,9 +7,9 @@ import (
 )
 
 // DeleteMergedBranch removes only the reviewed branch tip and only while the
-// target still contains it. Updating the target concurrently invalidates the CAS.
-func (p *LocalGitProvider) DeleteMergedBranch(ctx context.Context, org, repo, source, target, expectedSHA string) error {
-	if source == target || !validGitObjectID(expectedSHA) {
+// target still contains the recorded merge result. Updating the target concurrently invalidates the CAS.
+func (p *LocalGitProvider) DeleteMergedBranch(ctx context.Context, org, repo, source, target, expectedSHA, mergedSHA string) error {
+	if source == target || !validGitObjectID(expectedSHA) || !validGitObjectID(mergedSHA) {
 		return ErrRepositoryInvalid
 	}
 	dir, err := p.repositoryPath(ctx, org, repo)
@@ -36,7 +36,7 @@ func (p *LocalGitProvider) DeleteMergedBranch(ctx context.Context, org, repo, so
 	if err != nil || !validGitObjectID(targetSHA) {
 		return ErrWriteConflict
 	}
-	if _, err := previewGit(ctx, dir, "merge-base", "--is-ancestor", expectedSHA, targetSHA); err != nil {
+	if _, err := previewGit(ctx, dir, "merge-base", "--is-ancestor", mergedSHA, targetSHA); err != nil {
 		return ErrWriteConflict
 	}
 	sourceTip, err := p.run(ctx, dir, "rev-parse", "--verify", sourceRef)

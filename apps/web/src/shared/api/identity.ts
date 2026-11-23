@@ -173,6 +173,7 @@ export type RepositoryRefRule = {
   block_force_push: boolean;
   require_pull_request?: boolean;
   require_merge_queue?: boolean;
+  merge_queue_method?: "merge" | "squash" | "rebase";
   require_linear_history?: boolean;
   name_patterns?: RefNamePattern[];
 };

@@ -2218,6 +2218,10 @@ components:
               Valid only for branch rulesets targeting ~DEFAULT_BRANCH with no exclusions.
               Requires a verified pull request for each source and a successful run at the head of the repository merge queue.
               Blocks native pushes and other writers from directly updating the existing default branch.
+          merge_queue_method:
+            type: string
+            enum: [merge, squash, rebase]
+            description: Queue merge method. Requires require_merge_queue. If omitted, the queue creates merge commits or uses fast-forward only under a linear history rule. Merge commits are incompatible with linear history.
           require_linear_history:
             type: boolean
             default: false

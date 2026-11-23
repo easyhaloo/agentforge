@@ -83,7 +83,16 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 		}
 		repo := repos[repoIndex]
 		target := strings.TrimPrefix(input.Target, "refs/heads/")
-		if (queueRequest || input.Strategy == "") && githttp.LinearHistoryRule(repo.RefRules, target, repo.DefaultBranch) != "" {
+		if queueRequest {
+			input.Strategy, err = githttp.QueueMergeStrategy(repo.RefRules, target, repo.DefaultBranch)
+			if err != nil {
+				writeProblem(w, 409, "Repository ruleset blocks queue admission", err.Error())
+				return
+			}
+		} else if input.Strategy == "squash" || input.Strategy == "rebase" {
+			writeProblem(w, 422, "Invalid integration strategy", "Configure that merge method in the merge queue ruleset")
+			return
+		} else if input.Strategy == "" && githttp.LinearHistoryRule(repo.RefRules, target, repo.DefaultBranch) != "" {
 			input.Strategy = "ff-only"
 		}
 		select {

@@ -234,6 +234,10 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 					(*input.RefRules)[i].Exclude = []string{}
 				}
 			}
+			if _, err := githttp.QueueMergeStrategy(*input.RefRules, repository.DefaultBranch, repository.DefaultBranch); err != nil {
+				writeProblem(w, 422, "Invalid merge queue method", err.Error())
+				return
+			}
 			repository.RefRules = *input.RefRules
 		}
 		if input.DeleteMergedBranches != nil {

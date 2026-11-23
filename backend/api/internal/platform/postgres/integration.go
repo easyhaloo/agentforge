@@ -65,8 +65,19 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	if err != nil {
 		return err
 	}
+	rewritten := candidate.Strategy == "squash" || candidate.Strategy == "rebase"
+	local, localGit := git.(*delivery.LocalGitProvider)
+	if rewritten && (!localGit || candidate.QueueEntry == 0 || len(candidate.Sources) != 1) {
+		return pipeline.ErrConflict
+	}
 	var pullRequestRule error
 	if !recorded {
+		if candidate.QueueEntry != 0 {
+			strategy, err := githttp.QueueMergeStrategy(rules, candidate.Target.Ref, candidate.Target.Ref)
+			if err != nil || strategy != candidate.Strategy {
+				return pipeline.ErrConflict
+			}
+		}
 		err = githttp.CheckBranchMerge(rules, candidate.Target.Ref, candidate.Target.Ref, false, candidate.QueueEntry != 0)
 		if errors.Is(err, githttp.ErrBranchPullRequestRequired) {
 			pullRequestRule = err
@@ -119,9 +130,16 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 		}
 		return errPromotionIntentRecorded
 	}
-	commits, err := git.CandidateCommits(ctx, org, candidate.Repository, candidate.MergePreview)
-	if err != nil {
-		return err
+	var commits []string
+	if rewritten {
+		// Rewritten commits have new IDs. The verified pull request is identified
+		// by its original source branch and SHA, both pinned at queue admission.
+		commits = []string{candidate.Sources[0].SHA}
+	} else {
+		commits, err = git.CandidateCommits(ctx, org, candidate.Repository, candidate.MergePreview)
+		if err != nil {
+			return err
+		}
 	}
 	// ponytail: a table lock prevents revisions from entering the candidate set during promotion.
 	// Replace with a per-repository write lock on all Changeset mutation paths if contention matters.
@@ -135,6 +153,16 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 	changesets, err := pgx.CollectRows(rows, pgx.RowTo[delivery.Changeset])
 	if err != nil {
 		return err
+	}
+	if rewritten {
+		source := candidate.Sources[0]
+		changesets = slices.DeleteFunc(changesets, func(c delivery.Changeset) bool {
+			pull := c.PullRequest
+			return pull == nil || pull.Closed || pull.BaseBranch != candidate.Target.Ref || pull.SourceBranch != source.Ref
+		})
+		if len(changesets) != 1 {
+			return fmt.Errorf("%w: cannot verify pull request coverage for %s", githttp.ErrBranchPullRequestRequired, source.Ref)
+		}
 	}
 	if pullRequestRule != nil {
 		resolver, ok := git.(delivery.GitProvider)
@@ -188,14 +216,18 @@ func (s *Store) promoteIntegration(ctx context.Context, org, id, actor, sha stri
 		}
 	}
 	if !recorded {
-		if err = git.PromoteCandidate(ctx, org, candidate.Repository, id, candidate.MergePreview); err != nil {
+		promote := git.PromoteCandidate
+		if rewritten {
+			promote = local.PromoteRewrittenCandidate
+		}
+		if err = promote(ctx, org, candidate.Repository, id, candidate.MergePreview); err != nil {
 			return err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	if local, ok := git.(*delivery.LocalGitProvider); ok {
+	if localGit {
 		s.CleanupMergedPullRequestBranches(ctx, org, candidate.Repository, changesets, local)
 	}
 	return nil

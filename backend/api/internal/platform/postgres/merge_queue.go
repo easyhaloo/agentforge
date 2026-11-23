@@ -28,7 +28,7 @@ func queueEvent(ctx context.Context, tx pgx.Tx, id int64, actor string) error {
 
 func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int, actor string, inputs map[string]json.RawMessage, candidate execution.Integration) (execution.QueueEntry, error) {
 	var entry execution.QueueEntry
-	if len(candidate.Sources) != 1 || (candidate.Strategy != "merge-commit" && candidate.Strategy != "ff-only") {
+	if len(candidate.Sources) != 1 {
 		return entry, execution.ErrInputs
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -39,6 +39,18 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	repo, target := candidate.Repository, candidate.Target.Ref
 	if err = lockQueue(ctx, tx, org, repo, target); err != nil {
 		return entry, err
+	}
+	var rules []githttp.RefRule
+	var defaultBranch string
+	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch FROM delivery_repositories WHERE organization_id=$1 AND slug=$2 FOR NO KEY UPDATE`, org, repo).Scan(&rules, &defaultBranch); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entry, execution.ErrInputs
+		}
+		return entry, err
+	}
+	strategy, err := githttp.QueueMergeStrategy(rules, target, defaultBranch)
+	if err != nil || strategy != candidate.Strategy || target != defaultBranch {
+		return entry, pipeline.ErrConflict
 	}
 	var count int
 	var duplicate bool
@@ -231,9 +243,9 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch FROM delivery_repositories WHERE organization_id=$1 AND slug=$2`, org, repo).Scan(&rules, &defaultBranch); err != nil {
 		return err
 	}
-	strategy := "merge-commit"
-	if githttp.LinearHistoryRule(rules, target, defaultBranch) != "" {
-		strategy = "ff-only"
+	strategy, err := githttp.QueueMergeStrategy(rules, target, defaultBranch)
+	if err != nil || target != defaultBranch {
+		return tx.Commit(ctx)
 	}
 
 	if status != "queued" {
@@ -249,7 +261,7 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 			if gitErr != nil {
 				return tx.Commit(ctx)
 			}
-			if head.CommitSHA != base || (strategy == "ff-only" && runStrategy != strategy) {
+			if head.CommitSHA != base || runStrategy != strategy {
 				err = cancelTrainRuns(ctx, tx, org, repo, target, 0, "scheduler")
 				if err == nil {
 					err = invalidateTrain(ctx, tx, org, repo, target, 0, "scheduler")

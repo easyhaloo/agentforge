@@ -3,6 +3,7 @@ package postgres
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -246,5 +247,124 @@ func TestRepositoryRulesetRequiresVerifiedQueueEntry(t *testing.T) {
 	merged := h.stored(t, string(pull.ID)).Changeset.Merge
 	if target.CommitSHA != entry.CandidateSHA || merged == nil || merged.RevisionID != "current" || merged.CommitSHA != entry.CandidateSHA {
 		t.Fatalf("verified queue did not advance main and record the current revision: %s %+v", target.CommitSHA, merged)
+	}
+}
+
+func TestRepositoryQueueRewritesOnlyVerifiedPullRequests(t *testing.T) {
+	for method, wantCommits := range map[string]string{"squash": "1", "rebase": "2"} {
+		t.Run(method, func(t *testing.T) {
+			ctx := t.Context()
+			s, h, git, _, _ := integrationFixture(t)
+			org := h.organizationID
+			repo := filepath.Join(git.Root, org, "team", "repo")
+			work := t.TempDir()
+			runGit := func(dir string, args ...string) string {
+				t.Helper()
+				cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=Test", "-c", "user.email=test@example.invalid"}, args...)...)
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Fatalf("git %v: %v: %s", args, err, out)
+				}
+				return strings.TrimSpace(string(out))
+			}
+			runGit(work, "clone", "--branch", "topic", repo, ".")
+			for _, name := range []string{"one", "two"} {
+				lockMust(t, os.WriteFile(filepath.Join(work, name), []byte(name), 0600))
+				runGit(work, "add", "--", name)
+				runGit(work, "commit", "-m", name)
+			}
+			runGit(work, "push", "origin", "topic")
+			base := runGit(repo, "rev-parse", "main")
+			source, err := git.ResolveRevision(ctx, org, rulesetTestRepo, "refs/heads/topic")
+			lockMust(t, err)
+			rule := githttp.RefRule{RequireMergeQueue: true, RequireLinearHistory: true, MergeQueueMethod: method}
+			setMainMergeRuleset(t, s, org, rule)
+			_, err = s.pool.Exec(ctx, `UPDATE delivery_repositories SET delete_merged_branches=true WHERE organization_id=$1 AND slug=$2`, org, rulesetTestRepo)
+			lockMust(t, err)
+			api := "/api/v1/organizations/" + org
+			enqueue := func(branch string) execution.QueueEntry {
+				t.Helper()
+				res := h.do(ctx, http.MethodPost, api+"/pipelines/p/versions/1/merge-queue", `{"repository":"team/repo","target":"main","sources":["`+branch+`"]}`)
+				if res.Code != http.StatusCreated {
+					t.Fatalf("enqueue %s: %d %s", branch, res.Code, res.Body)
+				}
+				var entry execution.QueueEntry
+				lockMust(t, json.Unmarshal(res.Body.Bytes(), &entry))
+				return entry
+			}
+			entry := enqueue("topic")
+			second := enqueue("other")
+			lockMust(t, s.AdvanceQueue(ctx, git))
+			entries, err := s.ListQueue(ctx, org, rulesetTestRepo, "main")
+			lockMust(t, err)
+			if len(entries) != 2 || entries[1].ID != second.ID || entries[1].RunID == "" {
+				t.Fatalf("second entry did not build behind the head: %+v", entries)
+			}
+			train, err := s.GetRun(ctx, org, entries[1].RunID)
+			lockMust(t, err)
+			if train.Integration == nil || len(train.Integration.Sources) != 2 {
+				t.Fatalf("expected a speculative train for both sources: %+v", train.Integration)
+			}
+			run, err := s.GetRun(ctx, org, entry.RunID)
+			lockMust(t, err)
+			if run.Integration == nil || run.Integration.Strategy != method || entry.CandidateSHA == source.CommitSHA {
+				t.Fatalf("unexpected queue candidate: %+v", run.Integration)
+			}
+			task, err := s.ClaimTask(ctx, registerTestRunner(t, s, org, pipeline.ContainerCheck))
+			lockMust(t, err)
+			if task == nil || task.RunID != entry.RunID {
+				t.Fatal("missing candidate task")
+			}
+			lockMust(t, s.FinishTask(ctx, *task, "succeeded", "tested"))
+			promote := func(want int, detail string) {
+				t.Helper()
+				res := h.do(ctx, http.MethodPost, api+"/pipeline-runs/"+entry.RunID+"/promote", `{"candidateSHA":"`+entry.CandidateSHA+`"}`)
+				if res.Code != want || !strings.Contains(res.Body.String(), detail) {
+					t.Fatalf("promote: %d %s; want %d %q", res.Code, res.Body, want, detail)
+				}
+			}
+			promote(http.StatusConflict, "cannot verify pull request coverage")
+			now := time.Now()
+			pull, err := delivery.NewChangeset("queue-rewrite-pr", rulesetTestRepo, "verified pull request", h.userID, now)
+			lockMust(t, err)
+			pull.PullRequest = &delivery.PullRequest{SourceBranch: "topic", BaseBranch: "main"}
+			lockMust(t, pull.AddPullRequestRevision("current", source, base, h.userID, now))
+			approveRulesetTestRevision(t, pull, h.userID, base, "current")
+			_, err = s.Create(ctx, org, pull)
+			lockMust(t, err)
+			runGit(repo, "update-ref", "refs/heads/topic", source.ParentSHA, source.CommitSHA)
+			promote(http.StatusConflict, "source branch topic moved")
+			if got := runGit(repo, "rev-parse", "main"); got != base {
+				t.Fatalf("rejected promotion moved main to %s", got)
+			}
+			runGit(repo, "update-ref", "refs/heads/topic", source.CommitSHA, source.ParentSHA)
+			promote(http.StatusOK, entry.CandidateSHA)
+			if got := runGit(repo, "rev-parse", "main"); got != entry.CandidateSHA {
+				t.Fatalf("main = %s, want %s", got, entry.CandidateSHA)
+			}
+			if got := runGit(repo, "rev-list", "--count", base+"..main"); got != wantCommits {
+				t.Fatalf("%s introduced %s commits, want %s", method, got, wantCommits)
+			}
+			if runGit(repo, "show", "main:one") != "one" || runGit(repo, "show", "main:two") != "two" {
+				t.Fatal("merged files differ from verified changes")
+			}
+			if merged := h.stored(t, string(pull.ID)).Changeset.Merge; merged == nil || merged.RevisionID != "current" || merged.CommitSHA != entry.CandidateSHA {
+				t.Fatalf("merge did not record original revision and rewritten SHA: %+v", merged)
+			}
+			if got := runGit(repo, "for-each-ref", "refs/heads/topic"); got != "" {
+				t.Fatalf("merged source branch was not deleted: %s", got)
+			}
+			lockMust(t, s.AdvanceQueue(ctx, git))
+			entries, err = s.ListQueue(ctx, org, rulesetTestRepo, "main")
+			lockMust(t, err)
+			if len(entries) != 1 || entries[0].ID != second.ID || entries[0].RunID == "" || entries[0].RunID == train.ID {
+				t.Fatalf("queue did not rebuild the second entry: %+v", entries)
+			}
+			rebuilt, err := s.GetRun(ctx, org, entries[0].RunID)
+			lockMust(t, err)
+			if rebuilt.Integration == nil || rebuilt.Integration.Target.SHA != entry.CandidateSHA || len(rebuilt.Integration.Sources) != 1 || rebuilt.Integration.Sources[0].SHA != second.SourceSHA {
+				t.Fatalf("rebuilt candidate must use the promoted base and the second pinned source: %+v", rebuilt.Integration)
+			}
+		})
 	}
 }

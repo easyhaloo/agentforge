@@ -419,8 +419,12 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await content.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(content.getByRole("alert")).toContainText("Use ~DEFAULT_BRANCH as the only include pattern");
     await content.getByRole("textbox", { name: "Include patterns" }).fill("~DEFAULT_BRANCH");
-    await capture("rulesets-merge-queue");
+    await selectOption(page, content.getByRole("combobox", { name: "Queue merge method" }), "Squash");
+    await capture("rulesets-merge-queue-method");
     await saveRulesets();
+    await page.reload();
+    await content.getByRole("button", { name: "Edit Default branch queue" }).click();
+    await expect(content.getByRole("combobox", { name: "Queue merge method" })).toContainText("Squash");
     const release = "refs/heads/release";
     const releaseBeforeQueue = checkedGit(folder, "ls-remote", gitURL, release);
     expect(git(worktree, "push", "origin", `HEAD:${release}`).stderr).toContain("direct updates to the default branch are prohibited");

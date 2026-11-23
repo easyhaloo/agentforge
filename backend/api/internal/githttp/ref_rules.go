@@ -30,10 +30,12 @@ type RefRule struct {
 	RequirePullRequest   bool             `json:"require_pull_request"`
 	RequireLinearHistory bool             `json:"require_linear_history,omitempty"`
 	RequireMergeQueue    bool             `json:"require_merge_queue,omitempty"`
+	MergeQueueMethod     string           `json:"merge_queue_method,omitempty"`
 	NamePatterns         []RefNamePattern `json:"name_patterns,omitempty"`
 }
 
 func ValidRefRules(rules []RefRule) bool {
+	var queueMethod string
 	if len(rules) > 10 {
 		return false
 	}
@@ -46,6 +48,17 @@ func ValidRefRules(rules []RefRule) bool {
 		}
 		if rule.RequireMergeQueue && (!slices.Equal(rule.Include, []string{"~DEFAULT_BRANCH"}) || len(rule.Exclude) != 0) {
 			return false
+		}
+		if rule.MergeQueueMethod != "" {
+			if !rule.RequireMergeQueue || !slices.Contains([]string{"merge", "squash", "rebase"}, rule.MergeQueueMethod) {
+				return false
+			}
+			if rule.Enabled {
+				if queueMethod != "" && queueMethod != rule.MergeQueueMethod {
+					return false
+				}
+				queueMethod = rule.MergeQueueMethod
+			}
 		}
 		for _, other := range rules[:i] {
 			if strings.EqualFold(other.Name, rule.Name) {
@@ -244,6 +257,27 @@ func (policy PushPolicy) CheckBranchWrite(ref string, creating bool) error {
 		}
 	}
 	return nil
+}
+
+// QueueMergeStrategy resolves the configured merge method or the legacy default.
+func QueueMergeStrategy(rules []RefRule, branch, defaultBranch string) (string, error) {
+	linearRule := LinearHistoryRule(rules, branch, defaultBranch)
+	for _, rule := range rules {
+		if !rule.RequireMergeQueue || rule.MergeQueueMethod == "" || !rule.matches("branch", branch, defaultBranch) {
+			continue
+		}
+		if rule.MergeQueueMethod != "merge" {
+			return rule.MergeQueueMethod, nil
+		}
+		if linearRule != "" {
+			return "", fmt.Errorf("ruleset %q forbids merge commits; choose squash or rebase for the merge queue: %w", linearRule, ErrLinearHistoryRequired)
+		}
+		return "merge-commit", nil
+	}
+	if linearRule != "" {
+		return "ff-only", nil
+	}
+	return "merge-commit", nil
 }
 
 // CheckBranchMerge applies matching rules that govern server-authorized branch updates.

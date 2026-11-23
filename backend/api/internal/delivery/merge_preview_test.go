@@ -181,3 +181,163 @@ func TestBuildAndPromoteOnlyRetainedCandidate(t *testing.T) {
 		t.Fatalf("promoted %s", got)
 	}
 }
+
+func TestPrepareCandidateSquashAndRebase(t *testing.T) {
+	p, git, commit := newCandidateStrategyRepo(t)
+	fork := commit("base.txt", "base", "")
+	git("checkout", "-b", "topic")
+	first := commit("topic.txt", "first", "First Author <first@example.invalid>")
+	git("commit", "--allow-empty", "-m", "empty")
+	second := commit("topic.txt", "second", "Second Author <second@example.invalid>")
+	git("checkout", "main")
+	base := commit("main.txt", "main", "")
+	git("checkout", "-b", "another")
+	third := commit("another.txt", "third", "Third Author <third@example.invalid>")
+	config := filepath.Join(t.TempDir(), "gitconfig")
+	if err := os.WriteFile(config, []byte("[commit]\n\tgpgSign = true\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", config)
+	refs := git("show-ref", "--heads")
+	for _, strategy := range []string{"squash", "rebase"} {
+		t.Run(strategy, func(t *testing.T) {
+			request := MergeRequest{Target: "main", Sources: []string{"topic", "another"}, Strategy: strategy}
+			if _, err := p.PreviewMerge(t.Context(), "org", "team/repo", request); !errors.Is(err, ErrRepositoryInvalid) {
+				t.Fatalf("preview accepted %s: %v", strategy, err)
+			}
+			result, err := p.PrepareCandidate(t.Context(), "org", "team/repo", request)
+			if err != nil || result.Status != "clean" || result.CandidateSHA == "" {
+				t.Fatalf("candidate: %+v %v", result, err)
+			}
+			if got := git("rev-parse", candidateRef(result.CandidateSHA)); got != result.CandidateSHA {
+				t.Fatalf("retained candidate = %s", got)
+			}
+			for name, want := range map[string]string{"main.txt": "main", "topic.txt": "second", "another.txt": "third"} {
+				if got := git("show", result.TreeSHA+":"+name); got != want {
+					t.Fatalf("%s = %q, want %q", name, got, want)
+				}
+			}
+			commits := strings.Split(git("rev-list", "--reverse", "--parents", base+".."+result.CandidateSHA), "\n")
+			originals := []string{first, second, third}
+			wantCount := 2 // squash creates one commit per source in request order
+			if strategy == "rebase" {
+				wantCount = len(originals)
+			}
+			if len(commits) != wantCount {
+				t.Fatalf("introduced commits = %v, want %d", commits, wantCount)
+			}
+			parent := base
+			for i, line := range commits {
+				fields := strings.Fields(line)
+				if len(fields) != 2 || fields[1] != parent {
+					t.Fatalf("commit %q, want exactly one parent %s", line, parent)
+				}
+				parent = fields[0]
+				if strategy == "rebase" {
+					const format = "--format=%an <%ae> %aI%n%B"
+					if got, want := git("show", "-s", format, parent), git("show", "-s", format, originals[i]); got != want || parent == originals[i] {
+						t.Fatalf("rebased commit = %q, want rewritten %q", got, want)
+					}
+					if got := git("show", "-s", "--format=%cn <%ce>", parent); got != "AgentForge <ci@agentforge.invalid>" {
+						t.Fatalf("rebased committer = %q", got)
+					}
+				}
+			}
+			if got := git("show-ref", "--heads"); got != refs {
+				t.Fatalf("branch refs changed: %s", got)
+			}
+		})
+	}
+	t.Run("rewrite fast-forward input", func(t *testing.T) {
+		request := MergeRequest{Target: fork, Sources: []string{"topic"}, Strategy: "rebase"}
+		first, err := p.PrepareCandidate(t.Context(), "org", "team/repo", request)
+		if err != nil || first.Status != "clean" || first.CandidateSHA == second || first.TreeSHA != git("rev-parse", "topic^{tree}") {
+			t.Fatalf("candidate: %+v %v", first, err)
+		}
+		repeat, err := p.PrepareCandidate(t.Context(), "org", "team/repo", request)
+		if err != nil || first.CandidateSHA != repeat.CandidateSHA || git("show-ref", "--heads") != refs {
+			t.Fatalf("repeated candidate: %+v %v", repeat, err)
+		}
+	})
+}
+
+func TestPrepareCandidateStrategyConflictsLeaveRefsUntouched(t *testing.T) {
+	for _, scenario := range []string{"merge", "replay", "merge-only edit"} {
+		t.Run(scenario, func(t *testing.T) {
+			p, git, commit := newCandidateStrategyRepo(t)
+			const file = "file with spaces"
+			commit(file, "base", "")
+			git("branch", "topic")
+			commit(file, "main", "")
+			git("checkout", "topic")
+			switch scenario {
+			case "merge", "replay":
+				commit(file, "topic", "")
+				if scenario == "replay" {
+					// The net diff merges cleanly, but the first replayed commit conflicts.
+					commit(file, "base", "")
+				}
+			case "merge-only edit":
+				git("branch", "side")
+				commit("topic.txt", "topic", "")
+				git("checkout", "side")
+				commit("side.txt", "side", "")
+				git("checkout", "topic")
+				git("merge", "--no-commit", "side")
+				commit("side.txt", "edit recorded only in merge", "")
+			}
+			refs := git("show-ref")
+			strategies := []string{"rebase"}
+			if scenario == "merge" {
+				strategies = append(strategies, "squash")
+			}
+			for _, strategy := range strategies {
+				result, err := p.PrepareCandidate(t.Context(), "org", "team/repo", MergeRequest{Target: "main", Sources: []string{"topic"}, Strategy: strategy})
+				var wantPaths []string
+				if scenario != "merge-only edit" {
+					wantPaths = []string{file}
+				}
+				if err != nil || result.Status != "conflict" || result.ConflictAt == nil || *result.ConflictAt != 0 || result.CandidateSHA != "" || result.TreeSHA != "" || !slices.Equal(result.ConflictPaths, wantPaths) {
+					t.Fatalf("%s: %+v %v", strategy, result, err)
+				}
+				if got := git("show-ref"); got != refs {
+					t.Fatalf("%s wrote refs: %s", strategy, got)
+				}
+			}
+			if scenario == "merge-only edit" {
+				result, err := p.PrepareCandidate(t.Context(), "org", "team/repo", MergeRequest{Target: "main", Sources: []string{"topic"}, Strategy: "squash"})
+				if err != nil || result.Status != "clean" || git("show", result.TreeSHA+":side.txt") != "edit recorded only in merge" {
+					t.Fatalf("squash lost the merge edit: %+v %v", result, err)
+				}
+			}
+		})
+	}
+}
+
+func newCandidateStrategyRepo(t *testing.T) (*LocalGitProvider, func(...string) string, func(string, string, string) string) {
+	t.Helper()
+	root := t.TempDir()
+	repo := filepath.Join(root, "org", "team", "repo")
+	if err := os.MkdirAll(repo, 0700); err != nil {
+		t.Fatal(err)
+	}
+	git := func(args ...string) string {
+		t.Helper()
+		return strings.TrimSpace(gitTest(t, repo, args...))
+	}
+	git("init", "-b", "main")
+	commit := func(file, text, author string) string {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(repo, file), []byte(text+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		git("add", "--", file)
+		args := []string{"commit", "-m", text}
+		if author != "" {
+			args = append(args, "--author", author, "--date", "2021-05-04T03:02:01+02:30")
+		}
+		git(args...)
+		return git("rev-parse", "HEAD")
+	}
+	return mustProvider(t, root), git, commit
+}

@@ -66,6 +66,15 @@ describe("ruleset JSON portability", () => {
     expect(githubImport({ rules })).toBeUndefined();
   });
 
+  it.each(["MERGE", "SQUASH", "REBASE"])("imports and exports the %s queue method", merge_method => {
+    const rule = githubImport({
+      conditions: { ref_name: { include: ["~DEFAULT_BRANCH"] } },
+      rules: [{ type: "merge_queue", parameters: { merge_method } }],
+    });
+    expect(rule?.merge_queue_method).toBe(merge_method.toLowerCase());
+    expect(rule && parseRulesetJson(serializeRulesetJson(rule))).toEqual(rule);
+  });
+
   it.each([
     { rules: [{ type: "pull_request", parameters: { required_approving_review_count: 2 } }] },
     { rules: [{ type: "pull_request", parameters: { require_code_owner_review: true } }] },

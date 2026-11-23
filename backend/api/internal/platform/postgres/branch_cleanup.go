@@ -67,7 +67,7 @@ func (s *Store) cleanupMergedBranches(ctx context.Context, org, repo string, cha
 			return err
 		}
 		if !inUse {
-			if err := git.DeleteMergedBranch(ctx, org, repo, pr.SourceBranch, pr.BaseBranch, revision.CommitSHA); err != nil && !errors.Is(err, delivery.ErrWriteConflict) {
+			if err := git.DeleteMergedBranch(ctx, org, repo, pr.SourceBranch, pr.BaseBranch, revision.CommitSHA, change.Merge.CommitSHA); err != nil && !errors.Is(err, delivery.ErrWriteConflict) {
 				return fmt.Errorf("delete merged branch: %w", err)
 			}
 		}

@@ -97,6 +97,19 @@ func (p *LocalGitProvider) HasPromotion(ctx context.Context, org, repository, ru
 
 // PromoteCandidate advances an operator-managed bare target using Git's atomic old-OID check.
 func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository, runID string, preview MergePreview) error {
+	return p.promoteCandidate(ctx, org, repository, runID, preview, nil)
+}
+
+// PromoteRewrittenCandidate checks the original source tip in the same Git
+// transaction that advances the target and records the promotion receipt.
+func (p *LocalGitProvider) PromoteRewrittenCandidate(ctx context.Context, org, repository, runID string, preview MergePreview) error {
+	if len(preview.Sources) != 1 {
+		return ErrRepositoryInvalid
+	}
+	return p.promoteCandidate(ctx, org, repository, runID, preview, &preview.Sources[0])
+}
+
+func (p *LocalGitProvider) promoteCandidate(ctx context.Context, org, repository, runID string, preview MergePreview, source *PinnedRef) error {
 	base, sha, branch := preview.Target.SHA, preview.CandidateSHA, "refs/heads/"+preview.Target.Ref
 	if !promotionID.MatchString(runID) || !objectID.MatchString(base) || !objectID.MatchString(sha) || preview.Target.Ref == "" {
 		return ErrRepositoryInvalid
@@ -120,7 +133,19 @@ func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository
 		return ErrRepositoryInvalid
 	}
 	receipt := promotionRef(runID)
-	transaction := fmt.Sprintf("start\nupdate %s %s %s\ncreate %s %s\nprepare\ncommit\n", branch, sha, base, receipt, sha)
+	verify := ""
+	sourceRef := ""
+	if source != nil {
+		sourceRef = "refs/heads/" + source.Ref
+		if sourceRef == branch || !objectID.MatchString(source.SHA) {
+			return ErrRepositoryInvalid
+		}
+		if _, err := previewGit(ctx, path, "check-ref-format", sourceRef); err != nil {
+			return ErrRepositoryInvalid
+		}
+		verify = fmt.Sprintf("verify %s %s\n", sourceRef, source.SHA)
+	}
+	transaction := fmt.Sprintf("start\n%supdate %s %s %s\ncreate %s %s\nprepare\ncommit\n", verify, branch, sha, base, receipt, sha)
 	if _, err := previewGitInput(ctx, path, strings.NewReader(transaction), "update-ref", "--no-deref", "--stdin"); err != nil {
 		// Both refs committed or neither did, including when the process lost its reply.
 		recorded, readErr := previewGit(ctx, path, "rev-parse", "--verify", receipt)
@@ -130,6 +155,12 @@ func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository
 		head, readErr := previewGit(ctx, path, "rev-parse", "--verify", branch)
 		if readErr != nil || strings.TrimSpace(string(head)) != base {
 			return ErrCandidateStale
+		}
+		if source != nil {
+			tip, err := previewGit(ctx, path, "rev-parse", "--verify", sourceRef)
+			if err != nil || strings.TrimSpace(string(tip)) != source.SHA {
+				return ErrCandidateStale
+			}
 		}
 		return ErrProviderUnavailable
 	}
