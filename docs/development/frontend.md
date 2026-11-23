@@ -443,11 +443,13 @@ Use the shared left `Drawer` and compact action rows for workspace navigation. T
 | Element | Standard |
 | --- | --- |
 | Panel | 320 px wide, capped at viewport width minus 32 px so the backdrop remains dismissible. Use a 16 px radius on the exposed edge and a theme surface. |
-| Header | Keep the brand mark, localized title, and 32 px close target fixed above the scrolling body. The title is 14 px at weight 600 and the close icon is 16 px. |
+| Header | Keep the brand mark and 32 px close target fixed above the scrolling body. Use a 16 px close icon and give the dialog a localized accessible name. |
 | Rows | Use 16 px outer gutters, 32 px minimum height, 8 px icon gap and side padding, 16 px Lucide icons in the secondary text color, and 14 px labels on a 20 px line at weight 400. Let long labels wrap. |
 | Groups | Use localized 12 px labels at weight 600. Separate groups with a 1 px `--af-color-border` line and 8 px on each side. Show the organization picker in the drawer at 720 px and below. |
 | Current page | Use `aria-current="page"`, weight 600, a neutral row fill, and a 3 px primary-color marker on the leading edge. Preserve the keyboard focus outline. |
 | Backdrop and motion | Use a 15% blue-gray scrim in light mode and a 60% dark scrim in dark mode. Pair a 300 ms horizontal slide with a 300 ms opacity transition. Disable both transitions for reduced motion. |
+
+Place the personal and selected-organization settings links in the avatar menu.
 
 Focus the close button on open and keep Tab traversal within the panel. Escape, the close button, and backdrop clicks dismiss it and return focus to the trigger. Close when a navigation link or organization is selected. Keep the page scroll locked while open and let the drawer body scroll independently. During exit, the drawer stops receiving focus and pointer events.
 

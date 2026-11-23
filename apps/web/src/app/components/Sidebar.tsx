@@ -7,19 +7,19 @@ import { groupToNavKey, labelToNavKey } from "../navigation-labels";
 import { Drawer } from "../../shared/ui";
 import "./Sidebar.css";
 
-type Props = { open: boolean; linkHandle: string; onClose: () => void; controls?: ReactNode };
+type Props = { open: boolean; linkHandle: string; onClose: () => void; organizationPicker: ReactNode };
 
-export function Sidebar({ open, linkHandle, onClose, controls }: Props) {
+export function Sidebar({ open, linkHandle, onClose, organizationPicker }: Props) {
   const { t } = useTranslation("navigation");
   const groupId = useId();
   const title = t("sidebar.navigation");
 
   return (
-    <Drawer open={open} title={title} placement="left" width="min(320px, calc(100vw - 32px))" onClose={onClose}
+    <Drawer open={open} title={title} hideTitle placement="left" width="min(320px, calc(100vw - 32px))" onClose={onClose}
       className="workspace-navigation-overlay"
       leadingIcon={<span className="brand-mark" aria-hidden="true"><Sparkles size={16} /></span>}>
       <nav className="workspace-navigation" aria-label={title}>
-        {controls}
+        <div className="workspace-navigation__organization-picker">{organizationPicker}</div>
         {navigationGroups.map(group => {
           const headingId = `${groupId}-${group.label.replaceAll(" ", "-")}`;
           return (
