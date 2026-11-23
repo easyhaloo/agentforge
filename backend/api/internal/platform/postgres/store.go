@@ -168,6 +168,14 @@ func createChangeset(ctx context.Context, db interface {
 }
 
 func (s *Store) Update(ctx context.Context, organizationID string, changeset *delivery.Changeset, expectedVersion int64) (delivery.StoredChangeset, error) {
+	return updateChangeset(ctx, s.pool, organizationID, changeset, expectedVersion)
+}
+
+type changesetUpdateQueryer interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func updateChangeset(ctx context.Context, db changesetUpdateQueryer, organizationID string, changeset *delivery.Changeset, expectedVersion int64) (delivery.StoredChangeset, error) {
 	if strings.TrimSpace(organizationID) == "" || changeset == nil || changeset.ID == "" || expectedVersion < 1 {
 		return delivery.StoredChangeset{}, delivery.ErrInvalidInput
 	}
@@ -177,7 +185,7 @@ func (s *Store) Update(ctx context.Context, organizationID string, changeset *de
 	}
 	var stored delivery.StoredChangeset
 	stored.Changeset = changeset
-	err = s.pool.QueryRow(ctx, `
+	err = db.QueryRow(ctx, `
 		UPDATE delivery_changesets
 		SET repository = $3, title = $4, state = $5, version = version + 1, updated_at = now()
 		WHERE organization_id = $1 AND id = $2 AND version = $6 AND pull_merge_intent IS NULL
@@ -186,7 +194,7 @@ func (s *Store) Update(ctx context.Context, organizationID string, changeset *de
 		Scan(&stored.Version, &stored.CreatedAt, &stored.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var exists bool
-		if checkErr := s.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM delivery_changesets WHERE organization_id = $1 AND id = $2)", organizationID, string(changeset.ID)).Scan(&exists); checkErr != nil {
+		if checkErr := db.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM delivery_changesets WHERE organization_id = $1 AND id = $2)", organizationID, string(changeset.ID)).Scan(&exists); checkErr != nil {
 			return delivery.StoredChangeset{}, fmt.Errorf("check changeset after update conflict: %w", checkErr)
 		}
 		if !exists {

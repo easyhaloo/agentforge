@@ -12,7 +12,7 @@ import (
 type pullMergeStore interface {
 	PullMergeIntent(context.Context, string, delivery.ID) (*delivery.PullMergeIntent, error)
 	WritePullMergeIntent(context.Context, string, delivery.ID, int64, *delivery.PullMergeIntent) error
-	CompletePullMergeIntent(context.Context, string, delivery.StoredChangeset, delivery.PullMergeIntent) (delivery.StoredChangeset, error)
+	CompletePullMergeIntent(context.Context, string, delivery.StoredChangeset, delivery.PullMergeIntent, *delivery.LocalGitProvider) (delivery.StoredChangeset, error)
 }
 
 // A committed receipt is processed before checking the live branch or the new
@@ -90,7 +90,7 @@ func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Req
 }
 
 func (d DeliveryDependencies) finishPullMerge(w http.ResponseWriter, r *http.Request, org string, store pullMergeStore, git *delivery.LocalGitProvider, stored delivery.StoredChangeset, intent delivery.PullMergeIntent, release func()) {
-	updated, err := store.CompletePullMergeIntent(r.Context(), org, stored, intent)
+	updated, err := store.CompletePullMergeIntent(r.Context(), org, stored, intent, git)
 	if err != nil {
 		writeRepositoryError(w, err)
 		return

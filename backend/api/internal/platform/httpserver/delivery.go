@@ -1280,12 +1280,19 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeDeliveryError(w, err)
 		return
 	}
-	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	git, _ := d.Git.(*delivery.LocalGitProvider)
+	var updated delivery.StoredChangeset
+	if local, ok := d.Repository.(interface {
+		CompleteLocalMerge(context.Context, string, delivery.StoredChangeset, string, *delivery.LocalGitProvider) (delivery.StoredChangeset, error)
+	}); ok && git != nil {
+		updated, err = local.CompleteLocalMerge(r.Context(), principal.OrganizationID, stored, baseRevision.CommitSHA, git)
+	} else {
+		updated, err = d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	}
 	if err != nil {
 		writeRepositoryError(w, err)
 		return
 	}
-	git, _ := d.Git.(*delivery.LocalGitProvider)
 	d.cleanupPullMerge(r.Context(), principal.OrganizationID, updated, git, unlockRepository)
 	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
 }

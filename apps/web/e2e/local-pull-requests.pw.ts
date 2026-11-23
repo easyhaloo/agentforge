@@ -182,6 +182,15 @@ test("reviews an updated pull request and merges only its verified revision", as
         git("branch", "-f", "release", target);
       }
     });
+    const keywordIssue = await page.context().newPage();
+    try {
+      await keywordIssue.goto(`${repositoryUrl}/issues/new`);
+      await keywordIssue.getByRole("textbox", { name: "Title", exact: true }).fill("Verify closure from a pull request description");
+      await keywordIssue.getByRole("button", { name: "Create issue", exact: true }).click();
+      await expect(keywordIssue).toHaveURL(`${repositoryUrl}/issues/2`);
+    } finally {
+      await keywordIssue.close();
+    }
     await page.getByRole("link", { name: "Create pull request", exact: true }).click();
     await expect(page).toHaveURL(`${base.origin}${pullsPath}/new?issue=1`);
     await expect(page.getByRole("link", { name: "Link to issue #1" })).toHaveAttribute("href", `${orgPath}/repositories/${repository}/issues/1`);
@@ -192,7 +201,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await capture("compare");
     const title = "Document the verification workflow";
     await page.getByLabel("Title", { exact: true }).fill(title);
-    await page.getByLabel("Description", { exact: true }).fill("A real pull request from the Git test repository.");
+    await page.getByLabel("Description", { exact: true }).fill("A real pull request from the Git test repository. Fixes: #2.");
     await page.getByRole("checkbox", { name: "Create as draft" }).check();
     const created = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/changesets"));
     await page.getByRole("button", { name: "Create draft pull request" }).click();
@@ -662,7 +671,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(git("rev-parse", "refs/heads/main")).toBe(target);
     expect(mergedHead).not.toBe(secondHead);
     expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([target]);
-    expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${updatedTitle}\n\nA real pull request from the Git test repository.`);
+    expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${updatedTitle}\n\nA real pull request from the Git test repository. Fixes: #2.`);
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
@@ -673,6 +682,9 @@ test("reviews an updated pull request and merges only its verified revision", as
       await issuePage.goto(`${repositoryUrl}/issues/1`);
       await expect(issuePage.getByRole("button", { name: "Reopen issue", exact: true })).toBeVisible();
       await issuePage.screenshot({ path: testInfo.outputPath("issue-closed-after-default-branch-merge.png"), animations: "disabled" });
+      await issuePage.goto(`${repositoryUrl}/issues/2`);
+      await expect(issuePage.getByRole("button", { name: "Reopen issue", exact: true })).toBeVisible();
+      await issuePage.screenshot({ path: testInfo.outputPath("issue-closed-by-pull-request-keyword.png"), animations: "disabled" });
     } finally {
       await issuePage.close();
     }

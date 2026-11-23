@@ -23,7 +23,7 @@ func (s *Store) WritePullMergeIntent(ctx context.Context, org string, id deliver
 	return err
 }
 
-func (s *Store) CompletePullMergeIntent(ctx context.Context, org string, stored delivery.StoredChangeset, intent delivery.PullMergeIntent) (delivery.StoredChangeset, error) {
+func (s *Store) CompletePullMergeIntent(ctx context.Context, org string, stored delivery.StoredChangeset, intent delivery.PullMergeIntent, git *delivery.LocalGitProvider) (delivery.StoredChangeset, error) {
 	c := stored.Changeset
 	revision, current := c.CurrentRevision()
 	if !current || revision.ID != intent.RevisionID {
@@ -49,8 +49,38 @@ func (s *Store) CompletePullMergeIntent(ctx context.Context, org string, stored 
 	if err := closeMergedPullIssues(ctx, tx, org, c, intent.Candidate.Target.Ref, intent.Actor); err != nil {
 		return delivery.StoredChangeset{}, err
 	}
+	if err := closeMergedCommitIssues(ctx, tx, git, org, c.Repository, intent.Candidate.Target.Ref, intent.Candidate.Target.SHA, intent.Candidate.CandidateSHA, intent.Actor); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return delivery.StoredChangeset{}, err
 	}
 	return stored, nil
+}
+
+// CompleteLocalMerge is the persistence path for a registered checkout merged with MergeRevision.
+func (s *Store) CompleteLocalMerge(ctx context.Context, org string, stored delivery.StoredChangeset, baseSHA string, git *delivery.LocalGitProvider) (delivery.StoredChangeset, error) {
+	c := stored.Changeset
+	if c == nil || c.Merge == nil {
+		return delivery.StoredChangeset{}, delivery.ErrInvalidInput
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	defer tx.Rollback(ctx)
+	updated, err := updateChangeset(ctx, tx, org, c, stored.Version)
+	if err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	if err := closeMergedPullIssues(ctx, tx, org, c, c.Merge.TargetRef, c.Merge.Actor); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	if err := closeMergedCommitIssues(ctx, tx, git, org, c.Repository, c.Merge.TargetRef, baseSHA, c.Merge.CommitSHA, c.Merge.Actor); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	return updated, nil
 }
