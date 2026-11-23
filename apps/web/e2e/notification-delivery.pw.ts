@@ -99,8 +99,8 @@ test("verify a notification email and configure repository delivery for issue ac
     await recipient.goto(`${repository}/settings`);
     await expect(recipient.getByRole("link", { name: "Webhooks", exact: true })).toHaveCount(0);
     await recipient.goto(`${repository}/settings/webhooks`);
-    await expect(recipient.getByRole("alert")).toBeVisible();
-    await expect(recipient.getByRole("region", { name: "Webhooks" })).toHaveCount(0);
+    await expect(recipient.getByRole("alert")).toHaveText("Only organization owners and administrators can manage repository settings.");
+    await expect(recipient.getByRole("button", { name: "Add webhook" })).toHaveCount(0);
 
     await page.goto(`${repository}/issues/new`);
     await page.getByRole("textbox", { name: "Title", exact: true }).fill("Check notification delivery");
