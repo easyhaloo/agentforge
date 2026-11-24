@@ -38,14 +38,6 @@ describe("navigation data source", () => {
     expect(navigationGroups.map((group) => ({ label: group.label, items: group.items.map((item) => item.label) }))).toEqual(expectedGroups);
   });
 
-  it("uses translation keys for provided item descriptions", () => {
-    // The English wording lives in the locale files now, so the description is a key the
-    // `architecture/i18n-keys.test.ts` check resolves in every shipped language.
-    for (const item of navigationItems) {
-      if (item.descriptionKey !== undefined) expect(item.descriptionKey, item.label).toMatch(/^navigation:descriptions\./);
-    }
-  });
-
   it("tags every item with the group it is listed under", () => {
     for (const group of expectedGroups) {
       for (const label of group.items) {

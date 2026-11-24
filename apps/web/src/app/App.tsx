@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Menu } from "lucide-react";
 import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -13,7 +13,6 @@ import { Topbar } from "./components/Topbar";
 import { repositoryIssuesSettingChanged } from "../pages/repositories/repositoryPermissions";
 import { RepositoryNavigation } from "../pages/repositories/RepositoryNavigation";
 import { RepositorySwitcher } from "./components/RepositorySwitcher";
-import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
 import { navigationItemFor, repositorySectionForPath, routeLabel } from "./navigation";
 import { useNotify } from "./useNotify";
@@ -106,13 +105,12 @@ function App() {
     return () => { request.abort(); window.removeEventListener(repositoryIssuesSettingChanged, refresh); };
   }, [urlOrganizationID, repository, repositoryKey]);
   const isOverview = label === "Overview";
-  const isQueuePage = label === "Review" || label === "Eval";
-  const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
+  const pageLabelId = useId();
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization, selectOrganization: setSelectedOrganizationID }}>
       {account && <AccountTheme key={account.user_id} />}
       <div className="shell">
-        <Topbar label={label} onSearch={() => setCommandOpen(true)} onSignOut={() => void signOut()}
+        <Topbar label={label} pageLabelId={pageLabelId} onSearch={() => setCommandOpen(true)} onSignOut={() => void signOut()}
           context={isRepositoryDetail && urlOrganization && owner && repo ? <RepositorySwitcher key={`${urlOrganization.id}:${owner}/${repo}`}
             organizationId={urlOrganization.id} organizationName={urlOrganization.name} handle={linkHandle} owner={owner} repo={repo} section={repositorySection} /> : undefined}
           navigation={<Button variant="ghost" className="workspace-icon" aria-label={t("navigation:sidebar.openNavigation")}
@@ -120,10 +118,8 @@ function App() {
           organizationHandle={selectedOrganization ? linkHandle : undefined} />
         {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} issuesDisabled={issuesDisabled} />}
         <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
-        <main className="main">
+        <main className="main" aria-labelledby={isRepositoryDetail ? undefined : pageLabelId}>
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
-            {!isOverview && label !== "Projects" && !isQueuePage && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
-              <PageHeader label={label} descriptionKey={item?.descriptionKey} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : issuesDisabled && repositorySection === "issues"
               ? <section className="card org-auth-state"><h2>{t("repositories:settings.issuesDisabled")}</h2></section>
               : <Outlet />}
