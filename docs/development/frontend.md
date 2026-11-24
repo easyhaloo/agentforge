@@ -500,6 +500,19 @@ Use GitHub Primer as a reference for buttons, labels, and anchored action menus.
 
 Use semantic theme tokens for surfaces, borders, hover, and status colors. Check visible focus and text contrast in both themes, and localize labels and feedback in `en-US` and `zh-CN`. At 320 px, keep the role picker and row actions reachable without horizontal page scrolling. Move status and date into the identity cell and stack the invitation form. Review loading, empty, error, and restricted states alongside the populated layout. [Organization settings browser tests](../../apps/web/e2e/organization-settings.pw.ts)
 
+### Workspace topbar spacing
+
+Use the shared workspace Topbar for page labels and repository context. The supplied GitHub Pull requests screenshot informed the spacing below. The desktop gaps are estimates from the visible edges in the screenshot, using the 32 px menu control as the scale reference. The values in the table are AgentForge layout dimensions in CSS pixels.
+
+| Element or edge-to-edge gap | Above 720 px | 720 px and below |
+| --- | ---: | ---: |
+| Leading inset to menu button | 12 px | 12 px |
+| Menu button and brand mark | 32 × 32 px each | 32 × 32 px each |
+| Menu button to brand mark | 12 px | 4 px |
+| Brand mark to page label or repository context | 16 px | 8 px |
+
+Vertically center the menu button, brand mark, and label or repository context in the row. Measure gaps from the outer control or mark box to the next layout box. Set page labels at 14 px and weight 600. Keep labels on one line and truncate with an ellipsis when space runs out. At 420 px and below, move the trailing actions to a second row aligned to the end to give the label or repository context room. Verify both rows fit at 320 px. [Topbar browser tests](../../apps/web/e2e/routing.pw.ts)
+
 ### Repository header
 
 Show the repository owner and name once in the Topbar. Place the repository navigation on the same surface directly below it, with a divider under the navigation. Keep page titles and page-specific actions in the page body. Use route links with `aria-current="page"` and a visible underline for the active section, including on nested issue and pull request URLs. Keep the row horizontally scrollable on narrow screens and every link reachable by keyboard.

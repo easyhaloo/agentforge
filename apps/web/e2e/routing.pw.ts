@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { demoOrganization, installApiMocks, labsOrganization } from "./support/api-mocks";
-import { navigation, openNavigation } from "./support/navigation";
+import { navigation, navigationToggle, openNavigation } from "./support/navigation";
 
 const topbarTitle = (page: Page) => page.getByRole("banner").locator(".workspace-brand__page");
 const pageHeading = (page: Page) => page.getByRole("main").locator(".page-heading h1");
@@ -11,6 +11,31 @@ const pathOf = (page: Page) => { const { pathname, search, hash } = new URL(page
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
+});
+
+test("the workspace Topbar spaces the menu, brand and title on desktop and mobile", async ({ page }, testInfo) => {
+  await installApiMocks(page);
+  await page.goto("/projects");
+  const header = page.getByRole("banner");
+  const brand = header.getByRole("link", { name: "agentforge", exact: true });
+  const title = topbarTitle(page);
+  await expect(title).toHaveText("Projects");
+  await expect(header.getByRole("link", { name: "All repositories" })).toBeVisible();
+
+  for (const [width, menuGap, titleGap] of [[1280, 12, 16], [320, 4, 8]]) {
+    await page.setViewportSize({ width, height: 800 });
+    const menuBox = (await navigationToggle(page).boundingBox())!;
+    const brandBox = (await brand.boundingBox())!;
+    const titleBox = (await title.boundingBox())!;
+    expect(menuBox).toMatchObject({ x: 12, width: 32, height: 32 });
+    expect(brandBox).toMatchObject({ y: menuBox.y, width: 32, height: 32 });
+    expect(brandBox.x - (menuBox.x + menuBox.width)).toBe(menuGap);
+    expect(titleBox.x - (brandBox.x + brandBox.width)).toBe(titleGap);
+    expect(titleBox.y + titleBox.height / 2).toBeCloseTo(menuBox.y + menuBox.height / 2);
+    expect(await title.evaluate(element => element.scrollWidth)).toBe(Math.round(titleBox.width));
+    expect(await header.evaluate(element => element.scrollWidth)).toBe(width);
+    await header.screenshot({ path: testInfo.outputPath(`workspace-topbar-${width}.png`), scale: "css" });
+  }
 });
 
 test("a deep link renders its page, survives a reload and follows Back and Forward", async ({ page }) => {
