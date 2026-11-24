@@ -7,7 +7,7 @@
 | 接收个人通知邮件 | 个人设置 → 通知 → 默认通知邮箱（`/settings/notifications`） | 当前登录用户 |
 | 向外部服务投递仓库事件 | 仓库 → 设置 → Webhooks（`/orgs/:org/repositories/:owner/:repo/settings/webhooks`） | 组织所有者、管理员。普通成员没有菜单入口，直接访问显示权限提示 |
 
-沿用 GitHub 的入口分工和 Primer 的按钮层级，页面使用 AgentForge 现有设置布局。[GitHub 通知配置](https://docs.github.com/en/account-and-profile/managing-subscriptions-and-notifications/setting-up-notifications/configuring-notifications) · [GitHub 创建 Webhook](https://docs.github.com/en/webhooks/using-webhooks/creating-webhooks) · [Primer Button](https://primer.style/product/components/button/) · [Primer Dialog](https://primer.style/product/components/dialog/)
+沿用 GitHub 的入口分工和 Primer 的按钮层级，页面使用 AgentForge 现有设置布局。[GitHub 通知配置](https://docs.github.com/en/subscriptions-and-notifications/get-started/configuring-notifications) · [GitHub 创建 Webhook](https://docs.github.com/en/webhooks/using-webhooks/creating-webhooks) · [Primer Button](https://primer.style/product/components/button/guidelines/) · [Primer Dialog](https://primer.style/product/components/dialog/guidelines/)
 
 ## 个人通知
 
@@ -50,20 +50,20 @@
 桌面
 仓库设置导航 │ Webhooks             [添加 Webhook · 主要]
              │ https://receiver.example.com/events
-             │ 已启用 · 新建议题、议题评论
+             │ 已启用 · 议题创建、议题评论
              │ [编辑] [投递记录] [删除 · 危险]
 
 窄屏 · 编辑
 Webhooks
 提交地址     [________________]
 签名密钥     [________________]
-订阅事件     □ 新建议题  □ 议题评论
+订阅事件     □ 议题创建  □ 议题评论
 启用         □
 [保存 · 主要] [取消]
 ```
 
 - 首次进入显示加载状态，读取失败可重试，空列表保留「添加 Webhook」。打开新增或编辑表单后，由「保存」接替列表主按钮。
-- 新增填写 HTTPS 地址和签名密钥，至少选择一个事件。事件范围为新建议题和新增议题评论。编辑时密钥输入框为空，留空保留原密钥。校验或保存失败时保留输入，提交期间阻止重复保存。
+- 新增填写 HTTPS 地址和签名密钥，至少选择一个事件。事件范围为议题创建和新增议题评论。编辑时密钥输入框为空，留空保留原密钥。校验或保存失败时保留输入，提交期间阻止重复保存。
 - 点击「删除」打开危险确认弹窗，提示同时删除投递记录。删除失败时保留弹窗并显示错误。取消或按 `Esc` 将焦点还给触发按钮，删除成功后焦点移到「添加 Webhook」。
 
 ## 组件、接口与验收
