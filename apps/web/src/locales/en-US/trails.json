@@ -9,7 +9,10 @@
     "title": "Activity Trail",
     "description": "Changeset workflow and membership activity in {{organizationName}}.",
     "empty": "No audit events found.",
-    "footer": "Showing {{count}} audit events"
+    "footer": "Showing {{count}} audit events",
+    "scope": "Activity from up to {{count}} recently updated changesets, newest events first.",
+    "actor": "Actor: {{actor}}",
+    "target": "Target: {{target}}"
   },
   "filters": {
     "showMembership": "Include membership events"
@@ -27,6 +30,8 @@
     "membership": "Membership"
   },
   "errors": {
-    "loadFailed": "Failed to load audit trail"
+    "loadFailed": "Failed to load audit trail",
+    "membershipForbidden": "You do not have permission to view membership events.",
+    "membershipFailed": "Could not load membership events."
   }
 }
