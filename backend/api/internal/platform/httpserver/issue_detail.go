@@ -46,6 +46,10 @@ func (d DeliveryDependencies) issueDetailScope(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return issues.DetailScope{}, false
 	}
+	if repository.IssuesDisabled {
+		issueDetailError(w, issues.ErrDetailNotFound)
+		return issues.DetailScope{}, false
+	}
 	return issues.DetailScope{
 		OrganizationID: principal.OrganizationID, Repository: repository.Slug, Number: int(number),
 		UserID: principal.UserID, CanManage: principal.Role == "owner" || principal.Role == "admin",
@@ -230,7 +234,7 @@ func (d DeliveryDependencies) createIssueBranch(w http.ResponseWriter, r *http.R
 		return
 	}
 	writer, supported := d.Git.(interface {
-		CreateIssueBranch(context.Context, string, string, string, string, string, string) (delivery.RepositoryRef, error)
+		CreateIssueBranch(context.Context, string, string, string, string, string, string, delivery.BranchWriteCheck) (delivery.RepositoryRef, error)
 	})
 	if !supported {
 		writeProblem(w, http.StatusServiceUnavailable, "Branch creation unavailable", "A registered repository with a writable Git provider is required")
@@ -248,8 +252,8 @@ func (d DeliveryDependencies) createIssueBranch(w http.ResponseWriter, r *http.R
 		writeProblem(w, http.StatusBadRequest, "Invalid base branch", "Select the name of an existing branch")
 		return
 	}
-	ref, err := d.IssueDetailRepo.CreateBranch(r.Context(), scope, func(id issues.ID) (delivery.RepositoryRef, error) {
-		return writer.CreateIssueBranch(r.Context(), scope.OrganizationID, scope.Repository, string(id), input.Name, "refs/heads/"+input.Base, input.SHA)
+	ref, err := d.IssueDetailRepo.CreateBranch(r.Context(), scope, func(id issues.ID, check delivery.BranchWriteCheck) (delivery.RepositoryRef, error) {
+		return writer.CreateIssueBranch(r.Context(), scope.OrganizationID, scope.Repository, string(id), input.Name, "refs/heads/"+input.Base, input.SHA, check)
 	})
 	switch {
 	case err == nil:
@@ -258,6 +262,8 @@ func (d DeliveryDependencies) createIssueBranch(w http.ResponseWriter, r *http.R
 		issueDetailError(w, err)
 	case errors.Is(err, delivery.ErrWriteInvalid):
 		writeProblem(w, http.StatusBadRequest, "Invalid branch", "Use an alphanumeric branch suffix with optional hyphens and an existing base commit")
+	case writeBranchRuleConflict(w, err):
+		return
 	case errors.Is(err, delivery.ErrWriteConflict):
 		writeProblem(w, http.StatusConflict, "Branch conflict", "The base branch moved or the issue branch name already exists")
 	default:

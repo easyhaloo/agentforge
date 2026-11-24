@@ -89,14 +89,16 @@ type Merge struct {
 }
 
 type PRComment struct {
-	ID         ID        `json:"id"`
-	Author     string    `json:"author"`
-	Body       string    `json:"body"`
-	CreatedAt  time.Time `json:"created_at"`
-	RevisionID ID        `json:"revision_id,omitempty"`
-	Path       string    `json:"path,omitempty"`
-	Side       string    `json:"side,omitempty"`
-	Line       int       `json:"line,omitempty"`
+	ID         ID         `json:"id"`
+	Author     string     `json:"author"`
+	Body       string     `json:"body"`
+	CreatedAt  time.Time  `json:"created_at"`
+	RevisionID ID         `json:"revision_id,omitempty"`
+	Path       string     `json:"path,omitempty"`
+	Side       string     `json:"side,omitempty"`
+	Line       int        `json:"line,omitempty"`
+	ResolvedBy string     `json:"resolved_by,omitempty"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
 }
 
 type PullRequest struct {

@@ -129,6 +129,9 @@ func runTask(ctx context.Context, s *postgres.Store, t execution.Task, image str
 	if t.Capability == pipeline.ContainerCheck || t.Capability == pipeline.ShellScript {
 		t.Exports = make(map[string]string)
 		outcome = runCheck(ctx, s, t, image, &output)
+		if outcome == "succeeded" && t.Integration == nil && pullRevisionTask(t) {
+			t.CheckedSourceSHA = t.Trigger.SHA
+		}
 	} else if t.Capability != pipeline.Approval {
 		outcome = "failed"
 	}
@@ -171,6 +174,10 @@ func runCheck(ctx context.Context, s *postgres.Store, t execution.Task, image st
 		}
 	}
 }
+func pullRevisionTask(t execution.Task) bool {
+	return t.Trigger != nil && t.Trigger.Kind == "changeset_revision" && t.Trigger.BaseSHA != ""
+}
+
 func containerCheck(ctx context.Context, t execution.Task, image string, output io.Writer) error {
 	// The in-container watchdog also bounds runtime if the worker process dies.
 	name := "af-" + t.RunID + "-" + t.StepID + "-" + strconv.Itoa(t.Attempt)
@@ -186,6 +193,17 @@ func containerCheck(ctx context.Context, t execution.Task, image string, output 
 		}
 		defer cleanup()
 		args = append(args, "--volume", dir+":/workspace:ro", "--workdir", "/workspace", "--env", "AGENTFORGE_REVISION_SHA="+t.Integration.CandidateSHA)
+	} else if pullRevisionTask(t) {
+		git, err := delivery.NewLocalGitProvider(os.Getenv("GIT_REPOSITORY_ROOT"), time.Minute)
+		if err != nil {
+			return err
+		}
+		dir, cleanup, err := git.CheckoutRevision(ctx, t.OrganizationID, t.Trigger.Repository, t.Trigger.SHA)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		args = append(args, "--mount", "type=bind,source="+dir+",target=/workspace,readonly", "--workdir", "/workspace", "--env", "AGENTFORGE_REVISION_SHA="+t.Trigger.SHA)
 	}
 	var env []string
 	var exports logPrefix

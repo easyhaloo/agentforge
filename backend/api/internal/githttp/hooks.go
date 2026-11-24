@@ -23,9 +23,34 @@ const MaxPushRefs = 128
 
 // PushPolicy is loaded while holding the repository row lock for a Git receive.
 type PushPolicy struct {
-	DefaultBranch string
-	RefLimit      int
-	ProtectedRefs []string
+	MergeMethods MergeMethods
+	MergeMessageFormats
+	DefaultBranch            string
+	RefLimit                 int
+	ProtectedRefs            []string
+	RefRules                 []RefRule
+	WebCommitSignoffRequired bool
+}
+
+func (policy PushPolicy) AllowsBranchDeletion(branch string) bool {
+	if branch == "" || branch == policy.DefaultBranch || protectedRef(policy.ProtectedRefs, "refs/heads/"+branch) {
+		return false
+	}
+	for _, rule := range policy.RefRules {
+		if rule.RestrictDeletion && rule.matches("branch", branch, policy.DefaultBranch) {
+			return false
+		}
+	}
+	return true
+}
+
+func protectedRef(patterns []string, ref string) bool {
+	for _, pattern := range patterns {
+		if matched, _ := path.Match(pattern, ref); matched && strings.Count(pattern, "/") == strings.Count(ref, "/") {
+			return true
+		}
+	}
+	return false
 }
 
 func ValidProtectedRefs(patterns []string) bool {
@@ -171,6 +196,10 @@ func receiveHook(name string, input io.Reader) error {
 		if err := json.Unmarshal([]byte(os.Getenv("AF_GIT_PROTECTED_REFS")), &protectedRefs); err != nil || !ValidProtectedRefs(protectedRefs) {
 			return errors.New("ref protection unavailable")
 		}
+		var rules []RefRule
+		if err := json.Unmarshal([]byte(os.Getenv("AF_GIT_REF_RULES")), &rules); err != nil || !ValidRefRules(rules) {
+			return errors.New("repository rulesets unavailable")
+		}
 		for _, update := range updates {
 			if !strings.HasPrefix(update.Ref, "refs/heads/") && !strings.HasPrefix(update.Ref, "refs/tags/") {
 				return errors.New("only branch and tag updates are allowed")
@@ -178,10 +207,11 @@ func receiveHook(name string, input io.Reader) error {
 			if update.Ref == defaultRef || update.Ref == headRef {
 				return errors.New("direct updates to the default branch are prohibited")
 			}
-			for _, pattern := range protectedRefs {
-				if matched, _ := path.Match(pattern, update.Ref); matched && strings.Count(pattern, "/") == strings.Count(update.Ref, "/") {
-					return fmt.Errorf("direct pushes to %s are prohibited by repository settings", update.Ref)
-				}
+			if protectedRef(protectedRefs, update.Ref) {
+				return fmt.Errorf("direct pushes to %s are prohibited by repository settings", update.Ref)
+			}
+			if err := checkRefRules(rules, update, os.Getenv("AF_GIT_DEFAULT")); err != nil {
+				return err
 			}
 		}
 		if err := writePushEvent(intent, event); err != nil {

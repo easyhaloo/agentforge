@@ -218,7 +218,7 @@ func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organ
 	var pushEnv []string
 	if service == ReceivePack && r.Method == http.MethodPost {
 		// HEAD is also protected if it differs from the catalog's configured default.
-		if policy.DefaultBranch == "" || !ValidProtectedRefs(policy.ProtectedRefs) {
+		if policy.DefaultBranch == "" || !ValidProtectedRefs(policy.ProtectedRefs) || !ValidRefRules(policy.RefRules) {
 			http.Error(w, "Push policy unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -241,9 +241,10 @@ func (t *Transport) Serve(w http.ResponseWriter, r *http.Request, service, organ
 			return
 		}
 		protectedRefs, _ := json.Marshal(policy.ProtectedRefs) // A string slice always marshals.
+		rules, _ := json.Marshal(policy.RefRules)              // Rules contain only serializable fields.
 		pushEnv = []string{"AF_GIT_BASE=" + baseSHA, "AF_GIT_JOURNAL=" + journal, "AF_GIT_ORG=" + organization, "AF_GIT_REPO=" + repository,
 			"AF_GIT_ACTOR=" + actor, "AF_GIT_DEFAULT=" + policy.DefaultBranch, "AF_GIT_PUSH_REF_LIMIT=" + strconv.Itoa(policy.RefLimit),
-			"AF_GIT_PROTECTED_REFS=" + string(protectedRefs), "AF_GIT_INTENT=" + uuid.NewString()}
+			"AF_GIT_PROTECTED_REFS=" + string(protectedRefs), "AF_GIT_REF_RULES=" + string(rules), "AF_GIT_BINARY=" + t.git, "AF_GIT_INTENT=" + uuid.NewString()}
 	}
 	cmd := exec.CommandContext(ctx, t.helper, helperCommand, t.backend)
 	cmd.Dir = work

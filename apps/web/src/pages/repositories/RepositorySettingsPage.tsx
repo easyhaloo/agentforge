@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { GitBranch, KeyRound, Settings, Tag } from "lucide-react";
+import { GitBranch, KeyRound, Play, Scale, Settings, Tag } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
+import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMergeMessageFormat, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { translateError } from "../../shared/api/errors";
 import { organizationHandle, repositoryNewPath, repositoryPath, repositorySettingsPath, type RepositorySettingsSection } from "../../shared/routing";
 import { Button, Checkbox, Input, Modal, Select, TextArea } from "../../shared/ui";
-import { canManageRepository } from "./repositoryPermissions";
+import { canManageRepository, repositoryIssuesSettingChanged } from "./repositoryPermissions";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
+import { RepositoryRulesetsSettings } from "./RepositoryRulesetsSettings";
 import "./repositories.css";
 import "./repository-settings.css";
 
@@ -19,6 +20,8 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
   const [refs, setRefs] = useState<RepositoryPreviewRefs>();
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const isActions = section === "actions";
+  const needsRefs = !isActions && section !== "rulesets";
   const handle = organizationHandle(organization);
   const path = (panel: RepositorySettingsSection) => repositorySettingsPath(handle, repository, panel);
 
@@ -30,7 +33,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
     return () => { active = false; };
   }, [organization.id, repository, t, attempt]);
 
-  const title = t({ general: "settings.general", branches: "sections.branches", tags: "settings.tags", "git-tokens": "git.tokens" }[section]);
+  const title = t({ general: "settings.general", rulesets: "settings.rulesets.title", branches: "sections.branches", tags: "settings.tags", actions: "sections.actions", "git-tokens": "git.tokens" }[section]);
   return <div className="repo-layout repo-browser repo-settings">
     <nav className="repo-settings-nav" aria-label={t("sections.settingsFor", { repository })}>
       <NavLink to={path("general")} end><Settings size={16} aria-hidden="true"/>{t("settings.general")}</NavLink>
@@ -40,25 +43,31 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
       </div>}
       <div className="repo-settings-nav-group">
         <p>{t("settings.sourceControl")}</p>
+        <NavLink to={path("rulesets")} end><Scale size={16} aria-hidden="true"/>{t("settings.rulesets.title")}</NavLink>
         <NavLink to={path("branches")} end><GitBranch size={16} aria-hidden="true"/>{t("sections.branches")}</NavLink>
         <NavLink to={path("tags")} end><Tag size={16} aria-hidden="true"/>{t("settings.tags")}</NavLink>
+      </div>
+      <div className="repo-settings-nav-group">
+        <NavLink to={path("actions")} end><Play size={16} aria-hidden="true"/>{t("sections.actions")}</NavLink>
       </div>
     </nav>
     <section className="repo-settings-content" aria-labelledby="repository-settings-title">
       <header className="repo-settings-heading">
         <h1 id="repository-settings-title">{title}</h1>
       </header>
-      {error && <div className="repo-settings-card">
+      {needsRefs && error && <div className="repo-settings-card">
         <p role="alert" className="org-error">{error}</p>
         <Button onClick={() => { setError(""); setAttempt(attempt + 1); }}>{t("app:organizationGate.retry")}</Button>
       </div>}
-      {!refs && !error && <p role="status">{t("common:components.loading")}</p>}
+      {needsRefs && !refs && !error && <p role="status">{t("common:components.loading")}</p>}
       {refs && section === "general" && <>
         <section className="repo-settings-card">
           <h2>{t("settings.repositoryName")}</h2>
           <Link className="repo-link" to={repositoryPath(handle, repository)}>{refs.repository}</Link>
           <GeneralSettings organization={organization} refs={refs} onSave={item => setRefs(current => current && {
-            ...current, description: item.description, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
+            ...current, allow_merge_commit: item.allow_merge_commit, allow_squash_merge: item.allow_squash_merge, allow_rebase_merge: item.allow_rebase_merge,
+            merge_commit_message_format: item.merge_commit_message_format, squash_commit_message_format: item.squash_commit_message_format,
+            description: item.description, web_commit_signoff_required: item.web_commit_signoff_required, delete_merged_branches: item.delete_merged_branches, issues_disabled: item.issues_disabled, auto_close_issues_disabled: item.auto_close_issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
           })} />
         </section>
         <DefaultBranchSettings organization={organization} repository={repository} refs={refs}
@@ -67,11 +76,17 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
             setAttempt(current => current + 1);
           }} />
       </>}
+      {section === "rulesets" && <RepositoryRulesetsSettings organization={organization} repository={repository} />}
       {refs && (section === "branches" || section === "tags") && <>
         {refs.hosting_kind === "hosted" && <RefProtectionSettings key={section} section={section} organization={organization} refs={refs}
           onSave={item => setRefs(current => current && { ...current, protected_refs: item.protected_refs, updated_at: item.updated_at })} />}
         <RepositoryRefList kind={section === "branches" ? "branch" : "tag"} refs={refs} codePath={repositoryPath(handle, repository)} />
       </>}
+      {isActions && <ActionsSettings organization={organization} repository={repository} onSave={() => {
+        setRefs(undefined);
+        setError("");
+        setAttempt(current => current + 1);
+      }} />}
       {refs && section === "git-tokens" && <div className="repo-settings-card">
         {refs.git_credentials_available ? <RepositoryCredentials organization={organization} repository={repository} />
           : <p>{t("settings.tokensUnavailable")}</p>}
@@ -80,6 +95,90 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
   </div>;
 }
 
+function ActionsSettings({ organization, repository, onSave }: {
+  organization: OrganizationSummary; repository: string; onSave: () => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const [draft, setDraft] = useState<boolean>();
+  const [retentionDraft, setRetentionDraft] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [settings, setSettings] = useState<RepositoryMetadata>();
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    void repositoryAPI.settings(organization.id, repository)
+      .then(result => { if (active) setSettings(result); })
+      .catch(cause => { if (active) setLoadError(translateError(cause, t, "sections.settingsFailed")); });
+    return () => { active = false; };
+  }, [organization.id, repository, retry, t]);
+
+  const actionsDisabled = settings?.actions_disabled ?? false;
+  const selected = draft ?? actionsDisabled;
+  const canManage = canManageRepository(organization);
+  const retentionDays = settings?.actions_retention_days ?? 0;
+  const retention = retentionDraft ?? String(retentionDays);
+  const maxDays = settings?.visibility === "public" ? 90 : 400;
+  const days = Number(retention);
+  const retentionValid = retention !== "" && Number.isInteger(days) && days >= 0 && days <= maxDays;
+  const canSave = canManage && !busy && Boolean(settings) && retentionValid && (selected !== actionsDisabled || days !== retentionDays);
+
+  async function save() {
+    if (!canSave || !settings) return;
+    setBusy(true);
+    setSaved(false);
+    setError("");
+    try {
+      setSettings(await repositoryAPI.updateGeneralSettings(organization.id, repository, {
+        ...(selected !== actionsDisabled ? { actions_disabled: selected } : {}),
+        ...(days !== retentionDays ? { actions_retention_days: days } : {}),
+        updated_at: settings.updated_at,
+      }));
+      onSave();
+      setDraft(undefined);
+      setRetentionDraft(undefined);
+      setSaved(true);
+    } catch (cause) {
+      setError(translateError(cause, t, "repositories:sections.settingsFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loadError) return <div className="repo-settings-card">
+    <p role="alert" className="org-error">{loadError}</p>
+    <Button onClick={() => { setLoadError(""); setRetry(current => current + 1); }}>{t("app:organizationGate.retry")}</Button>
+  </div>;
+  if (!settings) return <p role="status">{t("common:components.loading")}</p>;
+
+  return <section className="repo-settings-card">
+    <h2>{t("settings.actionsRuns")}</h2>
+    <form className="repo-settings-form" aria-busy={busy} onSubmit={event => { event.preventDefault(); void save(); }}>
+      <Select label={t("settings.actionsAvailability")} value={selected ? "disabled" : "enabled"}
+        options={[
+          { value: "enabled", label: t("settings.actionsEnabled") },
+          { value: "disabled", label: t("settings.actionsDisabled") },
+        ]} hint={t("settings.actionsHelp")} disabled={!canManage || busy}
+        onChange={event => { setDraft(event.target.value === "disabled"); setSaved(false); setError(""); }} />
+      <Input label={t("settings.actionsRetention")} type="number" min={0} max={maxDays} step={1} required
+        value={retention} hint={t("settings.actionsRetentionHelp", { max: maxDays })} disabled={!canManage || busy}
+        onChange={event => { setRetentionDraft(event.target.value); setSaved(false); setError(""); }} />
+      {canManage ? <Button type="submit" variant="primary" disabled={!canSave}>{t("common:actions.save")}</Button>
+        : <p>{t("sections.settingsDenied")}</p>}
+      {saved && <p role="status">{t("settings.actionsSaved")}</p>}
+      {error && <p role="alert" className="org-error">{error}</p>}
+    </form>
+  </section>;
+}
+
+const mergeMessageFormats = ["default", "title", "description"] as const satisfies readonly RepositoryMergeMessageFormat[];
+const squashMessageFormats = [...mergeMessageFormats, "commits"] as const;
+const mergeMethodKeys = ["allow_merge_commit", "allow_squash_merge", "allow_rebase_merge"] as const;
+type MergeMethodKey = typeof mergeMethodKeys[number];
+
 function GeneralSettings({ organization, refs, onSave }: {
   organization: OrganizationSummary; refs: RepositoryPreviewRefs; onSave: (item: RepositoryMetadata) => void;
 }) {
@@ -87,30 +186,61 @@ function GeneralSettings({ organization, refs, onSave }: {
   const [draft, setDraft] = useState<string>();
   const [pushLimitDraft, setPushLimitDraft] = useState<string>();
   const [template, setTemplate] = useState<boolean>();
+  const [issuesDraft, setIssuesDraft] = useState<boolean>();
+  const [autoCloseIssuesDraft, setAutoCloseIssuesDraft] = useState<boolean>();
+  const [signoffDraft, setSignoffDraft] = useState<boolean>();
+  const [deleteBranchesDraft, setDeleteBranchesDraft] = useState<boolean>();
+  const [mergeMethodsDraft, setMergeMethodsDraft] = useState<Partial<Record<MergeMethodKey, boolean>>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const description = draft ?? refs.description ?? "";
   const isTemplate = template ?? Boolean(refs.is_template);
+  const signoffRequired = signoffDraft ?? Boolean(refs.web_commit_signoff_required);
+  const deleteBranches = deleteBranchesDraft ?? Boolean(refs.delete_merged_branches);
+  const issuesEnabled = issuesDraft ?? !refs.issues_disabled;
+  const autoCloseIssues = autoCloseIssuesDraft ?? !refs.auto_close_issues_disabled;
   const pushLimit = pushLimitDraft ?? String(refs.push_ref_limit ?? 0);
   const pushLimitValue = Number(pushLimit);
   const validPushLimit = pushLimit !== "" && (pushLimitValue === 0 ||
     (Number.isInteger(pushLimitValue) && pushLimitValue >= 2 && pushLimitValue <= 128));
-  const changed = description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0);
+  const [mergeMessageDraft, setMergeMessageDraft] = useState<RepositoryMergeMessageFormat>();
+  const [squashMessageDraft, setSquashMessageDraft] = useState<RepositoryMergeMessageFormat | "commits">();
+  const mergeMessage = mergeMessageDraft ?? refs.merge_commit_message_format ?? "default";
+  const squashMessage = squashMessageDraft ?? refs.squash_commit_message_format ?? "default";
+  const messageFormatsChanged = mergeMessage !== (refs.merge_commit_message_format ?? "default") || squashMessage !== (refs.squash_commit_message_format ?? "default");
+  const mergeMethodEnabled = (key: MergeMethodKey) => mergeMethodsDraft[key] ?? refs[key] ?? true;
+  const validMergeMethods = mergeMethodKeys.some(mergeMethodEnabled);
+  const mergeMethodsChanged = mergeMethodKeys.some(key => mergeMethodEnabled(key) !== (refs[key] ?? true));
+  const changed = messageFormatsChanged || mergeMethodsChanged || description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || autoCloseIssues === Boolean(refs.auto_close_issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
   const canEdit = canManageRepository(organization) && Boolean(refs.updated_at);
   const useTemplate = `${repositoryNewPath(organizationHandle(organization))}?${new URLSearchParams({ template: refs.repository })}`;
 
   const save = async () => {
-    if (!canEdit || !refs.updated_at || !changed || !validPushLimit || busy) return;
+    if (!canEdit || !refs.updated_at || !changed || !validPushLimit || !validMergeMethods || busy) return;
     setBusy(true);
     setSaved(false);
     setError("");
     try {
       const item = await repositoryAPI.updateGeneralSettings(organization.id, refs.repository, {
-        description: description.trim(), is_template: isTemplate, updated_at: refs.updated_at,
+        ...mergeMethodsDraft,
+        ...(mergeMessageDraft === undefined ? {} : { merge_commit_message_format: mergeMessageDraft }),
+        ...(squashMessageDraft === undefined ? {} : { squash_commit_message_format: squashMessageDraft }),
+        description: description.trim(), web_commit_signoff_required: signoffRequired, is_template: isTemplate, issues_disabled: !issuesEnabled,
+        ...(autoCloseIssuesDraft === undefined ? {} : { auto_close_issues_disabled: !autoCloseIssuesDraft }),
+        updated_at: refs.updated_at,
+        ...(refs.hosting_kind === "hosted" ? { delete_merged_branches: deleteBranches } : {}),
         ...(refs.git_credentials_available ? { push_ref_limit: pushLimitValue } : {}),
       });
       onSave(item);
+      if (item.issues_disabled !== refs.issues_disabled) window.dispatchEvent(new Event(repositoryIssuesSettingChanged));
+      setIssuesDraft(undefined);
+      setAutoCloseIssuesDraft(undefined);
+      setDeleteBranchesDraft(undefined);
+      setMergeMethodsDraft({});
+      setMergeMessageDraft(undefined);
+      setSquashMessageDraft(undefined);
+      setSignoffDraft(undefined);
       setDraft(undefined);
       setTemplate(undefined);
       setPushLimitDraft(undefined);
@@ -131,6 +261,40 @@ function GeneralSettings({ organization, refs, onSave }: {
         onChange={event => { setTemplate(event.target.checked); setSaved(false); }} />
       <p>{t("settings.templateHelp")}</p>
     </>}
+    <Checkbox label={t("settings.requireWebSignoff")} checked={signoffRequired} disabled={busy}
+      onChange={event => { setSignoffDraft(event.target.checked); setSaved(false); }} />
+    <p>{t("settings.requireWebSignoffHelp")}</p>
+    <h3 className="repo-settings-subheading">{t("settings.features")}</h3>
+    <Checkbox label={t("sections.issues")} checked={issuesEnabled} disabled={busy}
+      onChange={event => { setIssuesDraft(event.target.checked); setSaved(false); }} />
+    <p>{t("settings.issuesHelp")}</p>
+    {issuesEnabled && <Checkbox className="repo-settings-issue-option" label={t("settings.autoCloseIssues")}
+      hint={t("settings.autoCloseIssuesHelp")} checked={autoCloseIssues} disabled={busy}
+      onChange={event => { setAutoCloseIssuesDraft(event.target.checked); setSaved(false); }} />}
+    <h3 className="repo-settings-subheading">{t("settings.pullRequests")}</h3>
+    {mergeMethodKeys.map(key => <div className="repo-settings-merge-method" key={key}>
+      <Checkbox label={t(`settings.mergeMethods.${key}`)} checked={mergeMethodEnabled(key)} disabled={busy}
+        onChange={event => {
+          setMergeMethodsDraft({ ...mergeMethodsDraft, [key]: event.target.checked });
+          setSaved(false);
+        }} />
+      {refs.hosting_kind === "hosted" && mergeMethodEnabled(key) && key === "allow_merge_commit" &&
+        <Select label={t("settings.mergeMessage.mergeLabel")} value={mergeMessage} disabled={busy}
+          options={mergeMessageFormats.map(value => ({ value, label: t(`settings.mergeMessage.${value}`) }))}
+          onChange={event => { setMergeMessageDraft(mergeMessageFormats.find(value => value === event.target.value)); setSaved(false); }} />}
+      {refs.hosting_kind === "hosted" && mergeMethodEnabled(key) && key === "allow_squash_merge" &&
+        <Select label={t("settings.mergeMessage.squashLabel")} value={squashMessage} disabled={busy}
+          options={squashMessageFormats.map(value => ({ value, label: t(`settings.mergeMessage.${value}`) }))}
+          onChange={event => { setSquashMessageDraft(squashMessageFormats.find(value => value === event.target.value)); setSaved(false); }} />}
+    </div>)}
+    {refs.hosting_kind === "hosted" && (mergeMethodEnabled("allow_merge_commit") || mergeMethodEnabled("allow_squash_merge")) &&
+      <p>{t("settings.mergeMessage.help")}</p>}
+    {!validMergeMethods && <p role="alert" className="org-error">{t("settings.mergeMethods.required")}</p>}
+    {refs.hosting_kind === "hosted" && <>
+      <Checkbox label={t("settings.deleteMergedBranches")} checked={deleteBranches} disabled={busy}
+        onChange={event => { setDeleteBranchesDraft(event.target.checked); setSaved(false); }} />
+      <p>{t("settings.deleteMergedBranchesHelp")}</p>
+    </>}
     {refs.git_credentials_available && <>
       <h3 className="repo-settings-subheading">{t("settings.pushes")}</h3>
       <Checkbox label={t("settings.limitPushRefs")} checked={pushLimit !== "0"} disabled={busy} onChange={event => {
@@ -142,7 +306,7 @@ function GeneralSettings({ organization, refs, onSave }: {
       <p>{t("settings.pushLimitHelp")}</p>
     </>}
     <div className="repo-settings-controls">
-      <Button type="submit" variant="primary" disabled={busy || !changed || !validPushLimit}>{t("common:actions.save")}</Button>
+      <Button type="submit" variant="primary" disabled={busy || !changed || !validPushLimit || !validMergeMethods}>{t("common:actions.save")}</Button>
       {refs.is_template && <Link className="repo-link" to={useTemplate}>{t("settings.useTemplate")}</Link>}
     </div>
     {saved && <p role="status">{t("settings.generalSaved")}</p>}

@@ -80,3 +80,30 @@
   .repo-settings { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block-start: 0; }
   .repo-settings-card { padding-inline: 14px; }
 }
+
+.repo-settings-rulesets, .repo-settings-rule-editor { display: grid; gap: 16px; min-width: 0; }
+.repo-settings-rulesets .repo-settings-card { grid-template-columns: minmax(0, 1fr); }
+.repo-settings-rule-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; }
+.repo-settings-rule-header h2, .repo-settings-rule-summary dd { overflow-wrap: anywhere; }
+.repo-settings-rule-header > div { min-width: 0; }
+.repo-settings-rule-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.repo-settings-rule-summary dt { font-weight: 600; }
+.repo-settings-rule-summary dd { margin: 0; }
+.repo-settings-rule-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.repo-settings-rule-restrictions { display: grid; gap: 8px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.repo-settings-rule-restrictions .repo-settings-rule-restrictions { margin-inline-start: 24px; }
+.repo-settings-rule-restrictions legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+
+@media (max-width: 680px) {
+  .repo-settings-rule-fields { grid-template-columns: minmax(0, 1fr); }
+}
+
+.repo-settings-merge-method {
+  display: grid;
+  gap: 8px;
+}
+
+.repo-settings-merge-method > .af-field,
+.repo-settings-issue-option {
+  margin-inline-start: 24px;
+}

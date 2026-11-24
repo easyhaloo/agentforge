@@ -2,9 +2,9 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, FileCode2, Folder, Save, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Input, TextArea } from "../../shared/ui";
+import { Button, Checkbox, Input, TextArea } from "../../shared/ui";
 import { workspaceAPI, type OrganizationSummary, type Workspace, type WorkspaceTreeEntry, type WorkspaceFile, type WorkspaceDiffEntry } from "../../shared/api/identity";
-import { translateError } from "../../shared/api/errors";
+import { APIError, translateError } from "../../shared/api/errors";
 import { workspaceDiffStatusKey, workspaceSourceKey, workspaceStatusKey } from "./workspace-keys";
 
 type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
@@ -21,6 +21,8 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
   const { t } = useTranslation("repositories");
   const { owner = "", repo = "" } = useParams();
   const repository = owner + "/" + repo;
+  const [requiresSignoff, setRequiresSignoff] = useState(false);
+  const [signoff, setSignoff] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [tree, setTree] = useState<WorkspaceTreeEntry[]>([]);
   const [directory, setDirectory] = useState("");
@@ -41,6 +43,7 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
   const loadDiff = useCallback(async (id: string) => {
     const result = await workspaceAPI.diff(organization.id, id);
     setDiffItems(result.items);
+    setSignoff(false);
   }, [organization.id]);
 
   const createWorkspace = async () => {
@@ -48,6 +51,7 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
     try {
       const result = await workspaceAPI.create(organization.id, repository);
       setWorkspace(result.workspace);
+      setRequiresSignoff(Boolean(result.web_commit_signoff_required));
       setDirectory("");
       await loadTree(result.workspace.id);
       await loadDiff(result.workspace.id);
@@ -74,12 +78,18 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
   };
 
   const createChangeset = async () => {
-    if (!workspace || diffItems.length === 0) return;
+    if (!workspace || diffItems.length === 0 || dirty || loading || (requiresSignoff && !signoff)) return;
     setLoading(true); setError("");
     try {
-      const result = await workspaceAPI.createChangeset(organization.id, workspace.id, `Update ${repository}`);
+      const result = await workspaceAPI.createChangeset(organization.id, workspace.id, `Update ${repository}`, requiresSignoff ? signoff : undefined);
+      setSignoff(false);
       onNotify(t("repositories:workspace.changesetCreated", { id: result.changeset.changeset.id }));
     } catch (cause) {
+      if (cause instanceof APIError && cause.status === 422 && cause.title === "Web commit sign-off required") {
+        setRequiresSignoff(true);
+        setError(t("webide.signoffRequired"));
+        return;
+      }
       setError(translateError(cause, t, "repositories:workspace.errors.changesetFailed"));
     } finally { setLoading(false); }
   };
@@ -106,11 +116,15 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
       <span className="org-role">{workspace ? t(`repositories:${workspaceStatusKey(workspace.status)}`) : t("repositories:workspace.status.notStarted")}</span>
       {!workspace && <Button className="button primary" disabled={loading} onClick={() => void createWorkspace()}>{t("repositories:workspace.create")}</Button>}
       <Button className="button secondary" disabled={!workspace || loading} onClick={() => setShowDiff(value => !value)}> {showDiff ? t("repositories:workspace.hideDiff") : t("repositories:workspace.showDiff")} ({diffItems.length})</Button>
-      <Button className="button primary" disabled={!workspace || diffItems.length === 0 || loading || dirty} onClick={() => void createChangeset()}>{t("repositories:workspace.createChangeset")}</Button>
+      <Button className="button primary" disabled={!workspace || diffItems.length === 0 || loading || dirty || (requiresSignoff && !signoff)} onClick={() => void createChangeset()}>{t("repositories:workspace.createChangeset")}</Button>
       <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> {t("repositories:workspace.save")}</Button>
       <Link className="button secondary" to={`/orgs/${organization.slug}/repositories`}><ArrowLeft size={14}/> {t("repositories:workspace.backToRepositories")}</Link>
     </div>
     {workspace && <p className="changeset-hint">{t("repositories:workspace.summary", { id: workspace.id, base: workspace.base_commit_sha.slice(0, 12), expires: new Date(workspace.expires_at).toLocaleString() })}</p>}
+    {requiresSignoff && !dirty && diffItems.length > 0 && <div className="changeset-hint"><Checkbox label={t("webide.signoffConsent")} checked={signoff} disabled={loading}
+      onChange={event => setSignoff(event.target.checked)} />
+      <a href="https://developercertificate.org/" target="_blank" rel="noreferrer">{t("webide.readDco")}</a>
+    </div>}
     {error && <div className="org-error" role="alert">{error}</div>}
     {showDiff && <div className="card" style={{padding:12,marginBottom:12}}><h3>{t("repositories:workspace.changesHeading")}</h3>{diffItems.length ? <ul>{diffItems.map(item=><li key={item.path}><code>{item.path}</code> · {t(`repositories:${workspaceDiffStatusKey(item.status)}`)} · v{item.version}</li>)}</ul> : <p className="changeset-hint">{t("repositories:workspace.noChanges")}</p>}</div>}
     <div className="card" style={{display:"grid",gridTemplateColumns:"minmax(220px, 28%) minmax(0,1fr)",minHeight:520,overflow:"hidden"}}>

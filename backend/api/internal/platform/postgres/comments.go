@@ -119,6 +119,11 @@ func (r *CommentRepository) List(ctx context.Context, organizationID string, res
 	return commentsList, nil
 }
 
+const visibleComment = `(resource_type <> 'issue' OR EXISTS (
+	SELECT 1 FROM enabled_repository_issues i
+	WHERE i.organization_id = comments.organization_id AND i.id = comments.resource_id
+))`
+
 // Get retrieves a single comment by ID
 func (r *CommentRepository) Get(ctx context.Context, organizationID string, commentID comments.ID) (*comments.Comment, error) {
 	var c comments.Comment
@@ -129,8 +134,7 @@ func (r *CommentRepository) Get(ctx context.Context, organizationID string, comm
 		SELECT id, resource_type, resource_id, body, author_id,
 		       created_at, updated_at, edited_at, minimized, minimized_reason, version
 		FROM comments
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, commentID).Scan(
+		WHERE organization_id = $1 AND id = $2 AND `+visibleComment, organizationID, commentID).Scan(
 		&c.ID, &c.ResourceType, &c.ResourceID, &c.Body, &c.AuthorID,
 		&c.CreatedAt, &c.UpdatedAt, &editedAt, &c.Minimized, &minimizedReason, &c.Version,
 	)
@@ -158,8 +162,7 @@ func (r *CommentRepository) Update(ctx context.Context, organizationID string, c
 	result, err := r.store.pool.Exec(ctx, `
 		UPDATE comments
 		SET body = $1, updated_at = $2, edited_at = $3, version = version + 1
-		WHERE organization_id = $4 AND id = $5 AND version = $6
-	`, comment.Body, comment.UpdatedAt, comment.EditedAt, organizationID, comment.ID, comment.Version)
+		WHERE organization_id = $4 AND id = $5 AND version = $6 AND `+visibleComment, comment.Body, comment.UpdatedAt, comment.EditedAt, organizationID, comment.ID, comment.Version)
 
 	if err != nil {
 		return nil, fmt.Errorf("update comment: %w", err)
@@ -189,8 +192,7 @@ func (r *CommentRepository) Delete(ctx context.Context, organizationID string, c
 	err = tx.QueryRow(ctx, `
 		SELECT resource_type, resource_id
 		FROM comments
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, commentID).Scan(&resourceType, &resourceID)
+		WHERE organization_id = $1 AND id = $2 AND `+visibleComment, organizationID, commentID).Scan(&resourceType, &resourceID)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -202,8 +204,7 @@ func (r *CommentRepository) Delete(ctx context.Context, organizationID string, c
 	// Delete comment
 	result, err := tx.Exec(ctx, `
 		DELETE FROM comments
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, commentID)
+		WHERE organization_id = $1 AND id = $2 AND `+visibleComment, organizationID, commentID)
 
 	if err != nil {
 		return fmt.Errorf("delete comment: %w", err)
@@ -230,8 +231,7 @@ func (r *CommentRepository) Minimize(ctx context.Context, organizationID string,
 	result, err := r.store.pool.Exec(ctx, `
 		UPDATE comments
 		SET minimized = true, minimized_reason = $1, version = version + 1
-		WHERE organization_id = $2 AND id = $3
-	`, reason, organizationID, commentID)
+		WHERE organization_id = $2 AND id = $3 AND `+visibleComment, reason, organizationID, commentID)
 
 	if err != nil {
 		return nil, fmt.Errorf("minimize comment: %w", err)
@@ -250,8 +250,7 @@ func (r *CommentRepository) Unminimize(ctx context.Context, organizationID strin
 	result, err := r.store.pool.Exec(ctx, `
 		UPDATE comments
 		SET minimized = false, minimized_reason = NULL, version = version + 1
-		WHERE organization_id = $1 AND id = $2
-	`, organizationID, commentID)
+		WHERE organization_id = $1 AND id = $2 AND `+visibleComment, organizationID, commentID)
 
 	if err != nil {
 		return nil, fmt.Errorf("unminimize comment: %w", err)

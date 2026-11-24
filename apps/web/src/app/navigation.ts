@@ -48,7 +48,7 @@ export function itemHref(item: NavigationItem, handle: string): string {
   return "orgPath" in item ? item.orgPath(handle) : item.path;
 }
 
-/** Repository subpages, including settings panels, activate their owning top-level tab. */
+/** Repository subpages, including source-control settings such as Rulesets, activate their owning top-level tab. */
 export function repositorySectionForPath(pathname: string | undefined) {
   const segment = pathname?.split("/")[6]?.toLowerCase();
   return repositorySections.find(section => section === segment);

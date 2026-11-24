@@ -136,7 +136,10 @@ func (d DeliveryDependencies) stageIssueAttachment(w http.ResponseWriter, r *htt
 		return
 	}
 	file := issues.AttachmentDraft{ID: id, Repository: repository, UploaderID: principal.UserID, Filename: filename, ContentType: contentType, Content: content}
-	if err := d.IssueRepo.StageAttachment(r.Context(), principal.OrganizationID, file); errors.Is(err, issues.ErrAttachmentQuota) {
+	if err := d.IssueRepo.StageAttachment(r.Context(), principal.OrganizationID, file); errors.Is(err, issues.ErrDetailNotFound) {
+		issueDetailError(w, err)
+		return
+	} else if errors.Is(err, issues.ErrAttachmentQuota) {
 		writeProblem(w, http.StatusTooManyRequests, "Attachment draft quota reached", "The total size of unpublished attachments exceeds the limit")
 		return
 	} else if err != nil {

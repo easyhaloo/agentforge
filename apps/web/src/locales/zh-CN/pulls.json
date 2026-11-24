@@ -1,4 +1,16 @@
 {
+  "development": {
+    "title": "开发",
+    "empty": "没有手动关联的议题。",
+    "open": "关联议题",
+    "number": "议题编号",
+    "link": "关联议题",
+    "unlinkAction": "解除关联",
+    "unlink": "解除议题 #{{number}} 的关联",
+    "loadFailed": "无法加载已关联的议题。",
+    "saveFailed": "无法更新议题关联。",
+    "missing": "此仓库中找不到该议题。"
+  },
   "list": {
     "title": "拉取请求",
     "description": "等待审查和合并的变更提案",
@@ -91,6 +103,11 @@
     "branchSummary_other": "<author/> 提议将 <source/> 的 {{count}} 个提交合并到 <base/>"
   },
   "conversation": {
+    "threadResolved": "{{actor}} 于 {{date}} 解决了对话",
+    "threadUnresolved": "未解决",
+    "resolveThread": "解决对话",
+    "reopenThread": "重新打开对话",
+    "resolutionFailed": "无法更新对话状态。",
     "title": "对话",
     "description": "时间线和讨论",
     "writeComment": "写评论",
@@ -126,12 +143,27 @@
     "passed": "所有检查通过",
     "required": "需要证据",
     "noChecks": "未配置检查",
+    "noEvaluation": "此修订版本暂无评估结果",
     "status": {
       "pending": "待处理",
       "running": "运行中",
       "passed": "通过",
       "failed": "失败",
       "skipped": "已跳过"
+    }
+  },
+  "requiredWorkflows": {
+    "title": "仓库必需工作流",
+    "loading": "正在加载仓库必需工作流…",
+    "unavailable": "暂时无法获取必需工作流状态。",
+    "stale": "当前修订版本已变更。请重试以加载新版本的必需工作流状态。",
+    "summary": "必需工作流已通过 {{passed}} 项，共 {{total}} 项",
+    "viewChecks": "查看检查",
+    "status": {
+      "passed": "已通过",
+      "waiting": "等待一次成功运行",
+      "behind": "源分支落后于目标分支",
+      "source_moved": "源分支在此修订版本之后已变更"
     }
   },
   "files": {
@@ -161,6 +193,7 @@
     "commentOnly": "仅评论"
   },
   "actions": {
+    "openMergeQueue": "打开合并队列",
     "markReady": "标记为就绪",
     "markDraft": "转换为草稿",
     "close": "关闭拉取请求",
@@ -177,6 +210,12 @@
     "markedDraft": "已转换为草稿",
     "stateChangeFailed": "更改拉取请求状态失败",
     "cannotMerge": "无法合并：检查未通过或存在冲突",
+    "mergeMethod": "合并方式",
+    "methods": { "merge": "创建合并提交", "squash": "压缩并合并", "rebase": "变基并合并" },
+    "confirmMergeMethod": "使用「{{method}}」将 {{source}} 合并到 {{base}}？",
+    "loadingMergeMethods": "正在加载合并方式…",
+    "noMergeMethods": "目标分支没有可用的合并方式。",
+    "loadMergeMethodsFailed": "无法加载合并方式。",
     "confirmMerge": "将 {{source}} 合并到 {{base}}？",
     "confirmClose": "关闭此拉取请求而不合并？",
     "updateRevision": "更新修订",
@@ -221,6 +260,8 @@
     "changes_requested": "已请求修改"
   },
   "gate": {
+    "conversationsRequired": "合并前请解决所有行内讨论。",
+    "queueRequired": "仓库要求此已验证的拉取请求通过合并队列。",
     "changeset": "变更集",
     "currentRevision": "当前修订",
     "revisionNumber": "修订 {{number}}",

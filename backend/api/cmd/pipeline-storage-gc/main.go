@@ -3,11 +3,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/easyhaloo/agentforge/backend/api/internal/artifact"
 	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 )
 
@@ -17,8 +19,16 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer s.Close()
+	logs, err := s.PurgePipelineLogs(ctx)
+	if err != nil {
+		return err
+	}
+	log.Printf("purged %d inline pipeline logs", logs)
 	for n := 0; n < 100; n++ {
 		purged, err := s.PurgePipelineObject(ctx)
+		if errors.Is(err, artifact.ErrUnavailable) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}

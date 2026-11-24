@@ -64,8 +64,8 @@ func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organiz
 	return organizationID, actorID, defaultBranch, nil
 }
 
-// LockGitPolicy serializes pushes and recovery for the repository and
-// prevents a concurrent catalog update from changing the protected ref.
+// LockGitPolicy serializes native pushes and regular merges against concurrent
+// repository policy updates. Integration promotion takes the same row lock.
 func (s *Store) LockGitPolicy(ctx context.Context, organization, repository string) (githttp.PushPolicy, func(), error) {
 	tx, err := s.lockPool.Begin(ctx)
 	if err != nil {
@@ -76,13 +76,23 @@ func (s *Store) LockGitPolicy(ctx context.Context, organization, repository stri
 		defer cancel()
 		_ = tx.Rollback(ctx)
 	}
-	var policy githttp.PushPolicy
-	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs FROM delivery_repositories
-		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs); err != nil {
+	policy, err := lockGitPolicyRow(ctx, tx, organization, repository)
+	if err != nil {
 		release()
-		return githttp.PushPolicy{}, nil, fmt.Errorf("lock Git default branch: %w", err)
+		return githttp.PushPolicy{}, nil, err
 	}
 	return policy, release, nil
+}
+
+func lockGitPolicyRow(ctx context.Context, tx pgx.Tx, organization, repository string) (githttp.PushPolicy, error) {
+	var policy githttp.PushPolicy
+	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs, ref_rules, web_commit_signoff_required,
+		       allow_merge_commit, allow_squash_merge, allow_rebase_merge, merge_commit_message_format, squash_commit_message_format FROM delivery_repositories
+		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs, &policy.RefRules, &policy.WebCommitSignoffRequired,
+		&policy.MergeMethods.AllowMergeCommit, &policy.MergeMethods.AllowSquashMerge, &policy.MergeMethods.AllowRebaseMerge, &policy.MergeCommitMessageFormat, &policy.SquashCommitMessageFormat); err != nil {
+		return githttp.PushPolicy{}, fmt.Errorf("lock Git repository policy: %w", err)
+	}
+	return policy, nil
 }
 
 func (s *Store) ListGitCredentials(ctx context.Context, organizationID, repository, actorID string) ([]githttp.CredentialSummary, error) {

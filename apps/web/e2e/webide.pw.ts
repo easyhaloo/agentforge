@@ -23,6 +23,7 @@ test("WebIDE saves an overlay and hands it off to the Changeset lifecycle", asyn
   let savedContent = "base content\n";
   let version = 0;
   let submitted = false;
+  let attempted = false;
 
   await page.route("**/api/v1/organizations/org-demo/**", async (route) => {
     const request = route.request();
@@ -79,8 +80,12 @@ test("WebIDE saves an overlay and hands it off to the Changeset lifecycle", asyn
       });
     }
     if (path === "/api/v1/organizations/org-demo/workspaces/ws-webide-e2e/changesets" && method === "POST") {
-      const body = request.postDataJSON() as { title: string };
-      expect(body.title).toBe("Update easyhaloo/agentforge");
+      if (!attempted) {
+        attempted = true;
+        expect(request.postDataJSON()).toEqual({ title: "Update easyhaloo/agentforge" });
+        return json({ title: "Web commit sign-off required" }, 422);
+      }
+      expect(request.postDataJSON()).toEqual({ title: "Update easyhaloo/agentforge", signoff: true });
       submitted = true;
       return json({
         changeset: {
@@ -110,6 +115,12 @@ test("WebIDE saves an overlay and hands it off to the Changeset lifecycle", asyn
   await expect(page.getByRole("button", { name: "Create changeset" })).toBeDisabled();
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("button", { name: /Create changeset/ })).toBeEnabled();
+  await page.getByRole("button", { name: "Create changeset" }).click();
+  const signoff = page.getByRole("checkbox", { name: /I certify this contribution/ });
+  await expect(signoff).not.toBeChecked();
+  await expect(signoff).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create changeset" })).toBeDisabled();
+  await signoff.check();
   await page.getByRole("button", { name: "Create changeset" }).click();
   await expect.poll(() => submitted).toBe(true);
   await expect(page.getByText(/Changeset cs-webide-e2e created from workspace/)).toBeVisible();

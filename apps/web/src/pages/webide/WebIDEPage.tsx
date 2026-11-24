@@ -15,10 +15,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { organizationHandle, orgPath } from "../../shared/routing";
-import { Alert, Button, ConfirmDialog, Empty, Loading, Select } from "../../shared/ui";
+import { Alert, Button, Checkbox, ConfirmDialog, Empty, Loading, Select } from "../../shared/ui";
 import { detectCodeLanguage } from "../../shared/code/languages";
 import { TextAreaEditorAdapter, type EditorAdapter, type EditorController } from "../../shared/code/EditorAdapter";
-import { translateError } from "../../shared/api/errors";
+import { APIError, translateError } from "../../shared/api/errors";
 
 type DiffLine = { kind: "same" | "removed" | "added"; text: string };
 
@@ -59,6 +59,8 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   const [editorController, setEditorController] = useState<EditorController | null>(null);
   const handleEditorReady = useCallback((controller: EditorController | null) => setEditorController(controller), []);
   const [file, setFile] = useState<RepositoryPreviewBlob | null>(null);
+  const [signoff, setSignoff] = useState(false);
+  const [signoffRequiredRepository, setSignoffRequiredRepository] = useState("");
   const [draft, setDraft] = useState("");
   const [original, setOriginal] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,8 +71,12 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   const selectedChangeset = changesets.find(item => item.changeset.id === selectedChangesetID);
   const canEdit = Boolean(selectedChangeset && selectedChangeset.changeset.revisions.length > 0 && !selectedChangeset.changeset.merge);
   const diffLines = useMemo(() => lineDiff(original, draft), [original, draft]);
+  const requiresSignoff = Boolean(selectedRepository && (signoffRequiredRepository === selectedRepository ||
+    repositories?.some(repo => repo.slug === selectedRepository && repo.web_commit_signoff_required)));
   const dirty = Boolean(file && draft !== original);
   const editorLanguage = file ? detectCodeLanguage(file.path) : undefined;
+
+  useEffect(() => { setSignoff(false); }, [draft, file, selectedChangesetID]);
 
   const runIfClean = (action: () => void) => {
     if (dirty) { setPendingNavigation(() => action); return; }
@@ -190,7 +196,7 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
   });
 
   const save = async () => {
-    if (!file || !selectedChangeset || !dirty || saving) return;
+    if (!file || !selectedChangeset || !dirty || saving || (requiresSignoff && !signoff)) return;
     setSaving(true);
     setError("");
     setConflict(false);
@@ -200,12 +206,18 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
         base_commit_sha: file.commit_sha,
         base_blob_sha: file.blob_sha,
         content: draft,
+        ...(requiresSignoff && { signoff }),
       });
       setChangesets(current => current.map(item => item.changeset.id === result.changeset.changeset.id ? result.changeset : item));
       setSelectedRef(result.commit_sha);
       setOriginal(draft);
       setError(t("repositories:webide.savedRevision"));
     } catch (cause) {
+      if (cause instanceof APIError && cause.status === 422 && cause.title === "Web commit sign-off required") {
+        setSignoffRequiredRepository(selectedRepository);
+        setError(t("webide.signoffRequired"));
+        return;
+      }
       const message = translateError(cause, t, "repositories:webide.errors.saveFailed");
       setError(message);
       setConflict(/409|conflict|stale/i.test(message));
@@ -275,10 +287,14 @@ export function WebIDEPage({ organization, editorAdapter: Editor = TextAreaEdito
             <div><strong>{file.path}</strong><span>{editorLanguage?.label ?? "Plain text"} · {file.commit_sha.slice(0,12)} · blob {file.blob_sha.slice(0,8)}</span></div>
             <div className="webide-editor__actions">
               <Button className="button secondary" disabled={!dirty || saving} onClick={() => { setDraft(original); setError(""); setConflict(false); }}><Trash2 size={13}/> {t("repositories:webide.discard")}</Button>
-              <Button className="button primary" disabled={!canEdit || !dirty || saving} onClick={() => void save()}>{saving ? <RefreshCw size={13}/> : <Save size={13}/>} {saving ? t("repositories:webide.saving") : t("repositories:webide.saveRevision")}</Button>
+              <Button className="button primary" disabled={!canEdit || !dirty || saving || (requiresSignoff && !signoff)} onClick={() => void save()}>{saving ? <RefreshCw size={13}/> : <Save size={13}/>} {saving ? t("repositories:webide.saving") : t("repositories:webide.saveRevision")}</Button>
             </div>
           </div>
           {!selectedChangeset && <p className="webide-hint">{t("repositories:webide.hintSelectChangeset")}</p>}{selectedChangeset && !canEdit && <p className="webide-hint">{t("repositories:webide.hintNeedsRevision")}</p>}
+          {canEdit && dirty && requiresSignoff && <div className="webide-hint"><Checkbox label={t("webide.signoffConsent")} checked={signoff} disabled={saving}
+            onChange={event => setSignoff(event.target.checked)} />
+            <a href="https://developercertificate.org/" target="_blank" rel="noreferrer">{t("webide.readDco")}</a>
+          </div>}
           {dirty && <p className="webide-hint">{t("repositories:webide.hintUnsaved")}</p>}
           <Editor path={file.path} languageId={editorLanguage?.monaco ?? "plaintext"} value={draft} onChange={setDraft} readOnly={!canEdit || saving} activeLine={activeLine} onReady={handleEditorReady}/>
           {dirty && <details className="webide-diff"><summary>{t("repositories:webide.reviewChanges", { count: draft.split("\n").length })}</summary><pre>{diffLines.map((line, index) => <span className={"webide-diff__line--" + line.kind} key={index}>{line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}{line.text}</span>)}</pre></details>}

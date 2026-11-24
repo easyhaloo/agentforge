@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { APIError, accountAPI, authAPI, type AccountContext } from "../shared/api/identity";
+import { APIError, accountAPI, authAPI, repositoryAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
 import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle } from "../shared/routing";
 import { Button } from "../shared/ui";
@@ -10,6 +10,7 @@ import { AppAccountContext, useSelectedOrganization, type AccountState } from ".
 import { Sidebar } from "./components/Sidebar";
 import { AccountTheme } from "../features/appearance/AccountTheme";
 import { Topbar } from "./components/Topbar";
+import { repositoryIssuesSettingChanged } from "../pages/repositories/repositoryPermissions";
 import { RepositoryNavigation } from "../pages/repositories/RepositoryNavigation";
 import { RepositorySwitcher } from "./components/RepositorySwitcher";
 import { PageHeader } from "./components/PageHeader";
@@ -85,6 +86,25 @@ function App() {
   const { owner, repo } = match?.params ?? {};
   const repositorySection = repositorySectionForPath(match?.pathname);
   const isRepositoryDetail = Boolean(owner && repo) && (label === "Repository" || label === "Issue" || label === "New Issue" || repositorySection === "pulls") && accountState === "ready" && Boolean(urlOrganization);
+  const repository = isRepositoryDetail ? `${owner}/${repo}` : undefined;
+  const [disabledIssuesKey, setDisabledIssuesKey] = useState<string>();
+  const repositoryKey = urlOrganizationID && repository ? `${urlOrganizationID}:${repository}` : undefined;
+  const issuesDisabled = Boolean(repositoryKey && disabledIssuesKey === repositoryKey);
+  useEffect(() => {
+    if (!urlOrganizationID || !repository || !repositoryKey) return;
+    let request: AbortController;
+    const refresh = () => {
+      request?.abort();
+      const controller = new AbortController();
+      request = controller;
+      void repositoryAPI.settings(urlOrganizationID, repository, controller.signal).then(settings => {
+        if (!controller.signal.aborted) setDisabledIssuesKey(settings.issues_disabled ? repositoryKey : undefined);
+      }).catch(() => { /* Repository pages surface errors from their own requests. */ });
+    };
+    refresh();
+    window.addEventListener(repositoryIssuesSettingChanged, refresh);
+    return () => { request.abort(); window.removeEventListener(repositoryIssuesSettingChanged, refresh); };
+  }, [urlOrganizationID, repository, repositoryKey]);
   const isOverview = label === "Overview";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
   return (
@@ -97,13 +117,15 @@ function App() {
           navigation={<Button variant="ghost" className="workspace-icon" aria-label={t("navigation:sidebar.openNavigation")}
             aria-haspopup="dialog" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}><Menu size={17} aria-hidden="true" /></Button>}
           organizationHandle={selectedOrganization ? linkHandle : undefined} />
-        {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} />}
+        {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} issuesDisabled={issuesDisabled} />}
         <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && label !== "Projects" && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
               <PageHeader label={label} descriptionKey={item?.descriptionKey} />}
-            {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : <Outlet />}
+            {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : issuesDisabled && repositorySection === "issues"
+              ? <section className="card org-auth-state"><h2>{t("repositories:settings.issuesDisabled")}</h2></section>
+              : <Outlet />}
             {!isOverview && !urlHandle && item && <footer>{t("app:footer.mockEnvironment")}</footer>}
           </div>
         </main>

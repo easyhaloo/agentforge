@@ -15,6 +15,9 @@ func (r *IssueRepository) StageAttachment(ctx context.Context, organizationID st
 		return fmt.Errorf("begin attachment upload: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	if err := requireRepositoryIssues(ctx, tx, organizationID, file.Repository); err != nil {
+		return err
+	}
 	// Serialize quota checks for concurrent uploads by the same organization member.
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2, 0))`, organizationID, file.UploaderID); err != nil {
 		return fmt.Errorf("lock attachment quota: %w", err)
@@ -42,8 +45,10 @@ func (r *IssueRepository) StageAttachment(ctx context.Context, organizationID st
 
 func (r *IssueRepository) GetAttachment(ctx context.Context, organizationID, userID, id string) (issues.AttachmentDraft, error) {
 	file := issues.AttachmentDraft{ID: id}
-	err := r.store.pool.QueryRow(ctx, `SELECT repository, filename, content_type, content FROM issue_attachments
-		WHERE organization_id = $1 AND id = $2 AND (issue_id IS NOT NULL OR (uploader_id = $3 AND expires_at > now()))`,
+	err := r.store.pool.QueryRow(ctx, `SELECT repository, filename, content_type, content FROM issue_attachments a
+		WHERE organization_id = $1 AND id = $2 AND (issue_id IS NOT NULL OR (uploader_id = $3 AND expires_at > now()))
+		AND NOT EXISTS (SELECT 1 FROM delivery_repositories r
+			WHERE (r.organization_id, r.slug) = (a.organization_id, a.repository) AND r.issues_disabled)`,
 		organizationID, id, userID).Scan(&file.Repository, &file.Filename, &file.ContentType, &file.Content)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return file, issues.ErrAttachmentNotFound

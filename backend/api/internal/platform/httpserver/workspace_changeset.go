@@ -11,7 +11,8 @@ import (
 )
 
 type createWorkspaceChangesetRequest struct {
-	Title string `json:"title"`
+	Title   string `json:"title"`
+	Signoff bool   `json:"signoff"`
 }
 
 func (d DeliveryDependencies) createWorkspaceChangeset(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +87,18 @@ func (d DeliveryDependencies) createWorkspaceChangeset(w http.ResponseWriter, r 
 		writeProblem(w, http.StatusInternalServerError, "Changeset creation failed", "A revision identifier could not be generated")
 		return
 	}
+	policy, release, err := d.lockBranchWritePolicy(r.Context(), principal.OrganizationID, item.Repository)
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository policy lock unavailable", "The repository policy could not be safely locked for the workspace commit")
+		return
+	}
+	defer release()
+	signoff, ok := d.webCommitSignoff(w, r, principal, policy.WebCommitSignoffRequired, input.Signoff)
+	if !ok {
+		return
+	}
 	revision, err := creator.CreateWorkspaceRevision(r.Context(), principal.OrganizationID, item.Repository,
-		item.BaseCommitSHA, changesetID, revisionID, principal.UserID, files)
+		item.BaseCommitSHA, changesetID, revisionID, principal.UserID, files, signoff)
 	if err != nil {
 		writeProblem(w, http.StatusUnprocessableEntity, "Workspace revision failed", "The saved overlay could not be materialized on its immutable base commit")
 		return

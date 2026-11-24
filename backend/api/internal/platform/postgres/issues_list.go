@@ -22,6 +22,12 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 	if filter.Repository != "" {
 		conditions = append(conditions, "repository = "+bind(filter.Repository))
 	}
+	if filter.LinkedChangeset != "" {
+		conditions = append(conditions, `EXISTS (SELECT 1 FROM issue_changeset_links l
+			JOIN delivery_changesets c ON (c.organization_id,c.id)=(l.organization_id,l.changeset_id)
+			WHERE (l.organization_id,l.issue_id,c.repository)=(issues.organization_id,issues.id,issues.repository)
+			AND l.changeset_id = `+bind(filter.LinkedChangeset)+`)`)
+	}
 	if filter.CreatedBy != "" {
 		conditions = append(conditions, "created_by = "+bind(filter.CreatedBy))
 	}
@@ -54,7 +60,7 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 	where := strings.Join(conditions, " AND ")
 	if err := r.store.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FILTER (WHERE state = 'open'), COUNT(*) FILTER (WHERE state = 'closed')
-		FROM issues WHERE `+where, args...).Scan(&counts.OpenTotal, &counts.ClosedTotal); err != nil {
+		FROM enabled_repository_issues issues WHERE `+where, args...).Scan(&counts.OpenTotal, &counts.ClosedTotal); err != nil {
 		return nil, counts, fmt.Errorf("count issues: %w", err)
 	}
 	counts.Total = counts.OpenTotal + counts.ClosedTotal
@@ -79,7 +85,7 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 	if filter.Direction == "asc" {
 		direction = "ASC"
 	}
-	query := `SELECT ` + issueColumns + ` FROM issues WHERE ` + where + `
+	query := `SELECT ` + issueColumns + ` FROM enabled_repository_issues issues WHERE ` + where + `
 		ORDER BY ` + sort + ` ` + direction + `, number ` + direction + `, id
 		LIMIT ` + bind(limit) + ` OFFSET ` + bind(offset)
 	rows, err := r.store.pool.Query(ctx, query, args...)
@@ -107,7 +113,7 @@ func (r *IssueRepository) FilterOptions(ctx context.Context, organizationID, rep
 	var options issues.FilterOptions
 	err := r.store.pool.QueryRow(ctx, `
 		WITH scoped AS (
-			SELECT organization_id, id, created_by, milestone_id FROM issues WHERE organization_id = $1 AND repository = $2
+			SELECT organization_id, id, created_by, milestone_id FROM enabled_repository_issues issues WHERE organization_id = $1 AND repository = $2
 		)
 		SELECT ARRAY(SELECT DISTINCT created_by FROM scoped ORDER BY created_by),
 		       ARRAY(SELECT DISTINCT l.name FROM scoped s

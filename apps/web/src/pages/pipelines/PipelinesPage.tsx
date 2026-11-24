@@ -45,6 +45,9 @@ export function PipelinesPage({ organization, renderHeader }: {
 }) {
   const { t } = useTranslation("pipelines");
   const org = organization.id;
+  const [search] = useSearchParams();
+  const queue = mergeQueueContext(search);
+  const queueSearch = queue ? `?${search}` : "";
   const [items, setItems] = useState<Summary[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -63,18 +66,26 @@ export function PipelinesPage({ organization, renderHeader }: {
       disabled: busy || creating,
     })}
     <section className="org-admin wf-workspace">
+      {queue && <p>{t("chooseQueueWorkflow")}</p>}
       {error && <p className="org-error" role="alert">{error}</p>}
       <h2><Workflow size={17} />{t("title")} {!busy && !error && <small>{items.length}</small>}</h2>
       <DataTable<Summary> showColumnVisibility={false} aria-label={t("title")} rowKey="id" data={items} loading={busy}
         emptyText={<Empty icon={<Workflow />} title={t("empty")} description={organization.role !== "viewer" && t("emptyHint")} />}
         columns={[
-          {key:"name", title:t("workflowName"), render:(_, row) => <Link to={pipelineEditPath(organizationHandle(organization), row.id)}><Workflow size={16} />{row.name}</Link>},
+          {key:"name", title:t("workflowName"), render:(_, row) => <Link to={pipelineEditPath(organizationHandle(organization), row.id) + queueSearch}><Workflow size={16} />{row.name}</Link>},
           {key:"status", title:t("status"), render:(_, row) => <span className="wf-badge" data-state={row.status}>{t(row.status)}</span>},
           {key:"revision", title:t("revisionLabel")}, {key:"version", title:t("version")},
         ]} />
     </section>
     {creating && <CreatePipelineDialog organization={organization} onClose={() => setCreating(false)} />}
   </>;
+}
+
+function mergeQueueContext(search: URLSearchParams) {
+  const repository = search.get("queueRepository");
+  const target = search.get("queueTarget");
+  const source = search.get("queueSource");
+  if (repository && target && source) return { repository, target, source };
 }
 
 export function CreatePipelineDialog({ organization, copy, onClose, repository }: {
@@ -122,6 +133,7 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   const handle = organizationHandle(organization);
   const [search] = useSearchParams();
   const backToActions = repositoryActionsBackPath(handle, search);
+  const queue = mergeQueueContext(search);
   const [selected, select] = useState<Pipeline | null>(null);
   const [edits, setDraft] = useState<Definition | null>(null);
   const [busy, setBusy] = useState(true);
@@ -176,7 +188,7 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   } : undefined;
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
-      <Link to={backToActions ?? orgPath(handle, "pipelines")}><ArrowLeft size={16}/>{backToActions ? t("repositories:actions.back") : t("backToList")}</Link>
+      <Link to={backToActions ?? (orgPath(handle, "pipelines") + (queue ? `?${search}` : ""))}><ArrowLeft size={16}/>{backToActions ? t("repositories:actions.back") : t("backToList")}</Link>
       {selected && <>
         <div className="wf-editor-title"><h1>{selected.name}</h1>
           <span role="status">{t("revision", {status:t(selected.disabled && selected.status !== "archived" ? "disabled" : selected.status), revision:selected.revision, version:selected.version})}</span>
@@ -194,7 +206,7 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
     {canEdit && validShape ? <div className="wf-editor-shell" inert={busy} aria-busy={busy}>
       <WorkflowEditor key={selected.revision} definition={draft} update={setDraft} outputNames={outputNames} />
     </div> : (validShape ? <WorkflowCanvas definition={draft}/> : <p>{t("invalidGraph")}</p>)}
-    {selected.version > 0 && <MergeQueuePanel org={org} pipeline={selected} draft={draftRun} canStart={canEdit && !selected.disabled} canPromote={canPublish} />}
+    {selected.version > 0 && <MergeQueuePanel key={search.toString()} initial={queue} org={org} pipeline={selected} draft={draftRun} canStart={canEdit && !selected.disabled} canPromote={canPublish} />}
     {canEdit && !selected.disabled && runDialog && <RunDialog org={org} pipeline={selected} draft={draftRun} confirmDiscard={dirty} onCancel={() => setRunDialog(false)}
       onSubmit={async (version, inputs) => {
         const run = await pipelines.start(org, selected.id, version.number, inputs);

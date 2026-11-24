@@ -27,13 +27,15 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const response = await fetch(API_BASE + path, { ...init, headers, credentials: "include" });
   if (!response.ok) {
     // The API answers with RFC 7807 problem details. Its prose is English, so it is kept on the
-    // error for the console and the interface shows a message chosen from the status instead.
+    // error for diagnostics and the interface uses a translated message keyed by title or status.
     let detail: string | undefined;
+    let title: string | undefined;
     try {
       const problem = await response.json() as { detail?: string; title?: string };
-      detail = problem.detail || problem.title;
+      title = problem.title;
+      detail = problem.detail || title;
     } catch { /* response may not contain JSON */ }
-    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail);
+    throw new APIError(detail ?? `Request failed (${response.status})`, response.status, detail, title);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -119,6 +121,8 @@ export type PullRequestComment = {
   path?: string;
   side?: "left" | "right";
   line?: number;
+  resolved_by?: string;
+  resolved_at?: string;
 };
 
 export type PullRequestMetadata = {
@@ -153,14 +157,57 @@ export type StoredChangeset = {
 /** A page of changesets plus the number of matches before paging. */
 export type ChangesetPage = { items: StoredChangeset[]; total: number; limit: number; offset: number };
 export type RepositoryVisibility = "public" | "private";
-export type RepositoryMetadata = { is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RefNamePattern = {
+  operator: "starts_with" | "ends_with" | "contains" | "regex";
+  pattern: string;
+  negate?: boolean;
+  name?: string;
+};
+export type RepositoryRefRule = {
+  name: string;
+  target: "branch" | "tag";
+  enabled: boolean;
+  include: string[];
+  exclude: string[];
+  restrict_creation: boolean;
+  restrict_update: boolean;
+  restrict_deletion: boolean;
+  block_force_push: boolean;
+  require_pull_request?: boolean;
+  required_review_thread_resolution?: boolean;
+  allowed_merge_methods?: PullRequestMergeMethod[];
+  require_merge_queue?: boolean;
+  merge_queue_method?: "merge" | "squash" | "rebase";
+  require_linear_history?: boolean;
+  name_patterns?: RefNamePattern[];
+  required_workflows?: { pipeline_ids: string[]; strict: boolean; skip_creation: boolean };
+};
+export type RepositoryMergeMessageFormat = "default" | "title" | "description";
+type RepositoryMergeMethods = {
+  allow_merge_commit?: boolean;
+  allow_squash_merge?: boolean;
+  allow_rebase_merge?: boolean;
+  merge_commit_message_format?: RepositoryMergeMessageFormat;
+  squash_commit_message_format?: RepositoryMergeMessageFormat | "commits";
+};
+export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; actions_retention_days?: number; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
+export type RepositorySettings = RepositoryMetadata & {
+  hosting_kind: "hosted" | "registered";
+  pull_request_merge_methods?: PullRequestMergeMethod[];
+  pull_request_requires_conversation_resolution?: boolean;
+};
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
-export type RepositoryPreviewRefs = { description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
+export type RepositoryPreviewRefs = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
 export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
 export type PullRequestComparison = RepositoryCompare & { commits: RepositoryCommit[]; commits_truncated: boolean };
+export type PullRequestRequiredWorkflows = {
+  revision_id: string;
+  checks: Array<{ pipeline_id: string; name: string; status: "passed" | "waiting" | "behind" | "source_moved" }>;
+};
 export type RepositoryCompare = { repository: string; base_sha: string; head_sha: string; patch: string };
 export type RepositoryBlameLine = { line: number; commit_sha: string; author: string; authored_at: string; summary: string; content: string };
 export type GitCredential = { id: string; username: string; token: string; expires_at: string };
@@ -248,8 +295,10 @@ export const repositoryAPI = {
     request<operations["listRepositoryActions"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions?${filters}`, { signal }),
   workflows: (organizationID: string, repository: string, signal?: AbortSignal) =>
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
-  updateGeneralSettings: (organizationID: string, repository: string, settings: Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "updated_at">) =>
-    request<RepositoryMetadata>(`${repositoryBase(organizationID, repository)}/settings`, {
+  settings: (organizationID: string, repository: string, signal?: AbortSignal, targetBranch?: string) =>
+    request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings${targetBranch ? `?${new URLSearchParams({ target_branch: targetBranch })}` : ""}`, { signal }),
+  updateGeneralSettings: (organizationID: string, repository: string, settings: RepositoryMergeMethods & Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "actions_retention_days" | "delete_merged_branches" | "web_commit_signoff_required" | "issues_disabled" | "auto_close_issues_disabled" | "ref_rules" | "updated_at">) =>
+    request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
     }),
   updateDefaultBranch: (organizationID: string, repository: string, defaultBranch: string, previousBranch: string) =>
@@ -282,7 +331,7 @@ export type WorkspaceDiff = { workspace_id: string; base_commit_sha: string; ite
 export const workspaceAPI = {
   create: (organizationID: string, repository: string, baseRef = "") => {
     const [owner, name] = repository.split("/");
-    return request<{ workspace: Workspace }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/workspaces`, {
+    return request<{ workspace: Workspace; web_commit_signoff_required?: boolean }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/workspaces`, {
       method: "POST", body: JSON.stringify(baseRef ? { base_ref: baseRef } : {}),
     });
   },
@@ -297,10 +346,10 @@ export const workspaceAPI = {
   },
   diff: (organizationID: string, workspaceID: string) =>
     request<WorkspaceDiff>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/diff`),
-  createChangeset: (organizationID: string, workspaceID: string, title: string) =>
+  createChangeset: (organizationID: string, workspaceID: string, title: string, signoff?: boolean) =>
     request<{ changeset: StoredChangeset; workspace_id: string; base_commit_sha: string; revision_commit_sha: string }>(
       `/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/changesets`,
-      { method: "POST", body: JSON.stringify({ title }) },
+      { method: "POST", body: JSON.stringify({ title, signoff }) },
     ),
   readFile: (organizationID: string, workspaceID: string, path: string) =>
     request<WorkspaceFile>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/workspaces/${encodeURIComponent(workspaceID)}/files?${new URLSearchParams({ path }).toString()}`),
@@ -311,7 +360,7 @@ export const workspaceAPI = {
 };
 
 export const changesetAPI = {
-  saveFile: (organizationID: string, id: string, input: { path: string; base_commit_sha: string; base_blob_sha: string; content: string }) => request<{ changeset: StoredChangeset; path: string; branch: string; commit_sha: string; blob_sha: string }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/files`, { method: "PUT", body: JSON.stringify(input) }),
+  saveFile: (organizationID: string, id: string, input: { path: string; base_commit_sha: string; base_blob_sha: string; content: string; signoff?: boolean }) => request<{ changeset: StoredChangeset; path: string; branch: string; commit_sha: string; blob_sha: string }>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/files`, { method: "PUT", body: JSON.stringify(input) }),
 
   get: (organizationID: string, id: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}`),
   addRevision: (organizationID: string,id: string,ref: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/revisions`,{method:"POST",body:JSON.stringify({ref})}),
@@ -319,7 +368,7 @@ export const changesetAPI = {
   attachEvidence: (organizationID: string,id: string,evaluationID: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/evidence`,{method:"POST",body:JSON.stringify({evaluation_id:evaluationID})}),
   assignReview: (organizationID: string,id: string,reviewerID: string,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews`,{method:"POST",body:JSON.stringify({reviewer_id:reviewerID,comment})}),
   decideReview: (organizationID: string,id: string,reviewID: string,approved: boolean,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewID)}/decision`,{method:"POST",body:JSON.stringify({approved,comment})}),
-  merge: (organizationID: string,id: string,targetRef: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef})}),
+  merge: (organizationID: string,id: string,targetRef: string, mergeMethod?: PullRequestMergeMethod) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef, merge_method:mergeMethod})}),
   list: (organizationID: string, filters: ChangesetListFilters = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (filters.q) query.set("q", filters.q);
@@ -351,6 +400,12 @@ export const changesetAPI = {
     request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/comments`, {
       method: "POST", body: JSON.stringify({ body, revision_id: revisionID, path, side, line }),
     }),
+  setPullRequestCommentResolution: (organizationID: string, id: string, commentID: string, resolved: boolean) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/comments/${encodeURIComponent(commentID)}/resolution`, {
+      method: "PATCH", body: JSON.stringify({ resolved }),
+    }),
   getComparison: (organizationID: string, id: string) =>
     request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/comparison`),
+  getRequiredWorkflows: (organizationID: string, id: string, signal: AbortSignal) =>
+    request<PullRequestRequiredWorkflows>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/required-workflows`, { signal, cache: "no-store" }),
 };
