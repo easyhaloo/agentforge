@@ -11,7 +11,7 @@ const gitRoot = process.env.GIT_REPOSITORY_ROOT ?? join(process.env.RUN_DIR ?? "
 test.skip(!origin, "Requires the local API, PostgreSQL, and dev stack Git root");
 
 test("reviews an updated pull request and merges only its verified revision", async ({ page }, testInfo) => {
-  test.slow();
+  test.setTimeout(180_000);
   const base = new URL(origin!);
   const capture = async (name: string, fullPage = true) => {
     const path = testInfo.outputPath(`pull-request-${name}.png`);
