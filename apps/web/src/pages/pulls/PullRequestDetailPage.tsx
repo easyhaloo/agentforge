@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil, TriangleAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, type PullBranchMethod, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
+import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type PullRequestMergeInput, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, type PullBranchMethod, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
 import { changesetPath, orgPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
 import { Button, Checkbox, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
@@ -13,6 +13,7 @@ import { PullRequestChecksTab } from "./PullRequestChecksTab";
 import { PullRequestIssueLinks } from "./PullRequestIssueLinks";
 import { PullRequestProjects } from "./PullRequestProjects";
 import { PullRequestFilesTab } from "./PullRequestFilesTab";
+import { PullMergeConfirmation } from "./PullMergeConfirmation";
 
 type Props = {
   organization: OrganizationSummary;
@@ -56,6 +57,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [reviewerID, setReviewerID] = useState("");
   const [mergeConfirmKey, setMergeConfirmKey] = useState<string>();
+  const restoreMergeFocus = useRef(false);
   const [mergePolicy, setMergePolicy] = useState<{ key: string; settings?: RepositorySettings }>();
   const [mergePolicyRetry, setMergePolicyRetry] = useState(0);
   const [mergeMethod, setMergeMethod] = useState<PullRequestMergeMethod>();
@@ -264,7 +266,11 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     mergeSettings.ref_rules?.some(rule => rule.enabled && rule.require_merge_queue);
   const conversationsBlockMerge = mergeSettings?.pull_request_requires_conversation_resolution &&
     pr.comments.some(comment => comment.revision_id && !(comment.resolved_at && comment.resolved_by));
-  const mergeEnabled = canMerge && !queueRequired && hasMethod && workflowsAllowMerge && !conversationsBlockMerge && !actionBusy;
+  const mergeEligible = canMerge && !queueRequired && hasMethod && workflowsAllowMerge && !conversationsBlockMerge;
+  const mergeEnabled = mergeEligible && !actionBusy;
+  const confirmationKey = `${workflowKey}/${method}/${tab}`;
+  const confirmingMerge = mergeEligible && mergeConfirmKey === confirmationKey;
+  if (mergeConfirmKey && !confirmingMerge) setMergeConfirmKey(undefined);
   const queueSearch = new URLSearchParams({ queueRepository: repository, queueTarget: pr.base_branch, queueSource: pr.source_branch });
   const StateIcon = stateIcons[state];
   const stateClass = `pull-state pull-state-${state}`;
@@ -284,12 +290,18 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
       .map(member => ({ value: member.user_id, label: member.display_name || member.user_id })),
   ];
   const selectedReviewer = reviewerOptions.some(option => option.value === reviewerID) ? reviewerID : "";
-  const merge = async () => {
+  const cancelMerge = () => {
+    restoreMergeFocus.current = true;
     setMergeConfirmKey(undefined);
-    if (!mergeEnabled || mergeConfirmKey !== workflowKey) return;
-    if (!await run(() => changesetAPI.merge(organization.id, pullNumber, pr.base_branch, method), "pulls:actions.mergeFailed", setMergeError)) {
+  };
+  const merge = async (message?: PullRequestMergeInput) => {
+    if (!mergeEnabled || !confirmingMerge) return;
+    const merged = await run(() => changesetAPI.merge(organization.id, pullNumber, pr.base_branch, method, message), "pulls:actions.mergeFailed", setMergeError);
+    setMergeConfirmKey(undefined);
+    if (!merged) {
       setMergePolicyRetry(attempt => attempt + 1);
       retryWorkflows();
+      void load();
     }
   };
   const tabs: TabsItem[] = [
@@ -391,7 +403,23 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           onLifecycleAction={updateState}
           actionBusy={actionBusy}
         >
-          <section className="pull-merge-gate" aria-label={t("pulls:gate.mergeTitle")}>
+          {confirmingMerge && revisionID ? <div className="pull-merge-confirmation-area">
+            <PullMergeConfirmation
+              organizationID={organization.id} pullNumber={pullNumber} revisionID={revisionID}
+              method={mergeSettings?.hosting_kind === "registered" ? undefined : method}
+              source={pr.source_branch} base={pr.base_branch} disabled={actionBusy}
+              onConfirm={merge} onCancel={cancelMerge} onRefresh={() => {
+                setMergeConfirmKey(undefined);
+                void load();
+              }}
+            />
+            {canManage && <div className="pull-merge-confirmation-footer">
+              <span>{t("pulls:actions.mergeStillInProgress")}</span>
+              <Button variant="ghost" size="small" disabled={actionBusy} onClick={() => setDraftConfirm(true)}>
+                {t("pulls:actions.markDraft")}
+              </Button>
+            </div>}
+          </div> : <section className="pull-merge-gate" aria-label={t("pulls:gate.mergeTitle")}>
             {state !== "draft" && <div className="pull-merge-gate-main">
               <GitMerge size={20} aria-hidden="true"/>
               <div>
@@ -458,13 +486,21 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
                 {mergeMethods.length > 0 && <Select aria-label={t("pulls:actions.mergeMethod")} value={method}
                   disabled={!mergeEnabled} options={mergeMethods.map(value => ({ value, label: t(`pulls:actions.methods.${value}`) }))}
                   onChange={event => setMergeMethod(mergeMethods.find(value => value === event.target.value))} />}
-                <Button variant="primary" onClick={() => setMergeConfirmKey(workflowKey)} disabled={!mergeEnabled}>{t("pulls:actions.merge")}</Button>
+                <Button variant="primary" disabled={!mergeEnabled} ref={button => {
+                  if (button && restoreMergeFocus.current) {
+                    restoreMergeFocus.current = false;
+                    button.focus();
+                  }
+                }} onClick={() => {
+                  setMergeError("");
+                  setMergeConfirmKey(confirmationKey);
+                }}>{t("pulls:actions.merge")}</Button>
                 {activeMergePolicy && !mergeSettings && <Button onClick={() => setMergePolicyRetry(attempt => attempt + 1)}>{t("pulls:actions.retry")}</Button>}
               </div>)}
             {canMerge && !queueRequired && !hasMethod && <p role="status">{t(!activeMergePolicy ? "pulls:actions.loadingMergeMethods"
               : mergeSettings ? "pulls:actions.noMergeMethods" : "pulls:actions.loadMergeMethodsFailed")}</p>}
             {mergeError && <p role="alert" className="org-error">{mergeError}</p>}
-          </section>
+          </section>}
         </PullRequestConversationTab>
         <aside className="pull-review-sidebar">
           <section className="pull-changeset-summary">
@@ -541,16 +577,6 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
         await updateState("draft");
         setDraftConfirm(false);
       }}
-    />
-    <ConfirmDialog
-      open={mergeEnabled && mergeConfirmKey === workflowKey}
-      title={t("pulls:actions.merge")}
-      description={method
-        ? t("pulls:actions.confirmMergeMethod", { source: pr.source_branch, base: pr.base_branch, method: t(`pulls:actions.methods.${method}`) })
-        : t("pulls:actions.confirmMerge", { source: pr.source_branch, base: pr.base_branch })}
-      confirmText={t("pulls:actions.merge")}
-      onConfirm={merge}
-      onCancel={() => setMergeConfirmKey(undefined)}
     />
   </section>;
 }

@@ -3,11 +3,74 @@ package httpserver
 import (
 	"context"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
+
+type pullMergeMessageRequest struct {
+	*delivery.MergeCommitMessage
+	RevisionID delivery.ID `json:"revision_id"`
+	BaseSHA    string      `json:"base_sha"`
+}
+
+func (d DeliveryDependencies) getPullMergeMessage(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	method := r.URL.Query().Get("method")
+	if method != "merge" && method != "squash" {
+		writeProblem(w, 422, "Invalid merge method", "Choose merge or squash to preview a commit message")
+		return
+	}
+	org := principal.OrganizationID
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
+	stored, ok := d.load(w, r, org)
+	if !ok {
+		return
+	}
+	c := stored.Changeset
+	git, local := d.Git.(*delivery.LocalGitProvider)
+	if c.PullRequest == nil || !local {
+		writeProblem(w, 404, "Merge message unavailable", "A native Git pull request is required")
+		return
+	}
+	repository, ok := d.resolveRegisteredRepository(w, r, principal, c.Repository)
+	if !ok {
+		return
+	}
+	if d.repositoryHostingKind(ctx, repository) != "hosted" {
+		writeProblem(w, 404, "Merge message unavailable", "A native Git pull request is required")
+		return
+	}
+	baseRef := c.PullRequest.BaseBranch
+	if !slices.Contains(repository.MergeMethods.PullRequestMethods(repository.RefRules, baseRef, repository.DefaultBranch), method) {
+		writeProblem(w, 409, "Merge method unavailable", "Choose an enabled method for this target branch")
+		return
+	}
+	revision, exists := c.CurrentRevision()
+	if !exists {
+		writeProblem(w, 409, "Revision required", "A resolved Git revision is required")
+		return
+	}
+	base, err := git.ResolveRevision(ctx, org, c.Repository, "refs/heads/"+baseRef)
+	if err != nil {
+		writeProblem(w, 409, "Target branch unavailable", "The recorded base branch could not be resolved")
+		return
+	}
+	message, err := git.DefaultPullMergeMessage(ctx, org, c.Repository, githttp.PullRequestMergeStrategy(method), base.CommitSHA, revision.CommitSHA, c.PullMergeMessage(repository.MergeMessageFormats))
+	if err != nil {
+		writeProblem(w, 409, "Merge message unavailable", "The commit message could not be prepared")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, pullMergeMessageRequest{MergeCommitMessage: &message, RevisionID: revision.ID, BaseSHA: base.CommitSHA})
+}
 
 type pullMergeStore interface {
 	PullMergeIntent(context.Context, string, delivery.ID) (*delivery.PullMergeIntent, error)
@@ -52,7 +115,7 @@ func (d DeliveryDependencies) recoverPullMerge(w http.ResponseWriter, r *http.Re
 	return false
 }
 
-func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Request, org, actor string, stored delivery.StoredChangeset, revision delivery.Revision, baseSHA, strategy string, formats githttp.MergeMessageFormats, release func()) {
+func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Request, org, actor string, stored delivery.StoredChangeset, revision delivery.Revision, baseSHA, strategy string, message *delivery.PullMergeMessage, release func()) {
 	store, persistent := d.Repository.(pullMergeStore)
 	git, local := d.Git.(*delivery.LocalGitProvider)
 	if !persistent || !local {
@@ -63,7 +126,7 @@ func (d DeliveryDependencies) mergeNativePull(w http.ResponseWriter, r *http.Req
 	pull := c.PullRequest
 	candidate, err := git.PrepareCandidate(ctx, org, c.Repository, delivery.MergeRequest{
 		Target: pull.BaseBranch, Sources: []string{pull.SourceBranch}, Strategy: strategy,
-		PullMessage: c.PullMergeMessage(formats),
+		PullMessage: message,
 	})
 	if err != nil || candidate.Status != "clean" || candidate.Target.SHA != baseSHA || len(candidate.Sources) != 1 || candidate.Sources[0].SHA != revision.CommitSHA {
 		writeProblem(w, 409, "Git merge rejected", "The verified source and target could not be merged using this method")
