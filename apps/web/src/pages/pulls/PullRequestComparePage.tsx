@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { AlertTriangle, ArrowLeft, FileDiff, GitCommitHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, FileDiff, GitCommitHorizontal } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, repositoryPreviewAPI, type OrganizationSummary, type PullRequestComparison, type RepositoryPreviewRef } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { issueDetailPath, pullRequestPath } from "../../shared/routing";
-import { Button, Input, Select, TextArea, Checkbox } from "../../shared/ui";
+import { Button, Input, Popover, Select, TextArea } from "../../shared/ui";
 import { RepositoryDiffViewer } from "../repositories/RepositoryDiffViewer";
 import "./list-compare.css";
 
@@ -80,6 +80,9 @@ export function PullRequestComparePage({ organization, repository, handle }: Pro
   };
 
   const branchOptions = refs.map(ref => ({ value: ref.name, label: ref.name }));
+  const readyLabel = t("pulls:create.createButton");
+  const draftLabel = t("pulls:create.createDraftButton");
+  const modeMenuLabel = t("common:components.additionalOptions");
 
   return <section className="af-pr-compare" aria-labelledby="af-pr-compare-title">
     <header className="af-pr-compare__heading">
@@ -146,20 +149,40 @@ export function PullRequestComparePage({ organization, repository, handle }: Pro
             placeholder={t("pulls:create.descriptionPlaceholder")}
             rows={6}
           />
-          <div className="af-pr-compare__form-actions">
-            <div>
-              <Checkbox
-                label={t("pulls:create.draftLabel")}
-                checked={draft}
-                onChange={e => setDraft(e.target.checked)}
-                aria-describedby="af-pr-compare-draft-help"
-              />
-              <p id="af-pr-compare-draft-help">{t("pulls:create.draftHelp")}</p>
-            </div>
-            <Button type="submit" className="button primary" disabled={creating || !title.trim() || invalidIssue}>
-              {creating ? t("pulls:create.creating") : (draft ? t("pulls:create.createDraftButton") : t("pulls:create.createButton"))}
+          <fieldset className="af-pr-compare__form-actions" disabled={creating}>
+            <Button type="submit" variant="primary" disabled={!title.trim() || invalidIssue}>
+              {creating ? t("pulls:create.creating") : draft ? draftLabel : readyLabel}
             </Button>
-          </div>
+            <Popover
+              ariaLabel={modeMenuLabel}
+              triggerClassName="af-button af-button--primary"
+              trigger={<>
+                <ChevronDown size={16} aria-hidden="true" />
+                <span className="af-pr-compare__sr-only">{modeMenuLabel}</span>
+              </>}
+            >
+              {dismiss => <div role="menu" aria-label={modeMenuLabel} onKeyDown={event => {
+                if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+                event.preventDefault();
+                const [readyOption, draftOption] = event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=menuitemradio]");
+                (event.target === readyOption ? draftOption : readyOption).focus();
+              }}>
+                <Button className="af-action-row" role="menuitemradio" aria-checked={!draft} onClick={() => { setDraft(false); dismiss(); }}>
+                  <Check size={16} aria-hidden="true" />
+                  {readyLabel}
+                </Button>
+                <Button className="af-action-row" role="menuitemradio" aria-checked={draft}
+                  aria-labelledby="af-pr-compare-draft-label" aria-describedby="af-pr-compare-draft-help"
+                  onClick={() => { setDraft(true); dismiss(); }}>
+                  <Check size={16} aria-hidden="true" />
+                  <span>
+                    <span id="af-pr-compare-draft-label">{draftLabel}</span>
+                    <small id="af-pr-compare-draft-help">{t("pulls:create.draftHelp")}</small>
+                  </span>
+                </Button>
+              </div>}
+            </Popover>
+          </fieldset>
         </form>
 
         <section className="af-pr-compare__preview" aria-labelledby="af-pr-compare-preview-title">

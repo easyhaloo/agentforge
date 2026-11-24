@@ -116,43 +116,6 @@
 .pull-request-header .pull-state-merged { background: color-mix(in srgb, var(--af-color-merged) 12%, var(--af-color-surface)); }
 .pull-request-header .pull-state-closed { color: var(--af-color-danger); background: var(--af-color-danger-subtle); }
 .pull-request-header .pull-state-draft { color: var(--af-color-text-secondary); background: var(--af-color-surface-raised); }
-.pull-status-menu .af-popover__trigger {
-  font-family: inherit;
-  line-height: inherit;
-  border-color: currentColor;
-}
-.pull-status-menu .af-popover__trigger:is(:hover, [aria-expanded="true"]) {
-  background: color-mix(in srgb, currentColor 16%, var(--af-color-surface));
-}
-.pull-status-menu .af-popover__trigger:focus-visible {
-  outline: 2px solid var(--af-color-primary);
-  outline-offset: 2px;
-}
-.pull-status-menu .af-popover__content {
-  top: calc(100% + 4px);
-  display: grid;
-  width: min(220px, calc(100vw - 40px));
-  min-width: 0;
-  padding: 5px;
-  border-radius: var(--af-radius-lg);
-  background: var(--af-color-surface);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
-}
-.pull-status-menu .af-button {
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 6px 9px;
-  color: var(--af-color-text);
-  font-size: 14px;
-  font-weight: 400;
-  text-align: start;
-  white-space: normal;
-}
-.pull-status-menu .af-button svg { flex: none; color: var(--af-color-text-secondary); }
-.pull-status-menu .af-button:hover:not(:disabled) { border-color: transparent; background: var(--af-color-row-hover); }
-.pull-status-menu .af-button:focus-visible { outline-offset: -2px; }
-.pull-status-menu .pull-status-action-danger, .pull-status-menu .pull-status-action-danger svg { color: var(--af-color-danger); }
-.pull-status-menu .pull-status-action-danger:is(:hover:not(:disabled), :focus-visible) { background: var(--af-color-danger-subtle); }
 .pull-branch {
   display: inline;
   padding: 2px 6px;
@@ -254,6 +217,23 @@
 .pull-reviewers { display: grid; gap: 10px; padding: 0 0 12px; border-bottom: 1px solid var(--af-color-border); }
 .pull-reviewer-status { flex-wrap: wrap; font-size: 13px; }
 .pull-merge-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); }
+.pull-gate-row { flex: 0 0 100%; min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; padding-top: 12px; border-top: 1px solid var(--af-color-border); }
+.pull-gate-row:first-child { padding-top: 0; border-top: 0; }
+.pull-gate-row .pull-merge-gate-main { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.pull-gate-row .pull-merge-gate-main > svg { color: var(--af-color-text-secondary); }
+.pull-gate-row-message { flex-basis: 100%; }
+.pull-merge-gate p.org-error { color: var(--af-color-danger); }
+.pull-branch-actions { display: inline-flex; align-items: stretch; margin: 0 0 0 auto; padding: 0; border: 0; min-width: 0; }
+.pull-branch-actions > .af-button:has(+ .af-popover) { border-start-end-radius: 0; border-end-end-radius: 0; }
+.pull-branch-actions .af-popover__trigger { display: grid; place-items: center; height: 100%; min-width: 32px; padding: 0; border-inline-start: 0; border-start-start-radius: 0; border-end-start-radius: 0; background: var(--af-color-surface); }
+.pull-branch-actions .af-popover__trigger:is(:hover, [aria-expanded="true"]) { background: var(--af-color-row-hover); }
+.pull-branch-actions .af-popover__content { inset-inline: auto 0; width: min(310px, calc(100vw - 42px)); min-width: 0; padding: 6px; background: var(--af-color-surface); box-shadow: 0 8px 24px rgb(0 0 0 / 20%); }
+.pull-branch-actions .af-popover__content .af-button { display: flex; justify-content: flex-start; align-items: flex-start; width: 100%; gap: 8px; padding: 8px; text-align: start; white-space: normal; }
+.pull-branch-actions .af-popover__content svg { flex: none; }
+.pull-branch-actions .af-popover__content small { display: block; margin-top: 3px; font-weight: 400; color: var(--af-color-text-secondary); }
+.pull-option-unchecked { visibility: hidden; }
+.pull-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pull-reviewers .pull-convert-draft { justify-self: start; padding-inline: 0; color: var(--af-color-text-secondary); text-decoration: underline; }
 .pull-merge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pull-merge-gate-main { display: flex; align-items: center; gap: 10px; }
 .pull-merge-gate-main > svg { flex: none; color: var(--af-color-primary); }
