@@ -5,9 +5,7 @@
   gap: clamp(16px, 2vw, 28px);
 }
 .workbench-repositories { border-inline-end: 1px solid var(--af-color-border); padding-inline-end: 16px; align-self: stretch; min-width: 0; }
-.workbench-identity { display: flex; align-items: center; gap: 10px; margin-block: 4px 18px; overflow-wrap: anywhere; }
-.workbench-identity svg { flex: none; padding: 5px; border-radius: var(--af-radius-md); background: var(--af-color-primary-subtle); color: var(--af-color-primary); }
-.workbench-identity small, .workbench-list small { display: block; color: var(--af-color-text-secondary); font-size: 12px; }
+.workbench-list small { display: block; color: var(--af-color-text-secondary); font-size: 12px; }
 .workbench-quick { display: flex; gap: 8px; align-items: center; color: var(--af-color-text); padding: 8px; border-radius: var(--af-radius-md); background: var(--af-color-surface-raised); }
 .workbench-quick span { margin-inline-start: auto; }
 .workbench-repo-list { margin-block-start: 18px; border-top: 1px solid var(--af-color-border); padding-block-start: 12px; }

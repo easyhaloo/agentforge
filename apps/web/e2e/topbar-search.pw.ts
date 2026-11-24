@@ -115,7 +115,11 @@ test("uses the workspace organization without offering a switch inside search", 
   await expect(panel.getByRole("option", { name: new RegExp(issueTitle) })).toBeVisible();
   await search.press("Escape");
 
-  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), labsOrganization.name);
+  await page.getByRole("button", { name: /^User menu,/ }).click();
+  await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await selectOption(page, page.getByRole("combobox", { name: "Current organization" }), labsOrganization.name);
+  await page.getByRole("button", { name: /^User menu,/ }).click();
+  await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Repositories", exact: true }).click();
   await expect(page).toHaveURL("/orgs/labs/repositories");
   await trigger.click();
   await expect(panel.getByRole("combobox")).toHaveCount(1);

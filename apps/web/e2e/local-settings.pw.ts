@@ -167,8 +167,9 @@ test("personal settings load real account data and persist edits", async ({ page
   await expect(main.getByText("Browser QA", { exact: true })).toHaveCount(0);
   await page.reload();
   await expect(main.getByText(/暂无 SSH 密钥|尚无 SSH 密钥|没有 SSH 密钥|No SSH keys/i).first()).toBeVisible();
+  await expect(page.getByText("当前组织", { exact: true })).toBeVisible();
+  await expect(page.getByText("Updated QA · 个人工作区", { exact: true })).toBeVisible();
   await screenshot("keys-deleted");
-  await page.getByRole("combobox", { name: /Switch settings context|切换设置上下文/ }).click();
-  await page.getByRole("option", { disabled: false }).first().click();
+  await page.getByRole("link", { name: /Organization settings|组织设置/ }).click();
   await expect(page).toHaveURL(/\/orgs\/[^/]+\/settings$/);
 });

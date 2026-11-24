@@ -1,9 +1,8 @@
-import { ArrowLeftRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Select } from "../../shared/ui";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { organizationHandle, orgPath } from "../../shared/routing";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { SettingsSidebar } from "./SettingsSidebar";
 import "./settings.css";
 
@@ -12,21 +11,34 @@ export interface SettingsOutletContext {
   notify: (message: string) => void;
 }
 
-export function SettingsLayout({ organizations, ...context }: SettingsOutletContext & { organizations: OrganizationSummary[] }) {
-  const navigate = useNavigate();
+type Props = SettingsOutletContext & {
+  organizations: OrganizationSummary[];
+  displayName: string;
+  selectedOrganization?: OrganizationSummary;
+  selectOrganization?: (id: string) => void;
+};
+
+export function SettingsLayout({ organizations, displayName, selectedOrganization, selectOrganization, ...context }: Props) {
   const { t } = useTranslation("settings");
+  const organizationName = (org: OrganizationSummary) => org.personal && displayName.trim()
+    ? t("nav.personalWorkspace", { name: displayName })
+    : org.name;
   return (
     <div className="settings-layout">
-      {organizations.length > 0 && (
+      {selectedOrganization && (
         <div className="settings-context">
-          <ArrowLeftRight size={16} aria-hidden="true" />
-          <Select aria-label={t("nav.switchContext")} value=""
-            options={[
-              { value: "", label: t("nav.switchContext"), disabled: true },
-              ...organizations.map(org => ({ label: org.name, value: orgPath(organizationHandle(org), "settings") })),
-            ]}
-            onChange={event => navigate(event.target.value)}
-          />
+          {organizations.length > 1 ? (
+            <Select label={t("nav.currentOrganization")} value={selectedOrganization.id}
+              options={organizations.map(org => ({ value: org.id, label: organizationName(org) }))}
+              onChange={event => selectOrganization?.(event.target.value)}
+            />
+          ) : (
+            <dl>
+              <dt className="af-field__label">{t("nav.currentOrganization")}</dt>
+              <dd>{organizationName(selectedOrganization)}</dd>
+            </dl>
+          )}
+          <Link to={orgPath(organizationHandle(selectedOrganization), "settings")}>{t("navigation:userMenu.organizationSettings")}</Link>
         </div>
       )}
       <aside className="settings-sidebar">

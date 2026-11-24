@@ -1,14 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { demoOrganization, installApiMocks, labsOrganization } from "./support/api-mocks";
 import { navigation, openNavigation } from "./support/navigation";
-import { selectOption } from "./support/select-option";
 
 const topbarTitle = (page: Page) => page.getByRole("banner").locator(".workspace-brand__page");
 const pageHeading = (page: Page) => page.getByRole("main").locator(".page-heading h1");
 const sidebarLink = (page: Page, name: string) => navigation(page).getByRole("link", { name, exact: true });
 // The Changesets item carries a count badge inside the link, so match it by prefix.
 const changesetsLink = (page: Page) => navigation(page).getByRole("link", { name: /^Changesets/ });
-const selectedOrganizationName = (page: Page) => page.getByRole("combobox", { name: "Select organization" }).locator(".af-select-trigger__label");
 const pathOf = (page: Page) => { const { pathname, search, hash } = new URL(page.url()); return pathname + search + hash; };
 
 test.beforeEach(async ({ page }) => {
@@ -113,23 +111,6 @@ test("a mixed-case /ORGS URL is served like /orgs and the current alias is still
   await expect(changesetsLink(page)).toHaveAttribute("aria-current", "page");
 });
 
-test("switching organization works on a mixed-case /Orgs URL", async ({ page }) => {
-  await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
-  await page.goto("/Orgs/demo/settings");
-  await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
-  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
-  await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
-  await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
-});
-
-test("switching organization from a changeset detail opens the target list", async ({ page }) => {
-  await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
-  await page.goto("/orgs/demo/changesets/CS-E2E-01/review");
-  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
-  await expect(page).toHaveURL(/\/orgs\/labs\/changesets$/);
-  await expect(pageHeading(page)).toHaveText("Changesets");
-});
-
 test("the current alias is replaced, not pushed, so Back never bounces through it", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
@@ -204,30 +185,13 @@ test("the SSO entry is a full-page navigation to the backend, never a client rou
   expect(pathOf(page)).toBe("/auth/oidc/login");
 });
 
-test("switching organization keeps the sub-path and the choice survives leaving the organization pages", async ({ page }) => {
+test("a mixed-case organization URL selects its organization in personal settings", async ({ page }) => {
   await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
-  await page.goto("/orgs/demo/settings");
-  await expect(page.getByRole("heading", { name: "AgentForge Demo" })).toBeVisible();
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
-
-  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
-  await expect(page).toHaveURL(/\/orgs\/labs\/settings$/);
+  await page.goto("/Orgs/labs/settings");
   await expect(page.getByRole("heading", { name: "AgentForge Labs" })).toBeVisible();
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
-
-  await openNavigation(page);
-  await sidebarLink(page, "Projects").click();
-  await expect(topbarTitle(page)).toHaveText("Projects");
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Labs");
-  await openNavigation(page);
-  await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/labs/changesets");
-
-  await page.keyboard.press("Escape");
-  await selectOption(page, page.getByRole("combobox", { name: "Select organization" }), "AgentForge Demo");
-  await expect(page).toHaveURL(/\/projects$/);
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
-  await openNavigation(page);
-  await expect(changesetsLink(page)).toHaveAttribute("href", "/orgs/demo/changesets");
+  await page.getByRole("button", { name: /^User menu,/ }).click();
+  await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Current organization" })).toContainText("AgentForge Labs");
 });
 
 test("signing out opens the login page", async ({ page }) => {
@@ -243,7 +207,7 @@ test("signing out opens the login page", async ({ page }) => {
 test("workspace pages load without a manual refresh action", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/workspaces");
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
+  await expect(topbarTitle(page)).toHaveText("Workspaces");
   const refresh = page.getByRole("button", { name: "Refresh", exact: true });
   await expect(refresh).toHaveCount(0);
 
@@ -282,7 +246,7 @@ test("a trailing slash is canonicalized, so the page and its highlighted sidebar
 test("Ctrl+K opens the command palette and selecting a page navigates by URL", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
   const dialog = page.getByRole("dialog", { name: "Search or jump to" });
   const search = dialog.getByRole("combobox", { name: "Search or jump to" });
 
@@ -328,7 +292,7 @@ test("selecting the page you are already on in the palette does not add a histor
 test("signing out while already on / does not add a history entry", async ({ page }) => {
   await installApiMocks(page);
   await page.goto("/");
-  await expect(selectedOrganizationName(page)).toHaveText("AgentForge Demo");
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
   const entries = () => page.evaluate(() => history.length);
   const before = await entries();
 

@@ -1,5 +1,5 @@
 import { Sparkles } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import { useId } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { itemHref, navigationGroups } from "../navigation";
@@ -7,9 +7,9 @@ import { groupToNavKey, labelToNavKey } from "../navigation-labels";
 import { Drawer } from "../../shared/ui";
 import "./Sidebar.css";
 
-type Props = { open: boolean; linkHandle: string; onClose: () => void; organizationPicker: ReactNode };
+type Props = { open: boolean; linkHandle: string; onClose: () => void };
 
-export function Sidebar({ open, linkHandle, onClose, organizationPicker }: Props) {
+export function Sidebar({ open, linkHandle, onClose }: Props) {
   const { t } = useTranslation("navigation");
   const groupId = useId();
   const title = t("sidebar.navigation");
@@ -19,7 +19,6 @@ export function Sidebar({ open, linkHandle, onClose, organizationPicker }: Props
       className="workspace-navigation-overlay"
       leadingIcon={<span className="brand-mark" aria-hidden="true"><Sparkles size={16} /></span>}>
       <nav className="workspace-navigation" aria-label={title}>
-        <div className="workspace-navigation__organization-picker">{organizationPicker}</div>
         {navigationGroups.map(group => {
           const headingId = `${groupId}-${group.label.replaceAll(" ", "-")}`;
           return (
