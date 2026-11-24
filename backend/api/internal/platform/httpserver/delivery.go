@@ -226,6 +226,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/evidence", deps.attachEvidence)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.getPullMergeMessage)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/required-workflows", deps.getPullRequestRequiredWorkflows)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/update-branch", deps.updatePullRequestBranch)
@@ -1113,8 +1114,9 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var input struct {
-		TargetRef   string `json:"target_ref"`
-		MergeMethod string `json:"merge_method"`
+		TargetRef     string                   `json:"target_ref"`
+		MergeMethod   string                   `json:"merge_method"`
+		CommitMessage *pullMergeMessageRequest `json:"commit_message"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -1239,8 +1241,27 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
+	if input.CommitMessage != nil && strategy != "merge-commit" && strategy != "squash" {
+		writeProblem(w, 422, "Invalid commit message", "Only merge and squash commits support a custom message")
+		return
+	}
 	if strategy != "" {
-		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, policy.MergeMessageFormats, unlockRepository)
+		message := stored.Changeset.PullMergeMessage(policy.MergeMessageFormats)
+		if input.CommitMessage != nil {
+			if input.CommitMessage.RevisionID != revision.ID || input.CommitMessage.BaseSHA != baseRevision.CommitSHA {
+				writeProblem(w, 409, "Merge message is stale", "Refresh the pull request before merging")
+				return
+			}
+			if input.CommitMessage.MergeCommitMessage != nil {
+				text, valid := input.CommitMessage.Text()
+				if !valid {
+					writeProblem(w, 422, "Invalid commit message", "Provide a single-line commit title and a valid optional description")
+					return
+				}
+				message.SetCustomMessage(text)
+			}
+		}
+		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, message, unlockRepository)
 		return
 	}
 	id, err := newID()

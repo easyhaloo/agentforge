@@ -192,6 +192,9 @@ type RepositoryMergeMethods = {
 };
 export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; suggest_branch_update?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; actions_retention_days?: number; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
+type PullRequestMergeSnapshot = { revision_id: string; base_sha: string };
+export type PullRequestMergeMessage = PullRequestMergeSnapshot & { title: string; body: string };
+export type PullRequestMergeInput = PullRequestMergeSnapshot | PullRequestMergeMessage;
 export type RepositorySettings = RepositoryMetadata & {
   hosting_kind: "hosted" | "registered";
   pull_request_merge_methods?: PullRequestMergeMethod[];
@@ -370,7 +373,12 @@ export const changesetAPI = {
   attachEvidence: (organizationID: string,id: string,evaluationID: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/evidence`,{method:"POST",body:JSON.stringify({evaluation_id:evaluationID})}),
   assignReview: (organizationID: string,id: string,reviewerID: string,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews`,{method:"POST",body:JSON.stringify({reviewer_id:reviewerID,comment})}),
   decideReview: (organizationID: string,id: string,reviewID: string,approved: boolean,comment: string) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewID)}/decision`,{method:"POST",body:JSON.stringify({approved,comment})}),
-  merge: (organizationID: string,id: string,targetRef: string, mergeMethod?: PullRequestMergeMethod) => request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`,{method:"POST",body:JSON.stringify({target_ref:targetRef, merge_method:mergeMethod})}),
+  getMergeMessage: (organizationID: string, id: string, method: "merge" | "squash", signal: AbortSignal) =>
+    request<PullRequestMergeMessage>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge?method=${method}`, { signal }),
+  merge: (organizationID: string, id: string, targetRef: string, mergeMethod?: PullRequestMergeMethod, commitMessage?: PullRequestMergeInput) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/merge`, {
+      method: "POST", body: JSON.stringify({ target_ref: targetRef, merge_method: mergeMethod, commit_message: commitMessage }),
+    }),
   list: (organizationID: string, filters: ChangesetListFilters = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (filters.q) query.set("q", filters.q);

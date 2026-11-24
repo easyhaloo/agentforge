@@ -1778,10 +1778,30 @@ paths:
         name: id
         required: true
         schema: { type: string }
+    get:
+      operationId: getPullMergeMessage
+      summary: Preview the repository's default commit message for a hosted pull request
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: method
+          required: true
+          schema: { type: string, enum: [merge, squash] }
+      responses:
+        "200":
+          description: Default message bound to the current revision and target branch tip
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PullMergeMessage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
     post:
       operationId: mergeChangeset
       summary: Merge the current revision after server-side gate revalidation
-      description: Requires a passing evaluation, active revision-bound evidence and an approved review. Matching branch rulesets may block the merge or require a linked pull request targeting this exact branch with all inline conversations resolved. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
+      description: Requires a passing evaluation, active revision-bound evidence and an approved review. Matching branch rulesets may block the merge or require a linked pull request targeting this exact branch with all inline conversations resolved. The Git provider applies the permitted merge method and persists the resulting commit SHA.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -1793,6 +1813,16 @@ paths:
               properties:
                 target_ref: { type: string, minLength: 1 }
                 merge_method: { type: string, enum: [merge, squash, rebase] }
+                commit_message:
+                  description: Optional preview snapshot for a hosted merge or squash commit. Supply the edited title and body to override the repository default.
+                  type: object
+                  required: [revision_id, base_sha]
+                  dependentRequired: { body: [title] }
+                  properties:
+                    title: { type: string, minLength: 1, maxLength: 500 }
+                    body: { type: string, maxLength: 65536 }
+                    revision_id: { type: string }
+                    base_sha: { type: string }
       responses:
         "200":
           description: Merged changeset with the actual Git merge commit
@@ -1801,6 +1831,7 @@ paths:
               schema: { $ref: "#/components/schemas/StoredChangeset" }
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/comparison:
     parameters:
@@ -2856,6 +2887,14 @@ components:
         draft: { type: boolean, description: "Whether the PR is in draft state." }
         closed: { type: boolean, description: "Whether the PR is closed (not merged)." }
         comments: { type: array, items: { $ref: "#/components/schemas/PRComment" } }
+    PullMergeMessage:
+      type: object
+      required: [title, body, revision_id, base_sha]
+      properties:
+        title: { type: string }
+        body: { type: string }
+        revision_id: { type: string }
+        base_sha: { type: string }
     StoredChangeset:
       type: object
       required: [changeset, status, version, created_at, updated_at]

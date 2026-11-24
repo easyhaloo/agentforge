@@ -115,7 +115,14 @@
 .pull-request-header .pull-state-open { color: var(--af-color-success); background: var(--af-color-success-subtle); }
 .pull-request-header .pull-state-merged { background: color-mix(in srgb, var(--af-color-merged) 12%, var(--af-color-surface)); }
 .pull-request-header .pull-state-closed { color: var(--af-color-danger); background: var(--af-color-danger-subtle); }
-.pull-request-header .pull-state-draft { color: var(--af-color-text-secondary); background: var(--af-color-surface-raised); }
+.pull-request-header .pull-state-draft {
+  min-height: 32px;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--af-color-text);
+  background: color-mix(in srgb, var(--af-color-text-secondary) 14%, var(--af-color-surface));
+}
 .pull-branch {
   display: inline;
   padding: 2px 6px;
@@ -239,6 +246,11 @@
 .pull-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pull-reviewers .pull-convert-draft { justify-self: start; padding-inline: 0; color: var(--af-color-text-secondary); text-decoration: underline; }
 .pull-merge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pull-merge-confirmation { display: grid; gap: 14px; min-width: 0; padding: 14px; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); background: var(--af-color-surface-raised); }
+.pull-merge-confirmation p { margin: 0; color: var(--af-color-text-secondary); overflow-wrap: anywhere; }
+.pull-merge-confirmation .af-textarea { min-height: 128px; resize: vertical; }
+.pull-merge-confirmation-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; color: var(--af-color-text-secondary); }
+.pull-merge-confirmation-footer .af-button { text-decoration: underline; }
 .pull-merge-gate-main { display: flex; align-items: center; gap: 10px; }
 .pull-merge-gate-main > svg { flex: none; color: var(--af-color-primary); }
 .pull-merge-gate p { margin: 4px 0 0; color: var(--af-color-text-secondary); }

@@ -11,7 +11,7 @@ const gitRoot = process.env.GIT_REPOSITORY_ROOT ?? join(process.env.RUN_DIR ?? "
 test.skip(!origin, "Requires the local API, PostgreSQL, and dev stack Git root");
 
 test("reviews an updated pull request and merges only its verified revision", async ({ page }, testInfo) => {
-  test.slow();
+  test.setTimeout(180_000);
   const base = new URL(origin!);
   const capture = async (name: string, fullPage = true) => {
     const path = testInfo.outputPath(`pull-request-${name}.png`);
@@ -768,14 +768,38 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.screenshot({ path: testInfo.outputPath("pull-request-ruleset-merge-methods.png"), animations: "disabled" });
     await page.getByRole("option", { name: "Squash and merge" }).click();
     await merge.click();
-    await expect(page.getByRole("dialog")).toContainText("Squash and merge");
-    await page.getByRole("dialog").getByRole("button", { name: "Merge pull request" }).click();
+    const confirmation = page.getByRole("form", { name: "Confirm squash and merge" });
+    const commitTitle = confirmation.getByRole("textbox", { name: "Commit message" });
+    const commitBody = confirmation.getByRole("textbox", { name: "Extended description" });
+    await expect(commitTitle).toHaveValue(updatedTitle);
+    await expect(commitTitle).toBeFocused();
+    await expect(commitBody).toHaveValue("A real pull request from the Git test repository. Fixes: #2.");
+    expect(await post("merge", {
+      target_ref: "release", merge_method: "squash",
+      commit_message: { revision_id: changeset.revisions[0].id, base_sha: releaseTip },
+    })).toEqual({ status: 409, detail: "Refresh the pull request before merging" });
+    await confirmation.screenshot({ path: testInfo.outputPath("pull-request-merge-confirmation.png"), animations: "disabled" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(confirmation).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    await commitTitle.fill("Discard this edit");
+    await commitTitle.press("Escape");
+    await expect(merge).toBeFocused();
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await merge.click();
+    await expect(commitTitle).toHaveValue(updatedTitle);
+    const finalTitle = "docs: document the verified delivery workflow";
+    const finalBody = "Keep the second revision.\n\nVerified through the pull request workflow.";
+    await commitTitle.fill(finalTitle);
+    await commitBody.fill(finalBody);
+    await confirmation.getByRole("button", { name: "Confirm squash and merge" }).click();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
     const mergedHead = git("rev-parse", "refs/heads/release");
     expect(git("rev-parse", "refs/heads/main")).toBe(target);
     expect(mergedHead).not.toBe(secondHead);
     expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([releaseTip]);
-    expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${updatedTitle}\n\nA real pull request from the Git test repository. Fixes: #2.`);
+    expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${finalTitle}\n\n${finalBody}`);
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();

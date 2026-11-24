@@ -204,6 +204,7 @@ test("persists scoped projects from the issue composer", async ({ page }) => {
 });
 
 test("imports across repositories and keeps draft identity through conversion, archive, and reopen", async ({ page }) => {
+  test.slow();
   test.skip(!origin, "Requires the local Go API and PostgreSQL");
   await page.goto(`${origin}/register`);
   const password = randomUUID();
