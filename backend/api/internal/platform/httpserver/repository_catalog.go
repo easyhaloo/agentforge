@@ -187,6 +187,7 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		PreviousBranch            string             `json:"previous_branch"`
 		Description               *string            `json:"description"`
 		WebCommitSignoffRequired  *bool              `json:"web_commit_signoff_required"`
+		SuggestBranchUpdate       *bool              `json:"suggest_branch_update"`
 		DeleteMergedBranches      *bool              `json:"delete_merged_branches"`
 		AutoCloseIssuesDisabled   *bool              `json:"auto_close_issues_disabled"`
 		IssuesDisabled            *bool              `json:"issues_disabled"`
@@ -201,7 +202,7 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.MergeMethods.Specified() || input.MergeCommitMessageFormat != nil || input.SquashCommitMessageFormat != nil || input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.ActionsRetentionDays != nil || input.IssuesDisabled != nil || input.AutoCloseIssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
+	if input.MergeMethods.Specified() || input.MergeCommitMessageFormat != nil || input.SquashCommitMessageFormat != nil || input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.ActionsRetentionDays != nil || input.IssuesDisabled != nil || input.AutoCloseIssuesDisabled != nil || input.SuggestBranchUpdate != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
@@ -292,6 +293,13 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 				}
 			}
 			repository.RefRules = *input.RefRules
+		}
+		if input.SuggestBranchUpdate != nil {
+			if *input.SuggestBranchUpdate && d.repositoryHostingKind(r.Context(), repository) != "hosted" {
+				writeProblem(w, 422, "Invalid branch update setting", "Web branch updates require a native Git repository")
+				return
+			}
+			repository.SuggestBranchUpdate = *input.SuggestBranchUpdate
 		}
 		if input.DeleteMergedBranches != nil {
 			if *input.DeleteMergedBranches && d.repositoryHostingKind(r.Context(), repository) != "hosted" {

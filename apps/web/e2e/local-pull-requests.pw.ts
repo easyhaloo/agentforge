@@ -202,7 +202,13 @@ test("reviews an updated pull request and merges only its verified revision", as
     const title = "Document the verification workflow";
     await page.getByLabel("Title", { exact: true }).fill(title);
     await page.getByLabel("Description", { exact: true }).fill("A real pull request from the Git test repository. Fixes: #2.");
-    await page.getByRole("checkbox", { name: "Create as draft" }).check();
+    await page.getByRole("button", { name: "Additional options", exact: true }).click();
+    const creationMenu = page.getByRole("dialog", { name: "Additional options" });
+    await expect(creationMenu.getByRole("menuitemradio", { name: "Create pull request", exact: true })).toHaveAttribute("aria-checked", "true");
+    await creationMenu.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("pull-request-create-draft-menu.png"), animations: "disabled" });
+    await creationMenu.getByRole("menuitemradio", { name: /Create draft pull request/ }).click();
+    await expect(creationMenu).toHaveCount(0);
     const created = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/changesets"));
     await page.getByRole("button", { name: "Create draft pull request" }).click();
     const createdResponse = await created;
@@ -318,54 +324,42 @@ test("reviews an updated pull request and merges only its verified revision", as
     const merge = page.getByRole("button", { name: "Merge pull request", exact: true });
     await expect(merge.filter({ visible: true }).and(page.locator(":enabled"))).toHaveCount(0);
     expect(await post("merge", { target_ref: "release" })).toEqual({ status: 422, detail: "draft pull request cannot be approved or merged" });
-    const stateBadge = (name: string) => page.getByRole("button", { name, exact: true });
-    const statusMenu = page.getByRole("dialog", { name: "Pull request status" });
-    const menuAction = (name: string) => statusMenu.getByRole("button", { name, exact: true });
-    const openBadge = stateBadge("Open");
-    const draftBadge = stateBadge("Draft");
-    await draftBadge.click();
-    await expect(menuAction("Close pull request")).toBeVisible();
-    await menuAction("Ready for review").click();
-    await expect(openBadge).toBeFocused();
-    await openBadge.press("Enter");
-    await expect(openBadge).toHaveAttribute("aria-expanded", "true");
-    await expect(statusMenu.getByRole("button")).toHaveText(["Convert to draft", "Close pull request"]);
-    await expect(menuAction("Convert to draft")).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(menuAction("Close pull request")).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(statusMenu).toBeHidden();
-    await expect(openBadge).toBeFocused();
-    await openBadge.click();
-    const badgeBounds = (await openBadge.boundingBox())!;
-    const panelBounds = (await statusMenu.boundingBox())!;
-    expect(panelBounds.x).toBeCloseTo(badgeBounds.x, 0);
-    expect(panelBounds.y).toBeGreaterThan(badgeBounds.y + badgeBounds.height);
-    await menuAction("Close pull request").hover();
-    await capture("status-menu-open", false);
-    await page.route("**/pull-request/state", route => route.abort("failed"), { times: 1 });
-    await menuAction("Convert to draft").click();
-    await expect(page.locator(".pull-request-header").getByRole("alert")).toHaveText("Failed to change pull request state");
-    await expect(openBadge).toBeFocused();
-    await openBadge.click();
-    await menuAction("Convert to draft").click();
-    await expect(page.locator(".pull-request-header").getByRole("alert")).toHaveCount(0);
-    await expect(draftBadge).toBeFocused();
-    await page.reload();
-    await draftBadge.click();
-    await menuAction("Ready for review").click();
-    await expect(openBadge).toBeFocused();
-
+    const stateBadge = page.locator(".pull-request-meta .pull-state");
+    const gate = page.getByRole("region", { name: "Merge requirements" });
+    const ready = gate.getByRole("button", { name: "Ready for review", exact: true });
+    const convert = page.locator(".pull-reviewers").getByRole("button", { name: "Convert to draft", exact: true });
+    const convertDialog = page.getByRole("dialog", { name: "Convert to draft" });
+    const confirmDraft = convertDialog.getByRole("button", { name: "Convert to draft", exact: true });
+    await expect(stateBadge).toHaveText("Draft");
+    await expect(gate.getByRole("heading", { name: "This pull request is still a work in progress" })).toBeVisible();
+    await expect(gate.getByRole("button", { name: "Merge pull request" })).toBeDisabled();
+    await gate.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("pull-request-draft-merge-box.png"), animations: "disabled" });
     const desktopViewport = page.viewportSize()!;
-    await page.setViewportSize({ width: 390, height: 844 });
-    await openBadge.click();
-    const mobilePanel = (await statusMenu.boundingBox())!;
-    expect(mobilePanel.x).toBeGreaterThanOrEqual(0);
-    expect(mobilePanel.x + mobilePanel.width).toBeLessThanOrEqual(390);
-    await capture("status-menu-mobile", false);
-    await page.getByRole("heading", { name: title, exact: true }).click();
-    await expect(statusMenu).toBeHidden();
+    await page.setViewportSize({ width: 320, height: 844 });
+    await ready.scrollIntoViewIfNeeded();
+    await expect(ready).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    await page.screenshot({ path: testInfo.outputPath("pull-request-draft-mobile.png"), animations: "disabled" });
     await page.setViewportSize(desktopViewport);
+    await ready.click();
+    await expect(stateBadge).toHaveText("Open");
+    await expect(stateBadge).toBeFocused();
+    await convert.click();
+    await convertDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(stateBadge).toHaveText("Open");
+    await expect(convert).toBeFocused();
+    await convert.click();
+    await page.route("**/pull-request/state", route => route.abort("failed"), { times: 1 });
+    await confirmDraft.click();
+    await expect(page.locator(".pull-reviewers").getByRole("alert")).toHaveText("Failed to change pull request state");
+    await convert.click();
+    await confirmDraft.click();
+    await expect(stateBadge).toHaveText("Draft");
+    await expect(stateBadge).toBeFocused();
+    await page.reload();
+    await ready.click();
+    await expect(stateBadge).toHaveText("Open");
 
     await page.getByPlaceholder("Leave a comment").fill("Verified the proposal locally.");
     await page.getByRole("button", { name: "Comment", exact: true }).click();
@@ -421,9 +415,8 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(reviewer.getByRole("button", { name: "Open", exact: true })).toHaveCount(0);
     await expect(reviewer.getByRole("button", { name: /^(Close|Reopen) pull request$/ })).toHaveCount(0);
     await commentInput.fill("An unsent draft");
-    await openBadge.click();
-    await menuAction("Close pull request").click();
-    await expect(stateBadge("Closed")).toBeFocused();
+    await close.click();
+    await expect(stateBadge).toHaveText("Closed");
     await expect(composer.getByRole("button", { name: "Reopen pull request" })).toBeVisible();
     await expect(commentInput).toHaveValue("An unsent draft");
     await expect(conversationTab).toHaveAccessibleName("Conversation 2");
@@ -448,15 +441,8 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.goto(`${otherPulls}/${changeset.id}`);
     await expect(page.getByRole("alert")).toBeVisible();
     await page.goto(detail);
-    await stateBadge("Closed").click();
-    await expect(statusMenu.getByRole("button")).toHaveText(["Reopen pull request"]);
-    await capture("status-menu-closed", false);
-    await menuAction("Reopen pull request").click();
-    await expect(openBadge).toBeFocused();
-    await close.click();
-    await expect(stateBadge("Closed")).toBeVisible();
     await reopen.click();
-    await expect(openBadge).toBeVisible();
+    await expect(stateBadge).toHaveText("Open");
 
     const waitForWrite = (browserPage: typeof page, suffix: RegExp) => browserPage.waitForResponse(response =>
       response.request().method() === "POST" && suffix.test(new URL(response.url()).pathname));
@@ -556,6 +542,17 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("General settings saved.")).toBeVisible();
     await capture("general-auto-close-issues");
+    const suggestUpdate = page.getByRole("checkbox", { name: "Always suggest updating pull request branches" });
+    const requireSignoff = page.getByRole("checkbox", { name: /Require contributors to sign off on web commits/ });
+    await expect(suggestUpdate).not.toBeChecked();
+    await suggestUpdate.check();
+    await requireSignoff.check();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(suggestUpdate).toBeChecked();
+    await suggestUpdate.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("repository-settings-suggest-branch-update.png"), animations: "disabled" });
     await page.getByRole("button", { name: "Change default branch" }).click();
     await selectOption(page, page.getByRole("combobox", { name: "New default branch" }), "release");
     await page.locator("form").filter({ has: page.getByRole("combobox", { name: "New default branch" }) })
@@ -568,10 +565,95 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(keywordLink).toHaveAttribute("href", `${pullsPath}/${changeset.id}`);
     await reviewer.screenshot({ path: testInfo.outputPath("issue-pull-request-keyword-development.png"), animations: "disabled" });
     await page.goto(detail);
+    const updateBranch = page.getByRole("button", { name: "Update branch", exact: true });
+    await expect(updateBranch).toHaveCount(0);
+    gitAt(checkout, "switch", "--quiet", "release");
+    const advanceBase = (text: string) => {
+      writeFileSync(join(checkout, "base.txt"), text);
+      gitAt(checkout, "add", "base.txt");
+      gitAt(checkout, "-c", "user.name=Pull Request QA", "-c", "user.email=pulls@example.test", "commit", "--quiet", "-m", text);
+      gitAt(checkout, "push", "--quiet", repositoryDir, "HEAD:refs/heads/release");
+      return gitAt(checkout, "rev-parse", "HEAD");
+    };
+    const baseForMerge = advanceBase("Update base documentation");
+    const workflowStatus = () => page.evaluate(async path => {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`Workflow status failed (${response.status})`);
+      return await response.json() as { revision_id: string; branch_update?: { base_sha: string; methods: string[] } };
+    }, `/api/v1/organizations/${orgID}/changesets/${changeset.id}/pull-request/required-workflows`);
+    await page.reload();
+    const beforeUpdate = await workflowStatus();
+    expect(beforeUpdate.branch_update?.base_sha).toBe(baseForMerge);
+    expect(await post("pull-request/update-branch", { revision_id: beforeUpdate.revision_id, base_sha: target, method: "merge" })).toMatchObject({ status: 409 });
+    expect(await post("pull-request/update-branch", { revision_id: beforeUpdate.revision_id, base_sha: baseForMerge, method: "merge" })).toMatchObject({ status: 422 });
+    expect(git("rev-parse", "refs/heads/feature/docs")).toBe(secondHead);
+
+    const methodToggle = page.getByRole("button", { name: "Update method", exact: true });
+    const updateMenu = page.getByRole("dialog", { name: "Update method" });
+    const signoff = page.getByRole("checkbox", { name: /Developer Certificate of Origin/ });
+    const completeBranchUpdate = async () => {
+      await expect(updateBranch).toBeDisabled();
+      await signoff.check();
+      const write = waitForWrite(page, /\/pull-request\/update-branch$/);
+      await updateBranch.click();
+      const response = await write;
+      expect(response.ok(), await response.text()).toBeTruthy();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(checksTab).toHaveAccessibleName("Checks 0");
+      expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toEqual({ status: 409, detail: "a passed evaluation is required" });
+      expect((await workflowStatus()).branch_update).toBeUndefined();
+    };
+    await methodToggle.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("pull-request-update-branch-inline.png"), animations: "disabled" });
+    await methodToggle.press("Enter");
+    const mergeUpdate = updateMenu.getByRole("button", { name: "Update with a merge commit" });
+    await expect(mergeUpdate).toBeFocused();
+    await expect(mergeUpdate).toHaveAttribute("aria-pressed", "true");
+    await page.screenshot({ path: testInfo.outputPath("pull-request-update-branch-menu.png"), animations: "disabled" });
+    await page.keyboard.press("Escape");
+    await expect(updateMenu).toHaveCount(0);
+    await expect(methodToggle).toBeFocused();
+    await signoff.check();
+    await page.route("**/pull-request/update-branch", route => route.abort("failed"), { times: 1 });
+    await updateBranch.click();
+    await expect(gate.getByRole("alert")).toHaveText("Could not update the pull request branch.");
+    await signoff.uncheck();
+    await completeBranchUpdate();
+    const mergedSource = git("rev-parse", "refs/heads/feature/docs");
+    expect(git("show", "-s", "--format=%P", mergedSource).split(" ")).toEqual([secondHead, baseForMerge]);
+    expect(git("show", "-s", "--format=%B", mergedSource)).toMatch(/Signed-off-by: /);
+    expect(git("rev-parse", "refs/heads/release")).toBe(baseForMerge);
+    await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+
+    const releaseTip = advanceBase("Extend base documentation");
+    await page.reload();
+    await page.setViewportSize({ width: 320, height: 844 });
+    await methodToggle.click();
+    const menuBounds = (await updateMenu.boundingBox())!;
+    expect(menuBounds.x).toBeGreaterThanOrEqual(0);
+    expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(320);
+    const rebaseUpdate = updateMenu.getByRole("button", { name: "Update with rebase" });
+    await rebaseUpdate.click();
+    await expect(updateMenu).toHaveCount(0);
+    await expect(git("rev-parse", "refs/heads/feature/docs")).toBe(mergedSource);
+    await page.setViewportSize(desktopViewport);
+    await completeBranchUpdate();
+    const rebasedSource = git("rev-parse", "refs/heads/feature/docs");
+    expect(git("rev-list", "--count", "--merges", `${releaseTip}..${rebasedSource}`)).toBe("0");
+    expect(git("merge-base", releaseTip, rebasedSource)).toBe(releaseTip);
+    expect(git("show", "-s", "--format=%B", rebasedSource)).toMatch(/Signed-off-by: /);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
+    await expect(page.getByText("Revision 4", { exact: true })).toBeVisible();
+    await page.goto(`${base.origin}${repositoryPath}/settings`);
+    await requireSignoff.uncheck();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.goto(detail);
+    await verifyAndApprove();
     expect(await post("merge", { target_ref: "release", merge_method: "merge" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     const method = page.getByRole("combobox", { name: "Merge method" });
     await method.click();
     const methods = page.getByRole("listbox").getByRole("option");
@@ -642,7 +724,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toMatchObject({
       status: 409, detail: expect.stringContaining("required repository workflows have not passed"),
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     await capture("required-workflow-status");
     await page.goto(`${base.origin}${repositoryPath}/settings/rulesets`);
     await page.getByRole("button", { name: "Edit Release merge methods", exact: true }).click();
@@ -661,7 +743,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toEqual({
       status: 409, detail: resolutionBlock,
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     const resolve = page.getByRole("button", { name: "Resolve conversation", exact: true });
     const reopenConversation = page.getByRole("button", { name: "Reopen conversation", exact: true });
     await expect(page.getByText("This comment was made on an older revision", { exact: true })).toBeVisible();
@@ -678,7 +760,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release", merge_method: "rebase" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     await method.click();
     await expect(methods).toHaveCount(1);
     await expect(methods.first()).toHaveAccessibleName("Squash and merge");
@@ -692,12 +774,12 @@ test("reviews an updated pull request and merges only its verified revision", as
     const mergedHead = git("rev-parse", "refs/heads/release");
     expect(git("rev-parse", "refs/heads/main")).toBe(target);
     expect(mergedHead).not.toBe(secondHead);
-    expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([target]);
+    expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([releaseTip]);
     expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${updatedTitle}\n\nA real pull request from the Git test repository. Fixes: #2.`);
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();
     await expect(page.getByText("Merged", { exact: true }).first()).toBeVisible();
-    await expect(stateBadge("Merged")).toHaveCount(0);
+    await expect(stateBadge).toHaveText("Merged");
     await capture("merged");
     const issuePage = await page.context().newPage();
     try {

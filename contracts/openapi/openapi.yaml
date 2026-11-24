@@ -818,6 +818,7 @@ paths:
                     allow_merge_commit: { type: boolean }
                     allow_squash_merge: { type: boolean }
                     allow_rebase_merge: { type: boolean }
+                    suggest_branch_update: { type: boolean }
                     merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
                     squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                     issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
@@ -870,7 +871,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, updated_at]
+                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, suggest_branch_update, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, updated_at]
                 properties:
                   repository: { type: string }
                   default_branch: { type: string }
@@ -880,6 +881,7 @@ paths:
                   allow_merge_commit: { type: boolean, default: true }
                   allow_squash_merge: { type: boolean, default: true }
                   allow_rebase_merge: { type: boolean, default: true }
+                  suggest_branch_update: { type: boolean, default: false }
                   merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
                   squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
                   web_commit_signoff_required: { type: boolean }
@@ -1858,6 +1860,16 @@ paths:
                 required: [revision_id, checks]
                 properties:
                   revision_id: { type: string }
+                  branch_update:
+                    type: object
+                    required: [base_sha, methods, signoff_required]
+                    properties:
+                      base_sha: { type: string }
+                      methods:
+                        type: array
+                        minItems: 1
+                        items: { type: string, enum: [merge, rebase] }
+                      signoff_required: { type: boolean }
                   checks:
                     type: array
                     items:
@@ -1869,6 +1881,47 @@ paths:
                         status: { type: string, enum: [passed, waiting, behind, source_moved] }
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/update-branch:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      operationId: updatePullRequestBranch
+      summary: Update the source branch and create a new pull request revision
+      description: The revision and base SHA must match the live branch tips. Evidence and approvals from previous revisions do not carry forward.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision_id, base_sha, method]
+              properties:
+                revision_id: { type: string }
+                base_sha: { type: string }
+                method: { type: string, enum: [merge, rebase] }
+                signoff: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Updated changeset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state:
     parameters:
@@ -2648,7 +2701,7 @@ components:
       description: Retention for new workflow logs and artifacts, with a maximum of 90 days for public repositories. Zero uses the platform default. Object storage can impose a shorter limit.
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, actions_retention_days, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, actions_retention_days, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, suggest_branch_update, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
         actions_disabled: { type: boolean }
@@ -2657,6 +2710,7 @@ components:
         allow_merge_commit: { type: boolean, default: true }
         allow_squash_merge: { type: boolean, default: true }
         allow_rebase_merge: { type: boolean, default: true }
+        suggest_branch_update: { type: boolean, default: false }
         merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
         squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
         web_commit_signoff_required: { type: boolean }

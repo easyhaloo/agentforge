@@ -1090,6 +1090,8 @@
       "commits": "拉取请求标题和提交详情",
       "help": "在拉取请求页面执行合并时使用这些格式。"
     },
+    "suggestBranchUpdate": "始终建议更新拉取请求分支",
+    "suggestBranchUpdateHelp": "源分支落后于目标分支时显示更新操作。更新会创建新修订，需要重新检查和评审。",
     "deleteMergedBranches": "自动删除已合并的源分支",
     "deleteMergedBranchesHelp": "合并后删除引用未变化、未受保护且没有被其他开放拉取请求使用的源分支。",
     "autoCloseIssues": "合并拉取请求后自动关闭 Issue",

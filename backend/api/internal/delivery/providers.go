@@ -197,19 +197,28 @@ func (p *LocalGitProvider) CheckRequiredWorkflowBase(ctx context.Context, org, r
 	if !strict {
 		return nil
 	}
-	if p == nil || !validGitObjectID(base) || !validGitObjectID(source) {
-		return ErrProviderUnavailable
-	}
-	path, err := p.repositoryPath(ctx, org, repo)
-	if err != nil {
-		return err
-	}
-	_, err = p.run(ctx, path, "merge-base", "--is-ancestor", base, source)
-	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+	contained, err := p.IsAncestor(ctx, org, repo, base, source)
+	if err == nil && !contained {
 		return githttp.ErrStrictWorkflowBase
 	}
 	return err
+}
+
+// IsAncestor reports whether a pinned commit is contained in another commit.
+func (p *LocalGitProvider) IsAncestor(ctx context.Context, org, repo, base, source string) (bool, error) {
+	if p == nil || !validGitObjectID(base) || !validGitObjectID(source) {
+		return false, ErrProviderUnavailable
+	}
+	path, err := p.repositoryPath(ctx, org, repo)
+	if err != nil {
+		return false, err
+	}
+	_, err = previewGit(ctx, path, "merge-base", "--is-ancestor", base, source)
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (p *LocalGitProvider) CheckLinearHistory(ctx context.Context, org, repo, old, next string) error {

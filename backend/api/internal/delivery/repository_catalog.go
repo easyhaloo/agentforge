@@ -20,6 +20,7 @@ type RepositoryMetadata struct {
 	Visibility               string            `json:"visibility,omitempty"`
 	Fork                     bool              `json:"fork"`
 	WebCommitSignoffRequired bool              `json:"web_commit_signoff_required"`
+	SuggestBranchUpdate      bool              `json:"suggest_branch_update"`
 	DeleteMergedBranches     bool              `json:"delete_merged_branches"`
 	AutoCloseIssuesDisabled  bool              `json:"auto_close_issues_disabled"`
 	IssuesDisabled           bool              `json:"issues_disabled"`

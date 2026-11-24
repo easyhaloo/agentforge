@@ -165,3 +165,25 @@ func TestPullRequestMethodsCombineBranchPolicies(t *testing.T) {
 		t.Fatalf("fast-forward bypassed named methods: %v", err)
 	}
 }
+
+func TestPullSourceWritesRespectBranchProtection(t *testing.T) {
+	policy := PushPolicy{DefaultBranch: "main", ProtectedRefs: []string{"refs/heads/protected"}, RefRules: []RefRule{
+		{Name: "No force pushes", Target: "branch", Enabled: true, Include: []string{"topic"}, BlockForcePush: true},
+		{Name: "Verified PR", Target: "branch", Enabled: true, Include: []string{"release"}, RequirePullRequest: true},
+	}}
+	for _, tc := range []struct {
+		branch string
+		rebase bool
+		want   error
+	}{
+		{"main", false, ErrBranchUpdatesRestricted},
+		{"protected", false, ErrBranchUpdatesRestricted},
+		{"release", false, ErrBranchPullRequestRequired},
+		{"topic", true, ErrBranchUpdatesRestricted},
+		{"topic", false, nil},
+	} {
+		if err := policy.CheckPullSourceWrite(tc.branch, tc.rebase); !errors.Is(err, tc.want) {
+			t.Errorf("branch %s (rebase %t): got %v, want %v", tc.branch, tc.rebase, err, tc.want)
+		}
+	}
+}

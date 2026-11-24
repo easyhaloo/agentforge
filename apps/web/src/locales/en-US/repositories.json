@@ -1090,6 +1090,8 @@
       "commits": "Pull request title and commit details",
       "help": "These formats apply when merging a pull request from its page."
     },
+    "suggestBranchUpdate": "Always suggest updating pull request branches",
+    "suggestBranchUpdateHelp": "Show an update action on pull requests whose source branch is behind its base. Updating creates a revision that needs fresh checks and review.",
     "deleteMergedBranches": "Automatically delete head branches",
     "deleteMergedBranchesHelp": "Delete the source branch after merging when it has not moved, is not protected, and is not used by an open pull request.",
     "autoCloseIssues": "Auto-close issues with merged pull requests",

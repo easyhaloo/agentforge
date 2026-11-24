@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil, TriangleAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
+import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, type PullBranchMethod, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
 import { changesetPath, orgPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
-import { Button, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
+import { Button, Checkbox, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
 import { PullRequestCommitsTab } from "./PullRequestCommitsTab";
@@ -26,7 +26,7 @@ type Props = {
 const tabListId = "pull-request-detail";
 const stateIcons = { open: GitPullRequest, draft: GitPullRequestDraft, closed: GitPullRequestClosed, merged: GitMerge };
 type WorkflowResult = { key: string } & (
-  { status: "loaded"; checks: PullRequestRequiredWorkflows["checks"] } | { status: "stale" | "unavailable" }
+  ({ status: "loaded" } & Omit<PullRequestRequiredWorkflows, "revision_id">) | { status: "stale" | "unavailable" }
 );
 
 function pullRequestState(changeset: StoredChangeset): "draft" | "open" | "closed" | "merged" {
@@ -46,7 +46,10 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [lifecycleError, setLifecycleError] = useState("");
-  const [statusError, setStatusError] = useState("");
+  const [stageError, setStageError] = useState("");
+  const [draftConfirm, setDraftConfirm] = useState(false);
+  const stageBadge = useRef<HTMLSpanElement>(null);
+  const restoreStageFocus = useRef(false);
   const [titleDraft, setTitleDraft] = useState<{ value: string; version: number }>();
   const [titleError, setTitleError] = useState("");
   const restoreTitleFocus = useRef(false);
@@ -60,6 +63,9 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [comparison, setComparison] = useState<{ revisionKey: string; data?: PullRequestComparison; error?: string }>();
   const [comparisonRetry, setComparisonRetry] = useState(0);
   const [workflowResult, setWorkflowResult] = useState<WorkflowResult>();
+  const [branchDraft, setBranchDraft] = useState<{ revision: string; base: string; method: PullBranchMethod; signoff: boolean }>();
+  const [branchError, setBranchError] = useState<{ key: string; message: string }>();
+  const [branchUpdating, setBranchUpdating] = useState(false);
   const [workflowRetry, setWorkflowRetry] = useState(0);
   const current = changeset?.changeset.id === pullNumber && changeset.changeset.repository === repository && changeset.changeset.pull_request
     ? changeset : null;
@@ -106,6 +112,14 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const revisionID = activeRevision?.id;
   const state = current && pullRequestState(current);
   const activePull = state === "open" || state === "draft";
+  useEffect(() => {
+    setStageError("");
+    setDraftConfirm(false);
+    if (restoreStageFocus.current) {
+      restoreStageFocus.current = false;
+      stageBadge.current?.focus();
+    }
+  }, [state, organization.id, pullNumber]);
   const workflowKey = `${revisionKey}/${baseBranch}/${state}/${workflowRetry}`;
   const workflow = workflowResult?.key === workflowKey ? workflowResult : undefined;
   useEffect(() => {
@@ -114,7 +128,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = async () => {
       try {
-        const { revision_id, checks } = await changesetAPI.getRequiredWorkflows(organization.id, pullNumber, controller.signal);
+        const { revision_id, checks, branch_update } = await changesetAPI.getRequiredWorkflows(organization.id, pullNumber, controller.signal);
         if (controller.signal.aborted) return;
         if (revision_id !== revisionID) {
           setMergeConfirmKey(undefined);
@@ -122,8 +136,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           return;
         }
         if (checks.some(check => check.status !== "passed")) setMergeConfirmKey(undefined);
-        setWorkflowResult({ key: workflowKey, status: "loaded", checks });
-        if (activePull && checks.length > 0) timer = setTimeout(refresh, 5000);
+        setWorkflowResult({ key: workflowKey, status: "loaded", checks, branch_update });
+        if (activePull && (checks.length > 0 || branch_update)) timer = setTimeout(refresh, 5000);
       } catch {
         if (!controller.signal.aborted) {
           setMergeConfirmKey(undefined);
@@ -160,7 +174,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const run = async (
     action: () => Promise<StoredChangeset>,
     errorKey = "pulls:actions.stateChangeFailed",
-    reportError = setError,
+    reportError: (message: string) => void = setError,
     conflictKey?: string,
   ) => {
     setActionBusy(true); reportError("");
@@ -174,15 +188,17 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     }
     finally { setActionBusy(false); }
   };
-  const updateState = async (action: "ready" | "draft" | "close" | "reopen", fromStatusMenu = false) => {
+  const updateState = async (action: "ready" | "draft" | "close" | "reopen") => {
     if (actionBusy) return;
-    setLifecycleError("");
-    setStatusError("");
-    await run(
+    const stageChange = action === "ready" || action === "draft";
+    setStageError("");
+    if (stageChange) restoreStageFocus.current = true;
+    const updated = await run(
       () => changesetAPI.updatePullRequestState(organization.id, pullNumber, action),
       "pulls:actions.stateChangeFailed",
-      fromStatusMenu ? setStatusError : setLifecycleError,
+      stageChange ? setStageError : setLifecycleError,
     );
+    if (!updated && stageChange) restoreStageFocus.current = false;
   };
 
   if (loading) return <div className="org-loading">{t("pulls:detail.loading")}</div>;
@@ -190,6 +206,24 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
 
   const pr = changeset.changeset.pull_request!;
   const canWrite = organization.role !== "viewer";
+  const branchUpdate = canWrite && activePull && workflow?.status === "loaded" ? workflow.branch_update : undefined;
+  const branchChoice = branchDraft && branchUpdate && branchDraft.revision === revisionID && branchDraft.base === branchUpdate.base_sha ? branchDraft : undefined;
+  const branchMethod = branchChoice && branchUpdate?.methods.includes(branchChoice.method) ? branchChoice.method : branchUpdate?.methods[0];
+  const branchSignoff = branchChoice?.signoff ?? false;
+  const branchKey = `${revisionKey}/${branchUpdate?.base_sha}`;
+  const setBranchChoice = (method: PullBranchMethod, signoff: boolean) => {
+    if (revisionID && branchUpdate) setBranchDraft({ revision: revisionID, base: branchUpdate.base_sha, method, signoff });
+  };
+  const updateBranch = async () => {
+    if (actionBusy || !revisionID || !branchUpdate || !branchMethod || (branchUpdate.signoff_required && !branchSignoff)) return;
+    setBranchUpdating(true);
+    try {
+      const updated = await run(() => changesetAPI.updatePullBranch(organization.id, pullNumber, {
+        revision_id: revisionID, base_sha: branchUpdate.base_sha, method: branchMethod, signoff: branchUpdate.signoff_required && branchSignoff,
+      }), "pulls:branchUpdate.failed", message => setBranchError(message ? { key: revisionKey, message } : undefined));
+      if (updated) setBranchDraft(undefined);
+    } finally { setBranchUpdating(false); }
+  };
   const canManage = canWrite && (changeset.changeset.created_by === userID || ["owner", "admin"].includes(organization.role));
   const currentTitle = changeset.changeset.title;
   const editedTitle = titleDraft?.value.trim() ?? "";
@@ -317,31 +351,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
         </div>
       </div>}
       <div className="pull-request-meta">
-        {lifecycleAction ? <div className="pull-status-menu">
-          <Popover ariaLabel={t("pulls:detail.statusMenu")} triggerClassName={stateClass}
-            trigger={<>{stateLabel}<ChevronDown size={14} aria-hidden="true"/></>}>
-            {dismiss => {
-              const select = (action: Parameters<typeof updateState>[0]) => {
-                dismiss();
-                void updateState(action, true);
-              };
-              return <>
-                {state === "open" && <Button variant="ghost" disabled={actionBusy} onClick={() => select("draft")}>
-                  <GitPullRequestDraft size={16} aria-hidden="true"/>{t("pulls:actions.markDraft")}
-                </Button>}
-                {state === "draft" && <Button variant="ghost" disabled={actionBusy} onClick={() => select("ready")}>
-                  <Check size={16} aria-hidden="true"/>{t("pulls:actions.markReady")}
-                </Button>}
-                <Button variant="ghost" disabled={actionBusy}
-                  className={lifecycleAction === "close" ? "pull-status-action-danger" : undefined}
-                  onClick={() => select(lifecycleAction)}>
-                  {lifecycleAction === "close" ? <GitPullRequestClosed size={16} aria-hidden="true"/> : <GitPullRequest size={16} aria-hidden="true"/>}
-                  {t(`pulls:actions.${lifecycleAction}`)}
-                </Button>
-              </>;
-            }}
-          </Popover>
-        </div> : <span className={stateClass}>{stateLabel}</span>}
+        <span ref={stageBadge} tabIndex={-1} className={stateClass}>{stateLabel}</span>
         <span>
           <Trans t={t} i18nKey="pulls:detail.branchSummary" count={currentComparison?.data?.commits_truncated ? undefined : currentComparison?.data?.commits.length}
             components={{
@@ -351,7 +361,6 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
             }}/>
         </span>
       </div>
-      {statusError && <div className="org-error" role="alert">{statusError}</div>}
     </header>
 
     {error && <div className="org-error" role="alert">{error}</div>}
@@ -383,7 +392,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           actionBusy={actionBusy}
         >
           <section className="pull-merge-gate" aria-label={t("pulls:gate.mergeTitle")}>
-            <div className="pull-merge-gate-main">
+            {state !== "draft" && <div className="pull-merge-gate-main">
               <GitMerge size={20} aria-hidden="true"/>
               <div>
                 <h3>{state === "merged" ? t("pulls:gate.merged") : t("pulls:gate.mergeTitle")}</h3>
@@ -392,12 +401,55 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
                     : workflowsAllowMerge && <p>{t(queueRequired ? "pulls:gate.queueRequired" : "pulls:gate.ready")}</p>
                   : <p>{state === "open" ? t("pulls:actions.mergeRequirements") : t(`pulls:state.${state}`)}</p>}
               </div>
-            </div>
+            </div>}
             {activePull && activeRevision && workflowSummary && <div className="pull-workflow-summary">
               <span role="status">{workflowSummary}</span>
               <Link to={pullRequestPath(handle, repository, pullNumber, "checks")}>{t("pulls:requiredWorkflows.viewChecks")}</Link>
               {workflowNeedsRetry && <Button onClick={retryWorkflows}>{t("pulls:actions.retry")}</Button>}
             </div>}
+            {branchUpdate && branchMethod && <div className="pull-gate-row">
+              <div className="pull-merge-gate-main">
+                <TriangleAlert size={20} aria-hidden="true"/>
+                <div>
+                  <h3>{t("pulls:branchUpdate.behind")}</h3>
+                  <p>{t("pulls:branchUpdate.description", { base: pr.base_branch, source: pr.source_branch })}</p>
+                </div>
+              </div>
+              <fieldset className="pull-branch-actions" key={branchKey} disabled={actionBusy}>
+                <Button onClick={() => void updateBranch()} loading={branchUpdating}
+                  disabled={actionBusy || (branchUpdate.signoff_required && !branchSignoff)}>
+                  {t(branchUpdating ? "pulls:branchUpdate.updating" : "pulls:branchUpdate.update")}
+                </Button>
+                {branchUpdate.methods.length > 1 && <Popover ariaLabel={t("pulls:branchUpdate.method")}
+                  trigger={<><ChevronDown size={14} aria-hidden="true"/><span className="pull-visually-hidden">{t("pulls:branchUpdate.method")}</span></>}>
+                  {dismiss => branchUpdate.methods.map(value => <Button key={value} variant="ghost" aria-pressed={value === branchMethod}
+                    aria-label={t(`pulls:branchUpdate.${value}`)} disabled={actionBusy} onClick={() => {
+                      setBranchChoice(value, branchSignoff);
+                      dismiss();
+                    }}>
+                    <Check size={16} aria-hidden="true" className={value === branchMethod ? undefined : "pull-option-unchecked"}/>
+                    <span><strong>{t(`pulls:branchUpdate.${value}`)}</strong><small>{t(`pulls:branchUpdate.${value}Help`)}</small></span>
+                  </Button>)}
+                </Popover>}
+              </fieldset>
+              {branchUpdate.signoff_required && <div className="pull-gate-row-message">
+                <Checkbox label={t("pulls:branchUpdate.signoff")} checked={branchSignoff} disabled={actionBusy}
+                  onChange={event => setBranchChoice(branchMethod, event.target.checked)} />
+              </div>}
+            </div>}
+            {branchError?.key === revisionKey && <p role="alert" className="org-error pull-gate-row-message">{branchError.message}</p>}
+            {state === "draft" && <div className="pull-gate-row">
+              <div className="pull-merge-gate-main">
+                <GitPullRequestDraft size={20} aria-hidden="true"/>
+                <div>
+                  <h3>{t("pulls:gate.draftTitle")}</h3>
+                  <p>{t("pulls:gate.draftHelp")}</p>
+                </div>
+              </div>
+              {canManage && <Button disabled={actionBusy} onClick={() => void updateState("ready")}>{t("pulls:actions.markReady")}</Button>}
+              {stageError && <p role="alert" className="org-error pull-gate-row-message">{stageError}</p>}
+            </div>}
+            {state === "draft" && <div className="pull-gate-row"><Button disabled>{t("pulls:actions.merge")}</Button></div>}
             {canMerge && (queueRequired
               ? workflowsAllowMerge && !conversationsBlockMerge && !actionBusy
                 ? <Link to={`${orgPath(handle, "pipelines")}?${queueSearch}`}>{t("pulls:actions.openMergeQueue")}</Link>
@@ -441,6 +493,10 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
                 <Button disabled={actionBusy} onClick={() => void run(() => changesetAPI.decideReview(organization.id, pullNumber, review.id, false, ""))}>{t("changesets:detail.requestChangesButton")}</Button>
               </div>}
             </>}
+            {canManage && state === "open" && <>
+              <Button variant="ghost" className="pull-convert-draft" disabled={actionBusy} onClick={() => setDraftConfirm(true)}>{t("pulls:actions.markDraft")}</Button>
+              {stageError && <p role="alert" className="org-error">{stageError}</p>}
+            </>}
           </section>
           <PullRequestIssueLinks key={`${organization.id}/${repository}/${pullNumber}`} organization={organization}
             repository={repository} pullID={pullNumber} handle={handle} editable={state === "open" || state === "draft"} />
@@ -475,6 +531,17 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
       )}
     </div>
 
+    <ConfirmDialog
+      open={canManage && state === "open" && draftConfirm}
+      title={t("pulls:actions.markDraft")}
+      description={t("pulls:actions.confirmDraft")}
+      confirmText={t("pulls:actions.markDraft")}
+      onCancel={() => setDraftConfirm(false)}
+      onConfirm={async () => {
+        await updateState("draft");
+        setDraftConfirm(false);
+      }}
+    />
     <ConfirmDialog
       open={mergeEnabled && mergeConfirmKey === workflowKey}
       title={t("pulls:actions.merge")}

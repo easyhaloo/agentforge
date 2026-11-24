@@ -281,6 +281,24 @@ func (policy PushPolicy) CheckBranchWrite(ref string, creating bool) error {
 	return nil
 }
 
+// CheckPullSourceWrite applies the repository's direct-update policy to a
+// pull request source branch. Rebasing can rewrite existing commits.
+func (policy PushPolicy) CheckPullSourceWrite(branch string, rebase bool) error {
+	ref := "refs/heads/" + branch
+	if branch == policy.DefaultBranch || protectedRef(policy.ProtectedRefs, ref) {
+		return ErrBranchUpdatesRestricted
+	}
+	if err := policy.CheckBranchWrite(ref, false); err != nil {
+		return err
+	}
+	for _, rule := range policy.RefRules {
+		if rule.BlockForcePush && rebase && rule.matches("branch", branch, policy.DefaultBranch) {
+			return fmt.Errorf("ruleset %q blocks rebasing %s: %w", rule.Name, branch, ErrBranchUpdatesRestricted)
+		}
+	}
+	return nil
+}
+
 // QueueMergeStrategy resolves the configured merge method or the legacy default.
 func QueueMergeStrategy(rules []RefRule, branch, defaultBranch string) (string, error) {
 	linearRule := LinearHistoryRule(rules, branch, defaultBranch)

@@ -228,6 +228,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/required-workflows", deps.getPullRequestRequiredWorkflows)
+	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/update-branch", deps.updatePullRequestBranch)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state", deps.changePRState)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title", deps.changePRTitle)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)

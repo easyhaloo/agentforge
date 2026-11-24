@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/artifact"
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
@@ -170,6 +171,27 @@ func createChangeset(ctx context.Context, db interface {
 
 func (s *Store) Update(ctx context.Context, organizationID string, changeset *delivery.Changeset, expectedVersion int64) (delivery.StoredChangeset, error) {
 	return updateChangeset(ctx, s.pool, organizationID, changeset, expectedVersion)
+}
+
+// UpdatePullSource claims the optimistic Changeset version before modifying
+// Git. If the ref CAS fails, the SQL update is rolled back. If finalization is
+// interrupted after Git succeeds, the normal source refresh records its tip.
+func (s *Store) UpdatePullSource(ctx context.Context, org string, changeset *delivery.Changeset, version int64, advance func() error) (delivery.StoredChangeset, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	defer tx.Rollback(ctx)
+	updated, err := updateChangeset(ctx, tx, org, changeset, version)
+	if err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	if err := advance(); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
+	commitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return updated, tx.Commit(commitCtx)
 }
 
 type changesetUpdateQueryer interface {
