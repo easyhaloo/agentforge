@@ -1,7 +1,8 @@
 {
   "nav": {
     "savedReplies": "常用回复",
-    "switchContext": "切换设置上下文",
+    "currentOrganization": "当前组织",
+    "personalWorkspace": "{{name}} · 个人工作区",
     "profile": "公开资料",
     "account": "账户",
     "appearance": "外观",

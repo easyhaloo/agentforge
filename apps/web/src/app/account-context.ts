@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type { AccountContext, OrganizationSummary } from "../shared/api/identity";
+import { usePersistentState } from "../shared/hooks/usePersistentState";
 
 export type AccountState = "loading" | "ready" | "signed-out" | "unavailable";
 
@@ -11,6 +12,7 @@ export type AppAccount = {
   reload: () => Promise<void>;
   updateDisplayName?: (displayName: string) => void;
   selectedOrganization: OrganizationSummary | undefined;
+  selectOrganization?: (id: string) => void;
 };
 
 // Safe default: components such as the command palette must render without a provider
@@ -26,3 +28,9 @@ const withoutProvider: AppAccount = {
 export const AppAccountContext = createContext<AppAccount>(withoutProvider);
 
 export const useAppAccount = () => useContext(AppAccountContext);
+
+export function useSelectedOrganization(account: AccountContext | null) {
+  const [id, selectOrganization] = usePersistentState(`agentforge-organization:${account?.user_id ?? ""}`, "");
+  const organizations = account?.organizations;
+  return [organizations?.find(org => org.id === id) ?? organizations?.[0], selectOrganization] as const;
+}

@@ -1,7 +1,8 @@
 {
   "nav": {
     "savedReplies": "Saved replies",
-    "switchContext": "Switch settings context",
+    "currentOrganization": "Current organization",
+    "personalWorkspace": "{{name}} · Personal workspace",
     "profile": "Public profile",
     "account": "Account",
     "appearance": "Appearance",

@@ -50,9 +50,11 @@ export function RegisterRoute() {
 
 export function SettingsRoute() {
   const notify = useNotify();
-  const { account, updateDisplayName } = useAppAccount();
+  const { account, updateDisplayName, selectedOrganization, selectOrganization } = useAppAccount();
   if (!account) return null;
-  return <SettingsLayout organizations={account.organizations} notify={notify} updateDisplayName={updateDisplayName} />;
+  return <SettingsLayout organizations={account.organizations} displayName={account.display_name}
+    selectedOrganization={selectedOrganization} selectOrganization={selectOrganization}
+    notify={notify} updateDisplayName={updateDisplayName} />;
 }
 
 export function OverviewRoute() {

@@ -4,9 +4,9 @@ import { Navigate, Outlet, useLocation, useMatches, useNavigate, useParams } fro
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, repositoryAPI, type AccountContext } from "../shared/api/identity";
 import { translateError } from "../shared/api/errors";
-import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle, withOrganizationHandle } from "../shared/routing";
-import { Button, Select } from "../shared/ui";
-import { AppAccountContext, type AccountState } from "./account-context";
+import { CURRENT_ORGANIZATION_HANDLE, findOrganizationByHandle, organizationHandle } from "../shared/routing";
+import { Button } from "../shared/ui";
+import { AppAccountContext, useSelectedOrganization, type AccountState } from "./account-context";
 import { Sidebar } from "./components/Sidebar";
 import { AccountTheme } from "../features/appearance/AccountTheme";
 import { Topbar } from "./components/Topbar";
@@ -16,7 +16,6 @@ import { RepositorySwitcher } from "./components/RepositorySwitcher";
 import { PageHeader } from "./components/PageHeader";
 import { CommandPalette } from "./components/CommandPalette";
 import { navigationItemFor, repositorySectionForPath, routeLabel } from "./navigation";
-import { useNavigateTo } from "./useNavigateTo";
 import { useNotify } from "./useNotify";
 import { useSearchShortcut } from "./useSearchShortcut";
 
@@ -26,7 +25,6 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const notify = useNotify();
-  const navigateTo = useNavigateTo();
   const navigate = useNavigate();
   const { pathname, search, hash } = useLocation();
   const { org: urlHandle } = useParams();
@@ -34,7 +32,7 @@ function App() {
   const [account, setAccount] = useState<AccountContext | null>(null);
   const [accountState, setAccountState] = useState<AccountState>("loading");
   const [accountError, setAccountError] = useState("");
-  const [selectedOrganizationID, setSelectedOrganizationID] = useState("");
+  const [rememberedOrganization, setSelectedOrganizationID] = useSelectedOrganization(account);
 
   const loadAccount = async () => {
     setAccountState("loading");
@@ -42,7 +40,6 @@ function App() {
     try {
       const current = await accountAPI.current();
       setAccount(current);
-      setSelectedOrganizationID((selected) => current.organizations.some((item) => item.id === selected) ? selected : current.organizations[0]?.id ?? "");
       setAccountState("ready");
     } catch (cause) {
       setAccount(null);
@@ -55,22 +52,12 @@ function App() {
 
   // Inside /orgs/:org the URL decides which organization is selected; elsewhere the last selection does.
   const urlOrganization = urlHandle && account ? findOrganizationByHandle(account.organizations, urlHandle) : undefined;
-  const selectedOrganization = urlOrganization ?? account?.organizations.find((item) => item.id === selectedOrganizationID);
+  const selectedOrganization = urlOrganization ?? rememberedOrganization;
   // Visiting an organization's URL also selects it, so the choice survives leaving /orgs/:org.
   const urlOrganizationID = urlOrganization?.id;
   useEffect(() => { if (urlOrganizationID) setSelectedOrganizationID(urlOrganizationID); }, [urlOrganizationID]);
   // Links keep the handle form the visitor used (id or slug), so the open page's sidebar item stays current.
   const linkHandle = (urlOrganization && urlHandle) || (selectedOrganization ? organizationHandle(selectedOrganization) : CURRENT_ORGANIZATION_HANDLE);
-
-  const selectOrganization = (organizationID: string) => {
-    setSelectedOrganizationID(organizationID);
-    const next = account?.organizations.find((item) => item.id === organizationID);
-    if (next && urlHandle) {
-      // Organization details reference objects owned by the previous organization.
-      const section = pathname.split("/").slice(0, 4).join("/");
-      navigateTo(withOrganizationHandle(section, organizationHandle(next)));
-    }
-  };
 
   const signOut = async () => {
     try {
@@ -120,13 +107,8 @@ function App() {
   }, [urlOrganizationID, repository, repositoryKey]);
   const isOverview = label === "Overview";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
-  const organizationSelect = <Select aria-label={t("navigation:sidebar.selectOrganization")} value={selectedOrganization?.id ?? ""}
-    placeholder={t("navigation:sidebar.noOrganization")} disabled={!account?.organizations.length}
-    onChange={event => { selectOrganization(event.target.value); setNavigationOpen(false); }}
-    options={(account?.organizations ?? []).map(org => ({ label: org.name, value: org.id }))} />;
-
   return (
-    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization }}>
+    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization, selectOrganization: setSelectedOrganizationID }}>
       {account && <AccountTheme key={account.user_id} />}
       <div className="shell">
         <Topbar label={label} onSearch={() => setCommandOpen(true)} onSignOut={() => void signOut()}
@@ -134,10 +116,9 @@ function App() {
             organizationId={urlOrganization.id} organizationName={urlOrganization.name} handle={linkHandle} owner={owner} repo={repo} section={repositorySection} /> : undefined}
           navigation={<Button variant="ghost" className="workspace-icon" aria-label={t("navigation:sidebar.openNavigation")}
             aria-haspopup="dialog" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(true)}><Menu size={17} aria-hidden="true" /></Button>}
-          organizationHandle={selectedOrganization ? linkHandle : undefined}
-          organization={<div className="workspace-organization">{organizationSelect}</div>} />
+          organizationHandle={selectedOrganization ? linkHandle : undefined} />
         {isRepositoryDetail && urlOrganization && <RepositoryNavigation organization={urlOrganization} handle={linkHandle} repository={`${owner}/${repo}`} issuesDisabled={issuesDisabled} />}
-        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} organizationPicker={organizationSelect} />
+        <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
             {!isOverview && label !== "Projects" && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&

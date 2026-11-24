@@ -4,7 +4,7 @@ import { navigation, navigationToggle, openNavigation } from "./support/navigati
 import { selectOption } from "./support/select-option";
 
 test("workbench uses the selected organization and keeps navigation usable on mobile", async ({ page }, testInfo) => {
-  await installApiMocks(page, { organizations: [demoOrganization, labsOrganization] });
+  await installApiMocks(page, { organizations: [{ ...demoOrganization, personal: true }, labsOrganization] });
   await page.route("**/api/v1/organizations/org-demo/pipelines", route => route.fulfill({ json: { items: [
     { id: "build", name: "Main branch build", status: "published", revision: 3, version: 1 },
     { id: "deploy", name: "Staging deploy", status: "draft", revision: 1, version: 0 },
@@ -12,6 +12,9 @@ test("workbench uses the selected organization and keeps navigation usable on mo
   await page.route("**/api/v1/organizations/org-labs/**", route => route.fulfill({ json: { items: [], total: 0 } }));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
+  await expect(page.getByText(demoOrganization.name, { exact: true })).toHaveCount(0);
+  await expect(page.getByText("@demo", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("banner").getByRole("combobox")).toHaveCount(0);
   const repositories = page.getByRole("region", { name: "Repositories", exact: true });
   await expect(repositories.getByRole("link", { name: "easyhaloo/agentforge" })).toHaveAttribute("href", "/orgs/demo/repositories?repository=easyhaloo%2Fagentforge");
   await expect(page.getByRole("region", { name: "Your work" }).getByText("Browser test baseline")).toBeVisible();
@@ -34,8 +37,20 @@ test("workbench uses the selected organization and keeps navigation usable on mo
   await page.screenshot({ path: testInfo.outputPath("mobile.png"), animations: "disabled", fullPage: true });
 
   const mobileNavigation = await openNavigation(page);
-  await selectOption(page, mobileNavigation.getByRole("combobox", { name: "Select organization" }), "AgentForge Labs");
-  await expect(mobileNavigation).toBeHidden();
+  await expect(mobileNavigation.getByRole("combobox")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^User menu,/ }).click();
+  await page.getByRole("dialog", { name: "User menu" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL("/settings/profile");
+  const current = page.getByRole("combobox", { name: "Current organization" });
+  await expect(current).toContainText("Taylor Owner · Personal workspace");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await selectOption(page, current, "AgentForge Labs");
+  await expect(current).toContainText("AgentForge Labs");
+  await expect(page.getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
+  await page.reload();
+  await expect(current).toContainText("AgentForge Labs");
+  await page.getByRole("link", { name: "agentforge", exact: true }).click();
   await expect(page.getByText("No changesets are waiting for your review.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Main branch build/ })).toHaveCount(0);
   await expect(repositories.getByRole("link", { name: "easyhaloo/agentforge" })).toHaveCount(0);
@@ -90,7 +105,6 @@ test("global navigation uses compact rows and returns focus through each dismiss
   await openNavigation(page);
   await expect(drawer).toHaveCSS("width", "288px");
   await expect(drawer).toHaveCSS("transition-duration", "0s");
-  await expect(nav.getByRole("combobox", { name: "Select organization" })).toBeVisible();
   await expect(close).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath("drawer-dark-mobile.png") });
   await lastLink.scrollIntoViewIfNeeded();

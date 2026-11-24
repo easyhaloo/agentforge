@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIError, accountAPI, authAPI, type AccountContext } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
-import { AppAccountContext, type AccountState } from "../account-context";
+import { AppAccountContext, useSelectedOrganization, type AccountState } from "../account-context";
 import { AccountTheme } from "../../features/appearance/AccountTheme";
 import { CommandPalette } from "../components/CommandPalette";
 import { Topbar } from "../components/Topbar";
@@ -67,7 +67,7 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
 
   useSearchShortcut(!fullscreen && accountState === "ready" && !commandOpen, () => setCommandOpen(true));
 
-  const selectedOrganization = account?.organizations[0];
+  const [selectedOrganization, selectOrganization] = useSelectedOrganization(account);
 
   // Show nothing while loading to avoid flash of content
   if (accountState === "loading") {
@@ -98,7 +98,7 @@ export function FocusedLayout({ fullscreen = false }: { fullscreen?: boolean }) 
   if (!account) return null;
 
   return (
-    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, updateDisplayName, selectedOrganization }}>
+    <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, updateDisplayName, selectedOrganization, selectOrganization }}>
       <AccountTheme key={account.user_id}>
         {fullscreen ? <Outlet /> : (
           <div className="focused-shell">
