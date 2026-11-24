@@ -18,9 +18,9 @@ const projectItemSelect = `SELECT pi.id,
 	coalesce((SELECT jsonb_object_agg(fv.field_id, fv.value) FROM project_field_values fv
 		WHERE (fv.organization_id, fv.project_id, fv.item_id) = (pi.organization_id, pi.project_id, pi.id)), '{}'::jsonb)
 	FROM project_items pi
-	LEFT JOIN issues i ON (i.organization_id, i.id) = (pi.organization_id, pi.issue_id)
+	LEFT JOIN enabled_repository_issues i ON (i.organization_id, i.id) = (pi.organization_id, pi.issue_id)
 	LEFT JOIN delivery_changesets pr ON (pr.organization_id, pr.id) = (pi.organization_id, pi.pull_request_id)
-	WHERE pi.organization_id = $1 AND pi.project_id = $2`
+	WHERE pi.organization_id = $1 AND pi.project_id = $2 AND (pi.issue_id IS NULL OR i.id IS NOT NULL)`
 
 func (s *Store) ListProjectItems(ctx context.Context, organizationID string, number int, archived bool) ([]issues.ProjectItem, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -118,6 +118,9 @@ func (s *Store) AddProjectItem(ctx context.Context, org string, number int, inpu
 		err = tx.QueryRow(ctx, `INSERT INTO project_items (organization_id, project_id, draft_title)
 			VALUES ($1, $2, $3) RETURNING id`, org, projectID, input.Title).Scan(&id)
 	case "issue":
+		if err := requireRepositoryIssues(ctx, tx, org, input.Repository); err != nil {
+			return issues.ProjectItem{}, false, err
+		}
 		var issueID string
 		err = tx.QueryRow(ctx, `SELECT id FROM issues WHERE organization_id = $1 AND repository = $2 AND number = $3 FOR SHARE`,
 			org, input.Repository, input.Number).Scan(&issueID)
@@ -223,7 +226,9 @@ func (s *Store) DeleteProjectItem(ctx context.Context, org string, number int, i
 	// Legacy unlink takes the association lock before the cascading item lock.
 	// A draft can concurrently convert, so recheck under the item lock below.
 	var issueID *string
-	err = tx.QueryRow(ctx, `SELECT issue_id FROM project_items WHERE organization_id = $1 AND project_id = $2 AND id = $3`, org, projectID, id).Scan(&issueID)
+	err = tx.QueryRow(ctx, `SELECT issue_id FROM project_items pi WHERE organization_id = $1 AND project_id = $2 AND id = $3
+		AND (issue_id IS NULL OR EXISTS (SELECT 1 FROM enabled_repository_issues i
+			WHERE (i.organization_id, i.id) = (pi.organization_id, pi.issue_id)))`, org, projectID, id).Scan(&issueID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return issues.ErrProjectNotFound
 	}

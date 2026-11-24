@@ -1,4 +1,6 @@
 .projects-page { display: grid; gap: 16px; min-width: 0; padding: clamp(16px, 3vw, 32px); }
+.projects-page a:where(:not(.af-button, .projects-view)) { color: var(--af-color-primary); text-decoration-color: currentColor; text-underline-offset: 2px; }
+.projects-page a:where(:not(.af-button, .projects-view)):hover { color: var(--af-color-primary-hover); }
 .projects-create-page { width: 100%; max-width: 1040px; margin-inline: auto; }
 .projects-heading { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--af-color-border); }
 .projects-heading h1, .projects-heading p, .projects-message p { margin: 0; }

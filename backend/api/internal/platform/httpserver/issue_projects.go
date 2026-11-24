@@ -80,7 +80,7 @@ func projectError(w http.ResponseWriter, err error) {
 		writeProblem(w, http.StatusConflict, "Project is closed", "Reopen the project before changing its items or posting updates")
 	case errors.Is(err, issues.ErrProjectConflict):
 		writeProblem(w, http.StatusConflict, "Project version conflict", "Refresh the project or item and try again")
-	case errors.Is(err, issues.ErrProjectNotFound):
+	case errors.Is(err, issues.ErrProjectNotFound), errors.Is(err, issues.ErrDetailNotFound):
 		writeProblem(w, http.StatusNotFound, "Project resource not found", "The project, item or source does not exist in this scope")
 	case errors.Is(err, issues.ErrProjectInvalid), errors.Is(err, issues.ErrInvalidMetadata):
 		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project operation", "The item, dates or repository are not valid for this project operation")
