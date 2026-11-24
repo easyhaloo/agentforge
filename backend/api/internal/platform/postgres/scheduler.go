@@ -65,7 +65,7 @@ func (s *Store) ClaimTask(ctx context.Context, token string) (*execution.Task, e
 	}
 	var task execution.Task
 	var expired bool
-	err = tx.QueryRow(ctx, `SELECT r.id,r.organization_id,r.pipeline_id,r.deadline,r.deadline<=statement_timestamp(),r.integration FROM pipeline_runs r WHERE r.organization_id=$1 AND r.status IN ('queued','running') AND (r.deadline<=statement_timestamp() OR $3 AND EXISTS(SELECT 1`+runnableTasks+`)) ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`, org, caps, capacity).Scan(&task.RunID, &task.OrganizationID, &task.PipelineID, &task.Deadline, &expired, &task.Integration)
+	err = tx.QueryRow(ctx, `SELECT r.id,r.organization_id,r.pipeline_id,r.deadline,r.deadline<=statement_timestamp(),r.integration,r.trigger_source FROM pipeline_runs r WHERE r.organization_id=$1 AND r.status IN ('queued','running') AND (r.deadline<=statement_timestamp() OR $3 AND EXISTS(SELECT 1`+runnableTasks+`)) ORDER BY r.created_at,r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`, org, caps, capacity).Scan(&task.RunID, &task.OrganizationID, &task.PipelineID, &task.Deadline, &expired, &task.Integration, &task.Trigger)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -171,7 +171,9 @@ func (s *Store) FinishTask(ctx context.Context, t execution.Task, outcome, outpu
 		return execution.ErrLease
 	}
 	var suppressOutput bool
-	err = tx.QueryRow(ctx, `UPDATE pipeline_step_runs SET status=$5,worker_id=NULL,lease_until=NULL,lease_digest=NULL WHERE `+leasePredicate+` AND (($5='waiting') = (capability=$6)) RETURNING secret_refs <> '{}'::jsonb`, t.RunID, t.StepID, t.WorkerID, t.Attempt, outcome, pipeline.Approval).Scan(&suppressOutput)
+	err = tx.QueryRow(ctx, `UPDATE pipeline_step_runs SET status=$5,worker_id=NULL,lease_until=NULL,lease_digest=NULL,
+		checked_source_sha=CASE WHEN $5='succeeded' AND $7=(SELECT trigger_source->>'sha' FROM pipeline_runs WHERE id=$1 AND trigger_source->>'kind'='changeset_revision') THEN $7 END
+		WHERE `+leasePredicate+` AND (($5='waiting') = (capability=$6)) RETURNING secret_refs <> '{}'::jsonb`, t.RunID, t.StepID, t.WorkerID, t.Attempt, outcome, pipeline.Approval, t.CheckedSourceSHA).Scan(&suppressOutput)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return execution.ErrLease
 	}

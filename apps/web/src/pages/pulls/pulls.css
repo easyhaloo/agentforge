@@ -37,6 +37,8 @@
   gap: 16px;
   align-items: start;
 }
+.pull-issue-links { list-style: none; padding: 0; margin: 0; }
+.pull-issue-links li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pull-review-sidebar form, .pull-comment-form, .pull-inline-composer {
   display: grid;
   gap: 12px;
@@ -70,6 +72,12 @@
 .pull-checks-tab .checks-status, .pull-checks-tab .evidence-item,
 .pull-commits-tab .commit-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; }
 .pull-commits-tab .commit-item + .commit-item + .commit-item { border-top: 1px solid var(--af-color-border); }
+.pull-workflow-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--af-color-text-secondary); }
+.pull-merge-gate .pull-workflow-summary { flex-basis: 100%; }
+.pull-required-workflows { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--af-color-border); }
+.pull-required-workflows h4 { margin: 0 0 8px; }
+.pull-workflow-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.pull-workflow-list li + li { border-top: 1px solid var(--af-color-border); }
 
 @media (max-width: 760px) {
   .pull-conversation-layout, .pull-files-tab { grid-template-columns: minmax(0, 1fr); }
@@ -246,6 +254,7 @@
 .pull-reviewers { display: grid; gap: 10px; padding: 0 0 12px; border-bottom: 1px solid var(--af-color-border); }
 .pull-reviewer-status { flex-wrap: wrap; font-size: 13px; }
 .pull-merge-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); }
+.pull-merge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pull-merge-gate-main { display: flex; align-items: center; gap: 10px; }
 .pull-merge-gate-main > svg { flex: none; color: var(--af-color-primary); }
 .pull-merge-gate p { margin: 4px 0 0; color: var(--af-color-text-secondary); }

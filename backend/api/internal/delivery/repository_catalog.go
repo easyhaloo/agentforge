@@ -2,22 +2,36 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
 
+var ErrNoRepositoryMergeMethod = errors.New("enable at least one pull request merge method")
+
 type RepositoryMetadata struct {
-	OrganizationID string    `json:"organization_id"`
-	Slug           string    `json:"slug"`
-	Description    string    `json:"description,omitempty"`
-	DefaultBranch  string    `json:"default_branch"`
-	Visibility     string    `json:"visibility,omitempty"`
-	Fork           bool      `json:"fork"`
-	IsTemplate     bool      `json:"is_template"`
-	PushRefLimit   int       `json:"push_ref_limit"`
-	ProtectedRefs  []string  `json:"protected_refs,omitempty"`
-	CreatedBy      string    `json:"created_by"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	githttp.MergeMethods
+	githttp.MergeMessageFormats
+	OrganizationID           string            `json:"organization_id"`
+	Slug                     string            `json:"slug"`
+	Description              string            `json:"description,omitempty"`
+	DefaultBranch            string            `json:"default_branch"`
+	Visibility               string            `json:"visibility,omitempty"`
+	Fork                     bool              `json:"fork"`
+	WebCommitSignoffRequired bool              `json:"web_commit_signoff_required"`
+	DeleteMergedBranches     bool              `json:"delete_merged_branches"`
+	AutoCloseIssuesDisabled  bool              `json:"auto_close_issues_disabled"`
+	IssuesDisabled           bool              `json:"issues_disabled"`
+	ActionsRetentionDays     int               `json:"actions_retention_days"`
+	ActionsDisabled          bool              `json:"actions_disabled"`
+	IsTemplate               bool              `json:"is_template"`
+	PushRefLimit             int               `json:"push_ref_limit"`
+	ProtectedRefs            []string          `json:"protected_refs,omitempty"`
+	RefRules                 []githttp.RefRule `json:"ref_rules,omitempty"`
+	CreatedBy                string            `json:"created_by"`
+	CreatedAt                time.Time         `json:"created_at"`
+	UpdatedAt                time.Time         `json:"updated_at"`
 }
 
 type RepositoryActivity struct {

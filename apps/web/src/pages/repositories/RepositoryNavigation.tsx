@@ -16,13 +16,13 @@ function ActionsIcon() {
 
 const sectionIcons = { issues: AlertCircle, pulls: GitPullRequest, actions: ActionsIcon, settings: Settings };
 
-type Props = { organization: OrganizationSummary; handle: string; repository: string };
+type Props = { organization: OrganizationSummary; handle: string; repository: string; issuesDisabled: boolean };
 
-export function RepositoryNavigation({ organization, handle, repository }: Props) {
+export function RepositoryNavigation({ organization, handle, repository, issuesDisabled }: Props) {
   const { t } = useTranslation("repositories");
   return <nav className="repo-section-nav" aria-label={t("repositories:browser.sections")}>
     <NavLink to={repositoryPath(handle, repository)} end><Code2 size={16} aria-hidden="true"/>{t("repositories:browser.code")}</NavLink>
-    {repositorySections.filter(section => section !== "settings" || canManageRepository(organization)).map(section => {
+    {repositorySections.filter(section => (section !== "settings" || canManageRepository(organization)) && (section !== "issues" || !issuesDisabled)).map(section => {
       const Icon = sectionIcons[section];
       return <NavLink key={section} to={repositoryPath(handle, repository, section)} end={section === "actions"}>
         <Icon size={16} aria-hidden="true"/>{t(`repositories:sections.${section}`)}

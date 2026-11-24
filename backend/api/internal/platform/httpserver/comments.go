@@ -277,6 +277,10 @@ func (d DeliveryDependencies) minimizeComment(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if _, err := d.CommentRepo.Get(r.Context(), principal.OrganizationID, comments.ID(commentID)); err != nil {
+		writeProblem(w, http.StatusNotFound, "Comment not found", "The comment is unavailable")
+		return
+	}
 	minimized, err := d.CommentRepo.Minimize(r.Context(), principal.OrganizationID, comments.ID(commentID), reason)
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to minimize comment", "The comment could not be minimized")
@@ -310,6 +314,10 @@ func (d DeliveryDependencies) unminimizeComment(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if _, err := d.CommentRepo.Get(r.Context(), principal.OrganizationID, comments.ID(commentID)); err != nil {
+		writeProblem(w, http.StatusNotFound, "Comment not found", "The comment is unavailable")
+		return
+	}
 	unminimized, err := d.CommentRepo.Unminimize(r.Context(), principal.OrganizationID, comments.ID(commentID))
 	if err != nil {
 		writeProblem(w, http.StatusInternalServerError, "Unable to unminimize comment", "The comment could not be unminimized")

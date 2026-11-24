@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { Button, TextArea } from "../../shared/ui";
+import { PullRequestConversationResolution } from "./PullRequestConversationResolution";
 
 type Props = {
   organization: OrganizationSummary;
@@ -37,7 +38,7 @@ export function PullRequestConversationTab({
   const activeRevisionId = changeset.changeset.revisions[changeset.changeset.revisions.length - 1]?.id;
   const items = [
     ...pr.comments.map(comment => ({ kind: "comment" as const, at: comment.created_at, comment })),
-    ...changeset.changeset.audit.filter(event => event.operation !== "pull_request.comment_added")
+    ...changeset.changeset.audit.filter(event => event.operation !== "pull_request.comment_added" && !event.operation.startsWith("pull_request.conversation_"))
       .map(event => ({ kind: "event" as const, at: event.at, event })),
   ].sort((a, b) => a.at.localeCompare(b.at));
 
@@ -89,6 +90,11 @@ export function PullRequestConversationTab({
               {isStale && <span className="comment-stale-badge">{t("pulls:conversation.staleComment")}</span>}
             </div>
             <div className="comment-body">{c.body}</div>
+            {c.revision_id && <div className="comment-body">
+              <PullRequestConversationResolution comment={c} memberName={memberName}
+                canWrite={organization.role !== "viewer"} organizationID={organization.id}
+                pullNumber={pullNumber} onUpdate={onUpdate} />
+            </div>}
           </article>
         </li>;
       })}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -18,9 +19,10 @@ type MergePreviewProvider interface {
 	PreviewMerge(context.Context, string, string, MergeRequest) (MergePreview, error)
 }
 type MergeRequest struct {
-	Target   string   `json:"target"`
-	Sources  []string `json:"sources"`
-	Strategy string   `json:"strategy,omitempty"`
+	Target      string            `json:"target"`
+	Sources     []string          `json:"sources"`
+	Strategy    string            `json:"strategy,omitempty"`
+	PullMessage *PullMergeMessage `json:"-"`
 }
 type PinnedRef struct {
 	Ref string `json:"ref"`
@@ -38,6 +40,16 @@ type MergePreview struct {
 
 var objectID = regexp.MustCompile(`^(?:[a-f0-9]{40}|[a-f0-9]{64})$`)
 var ErrPreviewUnavailable = errors.New("merge preview unavailable")
+
+// PullMergeIntent pins the verified decision before an atomic Git promotion.
+// The saved intent and receipt allow a retry to finish the database update.
+type PullMergeIntent struct {
+	ID         ID           `json:"id"`
+	RevisionID ID           `json:"revision_id"`
+	Actor      string       `json:"actor"`
+	CreatedAt  time.Time    `json:"created_at"`
+	Candidate  MergePreview `json:"candidate"`
+}
 
 // previewGit keeps hooks, user configuration and original-repository merge drivers out of the simulation.
 func previewGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
@@ -87,7 +99,13 @@ func (p *LocalGitProvider) PrepareCandidate(ctx context.Context, org, repository
 
 func (p *LocalGitProvider) merge(ctx context.Context, org, repository string, input MergeRequest, retain bool) (MergePreview, error) {
 	var result MergePreview
-	if input.Strategy != "" && input.Strategy != "merge-commit" && input.Strategy != "ff-only" {
+	switch input.Strategy {
+	case "", "merge-commit", "ff-only":
+	case "squash", "rebase":
+		if !retain {
+			return result, ErrRepositoryInvalid
+		}
+	default:
 		return result, ErrRepositoryInvalid
 	}
 	if len(input.Sources) == 0 || len(input.Sources) > 32 {
@@ -206,12 +224,41 @@ func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergeP
 			return result, nil
 		}
 		tree := string(fields[0])
+		if input.Strategy == "rebase" {
+			worktree := filepath.Join(temp, "replay")
+			if i == 0 {
+				if _, err := previewGit(ctx, temp, "worktree", "add", "--quiet", "--detach", worktree, source.SHA); err != nil {
+					return result, ErrPreviewUnavailable
+				}
+			} else if _, err := previewGit(ctx, worktree, "checkout", "--quiet", "--detach", source.SHA, "--"); err != nil {
+				return result, ErrPreviewUnavailable
+			}
+			sha, paths, err := replayCandidate(ctx, worktree, current, tree)
+			if err != nil {
+				return result, err
+			}
+			if sha == "" {
+				result.Status = "conflict"
+				result.ConflictAt = &i
+				result.ConflictPaths = paths
+				result.TreeSHA = ""
+				return result, nil
+			}
+			current, result.TreeSHA = sha, tree
+			continue
+		}
 		parents := []string{"commit-tree", tree, "-p", current}
-		if source.SHA != current {
+		if input.Strategy != "squash" && source.SHA != current {
 			parents = append(parents, "-p", source.SHA)
 		}
-		parents = append(parents, "-m", "AgentForge integration candidate")
-		raw, err := previewGit(ctx, temp, parents...)
+		message := "AgentForge integration candidate"
+		if input.PullMessage != nil {
+			message, err = input.PullMessage.render(ctx, temp, input.Strategy, current, source.SHA)
+			if err != nil {
+				return result, err
+			}
+		}
+		raw, err := previewGitInput(ctx, temp, strings.NewReader(message+"\n"), parents...)
 		if err != nil {
 			return result, ErrPreviewUnavailable
 		}
@@ -224,4 +271,27 @@ func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergeP
 	result.Status = "clean"
 	result.CandidateSHA = current
 	return result, nil
+}
+
+// replayCandidate returns an empty SHA for conflicts or a replay that changes the merge result.
+func replayCandidate(ctx context.Context, worktree, base, mergeTree string) (string, []string, error) {
+	_, err := previewGit(ctx, worktree, "rebase", "--merge", "--no-rebase-merges", "--no-fork-point",
+		"--force-rebase", "--no-keep-empty", "--empty=drop", base)
+	if err != nil {
+		out, diffErr := previewGit(ctx, worktree, "diff", "--name-only", "--diff-filter=U", "-z")
+		if diffErr != nil || len(out) == 0 {
+			return "", nil, ErrPreviewUnavailable
+		}
+		return "", strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00"), nil
+	}
+	out, err := previewGit(ctx, worktree, "rev-parse", "HEAD", "HEAD^{tree}")
+	revs := strings.Fields(string(out))
+	if err != nil || len(revs) != 2 || !objectID.MatchString(revs[0]) || !objectID.MatchString(revs[1]) {
+		return "", nil, ErrPreviewUnavailable
+	}
+	// Flattening a source merge can lose changes recorded only in its merge commit.
+	if revs[1] != mergeTree {
+		return "", nil, nil
+	}
+	return revs[0], nil, nil
 }

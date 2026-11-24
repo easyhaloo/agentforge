@@ -10,8 +10,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -208,6 +210,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/membership-audit", deps.listMembershipAudit)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories", deps.listRepositories)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/refs", deps.listRepositoryRefs)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/settings", deps.repositorySettings)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/settings", deps.updateRepositorySettings)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions", deps.listRepositoryActions)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/actions/workflows", deps.listRepositoryWorkflows)
@@ -230,9 +233,11 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews", deps.submitReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/reviews/{reviewID}/decision", deps.decideReview)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/merge", deps.mergeChangeset)
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/required-workflows", deps.getPullRequestRequiredWorkflows)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state", deps.changePRState)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/title", deps.changePRTitle)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments", deps.addPRComment)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments/{commentID}/resolution", deps.setPRCommentResolution)
 
 	// Issue tracking routes
 	deps.registerIssueDetail(mux)
@@ -534,6 +539,11 @@ func (d DeliveryDependencies) createChangeset(w http.ResponseWriter, r *http.Req
 			writeProblem(w, 400, "Invalid pull request branches", "Distinct published branches and the compared head SHA are required")
 			return
 		}
+		release, locked := d.lockPullRequestBranches(w, r, principal.OrganizationID, changeset.Repository)
+		if !locked {
+			return
+		}
+		defer release()
 		baseRevision, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, changeset.Repository, "refs/heads/"+baseBranch)
 		if err != nil {
 			writeProblem(w, http.StatusUnprocessableEntity, "Base branch unavailable", "The base branch could not be resolved in the configured repository")
@@ -742,6 +752,7 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 		Path          string `json:"path"`
 		BaseCommitSHA string `json:"base_commit_sha"`
 		BaseBlobSHA   string `json:"base_blob_sha"`
+		Signoff       bool   `json:"signoff"`
 		Content       string `json:"content"`
 	}
 	if !decodeJSON(w, r, &input) {
@@ -777,7 +788,35 @@ func (d DeliveryDependencies) saveChangesetFile(w http.ResponseWriter, r *http.R
 		writeProblem(w, http.StatusConflict, "Stale file content", "The file changed or is not a regular text blob at the current changeset revision")
 		return
 	}
-	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content))
+	policy, release, err := d.lockBranchWritePolicy(r.Context(), principal.OrganizationID, stored.Changeset.Repository)
+	if err != nil {
+		writeProblem(w, http.StatusServiceUnavailable, "Repository policy lock unavailable", "The repository policy could not be safely locked for the file update")
+		return
+	}
+	defer release()
+	signoff, ok := d.webCommitSignoff(w, r, principal, policy.WebCommitSignoffRequired, input.Signoff)
+	if !ok {
+		return
+	}
+	check := func(ref string, creating bool) error {
+		if err := policy.CheckBranchWrite(ref, creating); err != nil {
+			return err
+		}
+		if creating && githttp.LinearHistoryRule(policy.RefRules, strings.TrimPrefix(ref, "refs/heads/"), policy.DefaultBranch) != "" {
+			git, ok := writer.(*delivery.LocalGitProvider)
+			if !ok {
+				return delivery.ErrProviderUnavailable
+			}
+			// The editor introduces one single-parent commit. Check any history
+			// under its parent that is not yet reachable from a branch.
+			return git.CheckLinearHistory(r.Context(), principal.OrganizationID, stored.Changeset.Repository, "", revision.CommitSHA)
+		}
+		return nil
+	}
+	result, err := writer.SaveTextFile(r.Context(), principal.OrganizationID, stored.Changeset.Repository, string(stored.Changeset.ID), revision.CommitSHA, input.BaseBlobSHA, input.Path, []byte(input.Content), check, signoff)
+	if writeBranchRuleConflict(w, err) {
+		return
+	}
 	if errors.Is(err, delivery.ErrWriteConflict) {
 		writeProblem(w, http.StatusConflict, "Concurrent file update", "The changeset branch or file changed while saving; reload and reapply your edits")
 		return
@@ -1078,7 +1117,8 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var input struct {
-		TargetRef string `json:"target_ref"`
+		TargetRef   string `json:"target_ref"`
+		MergeMethod string `json:"merge_method"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -1087,27 +1127,55 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	if d.Catalog == nil {
-		writeProblem(w, 503, "Repository catalog unavailable", "The merge target cannot be verified")
+	repo := stored.Changeset.Repository
+	policy, unlockRepository, locked := d.lockBranchMergePolicy(w, r, principal.OrganizationID, repo)
+	if !locked {
 		return
 	}
-	repositories, catalogErr := d.Catalog.ListRepositories(r.Context(), principal.OrganizationID)
-	if catalogErr != nil {
-		writeProblem(w, 503, "Repository catalog unavailable", "The merge target could not be loaded")
+	unlockRepository = sync.OnceFunc(unlockRepository)
+	defer unlockRepository()
+	// Promotion can complete a Changeset without the Changeset advisory lock.
+	// Refresh its state after taking the repository lock shared by both paths.
+	stored, ok = d.load(w, r, principal.OrganizationID)
+	if !ok {
 		return
 	}
-	allowedTarget := ""
-	for _, repository := range repositories {
-		if repository.Slug == stored.Changeset.Repository {
-			allowedTarget = repository.DefaultBranch
-			break
-		}
+	if stored.Changeset.Repository != repo {
+		writeRepositoryError(w, delivery.ErrVersionConflict)
+		return
 	}
-	if allowedTarget != "" && stored.Changeset.PullRequest != nil {
-		allowedTarget = stored.Changeset.PullRequest.BaseBranch
+	allowedTarget := policy.DefaultBranch
+	pull := stored.Changeset.PullRequest
+	if allowedTarget != "" && pull != nil {
+		allowedTarget = pull.BaseBranch
 	}
 	if allowedTarget == "" || input.TargetRef != allowedTarget {
 		writeProblem(w, 422, "Invalid merge target", "Use the recorded target branch")
+		return
+	}
+	if d.recoverPullMerge(w, r, principal.OrganizationID, stored, unlockRepository) {
+		return
+	}
+	linear := githttp.LinearHistoryRule(policy.RefRules, allowedTarget, policy.DefaultBranch) != ""
+	strategy := ""
+	if input.MergeMethod != "" && input.MergeMethod != "merge" && input.MergeMethod != "squash" && input.MergeMethod != "rebase" {
+		writeProblem(w, 422, "Invalid merge method", "Choose merge, squash, or rebase")
+		return
+	}
+	hostedPull := pull != nil && d.repositoryHostingKind(r.Context(), delivery.RepositoryMetadata{OrganizationID: principal.OrganizationID, Slug: repo}) == "hosted"
+	if hostedPull {
+		methods := policy.MergeMethods.PullRequestMethods(policy.RefRules, allowedTarget, policy.DefaultBranch)
+		method := input.MergeMethod
+		if method == "" && len(methods) > 0 {
+			method = methods[0]
+		}
+		if !slices.Contains(methods, method) {
+			writeProblem(w, 409, "Merge method unavailable", "Choose an enabled method for this target branch")
+			return
+		}
+		strategy = githttp.PullRequestMergeStrategy(method)
+	} else if input.MergeMethod != "" {
+		writeProblem(w, 409, "Merge method unavailable", "A native Git pull request is required to choose a merge method")
 		return
 	}
 	revision, exists := stored.Changeset.CurrentRevision()
@@ -1119,16 +1187,14 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeDeliveryError(w, err)
 		return
 	}
-	if d.Locker == nil {
-		writeProblem(w, 503, "Repository merge lock unavailable", "A distributed repository lock is required before merging")
+	if err := githttp.CheckBranchMerge(policy.RefRules, allowedTarget, policy.DefaultBranch, pull != nil && pull.BaseBranch == allowedTarget, false); err != nil {
+		writeProblem(w, http.StatusConflict, "Repository ruleset blocks merge", err.Error())
 		return
 	}
-	unlockRepository, lockErr := d.Locker.LockChangeset(r.Context(), principal.OrganizationID, "repository:"+stored.Changeset.Repository)
-	if lockErr != nil {
-		writeProblem(w, 503, "Repository merge lock unavailable", "The repository could not be safely locked for merge")
+	if githttp.BranchRequiresConversationResolution(policy.RefRules, allowedTarget, policy.DefaultBranch) && stored.Changeset.HasUnresolvedPRConversations() {
+		writeUnresolvedConversations(w)
 		return
 	}
-	defer unlockRepository()
 	baseRef := allowedTarget
 	if pull := stored.Changeset.PullRequest; pull != nil {
 		baseRef = "refs/heads/" + allowedTarget
@@ -1148,12 +1214,64 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeProblem(w, 409, "Evaluation is stale", "The target branch changed after evaluation; rerun trusted evaluation before merging")
 		return
 	}
+	checks := githttp.BranchRequiredWorkflows(policy.RefRules, allowedTarget, policy.DefaultBranch)
+	if len(checks) > 0 {
+		local, _ := d.Git.(*delivery.LocalGitProvider)
+		err := local.CheckRequiredWorkflowBase(r.Context(), principal.OrganizationID, repo, baseRevision.CommitSHA, revision.CommitSHA, checks)
+		if errors.Is(err, githttp.ErrStrictWorkflowBase) {
+			writeProblem(w, 409, "Source branch is behind", err.Error())
+			return
+		}
+		if err != nil {
+			writeProblem(w, 503, "Required workflows unavailable", "The source branch could not be verified")
+			return
+		}
+		store, ok := d.Runs.(interface {
+			CheckRequiredWorkflows(context.Context, string, *delivery.Changeset, delivery.Revision, string, map[string]bool) error
+		})
+		if !ok {
+			writeProblem(w, 503, "Required workflows unavailable", "The repository workflow results could not be verified")
+			return
+		}
+		err = store.CheckRequiredWorkflows(r.Context(), principal.OrganizationID, stored.Changeset, revision, baseRevision.CommitSHA, checks)
+		if errors.Is(err, githttp.ErrRequiredWorkflows) {
+			writeProblem(w, 409, "Required workflows pending", err.Error())
+			return
+		}
+		if err != nil {
+			writeProblem(w, 503, "Required workflows unavailable", "The repository workflow results could not be verified")
+			return
+		}
+	}
+	if strategy != "" {
+		d.mergeNativePull(w, r, principal.OrganizationID, principal.UserID, stored, revision, baseRevision.CommitSHA, strategy, policy.MergeMessageFormats, unlockRepository)
+		return
+	}
 	id, err := newID()
 	if err != nil {
 		writeProblem(w, 500, "Unable to record merge", "An identifier could not be generated")
 		return
 	}
-	merged, err := d.Git.MergeRevision(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef, baseRevision.CommitSHA)
+	merge := d.Git.MergeRevision
+	strategy = "merge-commit"
+	if linear {
+		git, ok := d.Git.(*delivery.LocalGitProvider)
+		if !ok {
+			writeProblem(w, 503, "Linear history check unavailable", "The Git provider cannot verify a linear merge")
+			return
+		}
+		merge = git.FastForwardRevision
+		strategy = "ff-only"
+	}
+	if err := policy.MergeMethods.CheckBranch(strategy, policy.RefRules, allowedTarget, policy.DefaultBranch); err != nil {
+		writeProblem(w, 409, "Merge method disabled", err.Error())
+		return
+	}
+	merged, err := merge(r.Context(), principal.OrganizationID, stored.Changeset.Repository, revision.CommitSHA, input.TargetRef, baseRevision.CommitSHA)
+	if errors.Is(err, githttp.ErrLinearHistoryRequired) {
+		writeProblem(w, 409, "Repository ruleset blocks merge", "Rebase the source onto the target with no merge commits and verify the new revision before merging")
+		return
+	}
 	if err != nil {
 		writeProblem(w, 409, "Git merge rejected", "The target branch could not be merged cleanly; no merge record was written")
 		return
@@ -1162,12 +1280,67 @@ func (d DeliveryDependencies) mergeChangeset(w http.ResponseWriter, r *http.Requ
 		writeDeliveryError(w, err)
 		return
 	}
-	updated, err := d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	git, _ := d.Git.(*delivery.LocalGitProvider)
+	var updated delivery.StoredChangeset
+	if local, ok := d.Repository.(interface {
+		CompleteLocalMerge(context.Context, string, delivery.StoredChangeset, string, *delivery.LocalGitProvider) (delivery.StoredChangeset, error)
+	}); ok && git != nil {
+		updated, err = local.CompleteLocalMerge(r.Context(), principal.OrganizationID, stored, baseRevision.CommitSHA, git)
+	} else {
+		updated, err = d.Repository.Update(r.Context(), principal.OrganizationID, stored.Changeset, stored.Version)
+	}
 	if err != nil {
 		writeRepositoryError(w, err)
 		return
 	}
+	d.cleanupPullMerge(r.Context(), principal.OrganizationID, updated, git, unlockRepository)
 	writeJSON(w, http.StatusOK, toChangesetResponse(updated))
+}
+
+func (d DeliveryDependencies) lockBranchMergePolicy(w http.ResponseWriter, r *http.Request, org, repo string) (githttp.PushPolicy, func(), bool) {
+	if d.Catalog == nil || d.Locker == nil {
+		writeProblem(w, 503, "Repository merge lock unavailable", "A repository catalog and distributed lock are required before merging")
+		return githttp.PushPolicy{}, nil, false
+	}
+	if catalog, ok := d.Catalog.(interface {
+		LockGitPolicy(context.Context, string, string) (githttp.PushPolicy, func(), error)
+	}); ok {
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		policy, release, err := catalog.LockGitPolicy(ctx, org, repo)
+		if err != nil {
+			writeProblem(w, 503, "Repository merge lock unavailable", "The repository policy could not be safely locked for merge")
+			return githttp.PushPolicy{}, nil, false
+		}
+		return policy, release, true
+	}
+	// Legacy catalogs can still merge if they have no enabled branch merge rules.
+	repositories, err := d.Catalog.ListRepositories(r.Context(), org)
+	if err != nil {
+		writeProblem(w, 503, "Repository catalog unavailable", "The merge target could not be loaded")
+		return githttp.PushPolicy{}, nil, false
+	}
+	var policy githttp.PushPolicy
+	for _, repository := range repositories {
+		if repository.Slug != repo {
+			continue
+		}
+		for _, rule := range repository.RefRules {
+			if rule.Enabled && rule.Target == "branch" && (rule.RestrictUpdate || rule.RequirePullRequest || rule.RequireMergeQueue || rule.RequireLinearHistory || rule.RequiredWorkflows != nil || len(rule.NamePatterns) > 0) {
+				writeProblem(w, 503, "Repository merge lock unavailable", "The repository ruleset requires a policy lock")
+				return githttp.PushPolicy{}, nil, false
+			}
+		}
+		policy.DefaultBranch = repository.DefaultBranch
+		policy.MergeMethods = repository.MergeMethods
+		break
+	}
+	release, err := d.Locker.LockChangeset(r.Context(), org, "repository:"+repo)
+	if err != nil {
+		writeProblem(w, 503, "Repository merge lock unavailable", "The repository could not be safely locked for merge")
+		return githttp.PushPolicy{}, nil, false
+	}
+	return policy, release, true
 }
 
 func (d DeliveryDependencies) getChangesetComparison(w http.ResponseWriter, r *http.Request) {
@@ -1198,6 +1371,20 @@ func (d DeliveryDependencies) getChangesetComparison(w http.ResponseWriter, r *h
 		return
 	}
 	writeJSON(w, http.StatusOK, comparison)
+}
+
+func (d DeliveryDependencies) lockPullRequestBranches(w http.ResponseWriter, r *http.Request, org, repo string) (func(), bool) {
+	if catalog, ok := d.Catalog.(interface {
+		LockPullRequestBranches(context.Context, string, string) (func(), error)
+	}); ok {
+		release, err := catalog.LockPullRequestBranches(r.Context(), org, repo)
+		if err != nil {
+			writeProblem(w, 503, "Pull request branches unavailable", "The repository branches could not be safely locked")
+			return nil, false
+		}
+		return release, true
+	}
+	return func() {}, true
 }
 
 func (d DeliveryDependencies) changePRState(w http.ResponseWriter, r *http.Request) {
@@ -1245,6 +1432,20 @@ func (d DeliveryDependencies) changePRState(w http.ResponseWriter, r *http.Reque
 		err = stored.Changeset.ClosePullRequest(principal.UserID, now)
 	case "reopen":
 		err = stored.Changeset.ReopenPullRequest(principal.UserID, now)
+		if _, local := d.Git.(*delivery.LocalGitProvider); err == nil && local {
+			repo, pr := stored.Changeset.Repository, stored.Changeset.PullRequest
+			release, locked := d.lockPullRequestBranches(w, r, principal.OrganizationID, repo)
+			if !locked {
+				return
+			}
+			defer release()
+			for _, branch := range []string{pr.SourceBranch, pr.BaseBranch} {
+				if _, err := d.Git.ResolveRevision(r.Context(), principal.OrganizationID, repo, "refs/heads/"+branch); err != nil {
+					writeProblem(w, 409, "Pull request branch unavailable", "Restore the source and target branches before reopening this pull request")
+					return
+				}
+			}
+		}
 	}
 	if err != nil {
 		writeDeliveryError(w, err)

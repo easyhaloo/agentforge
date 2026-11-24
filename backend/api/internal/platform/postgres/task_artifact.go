@@ -82,7 +82,11 @@ func (s *Store) PublishTaskArtifact(ctx context.Context, t execution.Task, expec
 	if err != nil {
 		return err
 	}
-	if err = s.saveObject(ctx, tx, p, "artifact", name, data); err != nil {
+	days, err := s.pipelineRetentionDays(ctx, tx, t.RunID)
+	if err != nil {
+		return err
+	}
+	if err = s.saveObject(ctx, tx, p, days, "artifact", name, data); err != nil {
 		return err
 	}
 	var live bool

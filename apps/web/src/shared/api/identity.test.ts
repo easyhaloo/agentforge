@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { APIError, accountAPI, authAPI, changesetAPI } from "./identity";
+import i18n from "../../locales";
+import { translateError } from "./errors";
+import { APIError, accountAPI, authAPI, changesetAPI, request } from "./identity";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -38,6 +40,20 @@ describe("identity API transport", () => {
     await expect(accountAPI.current()).rejects.toMatchObject({
       name: "APIError", status: 403, message: "Only organization administrators can perform this action",
     } satisfies Partial<APIError>);
+  });
+
+  it("localizes a repository Actions rejection by problem title when detail is present", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      title: "Repository Actions disabled", detail: "Enable Actions in repository settings to start new workflow runs",
+    }), { status: 403, headers: { "Content-Type": "application/problem+json" } })));
+
+    const result = request("/api/v1/workflow-runs");
+    await expect(result).rejects.toMatchObject({ title: "Repository Actions disabled", status: 403 });
+    const error: unknown = await result.catch(cause => cause);
+    expect(translateError(error, i18n.getFixedT("en-US"), "errors:unknown"))
+      .toBe("Actions are disabled for this repository. New workflow runs cannot start.");
+    expect(translateError(error, i18n.getFixedT("zh-CN"), "errors:unknown"))
+      .toBe("此仓库已禁用 Actions，无法启动新的工作流运行。");
   });
 });
 

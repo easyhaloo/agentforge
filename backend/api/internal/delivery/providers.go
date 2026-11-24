@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 )
 
 var (
@@ -179,6 +181,53 @@ func (p *LocalGitProvider) ResolveRevision(ctx context.Context, organizationID, 
 }
 
 func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string) (GitMerge, error) {
+	return p.mergeRevision(ctx, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA, false)
+}
+
+func (p *LocalGitProvider) FastForwardRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string) (GitMerge, error) {
+	return p.mergeRevision(ctx, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA, true)
+}
+
+// CheckRequiredWorkflowBase ensures strict workflows tested a source containing the target.
+func (p *LocalGitProvider) CheckRequiredWorkflowBase(ctx context.Context, org, repo, base, source string, checks map[string]bool) error {
+	strict := false
+	for _, required := range checks {
+		strict = strict || required
+	}
+	if !strict {
+		return nil
+	}
+	if p == nil || !validGitObjectID(base) || !validGitObjectID(source) {
+		return ErrProviderUnavailable
+	}
+	path, err := p.repositoryPath(ctx, org, repo)
+	if err != nil {
+		return err
+	}
+	_, err = p.run(ctx, path, "merge-base", "--is-ancestor", base, source)
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return githttp.ErrStrictWorkflowBase
+	}
+	return err
+}
+
+func (p *LocalGitProvider) CheckLinearHistory(ctx context.Context, org, repo, old, next string) error {
+	path, err := p.repositoryPath(ctx, org, repo)
+	if err != nil {
+		return err
+	}
+	return checkLinearHistory(ctx, path, old, next)
+}
+
+func checkLinearHistory(ctx context.Context, path, old, next string) error {
+	return githttp.CheckLinearHistory(old, next, func(args ...string) (string, error) {
+		out, err := previewGit(ctx, path, args...)
+		return string(out), err
+	})
+}
+
+func (p *LocalGitProvider) mergeRevision(ctx context.Context, organizationID, repository, revisionSHA, targetRef, expectedTargetSHA string, linear bool) (GitMerge, error) {
 	path, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return GitMerge{}, err
@@ -196,14 +245,25 @@ func (p *LocalGitProvider) MergeRevision(ctx context.Context, organizationID, re
 	if _, err := p.run(ctx, path, "merge-base", "--is-ancestor", revisionSHA, target); err == nil {
 		return GitMerge{CommitSHA: target, TargetRef: targetRef}, nil
 	}
-	tree, err := p.run(ctx, path, "merge-tree", "--write-tree", "--no-messages", target, revisionSHA)
-	if err != nil || !validGitObjectID(tree) {
-		return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry")
-	}
-	commit, err := p.run(ctx, path, "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost",
-		"commit-tree", tree, "-p", target, "-p", revisionSHA, "-m", "Merge verified AgentForge revision")
-	if err != nil || !validGitObjectID(commit) {
-		return GitMerge{}, ErrRepositoryInvalid
+	commit := revisionSHA
+	if linear {
+		if err := checkLinearHistory(ctx, path, target, revisionSHA); err != nil {
+			return GitMerge{}, err
+		}
+		if _, err := previewGit(ctx, path, "merge-base", "--is-ancestor", target, revisionSHA); err != nil {
+			return GitMerge{}, githttp.ErrLinearHistoryRequired
+		}
+	} else {
+		var err error
+		tree, err := p.run(ctx, path, "merge-tree", "--write-tree", "--no-messages", target, revisionSHA)
+		if err != nil || !validGitObjectID(tree) {
+			return GitMerge{}, errors.New("git merge failed; resolve conflicts and retry")
+		}
+		commit, err = p.run(ctx, path, "-c", "user.name=AgentForge", "-c", "user.email=agentforge@localhost",
+			"commit-tree", tree, "-p", target, "-p", revisionSHA, "-m", "Merge verified AgentForge revision")
+		if err != nil || !validGitObjectID(commit) {
+			return GitMerge{}, ErrRepositoryInvalid
+		}
 	}
 	branch, _ := p.run(ctx, path, "symbolic-ref", "--quiet", "HEAD")
 	bare, err := p.run(ctx, path, "rev-parse", "--is-bare-repository")
@@ -239,7 +299,7 @@ const (
 	maxWorkspaceRevisionBytes = 32 << 20
 )
 
-func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organizationID, repository, baseSHA, changesetID, revisionID, actor string, files []WorkspaceRevisionFile) (GitRevision, error) {
+func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organizationID, repository, baseSHA, changesetID, revisionID, actor string, files []WorkspaceRevisionFile, signoff WebCommitSignoff) (GitRevision, error) {
 	repositoryPath, err := p.repositoryPath(ctx, organizationID, repository)
 	if err != nil {
 		return GitRevision{}, err
@@ -304,10 +364,17 @@ func (p *LocalGitProvider) CreateWorkspaceRevision(ctx context.Context, organiza
 		return GitRevision{}, ErrRepositoryInvalid
 	}
 	message := "Workspace changeset " + changesetID
-	commitSHA, err := p.runWithEnvInput(ctx, repositoryPath, map[string]string{
-		"GIT_AUTHOR_NAME": actor, "GIT_AUTHOR_EMAIL": "agentforge@localhost",
-		"GIT_COMMITTER_NAME": actor, "GIT_COMMITTER_EMAIL": "agentforge@localhost",
-	}, []byte(message+"\n"), "commit-tree", treeSHA, "-p", baseSHA)
+	var commitSHA string
+	if signoff.email != "" {
+		var raw []byte
+		raw, err = writeWebCommit(ctx, repositoryPath, message, treeSHA, baseSHA, signoff)
+		commitSHA = strings.TrimSpace(string(raw))
+	} else {
+		commitSHA, err = p.runWithEnvInput(ctx, repositoryPath, map[string]string{
+			"GIT_AUTHOR_NAME": actor, "GIT_AUTHOR_EMAIL": "agentforge@localhost",
+			"GIT_COMMITTER_NAME": actor, "GIT_COMMITTER_EMAIL": "agentforge@localhost",
+		}, []byte(message+"\n"), "commit-tree", treeSHA, "-p", baseSHA)
+	}
 	if err != nil || !validCommitObjectID(commitSHA) {
 		return GitRevision{}, errors.Join(err, ErrRepositoryInvalid)
 	}

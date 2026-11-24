@@ -18,6 +18,10 @@ paths:
           in: query
           description: Filter by repository slug (e.g., "owner/repo")
           schema: { type: string }
+        - name: linked_changeset
+          in: query
+          description: Filter by an explicitly linked Changeset ID. Requires repository.
+          schema: { type: string, maxLength: 128 }
         - name: state
           in: query
           description: Filter by state. Omit to include both open and closed issues.
@@ -1824,6 +1828,16 @@ components:
             properties:
               sha: { type: string, description: Full Git commit SHA. }
               subject: { type: string }
+        closing_pull_requests:
+          type: array
+          description: Pull requests in the organization whose descriptions reference this issue with a closing keyword and whose base is the default branch. Separate from editable Changeset links.
+          items:
+            type: object
+            required: [id, title, repository]
+            properties:
+              id: { type: string, description: Stable Changeset ID of the pull request. }
+              title: { type: string }
+              repository: { type: string }
         changesets:
           type: array
           items:

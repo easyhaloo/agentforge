@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/artifact"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
@@ -107,6 +108,8 @@ func TestPipelineObjectLifecycle(t *testing.T) {
 		}
 	}
 	org := h.organizationID
+	_, err := s.pool.Exec(ctx, `UPDATE delivery_repositories SET actions_retention_days=7 WHERE organization_id=$1 AND slug='team/repo'`, org)
+	lockMust(t, err)
 	token := registerTestRunner(t, s, org, pipeline.ContainerCheck)
 	created := h.do(ctx, "POST", "/api/v1/organizations/"+org+"/pipelines/p/versions/1/integration-runs", `{"repository":"team/repo","target":"main","sources":["topic"]}`)
 	if created.Code != 201 {
@@ -144,6 +147,11 @@ func TestPipelineObjectLifecycle(t *testing.T) {
 		t.Fatal("want log and result", items)
 	}
 	log, report := items[0], items[1]
+	for _, item := range items {
+		if item.ExpiresAt.Sub(item.CreatedAt) != 7*24*time.Hour {
+			t.Fatalf("expected 7 days of retention, got %v", item.ExpiresAt.Sub(item.CreatedAt))
+		}
+	}
 	p := log.Provenance
 	if run.Integration == nil || p.SourceSHA == "" || p.SourceSHA != run.Integration.CandidateSHA || p.Organization != org || p.Run != run.ID || p.Step != task.StepID || p.Attempt != task.Attempt || p.Worker == task.WorkerID || p.Worker == "" || p.Version != 1 || len(p.WorkflowSHA256) != 64 || p.Kind != "log" || p.Name != "stdout.txt" || report.Provenance.Name != "result.json" || strings.Contains(response.Body.String(), task.WorkerID) {
 		t.Fatal("wrong provenance")
@@ -299,5 +307,65 @@ func TestPipelineObjectLifecycle(t *testing.T) {
 	lockMust(t, s.FinishTask(ctx, *task, "succeeded", ""))
 	if err := publish(*task, digest, payload); !errors.Is(err, execution.ErrLease) {
 		t.Fatal("finished receipt", err)
+	}
+}
+
+func TestRepositoryActionsInlineLogRetention(t *testing.T) {
+	for _, env := range []string{"PIPELINE_S3_BUCKET", "PIPELINE_S3_ENDPOINT", "PIPELINE_STORAGE_DAYS"} {
+		t.Setenv(env, "")
+	}
+	s, h, _, _, _ := integrationFixture(t)
+	ctx, org := t.Context(), h.organizationID
+	base := "/api/v1/organizations/" + org
+	settings := base + "/repositories/team/repo/settings"
+	response := h.do(ctx, "GET", settings, "")
+	if response.Code != 200 {
+		t.Fatalf("read settings: %d %s", response.Code, response.Body)
+	}
+	var repository struct {
+		UpdatedAt time.Time `json:"updated_at"`
+	}
+	lockMust(t, json.Unmarshal(response.Body.Bytes(), &repository))
+	version := repository.UpdatedAt.Format(time.RFC3339Nano)
+	for _, test := range []struct{ days, status int }{{401, 422}, {2, 200}, {1, 409}} {
+		response := h.do(ctx, "PATCH", settings, fmt.Sprintf(`{"actions_retention_days":%d,"updated_at":%q}`, test.days, version))
+		if response.Code != test.status {
+			t.Fatalf("save %d days: %d %s", test.days, response.Code, response.Body)
+		}
+	}
+	token := registerTestRunner(t, s, org, pipeline.ContainerCheck)
+	response = h.do(ctx, "POST", base+"/pipelines/p/versions/1/integration-runs", `{"repository":"team/repo","target":"main","sources":["topic"]}`)
+	if response.Code != 201 {
+		t.Fatalf("create run: %d %s", response.Code, response.Body)
+	}
+	var run execution.Run
+	lockMust(t, json.Unmarshal(response.Body.Bytes(), &run))
+	task, err := s.ClaimTask(ctx, token)
+	lockMust(t, err)
+	if task == nil {
+		t.Fatal("missing claim")
+	}
+	lockMust(t, s.FinishTask(ctx, *task, "succeeded", "retained build output"))
+	var hours int
+	lockMust(t, s.pool.QueryRow(ctx, `SELECT extract(epoch FROM expires_at-created_at)/3600 FROM pipeline_run_events WHERE run_id=$1 AND kind='log'`, run.ID).Scan(&hours))
+	if hours != 48 {
+		t.Fatalf("expected 48 hours of retention, got %d", hours)
+	}
+	_, err = s.pool.Exec(ctx, `UPDATE pipeline_run_events SET expires_at=now()-interval '1 second' WHERE run_id=$1 AND kind='log'`, run.ID)
+	lockMust(t, err)
+	events, err := s.Events(ctx, org, run.ID, 0)
+	lockMust(t, err)
+	if len(events) == 0 {
+		t.Fatal("run history disappeared")
+	}
+	for _, event := range events {
+		if event.Kind == "log" {
+			t.Fatal("expired log was served")
+		}
+	}
+	count, err := s.PurgePipelineLogs(ctx)
+	lockMust(t, err)
+	if count != 1 {
+		t.Fatalf("expected 1 purged log, got %d", count)
 	}
 }

@@ -26,6 +26,7 @@ export type IssueProject = { id: string; number: number; name: string; repositor
 export interface Issue {
   custom_fields?: Record<string, string>;
   changesets?: { id: string; title: string }[];
+  closing_pull_requests?: { id: string; title: string; repository: string }[];
   commits?: { sha: string; subject: string }[];
   created_by_name?: string;
   id: string;
@@ -61,6 +62,7 @@ export interface IssuePage {
 }
 
 export interface IssueListParams {
+  linked_changeset?: string;
   repository?: string;
   state?: IssueState;
   created_by?: string;
@@ -157,6 +159,7 @@ export const issuesAPI = {
   list: (organizationID: string, params: IssueListParams = {}, signal?: AbortSignal) => {
     const queryParams = new URLSearchParams();
     if (params.repository) queryParams.set("repository", params.repository);
+    if (params.linked_changeset) queryParams.set("linked_changeset", params.linked_changeset);
     if (params.state) queryParams.set("state", params.state);
     if (params.created_by) queryParams.set("created_by", params.created_by);
     if (params.assignee) queryParams.set("assignee", params.assignee);

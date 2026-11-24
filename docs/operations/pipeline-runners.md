@@ -21,6 +21,12 @@ go run ./cmd/pipeline-worker
 
 The database stores the token digest. Events and artifact provenance identify the public UUID. A claim returns a separate receipt valid for one step attempt. An approval runner can put an approval step into the waiting state. Completing the approval requires the existing authenticated decision path.
 
+## Run required repository workflows
+
+Apply migration `050_required_workflow_provenance.sql` and restart the API and workers before enabling required workflows in a branch ruleset. Set `GIT_REPOSITORY_ROOT` on the worker to the hosted Git storage. The worker checks out the pull request revision and mounts its files read-only at `/workspace`. The Docker daemon must be able to read the worker’s temporary checkout directory.
+
+Publish the workflow, enable the Changeset revision trigger, and add the workflow to **Settings → Rulesets → Require status checks to pass**. A passing run must include a successful container step that checked out the active revision. Manual runs, reruns, and runs without a checkout record cannot satisfy the rule. If the current revision predates the trigger or the worker upgrade, push a new source commit and update the pull request revision to trigger a qualifying run.
+
 ## Control concurrency and revoke access
 
 ```sh

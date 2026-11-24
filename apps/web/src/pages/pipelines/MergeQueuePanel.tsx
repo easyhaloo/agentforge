@@ -7,16 +7,17 @@ import { Button, Input } from "../../shared/ui";
 import { type DraftRun, RunDialog } from "./RunPanel";
 
 interface Props {
+  initial?: { repository: string; target: string; source: string };
   org: string; pipeline: Pipeline; draft?: DraftRun; canStart: boolean; canPromote: boolean;
 }
 
-export function MergeQueuePanel({ org, pipeline, draft, canStart, canPromote }: Props) {
+export function MergeQueuePanel({ initial, org, pipeline, draft, canStart, canPromote }: Props) {
   const { t } = useTranslation("pipelines");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(initial));
   const [enqueue, setEnqueue] = useState(false);
-  const [repo, setRepo] = useState("");
-  const [target, setTarget] = useState("main");
-  const [source, setSource] = useState("");
+  const [repo, setRepo] = useState(initial?.repository ?? "");
+  const [target, setTarget] = useState(initial?.target ?? "main");
+  const [source, setSource] = useState(initial?.source ?? "");
   const [entries, setEntries] = useState<QueueEntry[]>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +66,7 @@ export function MergeQueuePanel({ org, pipeline, draft, canStart, canPromote }: 
     } catch (e) { setError(translateError(e, t, "pipelines:errors.queueFailed")); }
     finally { setBusy(false); }
   }
-  return <details onToggle={e => setOpen(e.currentTarget.open)}><summary>{t("mergeQueue")}</summary><fieldset disabled={busy}>
+  return <details open={open} onToggle={e => setOpen(e.currentTarget.open)}><summary>{t("mergeQueue")}</summary><fieldset disabled={busy}>
     <Input label={t("queueRepo")} value={repo} onChange={e => setRepo(e.target.value)} />
     <Input label={t("queueTarget")} value={target} onChange={e => setTarget(e.target.value)} />
     {canStart && <><Input label={t("queueSource")} value={source} onChange={e => setSource(e.target.value)} />

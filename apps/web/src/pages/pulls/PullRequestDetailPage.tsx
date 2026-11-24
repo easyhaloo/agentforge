@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { changesetAPI, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
+import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
-import { changesetPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
+import { changesetPath, orgPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
 import { Button, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
 import { PullRequestCommitsTab } from "./PullRequestCommitsTab";
 import { PullRequestChecksTab } from "./PullRequestChecksTab";
+import { PullRequestIssueLinks } from "./PullRequestIssueLinks";
 import { PullRequestFilesTab } from "./PullRequestFilesTab";
 
 type Props = {
@@ -23,6 +24,9 @@ type Props = {
 
 const tabListId = "pull-request-detail";
 const stateIcons = { open: GitPullRequest, draft: GitPullRequestDraft, closed: GitPullRequestClosed, merged: GitMerge };
+type WorkflowResult = { key: string } & (
+  { status: "loaded"; checks: PullRequestRequiredWorkflows["checks"] } | { status: "stale" | "unavailable" }
+);
 
 function pullRequestState(changeset: StoredChangeset): "draft" | "open" | "closed" | "merged" {
   if (changeset.status === "merged") return "merged";
@@ -35,6 +39,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const { t } = useTranslation(["pulls", "common", "changesets"]);
   const navigate = useNavigate();
   const [changeset, setChangeset] = useState<StoredChangeset | null>(null);
+  const updateChangeset = (next: StoredChangeset) => setChangeset(current =>
+    current?.changeset.id === next.changeset.id && current.version > next.version ? current : next);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
@@ -45,9 +51,15 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const restoreTitleFocus = useRef(false);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [reviewerID, setReviewerID] = useState("");
-  const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+  const [mergeConfirmKey, setMergeConfirmKey] = useState<string>();
+  const [mergePolicy, setMergePolicy] = useState<{ key: string; settings?: RepositorySettings }>();
+  const [mergePolicyRetry, setMergePolicyRetry] = useState(0);
+  const [mergeMethod, setMergeMethod] = useState<PullRequestMergeMethod>();
+  const [mergeError, setMergeError] = useState("");
   const [comparison, setComparison] = useState<{ revisionKey: string; data?: PullRequestComparison; error?: string }>();
   const [comparisonRetry, setComparisonRetry] = useState(0);
+  const [workflowResult, setWorkflowResult] = useState<WorkflowResult>();
+  const [workflowRetry, setWorkflowRetry] = useState(0);
   const current = changeset?.changeset.id === pullNumber && changeset.changeset.repository === repository && changeset.changeset.pull_request
     ? changeset : null;
   const activeRevision = current?.changeset.revisions.at(-1);
@@ -88,6 +100,54 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
 
   useEffect(() => { void load(); }, [load]);
 
+  const mergeReady = current?.status === "ready_to_merge";
+  const baseBranch = current?.changeset.pull_request?.base_branch;
+  const revisionID = activeRevision?.id;
+  const state = current && pullRequestState(current);
+  const activePull = state === "open" || state === "draft";
+  const workflowKey = `${revisionKey}/${baseBranch}/${state}/${workflowRetry}`;
+  const workflow = workflowResult?.key === workflowKey ? workflowResult : undefined;
+  useEffect(() => {
+    if (loading || !revisionID) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      try {
+        const { revision_id, checks } = await changesetAPI.getRequiredWorkflows(organization.id, pullNumber, controller.signal);
+        if (controller.signal.aborted) return;
+        if (revision_id !== revisionID) {
+          setMergeConfirmKey(undefined);
+          setWorkflowResult({ key: workflowKey, status: "stale" });
+          return;
+        }
+        if (checks.some(check => check.status !== "passed")) setMergeConfirmKey(undefined);
+        setWorkflowResult({ key: workflowKey, status: "loaded", checks });
+        if (activePull && checks.length > 0) timer = setTimeout(refresh, 5000);
+      } catch {
+        if (!controller.signal.aborted) {
+          setMergeConfirmKey(undefined);
+          setWorkflowResult({ key: workflowKey, status: "unavailable" });
+        }
+      }
+    };
+    void refresh();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [organization.id, pullNumber, revisionID, workflowKey, loading, activePull]);
+
+  const mergePolicyKey = `${revisionKey}/${baseBranch}/${mergePolicyRetry}`;
+  const activeMergePolicy = mergePolicy?.key === mergePolicyKey ? mergePolicy : undefined;
+  useEffect(() => {
+    if (!mergeReady || !baseBranch) return;
+    const controller = new AbortController();
+    void repositoryAPI.settings(organization.id, repository, controller.signal, baseBranch)
+      .then(settings => { if (!controller.signal.aborted) setMergePolicy({ key: mergePolicyKey, settings }); })
+      .catch(() => { if (!controller.signal.aborted) setMergePolicy({ key: mergePolicyKey }); });
+    return () => controller.abort();
+  }, [organization.id, repository, mergeReady, baseBranch, mergePolicyKey]);
+
   useEffect(() => {
     let live = true;
     void organizationAPI.members(organization.id)
@@ -125,10 +185,9 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   };
 
   if (loading) return <div className="org-loading">{t("pulls:detail.loading")}</div>;
-  if (!current || !changeset) return <div className="org-error" role="alert">{error || t("pulls:detail.loadFailed")}</div>;
+  if (!current || !changeset || !state) return <div className="org-error" role="alert">{error || t("pulls:detail.loadFailed")}</div>;
 
   const pr = changeset.changeset.pull_request!;
-  const state = pullRequestState(changeset);
   const canWrite = organization.role !== "viewer";
   const canManage = canWrite && (changeset.changeset.created_by === userID || ["owner", "admin"].includes(organization.role));
   const currentTitle = changeset.changeset.title;
@@ -150,7 +209,28 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     if (saved) finishTitleEdit();
   };
   const lifecycleAction = canManage && state !== "merged" ? (state === "closed" ? "reopen" : "close") : undefined;
-  const canMerge = canWrite && state === "open" && changeset.status === "ready_to_merge";
+  const canMerge = canWrite && state === "open" && mergeReady;
+  const mergeSettings = activeMergePolicy?.settings;
+  const mergeMethods = mergeSettings?.pull_request_merge_methods ?? [];
+  const method = mergeMethod && mergeMethods.includes(mergeMethod) ? mergeMethod : mergeMethods[0];
+  const hasMethod = mergeSettings?.hosting_kind === "registered" || method !== undefined;
+  const checks = workflow?.status === "loaded" ? workflow.checks : [];
+  const passedChecks = checks.filter(check => check.status === "passed").length;
+  const workflowsAllowMerge = workflow?.status === "loaded" && passedChecks === checks.length;
+  const workflowSummary = workflow?.status === "loaded"
+    ? checks.length > 0 && t("pulls:requiredWorkflows.summary", { passed: passedChecks, total: checks.length })
+    : t(`pulls:requiredWorkflows.${workflow?.status ?? "loading"}`);
+  const workflowNeedsRetry = workflow?.status === "stale" || workflow?.status === "unavailable";
+  const retryWorkflows = () => {
+    setWorkflowRetry(attempt => attempt + 1);
+    if (workflow?.status === "stale") void load();
+  };
+  const queueRequired = mergeSettings?.default_branch === pr.base_branch &&
+    mergeSettings.ref_rules?.some(rule => rule.enabled && rule.require_merge_queue);
+  const conversationsBlockMerge = mergeSettings?.pull_request_requires_conversation_resolution &&
+    pr.comments.some(comment => comment.revision_id && !(comment.resolved_at && comment.resolved_by));
+  const mergeEnabled = canMerge && !queueRequired && hasMethod && workflowsAllowMerge && !conversationsBlockMerge && !actionBusy;
+  const queueSearch = new URLSearchParams({ queueRepository: repository, queueTarget: pr.base_branch, queueSource: pr.source_branch });
   const StateIcon = stateIcons[state];
   const stateClass = `pull-state pull-state-${state}`;
   const stateLabel = <><StateIcon size={16} aria-hidden="true"/>{t(`pulls:state.${state}`)}</>;
@@ -170,13 +250,17 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   ];
   const selectedReviewer = reviewerOptions.some(option => option.value === reviewerID) ? reviewerID : "";
   const merge = async () => {
-    setShowMergeConfirm(false);
-    await run(() => changesetAPI.merge(organization.id, pullNumber, pr.base_branch), "pulls:actions.mergeFailed");
+    setMergeConfirmKey(undefined);
+    if (!mergeEnabled || mergeConfirmKey !== workflowKey) return;
+    if (!await run(() => changesetAPI.merge(organization.id, pullNumber, pr.base_branch, method), "pulls:actions.mergeFailed", setMergeError)) {
+      setMergePolicyRetry(attempt => attempt + 1);
+      retryWorkflows();
+    }
   };
   const tabs: TabsItem[] = [
     { key: "conversation", icon: MessagesSquare, count: pr.comments.length },
     { key: "commits", icon: GitCommitHorizontal, count: commitCount },
-    { key: "checks", icon: ClipboardCheck, count: activeEvaluation ? 1 : 0 },
+    { key: "checks", icon: ClipboardCheck, count: checks.length + (activeEvaluation ? 1 : 0) },
     { key: "files", icon: FileDiff, count: files?.length },
   ].map(({ key, icon: Icon, count }) => ({ key, label: <>
     <Icon size={18} aria-hidden="true"/>
@@ -290,7 +374,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           organization={organization}
           changeset={changeset}
           pullNumber={pullNumber}
-          onUpdate={setChangeset}
+          onUpdate={updateChangeset}
           memberName={memberName}
           lifecycleAction={lifecycleAction}
           lifecycleError={lifecycleError}
@@ -303,10 +387,30 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               <div>
                 <h3>{state === "merged" ? t("pulls:gate.merged") : t("pulls:gate.mergeTitle")}</h3>
                 {state === "merged" && changeset.changeset.merge ? <code title={changeset.changeset.merge.commit_sha}>{changeset.changeset.merge.commit_sha.slice(0, 12)}</code>
-                  : <p>{canMerge ? t("pulls:gate.ready") : state === "open" ? t("pulls:actions.mergeRequirements") : t(`pulls:state.${state}`)}</p>}
+                  : canMerge ? conversationsBlockMerge ? <p role="status">{t("pulls:gate.conversationsRequired")}</p>
+                    : workflowsAllowMerge && <p>{t(queueRequired ? "pulls:gate.queueRequired" : "pulls:gate.ready")}</p>
+                  : <p>{state === "open" ? t("pulls:actions.mergeRequirements") : t(`pulls:state.${state}`)}</p>}
               </div>
             </div>
-            {canMerge && <Button variant="primary" onClick={() => setShowMergeConfirm(true)} disabled={actionBusy}>{t("pulls:actions.merge")}</Button>}
+            {activePull && activeRevision && workflowSummary && <div className="pull-workflow-summary">
+              <span role="status">{workflowSummary}</span>
+              <Link to={pullRequestPath(handle, repository, pullNumber, "checks")}>{t("pulls:requiredWorkflows.viewChecks")}</Link>
+              {workflowNeedsRetry && <Button onClick={retryWorkflows}>{t("pulls:actions.retry")}</Button>}
+            </div>}
+            {canMerge && (queueRequired
+              ? workflowsAllowMerge && !conversationsBlockMerge && !actionBusy
+                ? <Link to={`${orgPath(handle, "pipelines")}?${queueSearch}`}>{t("pulls:actions.openMergeQueue")}</Link>
+                : <Button disabled>{t("pulls:actions.openMergeQueue")}</Button>
+              : <div className="pull-merge-actions">
+                {mergeMethods.length > 0 && <Select aria-label={t("pulls:actions.mergeMethod")} value={method}
+                  disabled={!mergeEnabled} options={mergeMethods.map(value => ({ value, label: t(`pulls:actions.methods.${value}`) }))}
+                  onChange={event => setMergeMethod(mergeMethods.find(value => value === event.target.value))} />}
+                <Button variant="primary" onClick={() => setMergeConfirmKey(workflowKey)} disabled={!mergeEnabled}>{t("pulls:actions.merge")}</Button>
+                {activeMergePolicy && !mergeSettings && <Button onClick={() => setMergePolicyRetry(attempt => attempt + 1)}>{t("pulls:actions.retry")}</Button>}
+              </div>)}
+            {canMerge && !queueRequired && !hasMethod && <p role="status">{t(!activeMergePolicy ? "pulls:actions.loadingMergeMethods"
+              : mergeSettings ? "pulls:actions.noMergeMethods" : "pulls:actions.loadMergeMethodsFailed")}</p>}
+            {mergeError && <p role="alert" className="org-error">{mergeError}</p>}
           </section>
         </PullRequestConversationTab>
         <aside className="pull-review-sidebar">
@@ -337,6 +441,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               </div>}
             </>}
           </section>
+          <PullRequestIssueLinks key={`${organization.id}/${repository}/${pullNumber}`} organization={organization}
+            repository={repository} pullID={pullNumber} handle={handle} editable={state === "open" || state === "draft"} />
         </aside>
       </div>}
       {tab === "commits" && currentComparison?.data && (
@@ -347,6 +453,9 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           activeRevision={activeRevision}
           activeEvaluation={activeEvaluation}
           activeEvidence={activeEvidence}
+          requiredWorkflows={checks}
+          workflowStatus={activeRevision && workflowSummary ? workflowSummary : undefined}
+          onRetryWorkflows={workflowNeedsRetry ? retryWorkflows : undefined}
           canEvaluate={canWrite && !actionBusy && state !== "merged" && state !== "closed" && !!activeRevision}
           onEvaluate={() => void run(() => changesetAPI.evaluate(organization.id, pullNumber))}
         />
@@ -355,21 +464,24 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
         <PullRequestFilesTab
           key={revisionKey}
           files={files}
+          memberName={memberName}
           organization={organization}
           changeset={changeset}
           pullNumber={pullNumber}
-          onUpdate={setChangeset}
+          onUpdate={updateChangeset}
         />
       )}
     </div>
 
     <ConfirmDialog
-      open={showMergeConfirm}
+      open={mergeEnabled && mergeConfirmKey === workflowKey}
       title={t("pulls:actions.merge")}
-      description={t("pulls:actions.confirmMerge", { source: pr.source_branch, base: pr.base_branch })}
+      description={method
+        ? t("pulls:actions.confirmMergeMethod", { source: pr.source_branch, base: pr.base_branch, method: t(`pulls:actions.methods.${method}`) })
+        : t("pulls:actions.confirmMerge", { source: pr.source_branch, base: pr.base_branch })}
       confirmText={t("pulls:actions.merge")}
       onConfirm={merge}
-      onCancel={() => setShowMergeConfirm(false)}
+      onCancel={() => setMergeConfirmKey(undefined)}
     />
   </section>;
 }
