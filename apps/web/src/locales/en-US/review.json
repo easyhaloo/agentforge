@@ -9,7 +9,8 @@
     "title": "Review Queue",
     "description": "Changesets pending your review in {{organizationName}}.",
     "emptyDefault": "No changesets are assigned to you for review.",
-    "emptyFiltered": "No reviews match the selected filters."
+    "emptyFiltered": "No reviews match the selected filters.",
+    "allAssigned": "All assigned"
   },
   "stats": {
     "pendingReviews": "{{count}} pending review",

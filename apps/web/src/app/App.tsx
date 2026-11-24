@@ -106,6 +106,7 @@ function App() {
     return () => { request.abort(); window.removeEventListener(repositoryIssuesSettingChanged, refresh); };
   }, [urlOrganizationID, repository, repositoryKey]);
   const isOverview = label === "Overview";
+  const isQueuePage = label === "Review" || label === "Eval";
   const hasOrganizationHeader = (label === "CI / CD" || label === "Organization") && accountState === "ready" && Boolean(urlOrganization);
   return (
     <AppAccountContext.Provider value={{ account, accountState, accountError, reload: loadAccount, selectedOrganization, selectOrganization: setSelectedOrganizationID }}>
@@ -121,7 +122,7 @@ function App() {
         <Sidebar open={navigationOpen} linkHandle={linkHandle} onClose={() => setNavigationOpen(false)} />
         <main className="main">
           <div className={isRepositoryCatalog ? "content content--collection" : "content"}>
-            {!isOverview && label !== "Projects" && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
+            {!isOverview && label !== "Projects" && !isQueuePage && !isRepositoryCatalog && !isRepositoryDetail && !hasOrganizationHeader &&
               <PageHeader label={label} descriptionKey={item?.descriptionKey} />}
             {trailingSlash ? <Navigate replace to={{ pathname: pathname.replace(/\/+$/, "") || "/", search, hash }} /> : issuesDisabled && repositorySection === "issues"
               ? <section className="card org-auth-state"><h2>{t("repositories:settings.issuesDisabled")}</h2></section>

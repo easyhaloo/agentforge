@@ -1,6 +1,7 @@
 {
   "page": {
     "summary": "{{count}} 条审计事件",
+    "summary_other": "{{count}} 条审计事件",
     "description": "变更集和组织活动的审计轨迹。",
     "loadingMessage": "正在加载审计轨迹..."
   },
@@ -8,7 +9,10 @@
     "title": "活动轨迹",
     "description": "{{organizationName}} 中的变更集工作流和成员活动。",
     "empty": "未找到审计事件。",
-    "footer": "显示 {{count}} 条审计事件"
+    "footer": "显示 {{count}} 条审计事件",
+    "scope": "显示最近更新的最多 {{count}} 个变更集中的活动，最新事件在前。",
+    "actor": "操作者：{{actor}}",
+    "target": "目标：{{target}}"
   },
   "filters": {
     "showMembership": "包含成员事件"
@@ -26,6 +30,8 @@
     "membership": "成员"
   },
   "errors": {
-    "loadFailed": "加载审计轨迹失败"
+    "loadFailed": "加载审计轨迹失败",
+    "membershipForbidden": "你没有查看成员事件的权限。",
+    "membershipFailed": "无法加载成员事件。"
   }
 }

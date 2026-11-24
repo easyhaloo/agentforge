@@ -211,6 +211,19 @@
       "seedRevision": "{{id}} r{{revision}} created from {{base}}",
       "seedEvidence_one": "{{id}} passed {{count}} check",
       "seedEvidence_other": "{{id}} passed {{count}} checks"
+    },
+    "healing": {
+      "localNotice": "Local demo. Uses sample data stored in this browser.",
+      "revision": "Revision {{number}}",
+      "pending": "Awaiting evaluation",
+      "prepare": "Prepare a repair revision",
+      "prepareHint": "Create a new revision of the same changeset. Prior evidence and approvals no longer apply.",
+      "prepareAction": "Simulate repair",
+      "verify": "Evaluate the current revision",
+      "verifyHint": "Run a simulated evaluation and record evidence for this revision.",
+      "verifyAction": "Simulate evaluation",
+      "closed": "This sample changeset is merged and cannot be edited.",
+      "details": "Full delivery demo"
     }
   }
 }

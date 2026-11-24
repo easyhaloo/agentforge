@@ -5,6 +5,9 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import enCommon from "./en-US/common.json";
 import enNavigation from "./en-US/navigation.json";
 import enChangesets from "./en-US/changesets.json";
+import enReview from "./en-US/review.json";
+import enEval from "./en-US/eval.json";
+import enTrails from "./en-US/trails.json";
 import enLogin from "./en-US/login.json";
 import enRegister from "./en-US/register.json";
 import enSettings from "./en-US/settings.json";
@@ -20,6 +23,9 @@ import enApp from "./en-US/app.json";
 import zhCommon from "./zh-CN/common.json";
 import zhNavigation from "./zh-CN/navigation.json";
 import zhChangesets from "./zh-CN/changesets.json";
+import zhReview from "./zh-CN/review.json";
+import zhEval from "./zh-CN/eval.json";
+import zhTrails from "./zh-CN/trails.json";
 import zhLogin from "./zh-CN/login.json";
 import zhRegister from "./zh-CN/register.json";
 import zhSettings from "./zh-CN/settings.json";
@@ -37,6 +43,9 @@ const resources = {
     common: enCommon,
     navigation: enNavigation,
     changesets: enChangesets,
+    review: enReview,
+    eval: enEval,
+    trails: enTrails,
     login: enLogin,
     register: enRegister,
     settings: enSettings,
@@ -53,6 +62,9 @@ const resources = {
     common: zhCommon,
     navigation: zhNavigation,
     changesets: zhChangesets,
+    review: zhReview,
+    eval: zhEval,
+    trails: zhTrails,
     login: zhLogin,
     register: zhRegister,
     settings: zhSettings,
@@ -112,7 +124,7 @@ i18n
     resources,
     fallbackLng: "en-US",
     defaultNS: "common",
-    ns: ["common", "navigation", "changesets", "login", "register", "settings", "organization", "repositories", "overview", "pipelines", "errors", "app", "projectFields"],
+    ns: ["common", "navigation", "changesets", "review", "eval", "trails", "login", "register", "settings", "organization", "repositories", "overview", "pipelines", "errors", "app", "projectFields"],
     interpolation: {
       escapeValue: false, // React already escapes
     },

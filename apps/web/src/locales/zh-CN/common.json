@@ -211,6 +211,19 @@
       "seedRevision": "{{id}} r{{revision}} 基于 {{base}} 创建",
       "seedEvidence_one": "{{id}} 通过 {{count}} 项检查",
       "seedEvidence_other": "{{id}} 通过 {{count}} 项检查"
+    },
+    "healing": {
+      "localNotice": "本地演示。示例数据保存在当前浏览器中。",
+      "revision": "修订 {{number}}",
+      "pending": "等待评估",
+      "prepare": "准备修复修订",
+      "prepareHint": "在同一个变更集中生成新修订。先前的证据和批准不再适用。",
+      "prepareAction": "模拟修复",
+      "verify": "评估当前修订",
+      "verifyHint": "运行模拟评估，并为当前修订记录证据。",
+      "verifyAction": "模拟评估",
+      "closed": "此示例变更集已合并，无法再编辑。",
+      "details": "完整交付演示"
     }
   }
 }

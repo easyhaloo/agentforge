@@ -6,9 +6,9 @@
     "loadingMessage": "Loading evaluations..."
   },
   "list": {
-    "title": "Evaluation Workspace",
+    "title": "Evaluation queue",
     "description": "Changesets requiring evaluation in {{organizationName}}.",
-    "emptyDefault": "No changesets are in evaluation states.",
+    "emptyDefault": "There are no changesets with this evaluation status.",
     "emptyFiltered": "No evaluations match the selected filters.",
     "filterByStatus": "Filter by evaluation status",
     "allEvalStatuses": "All evaluation statuses"
