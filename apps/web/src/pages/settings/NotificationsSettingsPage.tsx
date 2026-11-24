@@ -106,7 +106,7 @@ export function NotificationsSettingsPage() {
               <form className="notification-email-form" onSubmit={event => { event.preventDefault(); void saveEmail("request", () => settingsAPI.requestNotificationEmail(newAddress)); }}>
                 <Input type="email" label={t("notifications.emailAddress")} autoComplete="email" value={newAddress} maxLength={254} required
                   onChange={event => setNewAddress(event.target.value)} />
-                <Button type="submit" variant="primary" disabled={emailSaving}>{t("notifications.emailRequest")}</Button>
+                <Button type="submit" variant={email.pending_address ? "secondary" : "primary"} disabled={emailSaving}>{t("notifications.emailRequest")}</Button>
               </form>
               {email.pending_address && <>
                 <p className="settings-note">{t("notifications.emailPending", { address: email.pending_address })}</p>

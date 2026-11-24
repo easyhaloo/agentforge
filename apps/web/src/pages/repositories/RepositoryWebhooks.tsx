@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { APIError, translateError } from "../../shared/api/errors";
 import { repositoryWebhooksAPI, type RepositoryWebhook, type WebhookDelivery, type WebhookEvent, type WebhookUpdate } from "../../shared/api/repository-webhooks";
-import { Button, Checkbox, Input } from "../../shared/ui";
+import { Button, Checkbox, ConfirmDialog, Input } from "../../shared/ui";
 
 const events: WebhookEvent[] = ["issues", "issue_comment"];
 
@@ -13,6 +13,7 @@ export function RepositoryWebhooks({ organization, repository }: { organization:
   const [edit, setEdit] = useState<RepositoryWebhook | "new">();
   const [history, setHistory] = useState<{ id: string; items?: WebhookDelivery[]; error?: string }>();
   const [confirm, setConfirm] = useState<string>();
+  const addButtonRef = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -45,18 +46,12 @@ export function RepositoryWebhooks({ organization, repository }: { organization:
   }
 
   async function remove(id: string) {
-    setBusy(true);
-    setError("");
-    try {
-      await api.remove(id);
-      setHooks(items => (items ?? []).filter(item => item.id !== id));
-      setConfirm(undefined);
-      setSaved(true);
-    } catch (cause) {
-      setError(translateError(cause, t, "repositories:webhooks.saveError"));
-    } finally {
-      setBusy(false);
-    }
+    await api.remove(id);
+    setHooks(items => (items ?? []).filter(item => item.id !== id));
+    setHistory(current => current?.id === id ? undefined : current);
+    setConfirm(undefined);
+    setSaved(true);
+    requestAnimationFrame(() => addButtonRef.current?.focus());
   }
 
   async function loadHistory(id: string) {
@@ -76,7 +71,7 @@ export function RepositoryWebhooks({ organization, repository }: { organization:
     {saved && <p role="status">{t("webhooks.saved")}</p>}
     {!hooks ? error ? <Button onClick={() => { setError(""); setRetry(value => value + 1); }}>{t("common:actions.retry")}</Button>
       : <p role="status">{t("common:components.loading")}</p> : <>
-      {!edit && <Button variant="primary" onClick={() => { setEdit("new"); setError(""); setSaved(false); }}>{t("webhooks.add")}</Button>}
+      {!edit && <Button ref={addButtonRef} variant="primary" onClick={() => { setEdit("new"); setError(""); setSaved(false); }}>{t("webhooks.add")}</Button>}
       {edit && <WebhookForm key={edit === "new" ? edit : edit.id} hook={edit === "new" ? undefined : edit} busy={busy}
         onSubmit={data => void save(edit === "new" ? undefined : edit.id, data)} onCancel={() => { setEdit(undefined); setError(""); }} />}
       {!hooks.length && !edit && <p>{t("webhooks.empty")}</p>}
@@ -89,13 +84,8 @@ export function RepositoryWebhooks({ organization, repository }: { organization:
             aria-expanded={history?.id === hook.id}>
             {t("webhooks.history")}
           </Button>
-          <Button disabled={busy || Boolean(edit)} onClick={() => { setConfirm(hook.id); setSaved(false); }}>{t("webhooks.remove")}</Button>
+          <Button variant="danger" disabled={busy || Boolean(edit)} onClick={() => { setConfirm(hook.id); setSaved(false); }}>{t("webhooks.remove")}</Button>
         </div>
-        {confirm === hook.id && <div className="repo-webhook-actions">
-          <p>{t("webhooks.confirm")}</p>
-          <Button disabled={busy} onClick={() => void remove(hook.id)}>{t("webhooks.confirmRemove")}</Button>
-          <Button disabled={busy} onClick={() => setConfirm(undefined)}>{t("common:actions.cancel")}</Button>
-        </div>}
         {history?.id === hook.id && <div className="repo-webhook-history">
           <Button disabled={!history.items && !history.error} onClick={() => void loadHistory(hook.id)}>{t("webhooks.refreshHistory")}</Button>
           {history.error ? <p role="alert" className="org-error">{history.error}</p>
@@ -109,6 +99,9 @@ export function RepositoryWebhooks({ organization, repository }: { organization:
         </div>}
       </article>)}
     </>}
+    <ConfirmDialog open={Boolean(confirm)} danger title={t("webhooks.confirmRemove")} description={t("webhooks.confirm")}
+      confirmText={t("webhooks.confirmRemove")} onCancel={() => setConfirm(undefined)}
+      onConfirm={() => confirm ? remove(confirm) : undefined} />
   </section>;
 }
 
