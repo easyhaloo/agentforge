@@ -5,6 +5,9 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import enCommon from "./en-US/common.json";
 import enNavigation from "./en-US/navigation.json";
 import enChangesets from "./en-US/changesets.json";
+import enReview from "./en-US/review.json";
+import enEval from "./en-US/eval.json";
+import enTrails from "./en-US/trails.json";
 import enLogin from "./en-US/login.json";
 import enRegister from "./en-US/register.json";
 import enSettings from "./en-US/settings.json";
@@ -14,11 +17,15 @@ import enOverview from "./en-US/overview.json";
 import enPipelines from "./en-US/pipelines.json";
 import enErrors from "./en-US/errors.json";
 import enPulls from "./en-US/pulls.json";
+import enProjectFields from "./en-US/projectFields.json";
 import enApp from "./en-US/app.json";
 
 import zhCommon from "./zh-CN/common.json";
 import zhNavigation from "./zh-CN/navigation.json";
 import zhChangesets from "./zh-CN/changesets.json";
+import zhReview from "./zh-CN/review.json";
+import zhEval from "./zh-CN/eval.json";
+import zhTrails from "./zh-CN/trails.json";
 import zhLogin from "./zh-CN/login.json";
 import zhRegister from "./zh-CN/register.json";
 import zhSettings from "./zh-CN/settings.json";
@@ -28,6 +35,7 @@ import zhOverview from "./zh-CN/overview.json";
 import zhPipelines from "./zh-CN/pipelines.json";
 import zhErrors from "./zh-CN/errors.json";
 import zhPulls from "./zh-CN/pulls.json";
+import zhProjectFields from "./zh-CN/projectFields.json";
 import zhApp from "./zh-CN/app.json";
 
 const resources = {
@@ -35,6 +43,9 @@ const resources = {
     common: enCommon,
     navigation: enNavigation,
     changesets: enChangesets,
+    review: enReview,
+    eval: enEval,
+    trails: enTrails,
     login: enLogin,
     register: enRegister,
     settings: enSettings,
@@ -45,11 +56,15 @@ const resources = {
     errors: enErrors,
     app: enApp,
     pulls: enPulls,
+    projectFields: enProjectFields,
   },
   "zh-CN": {
     common: zhCommon,
     navigation: zhNavigation,
     changesets: zhChangesets,
+    review: zhReview,
+    eval: zhEval,
+    trails: zhTrails,
     login: zhLogin,
     register: zhRegister,
     settings: zhSettings,
@@ -60,6 +75,7 @@ const resources = {
     errors: zhErrors,
     app: zhApp,
     pulls: zhPulls,
+    projectFields: zhProjectFields,
   },
 };
 
@@ -108,7 +124,7 @@ i18n
     resources,
     fallbackLng: "en-US",
     defaultNS: "common",
-    ns: ["common", "navigation", "changesets", "login", "register", "settings", "organization", "repositories", "overview", "pipelines", "errors", "app"],
+    ns: ["common", "navigation", "changesets", "review", "eval", "trails", "login", "register", "settings", "organization", "repositories", "overview", "pipelines", "errors", "app", "projectFields"],
     interpolation: {
       escapeValue: false, // React already escapes
     },

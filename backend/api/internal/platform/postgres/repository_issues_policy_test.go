@@ -30,7 +30,7 @@ func TestRepositoryIssuesSetting(t *testing.T) {
 	repository := NewIssueRepository(store)
 	h.handler = httpserver.NewHandlerWithDependencies(httpserver.DeliveryDependencies{
 		Identity: store, CSRF: store, Catalog: store, AllowedOrigin: lockHTTPOrigin,
-		IssueRepo: repository, IssueDetailRepo: repository, CommentRepo: NewCommentRepository(store),
+		IssueRepo: repository, IssueDetailRepo: repository, CommentRepo: NewCommentRepository(store), ProjectRepo: store,
 	})
 	base := "/api/v1/organizations/" + h.organizationID
 	issuesPath := base + "/issues"
@@ -52,6 +52,33 @@ func TestRepositoryIssuesSetting(t *testing.T) {
 	const body = `{"repository":"team/repo","title":"Existing issue"}`
 	request("POST", issuesPath, body, 201)
 	request("POST", issuesPath, `{"repository":"team/other","title":"Other repository issue"}`, 201)
+	projectsPath := base + "/issue-projects"
+	var project issues.Project
+	lockMust(t, json.Unmarshal([]byte(request("POST", projectsPath, `{"name":"Repository issues"}`, 201)), &project))
+	itemsPath := fmt.Sprintf("%s/%d/items", projectsPath, project.Number)
+	const importIssue = `{"kind":"issue","repository":"team/repo","number":1}`
+	var linked, draft issues.ProjectItem
+	lockMust(t, json.Unmarshal([]byte(request("POST", itemsPath, importIssue, 201)), &linked))
+	lockMust(t, json.Unmarshal([]byte(request("POST", itemsPath, `{"kind":"draft","title":"Project draft"}`, 201)), &draft))
+	conversionPath := itemsPath + "/" + draft.ID + "/convert"
+	conversion := fmt.Sprintf(`{"version":%d,"repository":%q}`, draft.Version, repo)
+	assertProjectItems := func(want ...issues.ProjectItem) {
+		t.Helper()
+		var listed struct{ Items []issues.ProjectItem }
+		lockMust(t, json.Unmarshal([]byte(request("GET", itemsPath, "", 200)), &listed))
+		got := make(map[string]int64, len(listed.Items))
+		for _, item := range listed.Items {
+			got[item.ID] = item.Version
+		}
+		if len(got) != len(want) {
+			t.Fatalf("unexpected project items: %+v", listed.Items)
+		}
+		for _, item := range want {
+			if got[item.ID] != item.Version {
+				t.Fatalf("project item missing or changed: want %+v, got %+v", item, listed.Items)
+			}
+		}
+	}
 	issuePath := issuesPath + "/1"
 	request("GET", issuePath+query, "", 200)
 	var comment comments.Comment
@@ -77,6 +104,12 @@ func TestRepositoryIssuesSetting(t *testing.T) {
 		return body
 	}
 	stale := setDisabled(true)
+	assertProjectItems(draft)
+	request("POST", itemsPath, importIssue, 404)
+	request("PATCH", itemsPath+"/"+linked.ID, fmt.Sprintf(`{"version":%d,"status":"done"}`, linked.Version), 404)
+	request("DELETE", fmt.Sprintf("%s/%s?version=%d", itemsPath, linked.ID, linked.Version), "", 404)
+	request("POST", conversionPath, conversion, 404)
+	assertProjectItems(draft)
 	request("PATCH", settingsPath, stale, 409)
 	request("GET", issuePath+query, "", 404)
 	request("POST", issuesPath, body, 404)
@@ -104,6 +137,12 @@ func TestRepositoryIssuesSetting(t *testing.T) {
 		t.Fatalf("organization listing includes the wrong issues: %s", listed)
 	}
 	setDisabled(false)
+	assertProjectItems(linked, draft)
+	var converted issues.ProjectItem
+	lockMust(t, json.Unmarshal([]byte(request("POST", conversionPath, conversion, 200)), &converted))
+	if converted.ID != draft.ID || converted.Kind != "issue" || converted.Number != 2 {
+		t.Fatalf("failed conversion did not roll back cleanly: %+v", converted)
+	}
 	request("GET", commentPath, "", 200)
 	request("GET", attachmentPath, "", 200)
 	if got := request("GET", issuePath+query, "", 200); !strings.Contains(got, `"title":"Existing issue"`) {

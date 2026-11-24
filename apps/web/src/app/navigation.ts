@@ -17,15 +17,15 @@ const inOrganization = (section: OrgSection) => (handle: string) => orgPath(hand
 
 export const navigationItems: readonly NavigationItem[] = [
   { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, descriptionKey: "navigation:descriptions.overview", path: flatPaths.overview },
-  { group: "WORKSPACE", label: "Projects", icon: Boxes, path: flatPaths.projects },
+  { group: "WORKSPACE", label: "Projects", icon: Boxes, orgPath: inOrganization("projects") },
   { group: "WORKSPACE", label: "Repositories", icon: Code2, descriptionKey: "navigation:descriptions.repositories", orgPath: inOrganization("repositories") },
   { group: "WORKSPACE", label: "Issues", icon: CircleDot, descriptionKey: "navigation:descriptions.issues", orgPath: inOrganization("issues") },
   { group: "WORKSPACE", label: "Inbox", icon: Bell, descriptionKey: "navigation:descriptions.inbox", orgPath: inOrganization("notifications") },
   { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, descriptionKey: "navigation:descriptions.changesets", orgPath: inOrganization("changesets") },
   { group: "WORKSPACE", label: "Workspaces", icon: Terminal, descriptionKey: "navigation:descriptions.workspaces", path: flatPaths.workspaces },
   { group: "COORDINATION", label: "Trails", icon: Workflow, descriptionKey: "navigation:descriptions.trails", orgPath: inOrganization("trails") },
-  { group: "COORDINATION", label: "Review", icon: GitPullRequest, descriptionKey: "navigation:descriptions.review", orgPath: inOrganization("review") },
-  { group: "COORDINATION", label: "Eval", icon: CheckCircle2, descriptionKey: "navigation:descriptions.eval", orgPath: inOrganization("eval") },
+  { group: "COORDINATION", label: "Review", icon: GitPullRequest, orgPath: inOrganization("review") },
+  { group: "COORDINATION", label: "Eval", icon: CheckCircle2, orgPath: inOrganization("eval") },
   { group: "COORDINATION", label: "Self-healing", icon: Activity, descriptionKey: "navigation:descriptions.selfHealing", path: flatPaths.selfHealing },
   { group: "INTELLIGENCE", label: "Memory", icon: BrainCircuit, descriptionKey: "navigation:descriptions.memory", path: flatPaths.memory },
   { group: "INTELLIGENCE", label: "CI / CD", icon: Zap, descriptionKey: "navigation:descriptions.cicd", orgPath: inOrganization("pipelines") },
@@ -50,7 +50,7 @@ export function itemHref(item: NavigationItem, handle: string): string {
 
 /** Repository subpages, including source-control settings such as Rulesets, activate their owning top-level tab. */
 export function repositorySectionForPath(pathname: string | undefined) {
-  const segment = pathname?.split("/")[6]?.toLowerCase();
+  const segment = pathname?.match(/^\/orgs\/[^/]+\/repositories\/[^/]+\/[^/]+\/([^/]+)/i)?.[1].toLowerCase();
   return repositorySections.find(section => section === segment);
 }
 

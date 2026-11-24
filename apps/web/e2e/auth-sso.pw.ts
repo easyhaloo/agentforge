@@ -76,7 +76,7 @@ test("while providers load and when none are configured, password login remains 
   await page.getByLabel("Email address").fill("test@example.com");
   await page.locator('input[name="password"]').fill("password123");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/projects");
+  await expect(page).toHaveURL("/orgs/demo/projects");
 });
 
 test("provider discovery failure leaves password registration available", async ({ page }) => {

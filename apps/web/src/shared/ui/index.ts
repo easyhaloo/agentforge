@@ -37,6 +37,7 @@ export {
   PasswordInput,
   NumberInput,
   Checkbox,
+  Radio,
   RadioGroup,
   Switch,
   type TextAreaProps,

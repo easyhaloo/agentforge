@@ -45,7 +45,7 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await openNavigation(page);
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
   await expect(navigation(page).locator("[aria-current='page']")).toHaveCount(1);
-  await expect(page.getByRole("table").getByText("Core Platform", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "New project", exact: true })).toBeVisible();
 
   await page.reload();
   await expect(topbarTitle(page)).toHaveText("Projects");
@@ -95,7 +95,7 @@ for (const [path, label] of flatPages) {
     if (label === "Projects") {
       await expect(topbarTitle(page)).toHaveText(label);
       await expect(page.getByRole("main").locator(".page-heading")).toHaveCount(0);
-      await expect(page.getByRole("textbox", { name: "Search Projects" })).toBeVisible();
+      await expect(page.getByRole("searchbox", { name: "Search project name or number" })).toBeVisible();
     } else {
       await expect(pageHeading(page)).toHaveText(label);
     }
@@ -168,10 +168,11 @@ test("an organization whose own slug is the reserved current alias is addressed 
   expect(pathOf(page)).toBe("/orgs/org-reserved/changesets");
 });
 
-test("signed out, protected URLs redirect to login and public demo pages still render", async ({ page }) => {
+test("signed out, protected URLs redirect to login", async ({ page }) => {
   await installApiMocks(page, { signedOut: true });
   for (const target of [
     "/?tab=activity#reviews",
+    "/orgs/x/projects/new",
     "/orgs/x/changesets?status=in_review#changes",
     "/settings/profile?source=menu#avatar",
     "/orgs/x/pipelines/example/edit?tab=variables#build",
@@ -183,7 +184,7 @@ test("signed out, protected URLs redirect to login and public demo pages still r
   }
 
   await page.goto("/projects");
-  await expect(topbarTitle(page)).toHaveText("Projects");
+  await expect(page).toHaveURL(`/login?${new URLSearchParams({ return: "/orgs/current/projects" })}`);
 });
 
 test("a session service failure stays on the requested page", async ({ page }) => {
@@ -265,7 +266,7 @@ test("a trailing slash is canonicalized, so the page and its highlighted sidebar
   await expect(topbarTitle(page)).toHaveText("Projects");
   await openNavigation(page);
   await expect(sidebarLink(page, "Projects")).toHaveAttribute("aria-current", "page");
-  expect(pathOf(page)).toBe("/projects?q=1#top");
+  expect(pathOf(page)).toBe("/orgs/demo/projects?q=1#top");
 });
 
 test("Ctrl+K opens the command palette and selecting a page navigates by URL", async ({ page }) => {

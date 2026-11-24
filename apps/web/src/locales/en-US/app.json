@@ -1,4 +1,15 @@
 {
+  "pullProjects": {
+    "none": "No linked projects",
+    "choose": "Choose a project",
+    "add": "Add",
+    "remove": "Remove",
+    "removeNamed": "Remove from {{name}}",
+    "archived": "Archived",
+    "loadFailed": "Could not load linked projects.",
+    "saveFailed": "Could not update this project association.",
+    "refresh": "Refresh projects"
+  },
   "footer": {
     "prototype": "AgentForge Prototype",
     "version": "v0.1.0",
@@ -35,6 +46,10 @@
     "changesets": {
       "unavailableTitle": "Changeset service unavailable",
       "noOrganization": "This account has no active organization membership."
+    },
+    "projects": {
+      "unavailableTitle": "Projects unavailable",
+      "noOrganization": "Join an organization to use Projects."
     },
     "repositories": {
       "unavailableTitle": "Repository service unavailable",

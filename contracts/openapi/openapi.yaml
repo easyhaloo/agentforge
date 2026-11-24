@@ -239,6 +239,26 @@ paths:
     $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issues~1github-pull-search
   /api/v1/organizations/{organizationID}/issue-projects:
     $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects
+  /api/v1/organizations/{organizationID}/issue-projects/{number}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1items
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1items~1{itemID}
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}/convert:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1items~1{itemID}~1convert
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/status-history:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1status-history
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/updates:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1updates
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/fields:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1fields
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/fields/{fieldID}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1fields~1{fieldID}
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}/field-values:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1items~1{itemID}~1field-values
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}/field-values/{fieldID}:
+    $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-projects~1{number}~1items~1{itemID}~1field-values~1{fieldID}
   /api/v1/organizations/{organizationID}/issue-attachments:
     $ref: ./issues.yaml#/paths/~1api~1v1~1organizations~1{organizationID}~1issue-attachments
   /api/v1/organizations/{organizationID}/issue-attachments/{attachmentID}:

@@ -26,6 +26,7 @@ test("Overview lists pending reviews and passes the filters to Changesets", asyn
 
 test("Delivery creates a revision, evaluates it, approves and completes the merge flow", async ({ page }) => {
   await (await openNavigation(page)).getByRole("link", { name: "Self-healing", exact: true }).click();
+  await page.getByText("Full delivery demo", { exact: true }).click();
   await expect(page.locator(".flow-primary h3")).toContainText("CS-2481");
   await page.getByRole("button", { name: "New revision" }).click();
   await expect(page.getByText("r4", { exact: true })).toBeVisible();
@@ -37,18 +38,24 @@ test("Delivery creates a revision, evaluates it, approves and completes the merg
   await expect(page.getByRole("main").getByText(/Trail TRL-042 completed/)).toBeVisible();
 });
 
-test("Resources supports search, status filtering, inspection and creation", async ({ page }) => {
+test("the organization project directory searches by name and number", async ({ page }) => {
+  await page.route("**/api/v1/organizations/org-demo/issue-projects", route => route.fulfill({ json: { items: [
+    { id: "commerce", number: 9, name: "Commerce", layout: "board" },
+    { id: "platform", number: 14, name: "Core Platform", layout: "table" },
+  ] } }));
   await (await openNavigation(page)).getByRole("link", { name: "Projects", exact: true }).click();
-  await expect(page.getByRole("banner").getByText("Projects", { exact: true })).toBeVisible();
-  await page.getByRole("textbox", { name: "Search Projects" }).fill("Commerce");
-  await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
-  await selectOption(page, page.getByRole("combobox", { name: "Filter by status" }), "At risk");
-  await expect(page.getByText("Commerce", { exact: false }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Create project" }).click();
-  await page.getByRole("textbox", { name: "New Projects name" }).fill("E2E Project");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "E2E Project" })).toBeVisible();
-  await expect(page.getByRole("main").getByText(/created locally/)).toBeVisible();
+  await expect(page).toHaveURL("/orgs/demo/projects");
+  const search = page.getByRole("searchbox", { name: "Search project name or number" });
+  const commerce = page.getByRole("link", { name: "Commerce", exact: true });
+  const platform = page.getByRole("link", { name: "Core Platform", exact: true });
+  await expect(commerce).toBeVisible();
+  await expect(platform).toBeVisible();
+  await search.fill("Commerce");
+  await expect(commerce).toBeVisible();
+  await expect(platform).toHaveCount(0);
+  await search.fill("#14");
+  await expect(platform).toHaveAttribute("href", "/orgs/demo/projects/14");
+  await expect(commerce).toHaveCount(0);
 });
 
 test("Changesets loads organization records, searches and persists a new changeset", async ({ page }) => {
@@ -97,5 +104,5 @@ test("application shell remains usable at a mobile viewport", async ({ page }) =
     document: document.documentElement.scrollWidth,
   }));
   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport + 1);
-  await expect(page.getByRole("textbox", { name: "Search Projects" })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Search project name or number" })).toBeVisible();
 });

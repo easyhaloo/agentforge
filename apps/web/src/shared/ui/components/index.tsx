@@ -696,7 +696,7 @@ export function DataTable<T>({
         <thead>
           <tr>
             {onSelectionChange && <th className="af-table__selection"><input type="checkbox" aria-label={t("common:components.selectAllRows")} checked={data.length > 0 && data.every((row) => selected.includes(getRowKey(row)))} onChange={(event) => toggleAll(event.target.checked)} /></th>}
-            {visibleColumns.map((column) => <th key={String(column.key)} style={{ width: column.width }}>
+            {visibleColumns.map((column) => <th scope="col" key={String(column.key)} style={{ width: column.width }}>
               {column.sortable ? <button type="button" className="af-table__sort" onClick={() => changeSort(String(column.key))}>{column.title}<span aria-hidden="true">{sortState?.key === String(column.key) ? sortState.direction === "asc" ? " ↑" : " ↓" : " ↕"}</span></button> : column.title}
             </th>)}
           </tr>

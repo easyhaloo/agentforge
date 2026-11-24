@@ -76,11 +76,15 @@
 | Sidebar label | Path | Page |
 |---|---|---|
 | Overview | `/` | Overview (mock) |
-| Projects | `/projects` | Resource workspace (mock) |
+| Projects | `/orgs/:org/projects` | Organization project directory backed by the issue-project API |
+| New project | `/orgs/:org/projects/new` | Full-page project creation |
+| Project | `/orgs/:org/projects/:number` | Project workspace and saved views. `view` selects a view, `page` selects workspace sections and full-page forms, including project workflows, and `item` selects an item by stable ID. |
+| Projects (legacy) | `/projects` | Redirects to the selected organization's project directory |
 | Repositories | `/orgs/:org/repositories` | Repository directory (live API) |
 | Repositories | `/orgs/:org/repositories/new` | Repository create form (live API, label reused, no duplicate sidebar item) |
 | | `/orgs/:org/repositories/:owner/:repo` | Repository code browser |
 | | `/orgs/:org/repositories/:owner/:repo/{issues,pulls,actions,settings}` | Repository sections |
+| | `/orgs/:org/repositories/:owner/:repo/projects` | Repository Projects tab showing projects linked to that repository. New project opens `/orgs/:org/projects/new?repository=…&return=repository` in the current tab. |
 | | `/orgs/:org/repositories/:owner/:repo/settings/rulesets` | Rulesets for native Git pushes (live settings API) |
 | | `/orgs/:org/repositories/:owner/:repo/settings/{branches,tags,git-tokens,actions,webhooks}` | Other repository settings panels |
 | | `/orgs/:org/repositories/:owner/:repo/branches` | Redirects to the Branches settings panel |
@@ -89,7 +93,7 @@
 | | `/orgs/:org/repositories/:owner/:repo/issues/:number` | Issue detail |
 | | `/orgs/:org/repositories/:owner/:repo/pulls` | Pull request list |
 | | `/orgs/:org/repositories/:owner/:repo/pulls/new` | Compare and create pull request |
-| | `/orgs/:org/repositories/:owner/:repo/pulls/:id` | Pull request detail (conversation tab) |
+| | `/orgs/:org/repositories/:owner/:repo/pulls/:id` | Pull request conversation and project associations. Organization members can view associations. Organization members with write access manage them through project item endpoints using the native PR ID. |
 | | `/orgs/:org/repositories/:owner/:repo/pulls/:id/{commits,checks,files}` | Pull request tabs |
 | | `/orgs/:org/repositories/:repositorySlug` | Legacy repository view with a link to the canonical Issues section |
 | Issues | `/orgs/:org/issues` | Issues across the current organization, with links to repository issue details (live API) |

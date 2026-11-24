@@ -1,210 +1,95 @@
-import { useCallback, useEffect, useState } from "react";
-import { Workflow, Activity } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useId, useState } from "react";
+import { GitPullRequest, Users } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, organizationAPI, type OrganizationSummary, type StoredChangeset, type MembershipAuditEvent } from "../../shared/api/identity";
-import { translateError } from "../../shared/api/errors";
+import { APIError, translateError } from "../../shared/api/errors";
+import { useDateFormatting } from "../../shared/i18n/format";
 import { changesetPath, organizationHandle } from "../../shared/routing";
-import { Button, DataTable } from "../../shared/ui";
+import { Button, Empty } from "../../shared/ui";
+import { auditEntryLabel } from "../changesets/changeset-status";
+import "../changesets/ui/coordination.css";
 
-type Props = { organization: OrganizationSummary; onNotify: (message: string) => void };
+const changesetLimit = 50;
 
-type ChangesetAuditEvent = {
-  id: string;
-  type: "changeset";
-  changeset_id: string;
-  changeset_title: string;
-  sequence: number;
-  actor: string;
-  operation: string;
-  target_id: string;
-  outcome: string;
-  at: string;
-};
+type AuditEvent = { id: string; at: string } & (
+  | { type: "changeset"; event: StoredChangeset["changeset"]["audit"][number]; changesetId: string; title: string }
+  | { type: "membership"; event: MembershipAuditEvent }
+);
 
-type MembershipAuditRow = MembershipAuditEvent & { type: "membership" };
-type AuditEvent = ChangesetAuditEvent | MembershipAuditRow;
-
-/** Trails workspace: shows audit trail of changeset and organization activity. */
-export function TrailsPage({ organization, onNotify }: Props) {
+export function TrailsPage({ organization }: { organization: OrganizationSummary; onNotify: (message: string) => void }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { org } = useParams();
-  const handle = org || organizationHandle(organization);
-  const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { formatDateTime } = useDateFormatting();
+  const heading = useId();
+  const { org = organizationHandle(organization) } = useParams();
+  const [changesets, setChangesets] = useState<AuditEvent[]>();
+  const [membership, setMembership] = useState<AuditEvent[]>();
   const [error, setError] = useState("");
+  const [membershipError, setMembershipError] = useState("");
   const [showMembership, setShowMembership] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [retryMembership, setRetryMembership] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try {
-      // Load recent changesets to extract their audit events
-      const changesetsPage = await changesetAPI.list(organization.id, { limit: 50, offset: 0 });
+  useEffect(() => {
+    let active = true;
+    setError("");
+    setChangesets(undefined);
+    void changesetAPI.list(organization.id, { limit: changesetLimit, offset: 0 }).then(({ items }) => {
+      if (active) setChangesets(items.flatMap(({ changeset }) => changeset.audit.map(event => ({
+        id: `${changeset.id}-${event.sequence}`, type: "changeset", at: event.at,
+        changesetId: changeset.id, title: changeset.title || changeset.id, event,
+      }))));
+    }).catch((cause: unknown) => {
+      if (active) setError(translateError(cause, t, "trails:errors.loadFailed"));
+    });
+    return () => { active = false; };
+  }, [organization.id, retry, t]);
 
-      // Extract and flatten all audit events from changesets
-      const changesetEvents: ChangesetAuditEvent[] = [];
-      for (const item of changesetsPage.items) {
-        for (const auditEntry of item.changeset.audit) {
-          changesetEvents.push({
-            id: `${item.changeset.id}-${auditEntry.sequence}`,
-            type: "changeset",
-            changeset_id: item.changeset.id,
-            changeset_title: item.changeset.title,
-            sequence: auditEntry.sequence,
-            actor: auditEntry.actor,
-            operation: auditEntry.operation,
-            target_id: auditEntry.target_id,
-            outcome: auditEntry.outcome,
-            at: auditEntry.at,
-          });
-        }
-      }
+  useEffect(() => {
+    setMembershipError("");
+    setMembership(undefined);
+    if (!showMembership) return;
+    let active = true;
+    void organizationAPI.audit(organization.id).then(({ items }) => {
+      if (active) setMembership(items.map(event => ({ id: event.id, type: "membership", at: event.created_at, event })));
+    }).catch((cause: unknown) => {
+      if (active) setMembershipError(cause instanceof APIError && cause.status === 403
+        ? t("trails:errors.membershipForbidden") : t("trails:errors.membershipFailed"));
+    });
+    return () => { active = false; };
+  }, [organization.id, showMembership, retryMembership, t]);
 
-      let allEvents: AuditEvent[] = changesetEvents;
-
-      // Optionally load membership audit events
-      if (showMembership) {
-        try {
-          const membershipPage = await organizationAPI.audit(organization.id);
-          const membershipEvents: MembershipAuditRow[] = membershipPage.items.map(e => ({ ...e, type: "membership" as const }));
-          allEvents = [...changesetEvents, ...membershipEvents];
-        } catch {
-          // Membership audit might be restricted to admins, silently skip if unauthorized
-        }
-      }
-
-      // Sort by timestamp descending (newest first)
-      allEvents.sort((a, b) => {
-        const aTime = a.type === "changeset" ? a.at : a.created_at;
-        const bTime = b.type === "changeset" ? b.at : b.created_at;
-        return new Date(bTime).getTime() - new Date(aTime).getTime();
-      });
-
-      setEvents(allEvents);
-    } catch (cause) { setError(translateError(cause, t, "trails:errors.loadFailed")); }
-    finally { setLoading(false); }
-  }, [organization.id, showMembership, t]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "short",
-      timeStyle: "short"
-    }).format(date);
-  };
-
-  return <section className="trails-page">
-    <div className="changesets-summary card">
-      <div className="changesets-summary__icon"><Workflow size={20}/></div>
-      <div>
-        <b>{t("trails:page.summary", { count: events.length })}</b>
-        <p>{t("trails:page.description")}</p>
-      </div>
-      <span className="org-role">{organization.role}</span>
-      <div className="trails-controls">
-        <Button
-          className="button secondary"
-          onClick={() => setShowMembership(!showMembership)}
-          aria-pressed={showMembership}
-        >
-          <Activity size={14}/> {t("trails:filters.showMembership")}
-        </Button>
-      </div>
+  const events = [...(changesets ?? []), ...(showMembership ? membership ?? [] : [])].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return <section className="coordination" aria-labelledby={heading}>
+    <div className="coordination-toolbar">
+      <div><h2 id={heading}>{t("trails:list.title")}</h2><span className="coordination-meta">{t("trails:list.scope", { count: changesetLimit })}</span></div>
+      <Button aria-pressed={showMembership} onClick={() => setShowMembership(value => !value)}><Users size={16} aria-hidden="true" />{t("trails:filters.showMembership")}</Button>
     </div>
-    {error && <div className="org-error" role="alert">{error}</div>}
-
-    <div className="trails-list card">
-      <div className="changesets-list__head">
-        <div>
-          <h3>{t("trails:list.title")}</h3>
-          <p>{t("trails:list.description", { organizationName: organization.name })}</p>
-        </div>
-      </div>
-
-      {loading ? <div className="org-loading">{t("trails:page.loadingMessage")}</div> : (
-        <DataTable<AuditEvent>
-          aria-label={t("trails:list.title")}
-          rowKey={(event) => event.type === "changeset" ? event.id : event.id}
-          data={events}
-          loading={loading}
-          emptyText={t("trails:list.empty")}
-          onRowClick={(event) => {
-            if (event.type === "changeset") {
-              navigate(changesetPath(handle, event.changeset_id));
-            }
-          }}
-          columns={[
-            {
-              key: "timestamp",
-              title: t("trails:columns.timestamp"),
-              render: (_, row) => formatTimestamp(row.type === "changeset" ? row.at : row.created_at)
-            },
-            {
-              key: "type",
-              title: t("trails:columns.type"),
-              render: (_, row) => (
-                <span className={`audit-type audit-type--${row.type}`}>
-                  {t(`trails:types.${row.type}`)}
-                </span>
-              )
-            },
-            {
-              key: "subject",
-              title: t("trails:columns.subject"),
-              render: (_, row) => {
-                if (row.type === "changeset") {
-                  return <span className="trails-changeset-link">{row.changeset_title || row.changeset_id}</span>;
-                } else {
-                  return <span>{row.action}</span>;
-                }
-              }
-            },
-            {
-              key: "actor",
-              title: t("trails:columns.actor"),
-              render: (_, row) => {
-                if (row.type === "changeset") {
-                  return <span>{row.actor}</span>;
-                } else {
-                  return <span>{row.actor_user_id}</span>;
-                }
-              }
-            },
-            {
-              key: "operation",
-              title: t("trails:columns.operation"),
-              render: (_, row) => {
-                if (row.type === "changeset") {
-                  return <span className="trails-operation">{row.operation}</span>;
-                } else {
-                  return <span>{`${row.before_role} → ${row.after_role || row.after_status}`}</span>;
-                }
-              }
-            },
-            {
-              key: "outcome",
-              title: t("trails:columns.outcome"),
-              render: (_, row) => {
-                if (row.type === "changeset") {
-                  return (
-                    <span className={`trails-outcome trails-outcome--${row.outcome.toLowerCase()}`}>
-                      {row.outcome}
-                    </span>
-                  );
-                } else {
-                  return <span>—</span>;
-                }
-              }
-            }
-          ]}
-        />
-      )}
-      <div className="changesets-list__foot">
-        <span>{t("trails:list.footer", { count: events.length })}</span>
-      </div>
-    </div>
+    {error && <div className="coordination-feedback"><p role="alert">{error}</p><Button onClick={() => setRetry(value => value + 1)}>{t("common:actions.retry")}</Button></div>}
+    {showMembership && membershipError && <div className="coordination-feedback"><p role="alert">{membershipError}</p><Button onClick={() => setRetryMembership(value => value + 1)}>{t("common:actions.retry")}</Button></div>}
+    {!error && (!changesets || (showMembership && !membershipError && !membership)) && <p role="status" className="coordination-meta">{t("trails:page.loadingMessage")}</p>}
+    {events.length === 0 && changesets && (!showMembership || membership || membershipError) && <Empty title={t("trails:list.empty")} />}
+    {events.length > 0 && <ol className="coordination-timeline" aria-labelledby={heading}>
+      {events.map(row => {
+        const Icon = row.type === "changeset" ? GitPullRequest : Users;
+        const { event } = row;
+        const label = "operation" in event
+          ? auditEntryLabel(event.operation, event.outcome, t)
+          : t(`organization:audit.actions.${event.action}`, { defaultValue: event.action });
+        const actor = "actor" in event ? event.actor : event.actor_user_id;
+        const target = "target_id" in event ? event.target_id : event.target_user_id;
+        return <li className="coordination-event" key={`${row.type}:${row.id}`}>
+          <span className="coordination-event-icon"><Icon size={16} aria-hidden="true" /></span>
+          <div className="coordination-row-text">
+            <div className="coordination-event-head"><strong>{label}</strong><time className="coordination-meta" dateTime={row.at}>{formatDateTime(row.at)}</time></div>
+            {row.type === "changeset" && <Link to={changesetPath(org, row.changesetId)}>{row.title}</Link>}
+            <p className="coordination-meta">{[t(`trails:types.${row.type}`), actor && t("trails:list.actor", { actor }), target && t("trails:list.target", { target })].filter(Boolean).join(" · ")}</p>
+            {!("operation" in event) && event.before_role && event.after_role && event.before_role !== event.after_role && <p className="coordination-meta">
+              {t(`organization:roles.${event.before_role}`, { defaultValue: event.before_role })} → {t(`organization:roles.${event.after_role}`, { defaultValue: event.after_role })}
+            </p>}
+          </div>
+        </li>;
+      })}
+    </ol>}
   </section>;
 }
