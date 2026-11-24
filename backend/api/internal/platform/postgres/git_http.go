@@ -86,9 +86,9 @@ func (s *Store) LockGitPolicy(ctx context.Context, organization, repository stri
 
 func lockGitPolicyRow(ctx context.Context, tx pgx.Tx, organization, repository string) (githttp.PushPolicy, error) {
 	var policy githttp.PushPolicy
-	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs, ref_rules, web_commit_signoff_required,
+	if err := tx.QueryRow(ctx, `SELECT default_branch, push_ref_limit, protected_refs, ref_rules, web_commit_signoff_required, suggest_branch_update,
 		       allow_merge_commit, allow_squash_merge, allow_rebase_merge, merge_commit_message_format, squash_commit_message_format FROM delivery_repositories
-		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs, &policy.RefRules, &policy.WebCommitSignoffRequired,
+		WHERE organization_id = $1 AND slug = $2 FOR NO KEY UPDATE NOWAIT`, organization, repository).Scan(&policy.DefaultBranch, &policy.RefLimit, &policy.ProtectedRefs, &policy.RefRules, &policy.WebCommitSignoffRequired, &policy.SuggestBranchUpdate,
 		&policy.MergeMethods.AllowMergeCommit, &policy.MergeMethods.AllowSquashMerge, &policy.MergeMethods.AllowRebaseMerge, &policy.MergeCommitMessageFormat, &policy.SquashCommitMessageFormat); err != nil {
 		return githttp.PushPolicy{}, fmt.Errorf("lock Git repository policy: %w", err)
 	}

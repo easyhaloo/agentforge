@@ -29,6 +29,7 @@ type PushPolicy struct {
 	RefLimit                 int
 	ProtectedRefs            []string
 	RefRules                 []RefRule
+	SuggestBranchUpdate      bool
 	WebCommitSignoffRequired bool
 }
 

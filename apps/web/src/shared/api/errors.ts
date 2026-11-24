@@ -45,6 +45,9 @@ export function translateError(cause: unknown, t: TFunction, fallbackKey: string
     if (cause.title === "Required workflows pending") return t("errors:requiredWorkflowsPending");
     if (cause.title === "Source branch is behind") return t("errors:strictWorkflowBase");
     if (cause.title === "Invalid required workflows") return t("errors:ineligibleRequiredWorkflow");
+    if (cause.title === "Pull request branch has conflicts") return t("pulls:branchUpdate.conflicts");
+    if (cause.title === "Pull request branches or policy changed") return t("pulls:branchUpdate.changed");
+    if (cause.title === "Pull request revision needs refresh") return t("pulls:branchUpdate.refreshRevision");
     return t(errorKeyByStatus[cause.status] ?? "errors:unknown");
   }
   return t(fallbackKey);

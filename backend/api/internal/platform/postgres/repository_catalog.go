@@ -43,7 +43,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		return nil, delivery.ErrInvalidInput
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description,is_template,push_ref_limit,protected_refs,actions_disabled,actions_retention_days,ref_rules,issues_disabled,auto_close_issues_disabled,delete_merged_branches,web_commit_signoff_required,
+		SELECT organization_id,slug,default_branch,created_by,created_at,updated_at,visibility,fork,description,is_template,push_ref_limit,protected_refs,actions_disabled,actions_retention_days,ref_rules,issues_disabled,auto_close_issues_disabled,delete_merged_branches,web_commit_signoff_required,suggest_branch_update,
 		       allow_merge_commit,allow_squash_merge,allow_rebase_merge,merge_commit_message_format,squash_commit_message_format
 		FROM delivery_repositories WHERE organization_id=$1 ORDER BY slug ASC
 	`, organizationID)
@@ -56,7 +56,7 @@ func (s *Store) ListRepositories(ctx context.Context, organizationID string) ([]
 		var item delivery.RepositoryMetadata
 		if err := rows.Scan(
 			&item.OrganizationID, &item.Slug, &item.DefaultBranch, &item.CreatedBy,
-			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description, &item.IsTemplate, &item.PushRefLimit, &item.ProtectedRefs, &item.ActionsDisabled, &item.ActionsRetentionDays, &item.RefRules, &item.IssuesDisabled, &item.AutoCloseIssuesDisabled, &item.DeleteMergedBranches, &item.WebCommitSignoffRequired,
+			&item.CreatedAt, &item.UpdatedAt, &item.Visibility, &item.Fork, &item.Description, &item.IsTemplate, &item.PushRefLimit, &item.ProtectedRefs, &item.ActionsDisabled, &item.ActionsRetentionDays, &item.RefRules, &item.IssuesDisabled, &item.AutoCloseIssuesDisabled, &item.DeleteMergedBranches, &item.WebCommitSignoffRequired, &item.SuggestBranchUpdate,
 			&item.AllowMergeCommit, &item.AllowSquashMerge, &item.AllowRebaseMerge, &item.MergeCommitMessageFormat, &item.SquashCommitMessageFormat,
 		); err != nil {
 			return nil, err
@@ -107,13 +107,13 @@ func (s *Store) PatchRepositoryGeneralSettings(ctx context.Context, repository d
     allow_rebase_merge=COALESCE($15, allow_rebase_merge),
     merge_commit_message_format=COALESCE(NULLIF($16,''), merge_commit_message_format),
     squash_commit_message_format=COALESCE(NULLIF($17,''), squash_commit_message_format),
-    actions_retention_days=$18, auto_close_issues_disabled=$19, updated_at=clock_timestamp()
+    actions_retention_days=$18, auto_close_issues_disabled=$19, suggest_branch_update=$20, updated_at=clock_timestamp()
   WHERE organization_id=$1 AND slug=$2 AND updated_at=$5
   RETURNING updated_at, allow_merge_commit, allow_squash_merge, allow_rebase_merge, merge_commit_message_format, squash_commit_message_format`,
 		repository.OrganizationID, repository.Slug, repository.Description, repository.IsTemplate, repository.UpdatedAt,
 		repository.PushRefLimit, repository.ProtectedRefs, repository.ActionsDisabled, repository.RefRules,
 		repository.IssuesDisabled, repository.DeleteMergedBranches, repository.WebCommitSignoffRequired,
-		methods.AllowMergeCommit, methods.AllowSquashMerge, methods.AllowRebaseMerge, repository.MergeCommitMessageFormat, repository.SquashCommitMessageFormat, repository.ActionsRetentionDays, repository.AutoCloseIssuesDisabled).
+		methods.AllowMergeCommit, methods.AllowSquashMerge, methods.AllowRebaseMerge, repository.MergeCommitMessageFormat, repository.SquashCommitMessageFormat, repository.ActionsRetentionDays, repository.AutoCloseIssuesDisabled, repository.SuggestBranchUpdate).
 		Scan(&repository.UpdatedAt, &repository.AllowMergeCommit, &repository.AllowSquashMerge, &repository.AllowRebaseMerge, &repository.MergeCommitMessageFormat, &repository.SquashCommitMessageFormat)
 	var pgError *pgconn.PgError
 	switch {

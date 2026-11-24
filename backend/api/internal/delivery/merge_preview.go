@@ -19,10 +19,11 @@ type MergePreviewProvider interface {
 	PreviewMerge(context.Context, string, string, MergeRequest) (MergePreview, error)
 }
 type MergeRequest struct {
-	Target      string            `json:"target"`
-	Sources     []string          `json:"sources"`
-	Strategy    string            `json:"strategy,omitempty"`
-	PullMessage *PullMergeMessage `json:"-"`
+	Target        string            `json:"target"`
+	Sources       []string          `json:"sources"`
+	Strategy      string            `json:"strategy,omitempty"`
+	PullMessage   *PullMergeMessage `json:"-"`
+	BranchSignoff *WebCommitSignoff `json:"-"`
 }
 type PinnedRef struct {
 	Ref string `json:"ref"`
@@ -233,7 +234,7 @@ func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergeP
 			} else if _, err := previewGit(ctx, worktree, "checkout", "--quiet", "--detach", source.SHA, "--"); err != nil {
 				return result, ErrPreviewUnavailable
 			}
-			sha, paths, err := replayCandidate(ctx, worktree, current, tree)
+			sha, paths, err := replayCandidate(ctx, worktree, current, tree, input.BranchSignoff)
 			if err != nil {
 				return result, err
 			}
@@ -258,7 +259,15 @@ func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergeP
 				return result, err
 			}
 		}
-		raw, err := previewGitInput(ctx, temp, strings.NewReader(message+"\n"), parents...)
+		var env []string
+		if input.BranchSignoff != nil {
+			message = "Update pull request branch"
+			if signoff := input.BranchSignoff; signoff.email != "" {
+				message += "\n\nSigned-off-by: " + signoff.name + " <" + signoff.email + ">"
+				env = []string{"GIT_AUTHOR_NAME=" + signoff.name, "GIT_AUTHOR_EMAIL=" + signoff.email}
+			}
+		}
+		raw, err := isolatedGit(ctx, temp, strings.NewReader(message+"\n"), env, parents...)
 		if err != nil {
 			return result, ErrPreviewUnavailable
 		}
@@ -274,9 +283,14 @@ func simulateMerge(ctx context.Context, temp string, input MergeRequest) (MergeP
 }
 
 // replayCandidate returns an empty SHA for conflicts or a replay that changes the merge result.
-func replayCandidate(ctx context.Context, worktree, base, mergeTree string) (string, []string, error) {
-	_, err := previewGit(ctx, worktree, "rebase", "--merge", "--no-rebase-merges", "--no-fork-point",
-		"--force-rebase", "--no-keep-empty", "--empty=drop", base)
+func replayCandidate(ctx context.Context, worktree, base, mergeTree string, signoff *WebCommitSignoff) (string, []string, error) {
+	args := []string{"rebase", "--merge", "--no-rebase-merges", "--no-fork-point", "--force-rebase", "--no-keep-empty", "--empty=drop"}
+	var env []string
+	if signoff != nil && signoff.email != "" {
+		args = append(args, "--signoff")
+		env = []string{"GIT_COMMITTER_NAME=" + signoff.name, "GIT_COMMITTER_EMAIL=" + signoff.email}
+	}
+	_, err := isolatedGit(ctx, worktree, nil, env, append(args, base)...)
 	if err != nil {
 		out, diffErr := previewGit(ctx, worktree, "diff", "--name-only", "--diff-filter=U", "-z")
 		if diffErr != nil || len(out) == 0 {

@@ -192,6 +192,19 @@
     "requestChanges": "Request changes",
     "commentOnly": "Comment"
   },
+  "branchUpdate": {
+    "conflicts": "Resolve the conflicts locally, then use Update revision.",
+    "changed": "The branches or repository rules changed. Reload the pull request and try again.",
+    "refreshRevision": "The source branch changed. Reload the pull request and use Update revision if the new revision is missing.",
+    "behind": "This branch is behind its base branch.",
+    "update": "Update branch",
+    "description": "Bring {{base}} into {{source}}. An updated revision needs fresh checks and review.",
+    "method": "Update method",
+    "merge": "Update with a merge commit",
+    "rebase": "Update with rebase",
+    "signoff": "I certify this contribution under the Developer Certificate of Origin",
+    "failed": "Could not update the pull request branch."
+  },
   "actions": {
     "openMergeQueue": "Open merge queue",
     "markReady": "Ready for review",

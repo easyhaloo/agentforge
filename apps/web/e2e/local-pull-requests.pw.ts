@@ -556,6 +556,17 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("General settings saved.")).toBeVisible();
     await capture("general-auto-close-issues");
+    const suggestUpdate = page.getByRole("checkbox", { name: "Always suggest updating pull request branches" });
+    const requireSignoff = page.getByRole("checkbox", { name: /Require contributors to sign off on web commits/ });
+    await expect(suggestUpdate).not.toBeChecked();
+    await suggestUpdate.check();
+    await requireSignoff.check();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.reload();
+    await expect(suggestUpdate).toBeChecked();
+    await suggestUpdate.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("repository-settings-suggest-branch-update.png"), animations: "disabled" });
     await page.getByRole("button", { name: "Change default branch" }).click();
     await selectOption(page, page.getByRole("combobox", { name: "New default branch" }), "release");
     await page.locator("form").filter({ has: page.getByRole("combobox", { name: "New default branch" }) })
@@ -568,10 +579,75 @@ test("reviews an updated pull request and merges only its verified revision", as
     await expect(keywordLink).toHaveAttribute("href", `${pullsPath}/${changeset.id}`);
     await reviewer.screenshot({ path: testInfo.outputPath("issue-pull-request-keyword-development.png"), animations: "disabled" });
     await page.goto(detail);
+    const updateBranch = page.getByRole("button", { name: "Update branch", exact: true });
+    await expect(updateBranch).toHaveCount(0);
+    gitAt(checkout, "switch", "--quiet", "release");
+    const advanceBase = (text: string) => {
+      writeFileSync(join(checkout, "base.txt"), text);
+      gitAt(checkout, "add", "base.txt");
+      gitAt(checkout, "-c", "user.name=Pull Request QA", "-c", "user.email=pulls@example.test", "commit", "--quiet", "-m", text);
+      gitAt(checkout, "push", "--quiet", repositoryDir, "HEAD:refs/heads/release");
+      return gitAt(checkout, "rev-parse", "HEAD");
+    };
+    const baseForMerge = advanceBase("Update base documentation");
+    const workflowStatus = () => page.evaluate(async path => {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`Workflow status failed (${response.status})`);
+      return await response.json() as { revision_id: string; branch_update?: { base_sha: string; methods: string[] } };
+    }, `/api/v1/organizations/${orgID}/changesets/${changeset.id}/pull-request/required-workflows`);
+    await page.reload();
+    const beforeUpdate = await workflowStatus();
+    expect(beforeUpdate.branch_update?.base_sha).toBe(baseForMerge);
+    expect(await post("pull-request/update-branch", { revision_id: beforeUpdate.revision_id, base_sha: target, method: "merge" })).toMatchObject({ status: 409 });
+    expect(await post("pull-request/update-branch", { revision_id: beforeUpdate.revision_id, base_sha: baseForMerge, method: "merge" })).toMatchObject({ status: 422 });
+    expect(git("rev-parse", "refs/heads/feature/docs")).toBe(secondHead);
+
+    const updateDialog = page.getByRole("dialog", { name: "Update branch" });
+    const confirmUpdate = updateDialog.getByRole("button", { name: "Update branch", exact: true });
+    const signoff = updateDialog.getByRole("checkbox", { name: /Developer Certificate of Origin/ });
+    const completeBranchUpdate = async () => {
+      await expect(confirmUpdate).toBeDisabled();
+      await signoff.check();
+      const write = waitForWrite(page, /\/pull-request\/update-branch$/);
+      await confirmUpdate.click();
+      const response = await write;
+      expect(response.ok(), await response.text()).toBeTruthy();
+      await expect(updateDialog).toHaveCount(0);
+      await expect(checksTab).toHaveAccessibleName("Checks 0");
+      expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toEqual({ status: 409, detail: "a passed evaluation is required" });
+      expect((await workflowStatus()).branch_update).toBeUndefined();
+    };
+    await updateBranch.click();
+    await expect(updateDialog).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("pull-request-update-branch-dialog.png"), animations: "disabled" });
+    await completeBranchUpdate();
+    const mergedSource = git("rev-parse", "refs/heads/feature/docs");
+    expect(git("show", "-s", "--format=%P", mergedSource).split(" ")).toEqual([secondHead, baseForMerge]);
+    expect(git("show", "-s", "--format=%B", mergedSource)).toMatch(/Signed-off-by: /);
+    expect(git("rev-parse", "refs/heads/release")).toBe(baseForMerge);
+    await expect(page.getByText("Revision 3", { exact: true })).toBeVisible();
+
+    const releaseTip = advanceBase("Extend base documentation");
+    await page.reload();
+    await updateBranch.click();
+    await selectOption(page, updateDialog.getByRole("combobox", { name: "Update method" }), "Update with rebase");
+    await completeBranchUpdate();
+    const rebasedSource = git("rev-parse", "refs/heads/feature/docs");
+    expect(git("rev-list", "--count", "--merges", `${releaseTip}..${rebasedSource}`)).toBe("0");
+    expect(git("merge-base", releaseTip, rebasedSource)).toBe(releaseTip);
+    expect(git("show", "-s", "--format=%B", rebasedSource)).toMatch(/Signed-off-by: /);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
+    await expect(page.getByText("Revision 4", { exact: true })).toBeVisible();
+    await page.goto(`${base.origin}${repositoryPath}/settings`);
+    await requireSignoff.uncheck();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("General settings saved.")).toBeVisible();
+    await page.goto(detail);
+    await verifyAndApprove();
     expect(await post("merge", { target_ref: "release", merge_method: "merge" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     const method = page.getByRole("combobox", { name: "Merge method" });
     await method.click();
     const methods = page.getByRole("listbox").getByRole("option");
@@ -642,7 +718,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toMatchObject({
       status: 409, detail: expect.stringContaining("required repository workflows have not passed"),
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     await capture("required-workflow-status");
     await page.goto(`${base.origin}${repositoryPath}/settings/rulesets`);
     await page.getByRole("button", { name: "Edit Release merge methods", exact: true }).click();
@@ -661,7 +737,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release", merge_method: "squash" })).toEqual({
       status: 409, detail: resolutionBlock,
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     const resolve = page.getByRole("button", { name: "Resolve conversation", exact: true });
     const reopenConversation = page.getByRole("button", { name: "Reopen conversation", exact: true });
     await expect(page.getByText("This comment was made on an older revision", { exact: true })).toBeVisible();
@@ -678,7 +754,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     expect(await post("merge", { target_ref: "release", merge_method: "rebase" })).toEqual({
       status: 409, detail: "Choose an enabled method for this target branch",
     });
-    expect(git("rev-parse", "refs/heads/release")).toBe(target);
+    expect(git("rev-parse", "refs/heads/release")).toBe(releaseTip);
     await method.click();
     await expect(methods).toHaveCount(1);
     await expect(methods.first()).toHaveAccessibleName("Squash and merge");
@@ -692,7 +768,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     const mergedHead = git("rev-parse", "refs/heads/release");
     expect(git("rev-parse", "refs/heads/main")).toBe(target);
     expect(mergedHead).not.toBe(secondHead);
-    expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([target]);
+    expect(git("show", "-s", "--format=%P", mergedHead).split(" ")).toEqual([releaseTip]);
     expect(git("show", "-s", "--format=%B", mergedHead)).toBe(`${updatedTitle}\n\nA real pull request from the Git test repository. Fixes: #2.`);
     expect(git("show", "refs/heads/release:README.md")).toContain("Second revision.");
     await page.reload();

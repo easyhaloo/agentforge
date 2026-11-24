@@ -190,7 +190,7 @@ type RepositoryMergeMethods = {
   merge_commit_message_format?: RepositoryMergeMessageFormat;
   squash_commit_message_format?: RepositoryMergeMessageFormat | "commits";
 };
-export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; actions_retention_days?: number; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
+export type RepositoryMetadata = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; suggest_branch_update?: boolean; ref_rules?: RepositoryRefRule[]; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; actions_disabled?: boolean; actions_retention_days?: number; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; visibility?: RepositoryVisibility; fork?: boolean; organization_id: string; slug: string; default_branch: string; description?: string; created_by: string; created_at: string; updated_at: string };
 export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
 export type RepositorySettings = RepositoryMetadata & {
   hosting_kind: "hosted" | "registered";
@@ -199,12 +199,14 @@ export type RepositorySettings = RepositoryMetadata & {
 };
 export type RepositoryPreviewEntry = { name: string; path: string; kind: "tree" | "file" | "symlink" | "blob"; mode: string; sha: string; size?: number };
 export type RepositoryPreviewRef = { name: string; kind: "branch" | "tag"; sha: string };
-export type RepositoryPreviewRefs = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
+export type RepositoryPreviewRefs = RepositoryMergeMethods & { web_commit_signoff_required?: boolean; delete_merged_branches?: boolean; suggest_branch_update?: boolean; issues_disabled?: boolean; auto_close_issues_disabled?: boolean; description?: string; is_template?: boolean; push_ref_limit?: number; protected_refs?: string[]; updated_at?: string; hosting_kind?: "hosted" | "registered"; git_credentials_available?: boolean; repository: string; default_branch: string; resolved_commit_sha: string; items: RepositoryPreviewRef[] };
 export type RepositoryPreviewTree = { repository: string; commit_sha: string; path: string; items: RepositoryPreviewEntry[] };
 export type RepositoryPreviewBlob = { repository: string; commit_sha: string; blob_sha: string; path: string; encoding: "utf-8"; content: string };
 export type RepositoryCommit = { sha: string; parents: string[]; author: string; authored_at: string; subject: string };
 export type PullRequestComparison = RepositoryCompare & { commits: RepositoryCommit[]; commits_truncated: boolean };
+export type PullBranchMethod = "merge" | "rebase";
 export type PullRequestRequiredWorkflows = {
+  branch_update?: { base_sha: string; methods: PullBranchMethod[]; signoff_required: boolean };
   revision_id: string;
   checks: Array<{ pipeline_id: string; name: string; status: "passed" | "waiting" | "behind" | "source_moved" }>;
 };
@@ -297,7 +299,7 @@ export const repositoryAPI = {
     request<operations["listRepositoryWorkflows"]["responses"][200]["content"]["application/json"]>(`${repositoryBase(organizationID, repository)}/actions/workflows`, { signal }),
   settings: (organizationID: string, repository: string, signal?: AbortSignal, targetBranch?: string) =>
     request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings${targetBranch ? `?${new URLSearchParams({ target_branch: targetBranch })}` : ""}`, { signal }),
-  updateGeneralSettings: (organizationID: string, repository: string, settings: RepositoryMergeMethods & Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "actions_retention_days" | "delete_merged_branches" | "web_commit_signoff_required" | "issues_disabled" | "auto_close_issues_disabled" | "ref_rules" | "updated_at">) =>
+  updateGeneralSettings: (organizationID: string, repository: string, settings: RepositoryMergeMethods & Pick<RepositoryMetadata, "description" | "is_template" | "push_ref_limit" | "protected_refs" | "actions_disabled" | "actions_retention_days" | "delete_merged_branches" | "suggest_branch_update" | "web_commit_signoff_required" | "issues_disabled" | "auto_close_issues_disabled" | "ref_rules" | "updated_at">) =>
     request<RepositorySettings>(`${repositoryBase(organizationID, repository)}/settings`, {
       method: "PATCH", body: JSON.stringify(settings),
     }),
@@ -406,6 +408,8 @@ export const changesetAPI = {
     }),
   getComparison: (organizationID: string, id: string) =>
     request<PullRequestComparison>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/comparison`),
+  updatePullBranch: (organizationID: string, id: string, input: { revision_id: string; base_sha: string; method: PullBranchMethod; signoff: boolean }) =>
+    request<StoredChangeset>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/update-branch`, { method: "POST", body: JSON.stringify(input) }),
   getRequiredWorkflows: (organizationID: string, id: string, signal: AbortSignal) =>
     request<PullRequestRequiredWorkflows>(`/api/v1/organizations/${encodeURIComponent(organizationID)}/changesets/${encodeURIComponent(id)}/pull-request/required-workflows`, { signal, cache: "no-store" }),
 };

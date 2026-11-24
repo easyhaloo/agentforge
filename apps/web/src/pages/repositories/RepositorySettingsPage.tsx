@@ -75,7 +75,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
           <GeneralSettings organization={organization} refs={refs} onSave={item => setRefs(current => current && {
             ...current, allow_merge_commit: item.allow_merge_commit, allow_squash_merge: item.allow_squash_merge, allow_rebase_merge: item.allow_rebase_merge,
             merge_commit_message_format: item.merge_commit_message_format, squash_commit_message_format: item.squash_commit_message_format,
-            description: item.description, web_commit_signoff_required: item.web_commit_signoff_required, delete_merged_branches: item.delete_merged_branches, issues_disabled: item.issues_disabled, auto_close_issues_disabled: item.auto_close_issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
+            description: item.description, web_commit_signoff_required: item.web_commit_signoff_required, delete_merged_branches: item.delete_merged_branches, suggest_branch_update: item.suggest_branch_update, issues_disabled: item.issues_disabled, auto_close_issues_disabled: item.auto_close_issues_disabled, is_template: item.is_template, push_ref_limit: item.push_ref_limit, updated_at: item.updated_at,
           })} />
         </section>
         <DefaultBranchSettings organization={organization} repository={repository} refs={refs}
@@ -196,6 +196,7 @@ function GeneralSettings({ organization, refs, onSave }: {
   const [template, setTemplate] = useState<boolean>();
   const [issuesDraft, setIssuesDraft] = useState<boolean>();
   const [autoCloseIssuesDraft, setAutoCloseIssuesDraft] = useState<boolean>();
+  const [suggestUpdateDraft, setSuggestUpdateDraft] = useState<boolean>();
   const [signoffDraft, setSignoffDraft] = useState<boolean>();
   const [deleteBranchesDraft, setDeleteBranchesDraft] = useState<boolean>();
   const [mergeMethodsDraft, setMergeMethodsDraft] = useState<Partial<Record<MergeMethodKey, boolean>>>({});
@@ -205,6 +206,7 @@ function GeneralSettings({ organization, refs, onSave }: {
   const description = draft ?? refs.description ?? "";
   const isTemplate = template ?? Boolean(refs.is_template);
   const signoffRequired = signoffDraft ?? Boolean(refs.web_commit_signoff_required);
+  const suggestUpdate = suggestUpdateDraft ?? Boolean(refs.suggest_branch_update);
   const deleteBranches = deleteBranchesDraft ?? Boolean(refs.delete_merged_branches);
   const issuesEnabled = issuesDraft ?? !refs.issues_disabled;
   const autoCloseIssues = autoCloseIssuesDraft ?? !refs.auto_close_issues_disabled;
@@ -220,7 +222,7 @@ function GeneralSettings({ organization, refs, onSave }: {
   const mergeMethodEnabled = (key: MergeMethodKey) => mergeMethodsDraft[key] ?? refs[key] ?? true;
   const validMergeMethods = mergeMethodKeys.some(mergeMethodEnabled);
   const mergeMethodsChanged = mergeMethodKeys.some(key => mergeMethodEnabled(key) !== (refs[key] ?? true));
-  const changed = messageFormatsChanged || mergeMethodsChanged || description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || autoCloseIssues === Boolean(refs.auto_close_issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
+  const changed = suggestUpdate !== Boolean(refs.suggest_branch_update) || messageFormatsChanged || mergeMethodsChanged || description.trim() !== (refs.description ?? "") || isTemplate !== Boolean(refs.is_template) || pushLimitValue !== (refs.push_ref_limit ?? 0) || issuesEnabled === Boolean(refs.issues_disabled) || autoCloseIssues === Boolean(refs.auto_close_issues_disabled) || deleteBranches !== Boolean(refs.delete_merged_branches) || signoffRequired !== Boolean(refs.web_commit_signoff_required);
   const canEdit = canManageRepository(organization) && Boolean(refs.updated_at);
   const useTemplate = `${repositoryNewPath(organizationHandle(organization))}?${new URLSearchParams({ template: refs.repository })}`;
 
@@ -237,7 +239,7 @@ function GeneralSettings({ organization, refs, onSave }: {
         description: description.trim(), web_commit_signoff_required: signoffRequired, is_template: isTemplate, issues_disabled: !issuesEnabled,
         ...(autoCloseIssuesDraft === undefined ? {} : { auto_close_issues_disabled: !autoCloseIssuesDraft }),
         updated_at: refs.updated_at,
-        ...(refs.hosting_kind === "hosted" ? { delete_merged_branches: deleteBranches } : {}),
+        ...(refs.hosting_kind === "hosted" ? { delete_merged_branches: deleteBranches, suggest_branch_update: suggestUpdate } : {}),
         ...(refs.git_credentials_available ? { push_ref_limit: pushLimitValue } : {}),
       });
       onSave(item);
@@ -245,6 +247,7 @@ function GeneralSettings({ organization, refs, onSave }: {
       setIssuesDraft(undefined);
       setAutoCloseIssuesDraft(undefined);
       setDeleteBranchesDraft(undefined);
+      setSuggestUpdateDraft(undefined);
       setMergeMethodsDraft({});
       setMergeMessageDraft(undefined);
       setSquashMessageDraft(undefined);
@@ -299,6 +302,9 @@ function GeneralSettings({ organization, refs, onSave }: {
       <p>{t("settings.mergeMessage.help")}</p>}
     {!validMergeMethods && <p role="alert" className="org-error">{t("settings.mergeMethods.required")}</p>}
     {refs.hosting_kind === "hosted" && <>
+      <Checkbox label={t("settings.suggestBranchUpdate")} checked={suggestUpdate} disabled={busy}
+        onChange={event => { setSuggestUpdateDraft(event.target.checked); setSaved(false); }} />
+      <p>{t("settings.suggestBranchUpdateHelp")}</p>
       <Checkbox label={t("settings.deleteMergedBranches")} checked={deleteBranches} disabled={busy}
         onChange={event => { setDeleteBranchesDraft(event.target.checked); setSaved(false); }} />
       <p>{t("settings.deleteMergedBranchesHelp")}</p>

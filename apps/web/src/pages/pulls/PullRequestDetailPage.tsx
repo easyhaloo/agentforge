@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
-import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
+import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, type PullBranchMethod, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
 import { changesetPath, orgPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
-import { Button, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
+import { Button, Checkbox, Input, Modal, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
 import { PullRequestCommitsTab } from "./PullRequestCommitsTab";
@@ -25,7 +25,7 @@ type Props = {
 const tabListId = "pull-request-detail";
 const stateIcons = { open: GitPullRequest, draft: GitPullRequestDraft, closed: GitPullRequestClosed, merged: GitMerge };
 type WorkflowResult = { key: string } & (
-  { status: "loaded"; checks: PullRequestRequiredWorkflows["checks"] } | { status: "stale" | "unavailable" }
+  ({ status: "loaded" } & Omit<PullRequestRequiredWorkflows, "revision_id">) | { status: "stale" | "unavailable" }
 );
 
 function pullRequestState(changeset: StoredChangeset): "draft" | "open" | "closed" | "merged" {
@@ -59,6 +59,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   const [comparison, setComparison] = useState<{ revisionKey: string; data?: PullRequestComparison; error?: string }>();
   const [comparisonRetry, setComparisonRetry] = useState(0);
   const [workflowResult, setWorkflowResult] = useState<WorkflowResult>();
+  const [branchDraft, setBranchDraft] = useState<{ revision: string; base: string; method: PullBranchMethod; signoff: boolean }>();
+  const [branchError, setBranchError] = useState("");
   const [workflowRetry, setWorkflowRetry] = useState(0);
   const current = changeset?.changeset.id === pullNumber && changeset.changeset.repository === repository && changeset.changeset.pull_request
     ? changeset : null;
@@ -113,7 +115,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = async () => {
       try {
-        const { revision_id, checks } = await changesetAPI.getRequiredWorkflows(organization.id, pullNumber, controller.signal);
+        const { revision_id, checks, branch_update } = await changesetAPI.getRequiredWorkflows(organization.id, pullNumber, controller.signal);
         if (controller.signal.aborted) return;
         if (revision_id !== revisionID) {
           setMergeConfirmKey(undefined);
@@ -121,8 +123,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           return;
         }
         if (checks.some(check => check.status !== "passed")) setMergeConfirmKey(undefined);
-        setWorkflowResult({ key: workflowKey, status: "loaded", checks });
-        if (activePull && checks.length > 0) timer = setTimeout(refresh, 5000);
+        setWorkflowResult({ key: workflowKey, status: "loaded", checks, branch_update });
+        if (activePull && (checks.length > 0 || branch_update)) timer = setTimeout(refresh, 5000);
       } catch {
         if (!controller.signal.aborted) {
           setMergeConfirmKey(undefined);
@@ -189,6 +191,8 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
 
   const pr = changeset.changeset.pull_request!;
   const canWrite = organization.role !== "viewer";
+  const branchUpdate = canWrite && activePull && workflow?.status === "loaded" ? workflow.branch_update : undefined;
+  const branchChoice = branchDraft && branchUpdate && branchDraft.revision === revisionID && branchDraft.base === branchUpdate.base_sha ? branchDraft : undefined;
   const canManage = canWrite && (changeset.changeset.created_by === userID || ["owner", "admin"].includes(organization.role));
   const currentTitle = changeset.changeset.title;
   const editedTitle = titleDraft?.value.trim() ?? "";
@@ -275,6 +279,26 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   };
 
   return <section className="pull-request-detail-page">
+    {branchChoice && branchUpdate && <Modal open title={t("pulls:branchUpdate.update")}
+      onCancel={() => setBranchDraft(undefined)} okText={t("pulls:branchUpdate.update")}
+      okDisabled={branchUpdate.signoff_required && !branchChoice.signoff}
+      onOk={async () => {
+        const updated = await run(() => changesetAPI.updatePullBranch(organization.id, pullNumber, {
+          revision_id: branchChoice.revision, base_sha: branchChoice.base, method: branchChoice.method, signoff: branchChoice.signoff,
+        }), "pulls:branchUpdate.failed", setBranchError);
+        if (updated) setBranchDraft(undefined);
+      }}>
+      <p>{t("pulls:branchUpdate.description", { base: pr.base_branch, source: pr.source_branch })}</p>
+      <Select aria-label={t("pulls:branchUpdate.method")} value={branchChoice.method} disabled={actionBusy}
+        options={branchUpdate.methods.map(value => ({ value, label: t(`pulls:branchUpdate.${value}`) }))}
+        onChange={event => {
+          const method = branchUpdate.methods.find(value => value === event.target.value);
+          if (method) setBranchDraft({ ...branchChoice, method });
+        }} />
+      {branchUpdate.signoff_required && <Checkbox label={t("pulls:branchUpdate.signoff")} checked={branchChoice.signoff} disabled={actionBusy}
+        onChange={event => setBranchDraft({ ...branchChoice, signoff: event.target.checked })} />}
+      {branchError && <p role="alert" className="org-error">{branchError}</p>}
+    </Modal>}
     <Link className="pull-back-link" to={repositoryPath(handle, repository, "pulls")}>
       <ArrowLeft size={16} aria-hidden="true"/>{t("pulls:detail.backToList")}
     </Link>
@@ -396,6 +420,13 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
               <span role="status">{workflowSummary}</span>
               <Link to={pullRequestPath(handle, repository, pullNumber, "checks")}>{t("pulls:requiredWorkflows.viewChecks")}</Link>
               {workflowNeedsRetry && <Button onClick={retryWorkflows}>{t("pulls:actions.retry")}</Button>}
+            </div>}
+            {branchUpdate && revisionID && <div className="pull-workflow-summary">
+              <span>{t("pulls:branchUpdate.behind")}</span>
+              <Button disabled={actionBusy} onClick={() => {
+                setBranchError("");
+                setBranchDraft({ revision: revisionID, base: branchUpdate.base_sha, method: branchUpdate.methods[0], signoff: false });
+              }}>{t("pulls:branchUpdate.update")}</Button>
             </div>}
             {canMerge && (queueRequired
               ? workflowsAllowMerge && !conversationsBlockMerge && !actionBusy

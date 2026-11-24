@@ -192,6 +192,19 @@
     "requestChanges": "请求变更",
     "commentOnly": "仅评论"
   },
+  "branchUpdate": {
+    "conflicts": "请在本地解决冲突，然后使用「更新修订」。",
+    "changed": "分支或仓库规则已变更。请重新加载拉取请求后重试。",
+    "refreshRevision": "源分支已更新。请重新加载拉取请求。如果未显示新的修订，请使用「更新修订」。",
+    "behind": "此分支落后于目标分支。",
+    "update": "更新分支",
+    "description": "将 {{base}} 的变更同步到 {{source}}。新修订需要重新检查和评审。",
+    "method": "更新方式",
+    "merge": "使用合并提交更新",
+    "rebase": "使用变基更新",
+    "signoff": "我确认此贡献符合开发者原创证书的要求",
+    "failed": "无法更新拉取请求分支。"
+  },
   "actions": {
     "openMergeQueue": "打开合并队列",
     "markReady": "标记为就绪",
