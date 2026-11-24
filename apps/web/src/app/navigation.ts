@@ -17,7 +17,7 @@ const inOrganization = (section: OrgSection) => (handle: string) => orgPath(hand
 
 export const navigationItems: readonly NavigationItem[] = [
   { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, descriptionKey: "navigation:descriptions.overview", path: flatPaths.overview },
-  { group: "WORKSPACE", label: "Projects", icon: Boxes, path: flatPaths.projects },
+  { group: "WORKSPACE", label: "Projects", icon: Boxes, orgPath: inOrganization("projects") },
   { group: "WORKSPACE", label: "Repositories", icon: Code2, descriptionKey: "navigation:descriptions.repositories", orgPath: inOrganization("repositories") },
   { group: "WORKSPACE", label: "Issues", icon: CircleDot, descriptionKey: "navigation:descriptions.issues", orgPath: inOrganization("issues") },
   { group: "WORKSPACE", label: "Inbox", icon: Bell, descriptionKey: "navigation:descriptions.inbox", orgPath: inOrganization("notifications") },
@@ -50,7 +50,7 @@ export function itemHref(item: NavigationItem, handle: string): string {
 
 /** Repository subpages, including source-control settings such as Rulesets, activate their owning top-level tab. */
 export function repositorySectionForPath(pathname: string | undefined) {
-  const segment = pathname?.split("/")[6]?.toLowerCase();
+  const segment = pathname?.match(/^\/orgs\/[^/]+\/repositories\/[^/]+\/[^/]+\/([^/]+)/i)?.[1].toLowerCase();
   return repositorySections.find(section => section === segment);
 }
 

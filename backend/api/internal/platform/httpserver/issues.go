@@ -84,6 +84,7 @@ func (d DeliveryDependencies) listIssues(w http.ResponseWriter, r *http.Request)
 	}
 
 	filter := issues.ListFilter{
+		ProjectID:       query.Get("project_id"),
 		LinkedChangeset: query.Get("linked_changeset"),
 		Repository:      query.Get("repository"),
 		State:           issues.State(query.Get("state")),
@@ -97,6 +98,10 @@ func (d DeliveryDependencies) listIssues(w http.ResponseWriter, r *http.Request)
 	}
 	if filter.LinkedChangeset != "" && (filter.Repository == "" || len(filter.LinkedChangeset) > 128 || !wellFormedText(filter.LinkedChangeset)) {
 		writeProblem(w, http.StatusBadRequest, "Invalid linked changeset filter", "Provide a repository and a valid changeset ID")
+		return
+	}
+	if filter.ProjectID != "" && (len(filter.ProjectID) != 32 || !wellFormedText(filter.ProjectID)) {
+		writeProblem(w, http.StatusBadRequest, "Invalid project identifier", "Choose a valid project identifier")
 		return
 	}
 	if filter.State != "" && filter.State != issues.StateOpen && filter.State != issues.StateClosed {

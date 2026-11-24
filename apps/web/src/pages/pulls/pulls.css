@@ -252,6 +252,10 @@
 .pull-changeset-summary a.checks-passed { color: var(--af-color-success); }
 .pull-changeset-summary a.checks-failed { color: var(--af-color-danger); }
 .pull-reviewers { display: grid; gap: 10px; padding: 0 0 12px; border-bottom: 1px solid var(--af-color-border); }
+.pull-projects p, .pull-projects ul { margin: 0; }
+.pull-projects ul { display: grid; gap: 8px; list-style: none; padding: 0; }
+.pull-projects li, .pull-projects form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pull-projects li a { flex: 1; overflow-wrap: anywhere; color: var(--af-color-primary); }
 .pull-reviewer-status { flex-wrap: wrap; font-size: 13px; }
 .pull-merge-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); }
 .pull-merge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

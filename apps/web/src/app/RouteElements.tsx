@@ -25,7 +25,7 @@ import { IssueCreation } from "../pages/repositories/IssueCreation";
 import { WebIDEPage } from "../pages/webide/WebIDEPage";
 import { WorkspaceEditorPage } from "../pages/webide/WorkspaceEditorPage";
 import { ResourceWorkspacePage } from "../pages/resources";
-import { IssueProjectsPanel } from "../pages/repositories/IssueProjectsPanel";
+import { ProjectCreatePage, ProjectDetailPage, ProjectsPage } from "../pages/projects/ProjectsPages";
 import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
 import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySettingsSection } from "../shared/routing";
@@ -72,12 +72,20 @@ export function OverviewRoute() {
 
 export function ResourceRoute({ label }: { label: string }) {
   const notify = useNotify();
-  // The key keeps each page's state and its agentforge:resources:<label> storage separate.
-  const { selectedOrganization } = useAppAccount();
-  return <>
-    {label === "Projects" && selectedOrganization && <IssueProjectsPanel key={selectedOrganization.id} organization={selectedOrganization} />}
-    <ResourceWorkspacePage key={label} page={label} onNotify={notify} />
-  </>;
+  return <ResourceWorkspacePage key={label} page={label} onNotify={notify} />;
+}
+
+export function ProjectsRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate replace to={{ pathname: "/orgs/current/projects", search, hash }} />;
+}
+
+export function ProjectsRoute({ page }: { page: "list" | "create" | "detail" }) {
+  const { organization } = useOutletContext<OrganizationOutletContext>();
+  const { number = "" } = useParams();
+  if (page === "create") return <ProjectCreatePage key={organization.id} organization={organization} />;
+  if (page === "detail") return <ProjectDetailPage key={`${organization.id}:${number}`} organization={organization} number={number} />;
+  return <ProjectsPage key={organization.id} organization={organization} />;
 }
 
 export function DeliveryRoute({ label }: { label: string }) {
@@ -151,7 +159,7 @@ export function RepositoryCreateRoute() {
   return <RepositoryCreatePage key={organization.id} organization={organization} account={account} onNotify={notify} />;
 }
 
-export function RepositoryDetailRoute({ section, settingsSection }: { section?: "issues" | "actions"; settingsSection?: RepositorySettingsSection }) {
+export function RepositoryDetailRoute({ section, settingsSection }: { section?: "issues" | "actions" | "projects"; settingsSection?: RepositorySettingsSection }) {
   const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const { owner, repo, repositorySlug } = useParams();
   const notify = useNotify();
@@ -160,6 +168,7 @@ export function RepositoryDetailRoute({ section, settingsSection }: { section?: 
   }
   const repository = `${owner}/${repo}`;
   if (settingsSection) return <RepositorySettingsPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} section={settingsSection} onNotify={notify} />;
+  if (section === "projects") return <ProjectsPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} />;
   if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} currentUser={account.user_id}/>;
   return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
 }

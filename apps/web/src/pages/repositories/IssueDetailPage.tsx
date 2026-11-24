@@ -7,7 +7,7 @@ import { organizationAPI, repositoryAPI, type OrganizationSummary } from "../../
 import { issuesAPI, type Issue, type IssueStateReason, type IssueUpdate } from "../../shared/api/issues";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { changesetPath, issueDetailPath, issueTemplatePath, organizationHandle, repositoryPath } from "../../shared/routing";
+import { changesetPath, issueDetailPath, issueTemplatePath, organizationHandle, projectPath, repositoryPath } from "../../shared/routing";
 import { IssueDetailFields, IssueDevelopment } from "./IssueDetailSidebar";
 import { IssueDetailLinks } from "./IssueDetailLinks";
 import { IssueGitHubSourceActions } from "./IssueGitHubSource";
@@ -576,7 +576,7 @@ export function IssueDetailPage({ organization, repository, issueNumber, current
 
             <div className="issue-sidebar-section">
               {metadataHeading("project_ids")}
-              {issue.projects?.length ? <ul>{issue.projects.map(({ id, name }) => <li key={id}>{name}</li>)}</ul> : <p className="issue-sidebar-empty">{t("issues.projects.empty")}</p>}
+              {issue.projects?.length ? <ul>{issue.projects.map(({ id, name, number }) => <li key={id}>{number ? <Link to={projectPath(handle, number)}>{name}</Link> : name}</li>)}</ul> : <p className="issue-sidebar-empty">{t("issues.projects.empty")}</p>}
             </div>
             <IssueDevelopment issue={issue} context={context} editable={moderator} busy={busy} error={dialogError}
               resetError={() => setDialogError("")} save={saveMetadata} />

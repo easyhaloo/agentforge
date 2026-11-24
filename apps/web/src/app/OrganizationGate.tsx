@@ -28,6 +28,10 @@ const copy = {
     unavailableTitle: "app:organizationGate.changesets.unavailableTitle",
     noOrganization: "app:organizationGate.changesets.noOrganization",
   },
+  projects: {
+    unavailableTitle: "app:organizationGate.projects.unavailableTitle",
+    noOrganization: "app:organizationGate.projects.noOrganization",
+  },
   repositories: {
     unavailableTitle: "app:organizationGate.repositories.unavailableTitle",
     noOrganization: "app:organizationGate.repositories.noOrganization",

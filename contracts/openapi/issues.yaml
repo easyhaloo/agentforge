@@ -66,6 +66,10 @@ paths:
           in: query
           description: Number of matching issues to skip
           schema: { type: integer, minimum: 0, default: 0 }
+        - name: project_id
+          in: query
+          description: Return issues linked to this project in the organization.
+          schema: { type: string, minLength: 32, maxLength: 32 }
         - name: include_filter_options
           in: query
           description: Return distinct filter values across the repository. Requires repository.
@@ -259,11 +263,14 @@ paths:
       operationId: listIssueProjects
       summary: List available issue projects
       tags: [Issues]
-      description: With a repository, returns organization-wide projects and projects scoped to that repository. Recent is specific to the caller.
+      description: With a repository, returns organization-wide projects and projects scoped to that repository. Recent is specific to the caller. With linked_repository, returns projects linked from that repository, including closed ones.
       security:
         - sessionCookie: []
       parameters:
         - name: repository
+          in: query
+          schema: { type: string }
+        - name: linked_repository
           in: query
           schema: { type: string }
       responses:
@@ -297,13 +304,477 @@ paths:
               required: [name]
               properties:
                 name: { type: string, minLength: 1, maxLength: 100 }
-                repository: { type: string, description: Omit for an organization-wide project. }
+                repository: { type: string, description: Legacy scope. Omit for an organization-wide project. }
+                default_repository: { type: string, description: Optional default repository without narrowing project scope. }
+                layout: { type: string, enum: [table, board, roadmap], default: table }
+                template: { type: string, enum: [team_backlog, release_plan] }
+                description: { type: string, maxLength: 500 }
+                readme: { type: string, maxLength: 65536 }
+                repositories: { type: array, maxItems: 100, uniqueItems: true, items: { type: string } }
       responses:
         "201":
           description: Issue project created
           content:
             application/json:
               schema: { $ref: "#/components/schemas/IssueProject" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getIssueProject
+      summary: Get a project by number
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectDetails" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateIssueProject
+      summary: Update project settings
+      tags: [Issues]
+      description: Requires an organization owner or admin and the current project version.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectPatch" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectDetails" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteIssueProject
+      summary: Permanently delete a project
+      tags: [Issues]
+      description: Requires an organization owner or admin. Linked sources remain intact.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: version, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204":
+          description: Removed
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: listProjectItems
+      summary: List project items
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: archived, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectItemList" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: addProjectItem
+      summary: Add a draft or link an existing source
+      tags: [Issues]
+      description: An existing Issue or pull request association is returned with its original ID and fields.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectItemInput" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectItem" }
+        "201":
+          description: Project item created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectItem" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: itemID, in: path, required: true, schema: { type: string } }
+    patch:
+      operationId: updateProjectItem
+      summary: Update project-owned fields or archive an item
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectItemPatch" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectItem" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteProjectItem
+      summary: Remove a project item
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      parameters:
+        - { name: version, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204":
+          description: Removed
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}/convert:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: itemID, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: convertProjectItem
+      summary: Convert a draft into an issue
+      tags: [Issues]
+      description: Requires an organization owner or admin. The draft title and body become the Issue title and body. The item keeps its ID and project fields.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectDraftConversion" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectItem" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/workflow-runs:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: listProjectWorkflowRuns
+      summary: List recent successful automation runs that changed items (organization owner or admin)
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Up to 50 runs in reverse chronological order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items:
+                      type: object
+                      required: [id, rule, item_count, occurred_at]
+                      properties:
+                        id: { type: string }
+                        rule: { type: string, enum: [issue_closed, pull_request_closed, pull_request_merged, auto_archive, auto_add] }
+                        item_count: { type: integer, minimum: 1 }
+                        occurred_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/status-history:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getProjectStatusHistory
+      summary: Get daily status totals for active project items in UTC
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Daily closing totals followed by today's current totals. At most 30 days.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 30
+                    items:
+                      type: object
+                      required: [date, todo, in_progress, done]
+                      properties:
+                        date: { type: string, format: date }
+                        todo: { type: integer, minimum: 0 }
+                        in_progress: { type: integer, minimum: 0 }
+                        done: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/updates:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: listProjectUpdates
+      summary: List project progress updates
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectUpdateList" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createProjectUpdate
+      summary: Publish a project progress update
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      description: Requires a project writer and an open project.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectUpdateInput" }
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectUpdate" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/fields:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: listProjectFields
+      summary: List custom field definitions
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectFieldDefinitions" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createProjectField
+      summary: Create a custom field
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      description: Requires an organization owner or admin and the current project version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectFieldInput" }
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectFieldDefinitions" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/fields/{fieldID}:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: fieldID, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      operationId: updateProjectField
+      summary: Update a custom field
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      description: Field types are immutable. Clear values using an option before removing the option.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectFieldInput" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectFieldDefinitions" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteProjectField
+      summary: Delete a custom field and all its values
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      description: Requires an organization owner or admin and the current project version.
+      parameters:
+        - { name: version, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectFieldDefinitions" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}/field-values:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: itemID, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listProjectFieldValues
+      summary: Read the current custom field values for an item
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectFieldValues" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/items/{itemID}/field-values/{fieldID}:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      - { name: itemID, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: fieldID, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: setProjectFieldValue
+      summary: Set or clear one custom field value
+      tags: [Issues]
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      description: Requires an open project, an active item and the current item version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectFieldValueInput" }
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProjectFieldValues" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -1771,7 +2242,206 @@ components:
         number: { type: integer, minimum: 1, description: Stable number within the organization. }
         name: { type: string }
         repository: { type: string }
+        layout: { type: string, enum: [table, board, roadmap] }
+        default_repository: { type: string }
+        created_at: { type: string, format: date-time }
         recent: { type: boolean, description: The caller added this project to an issue in the last 30 days. }
+
+    ProjectDetails:
+      allOf:
+        - $ref: "#/components/schemas/IssueProject"
+        - type: object
+          required: [layout, description, readme, closed, version, updated_at, repositories, views, workflows]
+          properties:
+            description: { type: string, maxLength: 500 }
+            readme: { type: string, maxLength: 65536 }
+            closed: { type: boolean }
+            version: { type: integer, minimum: 1 }
+            updated_at: { type: string, format: date-time }
+            repositories: { type: array, items: { type: string } }
+            views: { type: array, items: { $ref: "#/components/schemas/ProjectView" } }
+            workflows: { $ref: "#/components/schemas/ProjectWorkflows" }
+    ProjectWorkflows:
+      type: object
+      additionalProperties: false
+      required: [item_added]
+      description: Built-in project status rules. An omitted or empty source rule is disabled.
+      properties:
+        item_added: { type: string, enum: [todo, in_progress, done] }
+        issue_closed: { type: string, enum: ["", todo, in_progress, done] }
+        pull_request_closed: { type: string, enum: ["", todo, in_progress, done] }
+        pull_request_merged: { type: string, enum: ["", todo, in_progress, done] }
+        auto_archive_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+          default: 0
+          description: Archive items after this many consecutive days in Done. Zero disables the rule. Restoring an item restarts the clock.
+        auto_add:
+          type: object
+          additionalProperties: false
+          required: [repository, kind]
+          description: Auto-add on future open or reopen events. A configured Issue label also triggers addition when applied to an open Issue. Omit to disable.
+          properties:
+            repository: { type: string, description: "Registered repository slug in this organization" }
+            kind: { type: string, enum: [issue, pull_request] }
+            label_id: { type: string, description: "Optional Issue label ID in the configured repository" }
+    ProjectView:
+      type: object
+      required: [id, name, layout, filter, sort, group]
+      properties:
+        id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+        name: { type: string, maxLength: 100 }
+        layout: { type: string, enum: [table, board, roadmap] }
+        filter: { type: string, maxLength: 200 }
+        sort: { type: string, enum: [manual, title, priority, target_date] }
+        group: { type: string, enum: [status, priority, none] }
+    ProjectPatch:
+      type: object
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+        readme: { type: string, maxLength: 65536 }
+        closed: { type: boolean }
+        default_repository: { type: string, description: Empty string clears the default. }
+        repositories: { type: array, maxItems: 100, uniqueItems: true, items: { type: string } }
+        views: { type: array, minItems: 1, maxItems: 30, items: { $ref: "#/components/schemas/ProjectView" }, description: Ordered views. The first is the default. }
+        workflows: { $ref: "#/components/schemas/ProjectWorkflows" }
+    ProjectItemList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ProjectItem" } }
+    ProjectItem:
+      type: object
+      required: [id, kind, title, status, priority, archived, version]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [issue, pull_request, draft] }
+        title: { type: string }
+        draft_body: { type: string, maxLength: 65536, description: Markdown body for a draft item. Omitted when empty. }
+        repository: { type: string }
+        number: { type: integer, minimum: 0 }
+        source_id: { type: string, description: Native Changeset ID used by the pull request route. }
+        status: { type: string, enum: [todo, in_progress, done] }
+        priority: { type: string, enum: ["", p0, p1, p2] }
+        start_date: { type: string, description: ISO date or empty string. }
+        target_date: { type: string, description: ISO date or empty string. }
+        iteration: { type: string, maxLength: 100 }
+        archived: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        field_values: { $ref: "#/components/schemas/ProjectFieldValueMap" }
+    ProjectUpdateList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ProjectUpdate" } }
+    ProjectUpdateInput:
+      type: object
+      required: [status, body]
+      properties:
+        status: { type: string, enum: [on_track, at_risk, off_track] }
+        body: { type: string, minLength: 1, maxLength: 10000, description: Markdown. }
+        start_date: { type: string, format: date }
+        target_date: { type: string, format: date }
+    ProjectUpdate:
+      allOf:
+        - $ref: "#/components/schemas/ProjectUpdateInput"
+        - type: object
+          required: [id, author_name, created_at]
+          properties:
+            id: { type: string, format: uuid }
+            author_name: { type: string }
+            created_at: { type: string, format: date-time }
+    ProjectFieldOption:
+      type: object
+      required: [name]
+      properties:
+        id: { type: string, format: uuid, description: Omit for a new option. }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+    ProjectFieldShape:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        type: { type: string, enum: [text, number, date, single_select, iteration] }
+        options:
+          description: Required for single select and iteration. Only iteration options have dates.
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/ProjectFieldOption" }
+    ProjectFieldInput:
+      allOf:
+        - $ref: "#/components/schemas/ProjectFieldShape"
+        - type: object
+          required: [project_version]
+          properties:
+            project_version: { type: integer, minimum: 1 }
+    ProjectField:
+      allOf:
+        - $ref: "#/components/schemas/ProjectFieldShape"
+        - type: object
+          required: [id, options]
+          properties:
+            id: { type: string, format: uuid }
+    ProjectFieldDefinitions:
+      type: object
+      required: [project_version, fields]
+      properties:
+        project_version: { type: integer, minimum: 1 }
+        fields: { type: array, items: { $ref: "#/components/schemas/ProjectField" } }
+    ProjectFieldValueMap:
+      type: object
+      description: Values keyed by custom field ID. For single select and iteration, values are option IDs.
+      additionalProperties: { type: [string, number] }
+    ProjectFieldValueInput:
+      type: object
+      required: [item_version, value]
+      properties:
+        item_version: { type: integer, minimum: 1 }
+        value: { type: [string, number, "null"], description: Use null to clear the value. }
+    ProjectFieldValues:
+      type: object
+      required: [item_version, values]
+      properties:
+        item_version: { type: integer, minimum: 1 }
+        values: { $ref: "#/components/schemas/ProjectFieldValueMap" }
+    ProjectItemInput:
+      type: object
+      required: [kind]
+      description: A draft needs title. An issue needs repository and number. A pull request needs repository and source_id.
+      properties:
+        kind: { type: string, enum: [issue, pull_request, draft] }
+        title: { type: string, minLength: 1, maxLength: 500 }
+        draft_body: { type: string, maxLength: 65536, description: Optional Markdown body for draft items only. }
+        repository: { type: string }
+        number: { type: integer, minimum: 1 }
+        source_id: { type: string, maxLength: 128 }
+        status: { type: string, enum: [todo, in_progress, done], description: Initial status for a new item. Overrides the add-item workflow. }
+        priority: { type: string, enum: ["", p0, p1, p2], description: Initial priority for a new item. }
+    ProjectItemPatch:
+      type: object
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 1 }
+        title: { type: string, minLength: 1, maxLength: 500, description: Only applicable to draft items. }
+        draft_body: { type: string, maxLength: 65536, description: Draft items only. Send an empty string to clear the body. }
+        status: { type: string, enum: [todo, in_progress, done] }
+        priority: { type: string, enum: ["", p0, p1, p2] }
+        start_date: { type: string, description: ISO date or empty string to clear. }
+        target_date: { type: string, description: ISO date or empty string to clear. }
+        iteration: { type: string, maxLength: 100 }
+        archived: { type: boolean }
+    ProjectDraftConversion:
+      type: object
+      required: [version, repository]
+      properties:
+        version: { type: integer, minimum: 1 }
+        repository: { type: string }
 
     IssueSummary:
       type: object

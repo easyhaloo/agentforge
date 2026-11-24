@@ -28,6 +28,10 @@ func (r *IssueRepository) List(ctx context.Context, organizationID string, filte
 			WHERE (l.organization_id,l.issue_id,c.repository)=(issues.organization_id,issues.id,issues.repository)
 			AND l.changeset_id = `+bind(filter.LinkedChangeset)+`)`)
 	}
+	if filter.ProjectID != "" {
+		conditions = append(conditions, `EXISTS (SELECT 1 FROM issue_projects ip
+			WHERE ip.organization_id = issues.organization_id AND ip.issue_id = issues.id AND ip.project_id = `+bind(filter.ProjectID)+`)`)
+	}
 	if filter.CreatedBy != "" {
 		conditions = append(conditions, "created_by = "+bind(filter.CreatedBy))
 	}

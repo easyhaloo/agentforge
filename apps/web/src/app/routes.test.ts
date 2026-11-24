@@ -45,6 +45,14 @@ describe("route table", () => {
     expect(leaf?.route.handle).toEqual({ label: "Repositories" });
   });
 
+  it("matches Projects directory, creation, detail and legacy alias", () => {
+    for (const path of ["/projects", "/orgs/demo/projects", "/orgs/demo/projects/new", "/orgs/demo/projects/42"]) {
+      expect(leafOf(path)?.route.handle, path).toEqual({ label: "Projects" });
+    }
+    expect(leafOf("/orgs/demo/projects/new")?.route.path).toBe("orgs/:org/projects/new");
+    expect(leafOf("/orgs/demo/projects/42")?.params).toEqual({ org: "demo", number: "42" });
+  });
+
   it("gives every navigation item its own route", () => {
     const routeOfEachItem = navigationItems.map((item) => leafOf(itemHref(item, "demo"))?.route);
     expect(new Set(routeOfEachItem).size).toBe(navigationItems.length);
@@ -79,7 +87,7 @@ describe("route table", () => {
     expect(newNameLeaf?.params).toMatchObject({ org: "demo", owner: "new", repo: "name" });
     expect(newNameLeaf?.route.handle).toEqual({ label: "Repository" });
 
-    for (const suffix of ["", "/branches", "/actions", "/settings", "/settings/rulesets", "/settings/branches", "/settings/tags", "/settings/git-tokens", "/settings/actions", "/settings/webhooks", "/issues"]) {
+    for (const suffix of ["", "/branches", "/actions", "/projects", "/settings", "/settings/rulesets", "/settings/branches", "/settings/tags", "/settings/git-tokens", "/settings/actions", "/settings/webhooks", "/issues"]) {
       const leaf = leafOf(`/orgs/demo/repositories/team/repo${suffix}`);
       expect(leaf?.params, suffix).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
       expect(leaf?.route.handle, suffix).toEqual({ label: "Repository" });
