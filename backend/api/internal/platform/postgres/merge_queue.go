@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/jackc/pgx/v5"
 )
@@ -25,9 +27,9 @@ func queueEvent(ctx context.Context, tx pgx.Tx, id int64, actor string) error {
 	return err
 }
 
-func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int, actor string, inputs map[string]json.RawMessage, candidate execution.Integration) (execution.QueueEntry, error) {
+func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int, actor string, inputs map[string]json.RawMessage, candidate execution.Integration, git *delivery.LocalGitProvider) (execution.QueueEntry, error) {
 	var entry execution.QueueEntry
-	if len(candidate.Sources) != 1 || candidate.Strategy != "merge-commit" {
+	if len(candidate.Sources) != 1 {
 		return entry, execution.ErrInputs
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -37,6 +39,20 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	defer tx.Rollback(ctx)
 	repo, target := candidate.Repository, candidate.Target.Ref
 	if err = lockQueue(ctx, tx, org, repo, target); err != nil {
+		return entry, err
+	}
+	policy, err := lockGitPolicyRow(ctx, tx, org, repo)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return entry, execution.ErrInputs
+	}
+	if err != nil {
+		return entry, err
+	}
+	strategy, err := githttp.QueueMergeStrategy(policy.RefRules, target, policy.DefaultBranch)
+	if err != nil || strategy != candidate.Strategy || target != policy.DefaultBranch {
+		return entry, pipeline.ErrConflict
+	}
+	if err := policy.MergeMethods.CheckBranch(candidate.Strategy, policy.RefRules, target, policy.DefaultBranch); err != nil {
 		return entry, err
 	}
 	var count int
@@ -56,6 +72,31 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	}
 	if _, err = runDefinition(ctx, tx, org, pipelineID, version, inputs, true); err != nil {
 		return entry, err
+	}
+	if err = checkRepositoryActions(ctx, tx, org, pipelineID, repo); err != nil {
+		return entry, err
+	}
+	checks := githttp.BranchRequiredWorkflows(policy.RefRules, target, policy.DefaultBranch)
+	requireResolution := githttp.BranchRequiresConversationResolution(policy.RefRules, target, policy.DefaultBranch)
+	if len(checks) > 0 || requireResolution {
+		pull, revision, err := lockCandidatePullRequest(ctx, tx, org, candidate.Repository, target, candidate.Sources[0])
+		if err != nil {
+			return entry, err
+		}
+		if requireResolution && pull.HasUnresolvedPRConversations() {
+			return entry, githttp.ErrUnresolvedConversations
+		}
+		if len(checks) > 0 {
+			if candidate.Target.SHA == "" {
+				return entry, execution.ErrInputs
+			}
+			if err := git.CheckRequiredWorkflowBase(ctx, org, repo, candidate.Target.SHA, revision.CommitSHA, checks); err != nil {
+				return entry, err
+			}
+			if err := checkRequiredWorkflows(ctx, tx, org, &pull, revision, candidate.Target.SHA, checks); err != nil {
+				return entry, err
+			}
+		}
 	}
 	var id int64
 	err = tx.QueryRow(ctx, `INSERT INTO merge_queue_entries(organization_id,repository,target,pipeline_id,version,actor_id,source_ref,source_sha,inputs) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9 FROM delivery_repositories WHERE organization_id=$1 AND slug=$2 AND default_branch=$3 RETURNING id`, org, repo, target, pipelineID, version, actor, candidate.Sources[0].Ref, candidate.Sources[0].SHA, inputs).Scan(&id)
@@ -89,6 +130,36 @@ func (s *Store) Enqueue(ctx context.Context, org, pipelineID string, version int
 	}
 	return entry, tx.Commit(ctx)
 }
+
+// The row lock serializes admission with comment writes on this pull request.
+func lockCandidatePullRequest(ctx context.Context, tx pgx.Tx, org, repo, target string, source delivery.PinnedRef) (delivery.Changeset, delivery.Revision, error) {
+	noPull := fmt.Errorf("%w: expected exactly one open pull request matching the candidate branches and source commit", githttp.ErrBranchPullRequestRequired)
+	if source.SHA == "" {
+		return delivery.Changeset{}, delivery.Revision{}, execution.ErrInputs
+	}
+	rows, err := tx.Query(ctx, `SELECT state FROM delivery_changesets
+		WHERE organization_id=$1 AND repository=$2
+		  AND state->'pull_request'->>'base_branch'=$3 AND state->'pull_request'->>'source_branch'=$4
+		  AND state->'pull_request'->>'closed'='false' AND state->>'merge' IS NULL
+		  AND state->'revisions'->-1->>'commit_sha'=$5
+		LIMIT 2 FOR SHARE`, org, repo, target, source.Ref, source.SHA)
+	if err != nil {
+		return delivery.Changeset{}, delivery.Revision{}, fmt.Errorf("find pull request for candidate: %w", err)
+	}
+	pull, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[delivery.Changeset])
+	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, pgx.ErrTooManyRows) {
+		return delivery.Changeset{}, delivery.Revision{}, noPull
+	}
+	if err != nil {
+		return delivery.Changeset{}, delivery.Revision{}, fmt.Errorf("read pull request for candidate: %w", err)
+	}
+	revision, ok := pull.CurrentRevision()
+	if !ok || revision.ID == "" || revision.Ref != source.Ref || revision.CommitSHA != source.SHA {
+		return delivery.Changeset{}, delivery.Revision{}, noPull
+	}
+	return pull, revision, nil
+}
+
 func attachTrainRun(ctx context.Context, tx pgx.Tx, id int64, run execution.Run) error {
 	_, err := tx.Exec(ctx, `UPDATE merge_queue_entries SET status='building',run_id=$2,candidate_sha=$3,checked_at=now() WHERE id=$1`, id, run.ID, run.Integration.CandidateSHA)
 	if err != nil {
@@ -222,9 +293,22 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 	} else if pending {
 		return tx.Commit(ctx)
 	}
+	var rules []githttp.RefRule
+	var defaultBranch string
+	var methods githttp.MergeMethods
+	if err := tx.QueryRow(ctx, `SELECT ref_rules,default_branch,allow_merge_commit,allow_squash_merge,allow_rebase_merge
+		FROM delivery_repositories WHERE organization_id=$1 AND slug=$2`, org, repo).
+		Scan(&rules, &defaultBranch, &methods.AllowMergeCommit, &methods.AllowSquashMerge, &methods.AllowRebaseMerge); err != nil {
+		return err
+	}
+	strategy, err := githttp.QueueMergeStrategy(rules, target, defaultBranch)
+	if err != nil || target != defaultBranch || methods.CheckBranch(strategy, rules, target, defaultBranch) != nil {
+		return tx.Commit(ctx)
+	}
+
 	if status != "queued" {
-		var runStatus, base string
-		if err = tx.QueryRow(ctx, `SELECT status,integration->'target'->>'sha' FROM pipeline_runs WHERE id=$1`, run).Scan(&runStatus, &base); err != nil {
+		var runStatus, base, runStrategy string
+		if err = tx.QueryRow(ctx, `SELECT status,integration->'target'->>'sha',integration->>'strategy' FROM pipeline_runs WHERE id=$1`, run).Scan(&runStatus, &base, &runStrategy); err != nil {
 			return err
 		}
 		switch runStatus {
@@ -235,7 +319,7 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 			if gitErr != nil {
 				return tx.Commit(ctx)
 			}
-			if head.CommitSHA != base {
+			if head.CommitSHA != base || runStrategy != strategy {
 				err = cancelTrainRuns(ctx, tx, org, repo, target, 0, "scheduler")
 				if err == nil {
 					err = invalidateTrain(ctx, tx, org, repo, target, 0, "scheduler")
@@ -252,15 +336,19 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		}
 		return tx.Commit(ctx)
 	}
-	rows, err := tx.Query(ctx, `SELECT source_sha FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND id<=$4 AND `+activeQueue+` ORDER BY id`, org, repo, target, id)
+	rows, err := tx.Query(ctx, `SELECT source_ref,source_sha FROM merge_queue_entries WHERE organization_id=$1 AND repository=$2 AND target=$3 AND id<=$4 AND `+activeQueue+` ORDER BY id`, org, repo, target, id)
 	if err != nil {
 		return err
 	}
-	sources, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	pinned, err := pgx.CollectRows(rows, pgx.RowToStructByPos[delivery.PinnedRef])
 	if err != nil {
 		return err
 	}
-	candidate, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: target, Sources: sources})
+	sources := make([]string, len(pinned))
+	for i, source := range pinned {
+		sources[i] = source.SHA
+	}
+	candidate, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: target, Sources: sources, Strategy: strategy})
 	if err != nil {
 		return tx.Commit(ctx)
 	}
@@ -274,8 +362,10 @@ func (s *Store) AdvanceQueue(ctx context.Context, git execution.TrainProvider) e
 		}
 		return tx.Commit(ctx)
 	}
-	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: candidate, QueueEntry: id}, nil)
-	if errors.Is(err, execution.ErrQuota) {
+	// Preparation uses pinned commits while promotion verifies the recorded branch names.
+	candidate.Sources = pinned
+	r, err := createRunTx(ctx, tx, org, pipelineID, version, actor, inputs, nil, &execution.Integration{Repository: repo, Strategy: strategy, MergePreview: candidate, QueueEntry: id}, nil)
+	if errors.Is(err, execution.ErrQuota) || errors.Is(err, execution.ErrRepositoryActionsDisabled) {
 		return tx.Commit(ctx)
 	}
 	if errors.Is(err, pipeline.ErrConflict) || errors.Is(err, execution.ErrInputs) || errors.Is(err, execution.ErrTriggerDenied) {

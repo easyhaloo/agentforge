@@ -115,6 +115,9 @@ func (r *NotificationRepository) Create(ctx context.Context, organizationID stri
 	return nil
 }
 
+const notificationVisible = `EXISTS (SELECT 1 FROM enabled_repository_issues i
+	WHERE i.organization_id = notifications.organization_id AND i.id = notifications.issue_id)`
+
 // List retrieves notifications for a user
 func (r *NotificationRepository) List(ctx context.Context, organizationID string, userID string, unreadOnly bool, limit, offset int) ([]*notifications.Notification, int, error) {
 	// Count total
@@ -122,8 +125,7 @@ func (r *NotificationRepository) List(ctx context.Context, organizationID string
 	countQuery := `
 		SELECT COUNT(*)
 		FROM notifications
-		WHERE organization_id = $1 AND user_id = $2
-	`
+		WHERE organization_id = $1 AND user_id = $2 AND ` + notificationVisible
 	countArgs := []interface{}{organizationID, userID}
 
 	if unreadOnly {
@@ -140,8 +142,7 @@ func (r *NotificationRepository) List(ctx context.Context, organizationID string
 		       issue_number, issue_title, comment_id, actor_id,
 		       unread, created_at, read_at
 		FROM notifications
-		WHERE organization_id = $1 AND user_id = $2
-	`
+		WHERE organization_id = $1 AND user_id = $2 AND ` + notificationVisible
 	args := []interface{}{organizationID, userID}
 
 	if unreadOnly {

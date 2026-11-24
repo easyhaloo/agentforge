@@ -17,6 +17,15 @@ func candidateRef(sha string) string { return "refs/agentforge/integration/" + s
 // CheckoutCandidate materializes the retained commit in a private build directory.
 // Only its files are exposed to the container. No source Git metadata is mounted.
 func (p *LocalGitProvider) CheckoutCandidate(ctx context.Context, org, repository, sha string) (string, func(), error) {
+	return p.checkoutCommit(ctx, org, repository, sha, candidateRef(sha))
+}
+
+// CheckoutRevision materializes the exact source commit captured by a revision trigger.
+func (p *LocalGitProvider) CheckoutRevision(ctx context.Context, org, repository, sha string) (string, func(), error) {
+	return p.checkoutCommit(ctx, org, repository, sha, sha)
+}
+
+func (p *LocalGitProvider) checkoutCommit(ctx context.Context, org, repository, sha, ref string) (string, func(), error) {
 	if !objectID.MatchString(sha) {
 		return "", nil, ErrRepositoryInvalid
 	}
@@ -30,7 +39,6 @@ func (p *LocalGitProvider) CheckoutCandidate(ctx context.Context, org, repositor
 	}
 	cleanup := func() { os.RemoveAll(temp) }
 	work := filepath.Join(temp, "src")
-	ref := candidateRef(sha)
 	for _, args := range [][]string{{"init", "--template=", work}, {"-C", work, "-c", "protocol.file.allow=always", "fetch", "--depth=1", "--no-tags", "--", path, ref}, {"-C", work, "checkout", "--detach", "FETCH_HEAD"}} {
 		if _, err := previewGit(ctx, temp, args...); err != nil {
 			cleanup()
@@ -97,6 +105,19 @@ func (p *LocalGitProvider) HasPromotion(ctx context.Context, org, repository, ru
 
 // PromoteCandidate advances an operator-managed bare target using Git's atomic old-OID check.
 func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository, runID string, preview MergePreview) error {
+	return p.promoteCandidate(ctx, org, repository, runID, preview, nil)
+}
+
+// PromoteRewrittenCandidate checks the original source tip in the same Git
+// transaction that advances the target and records the promotion receipt.
+func (p *LocalGitProvider) PromoteRewrittenCandidate(ctx context.Context, org, repository, runID string, preview MergePreview) error {
+	if len(preview.Sources) != 1 {
+		return ErrRepositoryInvalid
+	}
+	return p.promoteCandidate(ctx, org, repository, runID, preview, &preview.Sources[0])
+}
+
+func (p *LocalGitProvider) promoteCandidate(ctx context.Context, org, repository, runID string, preview MergePreview, source *PinnedRef) error {
 	base, sha, branch := preview.Target.SHA, preview.CandidateSHA, "refs/heads/"+preview.Target.Ref
 	if !promotionID.MatchString(runID) || !objectID.MatchString(base) || !objectID.MatchString(sha) || preview.Target.Ref == "" {
 		return ErrRepositoryInvalid
@@ -120,7 +141,19 @@ func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository
 		return ErrRepositoryInvalid
 	}
 	receipt := promotionRef(runID)
-	transaction := fmt.Sprintf("start\nupdate %s %s %s\ncreate %s %s\nprepare\ncommit\n", branch, sha, base, receipt, sha)
+	verify := ""
+	sourceRef := ""
+	if source != nil {
+		sourceRef = "refs/heads/" + source.Ref
+		if sourceRef == branch || !objectID.MatchString(source.SHA) {
+			return ErrRepositoryInvalid
+		}
+		if _, err := previewGit(ctx, path, "check-ref-format", sourceRef); err != nil {
+			return ErrRepositoryInvalid
+		}
+		verify = fmt.Sprintf("verify %s %s\n", sourceRef, source.SHA)
+	}
+	transaction := fmt.Sprintf("start\n%supdate %s %s %s\ncreate %s %s\nprepare\ncommit\n", verify, branch, sha, base, receipt, sha)
 	if _, err := previewGitInput(ctx, path, strings.NewReader(transaction), "update-ref", "--no-deref", "--stdin"); err != nil {
 		// Both refs committed or neither did, including when the process lost its reply.
 		recorded, readErr := previewGit(ctx, path, "rev-parse", "--verify", receipt)
@@ -130,6 +163,12 @@ func (p *LocalGitProvider) PromoteCandidate(ctx context.Context, org, repository
 		head, readErr := previewGit(ctx, path, "rev-parse", "--verify", branch)
 		if readErr != nil || strings.TrimSpace(string(head)) != base {
 			return ErrCandidateStale
+		}
+		if source != nil {
+			tip, err := previewGit(ctx, path, "rev-parse", "--verify", sourceRef)
+			if err != nil || strings.TrimSpace(string(tip)) != source.SHA {
+				return ErrCandidateStale
+			}
 		}
 		return ErrProviderUnavailable
 	}

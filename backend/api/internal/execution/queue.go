@@ -18,7 +18,7 @@ type QueueEntry struct {
 }
 
 type QueueStore interface {
-	Enqueue(context.Context, string, string, int, string, map[string]json.RawMessage, Integration) (QueueEntry, error)
+	Enqueue(context.Context, string, string, int, string, map[string]json.RawMessage, Integration, *delivery.LocalGitProvider) (QueueEntry, error)
 	ListQueue(context.Context, string, string, string) ([]QueueEntry, error)
 	CancelQueueEntry(context.Context, string, int64, string, PromotionReceipts) error
 }

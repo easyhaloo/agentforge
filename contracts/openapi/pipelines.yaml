@@ -90,6 +90,7 @@ paths:
     post:
       operationId: enqueueMergeCandidate
       summary: Admit one pinned source to the default branch queue
+      description: When conversation resolution is required by the target ruleset, admission returns 409 for an unresolved inline conversation, including an outdated one.
       security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
       requestBody:
         required: true
@@ -103,7 +104,7 @@ paths:
                 repository: {type: string}
                 target: {type: string}
                 sources: {type: array, minItems: 1, maxItems: 1, items: {type: string}}
-                strategy: {type: string, const: merge-commit}
+                strategy: {type: string, const: merge-commit, description: The queue selects fast-forward only when the target branch requires linear history.}
                 inputs: {type: object, additionalProperties: true}
       responses:
         '201':

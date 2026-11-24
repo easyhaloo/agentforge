@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -136,6 +137,35 @@ func (d DeliveryDependencies) listRepositoryWorkflows(w http.ResponseWriter, r *
 	writeJSON(w, 200, map[string]any{"items": items})
 }
 
+type repositorySettingsResponse struct {
+	delivery.RepositoryMetadata
+	HostingKind                               string    `json:"hosting_kind"`
+	PullRequestMethods                        *[]string `json:"pull_request_merge_methods,omitempty"`
+	PullRequestRequiresConversationResolution *bool     `json:"pull_request_requires_conversation_resolution,omitempty"`
+}
+
+func (d DeliveryDependencies) repositorySettings(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.principal(w, r, false)
+	if !ok {
+		return
+	}
+	repository, ok := d.registeredRepository(w, r, principal)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	response := repositorySettingsResponse{RepositoryMetadata: repository, HostingKind: d.repositoryHostingKind(r.Context(), repository)}
+	if branch := r.URL.Query().Get("target_branch"); branch != "" {
+		requireResolution := githttp.BranchRequiresConversationResolution(repository.RefRules, branch, repository.DefaultBranch)
+		response.PullRequestRequiresConversationResolution = &requireResolution
+		if response.HostingKind == "hosted" {
+			methods := repository.MergeMethods.PullRequestMethods(repository.RefRules, branch, repository.DefaultBranch)
+			response.PullRequestMethods = &methods
+		}
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r *http.Request) {
 	principal, ok := d.principal(w, r, true)
 	if !ok {
@@ -150,21 +180,49 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 		return
 	}
 	var input struct {
-		DefaultBranch  string    `json:"default_branch"`
-		PreviousBranch string    `json:"previous_branch"`
-		Description    *string   `json:"description"`
-		IsTemplate     *bool     `json:"is_template"`
-		PushRefLimit   *int      `json:"push_ref_limit"`
-		ProtectedRefs  *[]string `json:"protected_refs"`
-		UpdatedAt      time.Time `json:"updated_at"`
+		githttp.MergeMethods
+		MergeCommitMessageFormat  *string            `json:"merge_commit_message_format"`
+		SquashCommitMessageFormat *string            `json:"squash_commit_message_format"`
+		DefaultBranch             string             `json:"default_branch"`
+		PreviousBranch            string             `json:"previous_branch"`
+		Description               *string            `json:"description"`
+		WebCommitSignoffRequired  *bool              `json:"web_commit_signoff_required"`
+		DeleteMergedBranches      *bool              `json:"delete_merged_branches"`
+		AutoCloseIssuesDisabled   *bool              `json:"auto_close_issues_disabled"`
+		IssuesDisabled            *bool              `json:"issues_disabled"`
+		ActionsRetentionDays      *int               `json:"actions_retention_days"`
+		ActionsDisabled           *bool              `json:"actions_disabled"`
+		IsTemplate                *bool              `json:"is_template"`
+		PushRefLimit              *int               `json:"push_ref_limit"`
+		ProtectedRefs             *[]string          `json:"protected_refs"`
+		RefRules                  *[]githttp.RefRule `json:"ref_rules"`
+		UpdatedAt                 time.Time          `json:"updated_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	if input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil {
+	if input.MergeMethods.Specified() || input.MergeCommitMessageFormat != nil || input.SquashCommitMessageFormat != nil || input.Description != nil || input.IsTemplate != nil || input.PushRefLimit != nil || input.ProtectedRefs != nil || input.ActionsDisabled != nil || input.ActionsRetentionDays != nil || input.IssuesDisabled != nil || input.AutoCloseIssuesDisabled != nil || input.DeleteMergedBranches != nil || input.WebCommitSignoffRequired != nil || input.RefRules != nil {
 		if input.DefaultBranch != "" || input.PreviousBranch != "" || input.UpdatedAt.IsZero() {
 			writeProblem(w, 422, "Invalid settings update", "Provide the current version and update general settings separately from the default branch")
 			return
+		}
+		if !input.UpdatedAt.Equal(repository.UpdatedAt) {
+			writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
+			return
+		}
+		if input.MergeCommitMessageFormat != nil || input.SquashCommitMessageFormat != nil {
+			if d.repositoryHostingKind(r.Context(), repository) != "hosted" ||
+				(input.MergeCommitMessageFormat != nil && !githttp.ValidMergeMessageFormat(*input.MergeCommitMessageFormat, false)) ||
+				(input.SquashCommitMessageFormat != nil && !githttp.ValidMergeMessageFormat(*input.SquashCommitMessageFormat, true)) {
+				writeProblem(w, 422, "Invalid merge message format", "Choose a supported format for a native Git repository")
+				return
+			}
+			if input.MergeCommitMessageFormat != nil {
+				repository.MergeCommitMessageFormat = *input.MergeCommitMessageFormat
+			}
+			if input.SquashCommitMessageFormat != nil {
+				repository.SquashCommitMessageFormat = *input.SquashCommitMessageFormat
+			}
 		}
 		if input.Description != nil {
 			repository.Description = strings.TrimSpace(*input.Description)
@@ -200,8 +258,73 @@ func (d DeliveryDependencies) updateRepositorySettings(w http.ResponseWriter, r 
 			}
 			repository.ProtectedRefs = *input.ProtectedRefs
 		}
+		if input.RefRules != nil {
+			if !githttp.ValidRefRules(*input.RefRules) ||
+				(len(*input.RefRules) > 0 && d.repositoryHostingKind(r.Context(), repository) != "hosted") {
+				writeProblem(w, 422, "Invalid rulesets", "Provide up to 10 valid rulesets for a native Git repository")
+				return
+			}
+			for i := range *input.RefRules {
+				if (*input.RefRules)[i].Exclude == nil {
+					(*input.RefRules)[i].Exclude = []string{}
+				}
+			}
+			if _, err := githttp.QueueMergeStrategy(*input.RefRules, repository.DefaultBranch, repository.DefaultBranch); err != nil {
+				writeProblem(w, 422, "Invalid merge queue method", err.Error())
+				return
+			}
+			if slices.ContainsFunc(*input.RefRules, func(rule githttp.RefRule) bool { return rule.RequiredWorkflows != nil }) {
+				store, ok := d.Catalog.(interface {
+					ValidateRequiredWorkflows(context.Context, string, string, []githttp.RefRule) error
+				})
+				if !ok {
+					writeProblem(w, 503, "Required workflows unavailable", "The repository workflow configuration could not be verified")
+					return
+				}
+				err := store.ValidateRequiredWorkflows(r.Context(), principal.OrganizationID, repository.Slug, *input.RefRules)
+				if errors.Is(err, githttp.ErrIneligibleRequiredWorkflow) {
+					writeProblem(w, 422, "Invalid required workflows", err.Error())
+					return
+				}
+				if err != nil {
+					writeProblem(w, 503, "Required workflows unavailable", "The repository workflow configuration could not be verified")
+					return
+				}
+			}
+			repository.RefRules = *input.RefRules
+		}
+		if input.DeleteMergedBranches != nil {
+			if *input.DeleteMergedBranches && d.repositoryHostingKind(r.Context(), repository) != "hosted" {
+				writeProblem(w, 422, "Invalid branch cleanup policy", "Automatic branch deletion requires a native Git repository")
+				return
+			}
+			repository.DeleteMergedBranches = *input.DeleteMergedBranches
+		}
+		if input.WebCommitSignoffRequired != nil {
+			repository.WebCommitSignoffRequired = *input.WebCommitSignoffRequired
+		}
+		if input.AutoCloseIssuesDisabled != nil {
+			repository.AutoCloseIssuesDisabled = *input.AutoCloseIssuesDisabled
+		}
+		if input.IssuesDisabled != nil {
+			repository.IssuesDisabled = *input.IssuesDisabled
+		}
+		if input.ActionsDisabled != nil {
+			repository.ActionsDisabled = *input.ActionsDisabled
+		}
+		if input.ActionsRetentionDays != nil {
+			maxDays := 400
+			if repository.Visibility == "public" {
+				maxDays = 90
+			}
+			if days := *input.ActionsRetentionDays; days < 0 || days > maxDays {
+				writeProblem(w, 422, "Invalid Actions retention period", fmt.Sprintf("Use zero for the platform default or choose between 1 and %d days", maxDays))
+				return
+			}
+			repository.ActionsRetentionDays = *input.ActionsRetentionDays
+		}
 		repository.UpdatedAt = input.UpdatedAt
-		d.updateRepositoryGeneralSettings(w, r, repository)
+		d.updateRepositoryGeneralSettings(w, r, repository, input.MergeMethods)
 		return
 	}
 	store, storeOK := d.Catalog.(interface {
@@ -249,22 +372,23 @@ func (d DeliveryDependencies) repositoryHostingKind(ctx context.Context, reposit
 	return "registered"
 }
 
-func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWriter, r *http.Request, repository delivery.RepositoryMetadata) {
+func (d DeliveryDependencies) updateRepositoryGeneralSettings(w http.ResponseWriter, r *http.Request, repository delivery.RepositoryMetadata, methods githttp.MergeMethods) {
 	store, ok := d.Catalog.(interface {
-		SetRepositoryGeneralSettings(context.Context, delivery.RepositoryMetadata) (time.Time, error)
+		PatchRepositoryGeneralSettings(context.Context, delivery.RepositoryMetadata, githttp.MergeMethods) (delivery.RepositoryMetadata, error)
 	})
 	if !ok {
 		writeProblem(w, 503, "Repository settings unavailable", "Repository settings are not configured")
 		return
 	}
-	updatedAt, err := store.SetRepositoryGeneralSettings(r.Context(), repository)
+	updated, err := store.PatchRepositoryGeneralSettings(r.Context(), repository, methods)
 	switch {
 	case errors.Is(err, delivery.ErrVersionConflict):
 		writeProblem(w, 409, "Repository settings changed", "Reload the settings before trying again")
+	case errors.Is(err, delivery.ErrNoRepositoryMergeMethod):
+		writeProblem(w, 422, "Invalid merge methods", "Enable at least one pull request merge method")
 	case err != nil:
 		writeProblem(w, 500, "Unable to update repository settings", "General settings could not be saved")
 	default:
-		repository.UpdatedAt = updatedAt
-		writeJSON(w, 200, repository)
+		writeJSON(w, http.StatusOK, repositorySettingsResponse{RepositoryMetadata: updated, HostingKind: d.repositoryHostingKind(r.Context(), updated)})
 	}
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
@@ -22,7 +23,7 @@ func TestMergeQueueRecoveryAfterPromotionCommitFailure(t *testing.T) {
 		t.Helper()
 		preview, err := git.PrepareCandidate(ctx, org, repo, delivery.MergeRequest{Target: "main", Sources: []string{source}})
 		lockMust(t, err)
-		e, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview})
+		e, err := s.Enqueue(ctx, org, "p", 1, h.userID, nil, execution.Integration{Repository: repo, Strategy: "merge-commit", MergePreview: preview}, git)
 		lockMust(t, err)
 		return e
 	}
@@ -122,6 +123,9 @@ func TestMergeQueueRecoveryAfterPromotionCommitFailure(t *testing.T) {
 	if err := promote("unrelated-user"); !errors.Is(err, execution.ErrTriggerDenied) {
 		t.Fatalf("unauthorized retry: %v", err)
 	}
+	// Policy changes after Git wrote its receipt cannot invalidate recovery.
+	setMainMergeRuleset(t, s, org, githttp.RefRule{RestrictUpdate: true, RequirePullRequest: true})
+	execSQL(`UPDATE delivery_repositories SET allow_merge_commit=false WHERE organization_id=$1 AND slug=$2`, org, repo)
 	// A later branch move must survive replay of the receipt.
 	path := filepath.Join(git.Root, org, repo)
 	if out, err := exec.CommandContext(ctx, "git", "-C", path, "update-ref", "refs/heads/main", tail.SourceSHA, head.CandidateSHA).CombinedOutput(); err != nil {

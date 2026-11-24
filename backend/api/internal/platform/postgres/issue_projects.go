@@ -11,7 +11,7 @@ import (
 
 func (s *Store) ListIssueProjects(ctx context.Context, organizationID, repository, actorID string) ([]issues.Project, error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.name, coalesce(p.repository, ''), EXISTS (
-		SELECT 1 FROM issue_projects ip JOIN issues i ON i.organization_id = ip.organization_id AND i.id = ip.issue_id
+		SELECT 1 FROM issue_projects ip JOIN enabled_repository_issues i ON i.organization_id = ip.organization_id AND i.id = ip.issue_id
 		WHERE ip.organization_id = p.organization_id AND ip.project_id = p.id
 		AND i.created_by = $3 AND i.created_at > now() - interval '30 days'
 	), p.number

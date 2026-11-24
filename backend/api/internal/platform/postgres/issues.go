@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,6 +18,20 @@ func NewIssueRepository(store *Store) *IssueRepository {
 	return &IssueRepository{store: store}
 }
 
+// Lock the repository setting until a new issue, transfer, or staged attachment commits.
+func requireRepositoryIssues(ctx context.Context, tx pgx.Tx, org, repository string) error {
+	var disabled bool
+	err := tx.QueryRow(ctx, `SELECT issues_disabled FROM delivery_repositories
+		WHERE organization_id = $1 AND slug = $2 FOR SHARE`, org, repository).Scan(&disabled)
+	if disabled {
+		return issues.ErrDetailNotFound
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("read repository issues setting: %w", err)
+	}
+	return nil
+}
+
 // Create persists the issue and its repository-scoped metadata in the same transaction.
 func (r *IssueRepository) Create(ctx context.Context, organizationID string, issue *issues.Issue) (*issues.Issue, error) {
 	tx, err := r.store.pool.Begin(ctx)
@@ -24,6 +39,10 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 		return nil, fmt.Errorf("begin issue creation: %w", err)
 	}
 	defer tx.Rollback(ctx)
+
+	if err := requireRepositoryIssues(ctx, tx, organizationID, issue.Repository); err != nil {
+		return nil, err
+	}
 
 	var parentID string
 	if issue.ParentNumber > 0 {
@@ -210,11 +229,15 @@ func scanIssue(row pgx.Row) (*issues.Issue, error) {
 // Get retrieves an issue by repository and number.
 func (r *IssueRepository) Get(ctx context.Context, organizationID, repository string, number int) (*issues.Issue, error) {
 	issue, err := scanIssue(r.store.pool.QueryRow(ctx, `SELECT `+issueColumns+`
-		FROM issues WHERE organization_id = $1 AND repository = $2 AND number = $3`, organizationID, repository, number))
+		FROM enabled_repository_issues issues WHERE organization_id = $1 AND repository = $2 AND number = $3`, organizationID, repository, number))
 	if err != nil {
 		return nil, err
 	}
 	issue.Commits, err = r.listLinkedCommits(ctx, organizationID, repository, issue.ID)
+	if err != nil {
+		return nil, err
+	}
+	issue.ClosingPullRequests, err = r.listClosingPullRequests(ctx, organizationID, issue)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +246,7 @@ func (r *IssueRepository) Get(ctx context.Context, organizationID, repository st
 
 // ExistingNumbers resolves Issue references without loading their full bodies or metadata.
 func (r *IssueRepository) ExistingNumbers(ctx context.Context, organizationID, repository string, numbers []int32) ([]int32, error) {
-	rows, err := r.store.pool.Query(ctx, `SELECT number FROM issues
+	rows, err := r.store.pool.Query(ctx, `SELECT number FROM enabled_repository_issues
 		WHERE organization_id = $1 AND repository = $2 AND number = ANY($3) ORDER BY number`, organizationID, repository, numbers)
 	if err != nil {
 		return nil, fmt.Errorf("query issue numbers: %w", err)

@@ -5,10 +5,7 @@ export const navigation = (page: Page) => page.getByRole("navigation", { name: "
 
 export async function openNavigation(page: Page) {
   const drawer = page.locator(".af-drawer");
-  if (await drawer.count()) {
-    const isOpeningOrOpen = await drawer.evaluate((element) => element.classList.contains("af-drawer--visible"));
-    if (!isOpeningOrOpen) await expect(drawer).toHaveCount(0);
-  }
+  await expect(page.locator(".af-drawer:not(.af-drawer--visible)")).toHaveCount(0);
 
   if (!(await navigation(page).isVisible())) await navigationToggle(page).click();
 

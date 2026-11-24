@@ -1,7 +1,7 @@
 import { CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../shared/ui";
-import type { StoredChangeset } from "../../shared/api/identity";
+import type { PullRequestRequiredWorkflows, StoredChangeset } from "../../shared/api/identity";
 
 type Props = {
   onEvaluate: () => void;
@@ -9,9 +9,19 @@ type Props = {
   activeRevision?: StoredChangeset["changeset"]["revisions"][number];
   activeEvaluation?: StoredChangeset["changeset"]["evaluations"][number];
   activeEvidence: StoredChangeset["changeset"]["evidence"];
+  requiredWorkflows: PullRequestRequiredWorkflows["checks"];
+  workflowStatus?: string;
+  onRetryWorkflows?: () => void;
 };
 
-export function PullRequestChecksTab({ activeRevision, activeEvaluation, activeEvidence, onEvaluate, canEvaluate }: Props) {
+const workflowStyles = {
+  passed: { Icon: CheckCircle2, className: "checks-passed", label: "pulls:requiredWorkflows.status.passed" },
+  waiting: { Icon: Clock, className: "checks-pending", label: "pulls:requiredWorkflows.status.waiting" },
+  behind: { Icon: AlertTriangle, className: "checks-required", label: "pulls:requiredWorkflows.status.behind" },
+  source_moved: { Icon: AlertTriangle, className: "checks-required", label: "pulls:requiredWorkflows.status.source_moved" },
+} as const;
+
+export function PullRequestChecksTab({ activeRevision, activeEvaluation, activeEvidence, onEvaluate, canEvaluate, requiredWorkflows, workflowStatus, onRetryWorkflows }: Props) {
   const { t } = useTranslation(["pulls", "changesets"]);
 
   const hasChecks = !!activeEvaluation;
@@ -46,7 +56,7 @@ export function PullRequestChecksTab({ activeRevision, activeEvaluation, activeE
     {!hasChecks ? (
       <div className="checks-empty">
         <AlertTriangle size={22}/>
-        <p>{t("pulls:checks.noChecks")}</p>
+        <p>{t(requiredWorkflows.length ? "pulls:checks.noEvaluation" : "pulls:checks.noChecks")}</p>
       </div>
     ) : (
       <>
@@ -85,5 +95,23 @@ export function PullRequestChecksTab({ activeRevision, activeEvaluation, activeE
         )}
       </>
     )}
+
+    {workflowStatus && <section className="pull-required-workflows">
+      <h4>{t("pulls:requiredWorkflows.title")}</h4>
+      <div className="pull-workflow-summary">
+        <span role="status">{workflowStatus}</span>
+        {onRetryWorkflows && <Button onClick={onRetryWorkflows}>{t("pulls:actions.retry")}</Button>}
+      </div>
+      {requiredWorkflows.length > 0 && <ul className="pull-workflow-list">
+        {requiredWorkflows.map(({ pipeline_id, name, status }) => {
+          const { Icon, className, label } = workflowStyles[status];
+          return <li key={pipeline_id} className="checks-status">
+            <Icon size={16} className={className} aria-hidden="true"/>
+            <strong>{name}</strong>
+            <span>{t(label)}</span>
+          </li>;
+        })}
+      </ul>}
+    </section>}
   </div>;
 }

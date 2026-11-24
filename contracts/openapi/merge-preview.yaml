@@ -84,6 +84,7 @@ paths:
     post:
       operationId: promoteIntegrationRun
       summary: Approve and promote a tested candidate against its original target
+      description: Rechecks conversation resolution against the current matching pull request when required by the target ruleset. An unresolved conversation returns 409 even if the candidate passed its checks.
       security: [{sessionCookie: [], csrfCookie: [], csrfToken: []}]
       requestBody:
         required: true

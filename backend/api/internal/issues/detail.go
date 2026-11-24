@@ -70,7 +70,7 @@ type GitHubReference struct {
 type DetailRepository interface {
 	GitHubSource(context.Context, DetailScope) (*GitHubSource, error)
 	SetGitHubSource(ctx context.Context, scope DetailScope, source *GitHubSource, expected string) error
-	CreateBranch(ctx context.Context, scope DetailScope, write func(ID) (delivery.RepositoryRef, error)) (delivery.RepositoryRef, error)
+	CreateBranch(ctx context.Context, scope DetailScope, write func(ID, delivery.BranchWriteCheck) (delivery.RepositoryRef, error)) (delivery.RepositoryRef, error)
 	CreateLinkedPullRequest(ctx context.Context, scope DetailScope, changeset *delivery.Changeset) (delivery.StoredChangeset, error)
 	MovedIssue(ctx context.Context, organizationID, repository string, number int) (*Issue, error)
 	Transfer(ctx context.Context, scope DetailScope, destination string, expected time.Time) (*Issue, error)

@@ -9,7 +9,9 @@ Provision a private general-purpose S3 bucket. Set these variables on every API,
 | `PIPELINE_S3_BUCKET` | Existing bucket name. Leave all three `PIPELINE_*` storage settings unset to use the existing inline log events. |
 | `AWS_REGION` | Signing region, including for compatible endpoints. |
 | `PIPELINE_S3_ENDPOINT` | Optional HTTPS origin for a path-style compatible service such as MinIO. HTTP works on loopback for testing. Omit for the SDK's regional Amazon S3 endpoint. |
-| `PIPELINE_STORAGE_DAYS` | Payload retention for new writes. Default 30 days, range 1–3650. Existing expiry timestamps stay fixed. |
+| `PIPELINE_STORAGE_DAYS` | Default and upper limit for new object-storage payloads. Default 30 days, range 1–3650. Existing expiry timestamps stay fixed. |
+
+Repository owners and admins can shorten retention for new logs and artifacts in **Settings → Actions**. Zero inherits the platform policy. With PostgreSQL-only storage, the repository setting controls newly stored inline log expiry. For workflows covering two repositories, the shorter configured retention applies.
 
 The AWS SDK for Go v2 loads credentials through its default chain. Use workload roles or protected credential files. Keep credentials outside pipeline definitions, container mounts, logs and command arguments. Limit permissions to `pipeline-objects/v1/*`. Workers need `s3:PutObject`, the API needs `s3:GetObject` and `s3:GetObjectVersion`, and cleanup needs `s3:DeleteObject` and `s3:DeleteObjectVersion`. Configure the bucket's required encryption and corresponding KMS permissions when applicable. The service does not provision buckets or grant public access.
 
@@ -32,7 +34,7 @@ PostgreSQL migration `017_pipeline_objects.sql` stores the manifest, bucket and 
 
 ## Retention and recovery
 
-Run `go run ./cmd/pipeline-storage-gc` from the backend Go module with `DATABASE_URL` and the storage settings above. Schedule it at an interval appropriate to the deletion SLA. Each invocation removes up to 100 expired payloads. A full batch prints a message to run it again. Parallel cleanup processes skip locked rows. Expiry stops downloads regardless of the cleanup schedule.
+Run `go run ./cmd/pipeline-storage-gc` from the backend Go module with `DATABASE_URL` and the storage settings above. Schedule it at an interval appropriate to the deletion SLA. Each invocation removes up to 100 expired object payloads and 100 expired PostgreSQL logs. Inline log cleanup also runs with only `DATABASE_URL` configured. A full batch prints a message to run it again. Parallel cleanup processes skip locked rows. Expiry stops downloads regardless of the cleanup schedule.
 
 Cleanup deletes the recorded key and version, then sets `purged_at`. A failed delete returns a nonzero exit and leaves the row pending for retry. The audit row, checksum, provenance, byte count, timestamps and run events survive deletion. To inspect the backlog, group it by bucket so a configuration mismatch remains visible.
 

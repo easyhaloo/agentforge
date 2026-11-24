@@ -751,10 +751,27 @@ paths:
       - { in: path, name: organizationID, required: true, schema: { type: string } }
       - { in: path, name: owner, required: true, schema: { type: string } }
       - { in: path, name: repo, required: true, schema: { type: string } }
+    get:
+      operationId: getRepositorySettings
+      summary: Read repository settings from the catalog
+      parameters:
+        - in: query
+          name: target_branch
+          description: Include conversation-resolution requirements and allowed hosted merge methods for this pull request target.
+          schema: { type: string }
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Repository settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RepositorySettings" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
     patch:
       operationId: updateRepositorySettings
       summary: Update general repository settings or the default branch
-      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the catalog or refs endpoint.
+      description: Owners and administrators only. Branch changes update the default branch for registered and hosted repositories. Hosted Git updates its clone HEAD and protects the new default branch from direct pushes. General settings require the updated_at value returned by the settings or refs endpoint. Omitted fields are preserved and at least one pull request merge method must remain enabled.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -776,7 +793,20 @@ paths:
                     updated_at: { type: string, format: date-time }
                     description: { type: string, maxLength: 350 }
                     is_template: { type: boolean, description: Only native Git repositories can be enabled as templates. }
+                    web_commit_signoff_required: { type: boolean, description: Require explicit Developer Certificate of Origin sign-off for WebIDE commits. }
+                    delete_merged_branches: { type: boolean, description: Delete eligible source branches after merging pull requests in native Git repositories. }
+                    allow_merge_commit: { type: boolean }
+                    allow_squash_merge: { type: boolean }
+                    allow_rebase_merge: { type: boolean }
+                    merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
+                    squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
+                    issues_disabled: { type: boolean, description: Hides existing repository issues and blocks new ones until enabled. }
+                    auto_close_issues_disabled: { type: boolean, description: Disables closing linked issues when a pull request merges into the default branch. }
+                    actions_disabled: { type: boolean, description: Blocks new workflow runs for this repository. }
+                    actions_retention_days:
+                      $ref: "#/components/schemas/ActionsRetentionDays"
                     protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
+                    ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
                     push_ref_limit:
                       description: Optional branch and tag update cap for native Git pushes. Zero uses the server maximum of 128.
                       oneOf:
@@ -787,7 +817,7 @@ paths:
           description: Updated general repository settings
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/RepositoryMetadata" }
+              schema: { $ref: "#/components/schemas/RepositorySettings" }
         "204": { description: Updated default branch }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -820,12 +850,21 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, push_ref_limit, updated_at]
+                required: [repository, default_branch, resolved_commit_sha, items, hosting_kind, git_credentials_available, description, is_template, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, updated_at]
                 properties:
                   repository: { type: string }
                   default_branch: { type: string }
                   hosting_kind: { type: string, enum: [hosted, registered] }
                   git_credentials_available: { type: boolean }
+                  delete_merged_branches: { type: boolean }
+                  allow_merge_commit: { type: boolean, default: true }
+                  allow_squash_merge: { type: boolean, default: true }
+                  allow_rebase_merge: { type: boolean, default: true }
+                  merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
+                  squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
+                  web_commit_signoff_required: { type: boolean }
+                  issues_disabled: { type: boolean }
+                  auto_close_issues_disabled: { type: boolean }
                   description: { type: string }
                   is_template: { type: boolean }
                   protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
@@ -1516,6 +1555,55 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/files:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    put:
+      operationId: saveChangesetFile
+      summary: Commit a WebIDE file edit to a changeset revision
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, base_commit_sha, base_blob_sha, content]
+              properties:
+                path: { type: string }
+                base_commit_sha: { type: string }
+                base_blob_sha: { type: string }
+                content: { type: string }
+                signoff: { type: boolean, description: Explicit DCO consent. Must be true when web commit sign-off is required. }
+      responses:
+        "200":
+          description: File edit committed and attached as a changeset revision
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changeset, path, branch, commit_sha, blob_sha]
+                properties:
+                  changeset: { $ref: "#/components/schemas/StoredChangeset" }
+                  path: { type: string }
+                  branch: { type: string }
+                  commit_sha: { type: string }
+                  blob_sha: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/evaluations:
     parameters:
       - in: path
@@ -1671,7 +1759,7 @@ paths:
     post:
       operationId: mergeChangeset
       summary: Merge the current revision after server-side gate revalidation
-      description: Requires a passing evaluation, active revision-bound evidence and an approved review. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
+      description: Requires a passing evaluation, active revision-bound evidence and an approved review. Matching branch rulesets may block the merge or require a linked pull request targeting this exact branch with all inline conversations resolved. The Git provider performs a no-fast-forward merge into the requested target ref and persists the resulting commit SHA.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -1682,6 +1770,7 @@ paths:
               required: [target_ref]
               properties:
                 target_ref: { type: string, minLength: 1 }
+                merge_method: { type: string, enum: [merge, squash, rebase] }
       responses:
         "200":
           description: Merged changeset with the actual Git merge commit
@@ -1723,6 +1812,43 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/required-workflows:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getPullRequestRequiredWorkflows
+      summary: Get the required repository workflow status for the current pull request revision
+      description: Status reflects the live source and target branches. Merge verifies the same policy again under the repository lock.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Required workflow status, with an empty checks list when no rules apply
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision_id, checks]
+                properties:
+                  revision_id: { type: string }
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      required: [pipeline_id, name, status]
+                      properties:
+                        pipeline_id: { type: string }
+                        name: { type: string }
+                        status: { type: string, enum: [passed, waiting, behind, source_moved] }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/state:
     parameters:
@@ -1842,6 +1968,47 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+  /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments/{commentID}/resolution:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+      - in: path
+        name: commentID
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: setPullRequestCommentResolution
+      summary: Resolve or reopen an inline pull request conversation
+      description: Requires organization write membership. Works on current and outdated lines. Setting the same state again preserves the original resolver and timestamp.
+      security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [resolved]
+              properties:
+                resolved: { type: boolean }
+      responses:
+        "200":
+          description: Updated changeset with the conversation's resolution state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StoredChangeset" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces:
     parameters:
       - in: path
@@ -1877,9 +2044,10 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [workspace]
+                required: [workspace, web_commit_signoff_required]
                 properties:
                   workspace: { $ref: "#/components/schemas/Workspace" }
+                  web_commit_signoff_required: { type: boolean }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -2029,6 +2197,7 @@ paths:
               additionalProperties: false
               properties:
                 title: { type: string, minLength: 1, maxLength: 200 }
+                signoff: { type: boolean, description: Explicit DCO consent. Must be true when web commit sign-off is required. }
       responses:
         "201":
           description: Changeset and immutable workspace revision created
@@ -2355,12 +2524,126 @@ components:
         type: string
         pattern: '^refs/(heads|tags)/.+$'
         maxLength: 139
+    RepositoryRefRules:
+      type: array
+      description: Rulesets for writes to a native Git repository. Every matching enabled rule applies. Exclusions take precedence within a ruleset. Each ruleset requires at least one restriction and allows at most 10 patterns across include and exclude. The serialized ruleset list is limited to 64 KiB.
+      maxItems: 10
+      items:
+        type: object
+        additionalProperties: false
+        required: [name, target, enabled, include]
+        properties:
+          name: { type: string, minLength: 1, maxLength: 80 }
+          target: { type: string, enum: [branch, tag] }
+          enabled: { type: boolean }
+          include:
+            allOf: [{ $ref: "#/components/schemas/RepositoryRefRulePatterns" }, { minItems: 1 }]
+          exclude: { $ref: "#/components/schemas/RepositoryRefRulePatterns" }
+          restrict_creation: { type: boolean }
+          restrict_update: { type: boolean, description: "Blocks direct updates and, for branches, Changeset merges and integration promotions." }
+          restrict_deletion: { type: boolean }
+          block_force_push: { type: boolean, description: Prevents non-fast-forward branch updates and forced tag replacements. }
+          require_pull_request:
+            type: boolean
+            default: false
+            description: >-
+              Valid only for branch rulesets. Blocks direct updates to existing branches and requires a verified linked AgentForge pull request for Changeset merges.
+              Integration promotion requires each candidate source branch and commit to match a current, verified pull request into the target.
+          required_review_thread_resolution:
+            type: boolean
+            default: false
+            description: Valid with require_pull_request on branch rulesets. Blocks manual merge, merge queue admission and promotion until all inline conversations are resolved, including those on outdated revisions.
+          allowed_merge_methods:
+            type: array
+            minItems: 1
+            maxItems: 3
+            uniqueItems: true
+            items: { type: string, enum: [merge, squash, rebase] }
+            description: Valid with require_pull_request on branch rulesets. Intersected with repository settings and other matching rulesets. Omit to add no restriction.
+          required_workflows:
+            type: object
+            description: Valid for branch rulesets. Matching branches require verified pull requests with passing automatic repository workflow runs for the active revision.
+            additionalProperties: false
+            required: [pipeline_ids, strict, skip_creation]
+            properties:
+              pipeline_ids:
+                type: array
+                minItems: 1
+                maxItems: 20
+                uniqueItems: true
+                items: { type: string, minLength: 1, maxLength: 128 }
+              strict: { type: boolean, description: Require the source to contain the current target commit and the workflow to have run for that baseline. }
+              skip_creation: { type: boolean, description: Allow branch creation without workflow results. }
+          require_merge_queue:
+            type: boolean
+            default: false
+            description: >-
+              Valid only for branch rulesets targeting ~DEFAULT_BRANCH with no exclusions.
+              Requires a verified pull request for each source and a successful run at the head of the repository merge queue.
+              Blocks native pushes and other writers from directly updating the existing default branch.
+          merge_queue_method:
+            type: string
+            enum: [merge, squash, rebase]
+            description: Queue merge method. Requires require_merge_queue. If omitted, the queue creates merge commits or uses fast-forward only under a linear history rule. Merge commits are incompatible with linear history.
+          require_linear_history:
+            type: boolean
+            default: false
+            description: Valid only for branch rulesets. Rejects introduced merge commits on pushes and integration promotions. Direct Changeset merges to matching branches must fast-forward without introducing merge commits.
+          name_patterns:
+            type: array
+            maxItems: 10
+            description: Every listed restriction applies to the short name of a matching branch or tag on creation or update. Deletion does not evaluate the name.
+            items:
+              type: object
+              additionalProperties: false
+              required: [operator, pattern]
+              properties:
+                operator: { type: string, enum: [starts_with, ends_with, contains, regex] }
+                pattern: { type: string, minLength: 1, maxLength: 1024, description: Literal text or an RE2 expression. Limited to 1024 bytes. }
+                negate: { type: boolean, default: false }
+                name: { type: string, maxLength: 80, description: Optional description of this restriction. }
+    RepositoryRefRulePatterns:
+      type: array
+      description: Ref names or globs without the refs/heads/ or refs/tags/ prefix. Use ~ALL for every ref or ~DEFAULT_BRANCH for the current default branch.
+      maxItems: 10
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 128 }
+    RepositorySettings:
+      allOf:
+        - $ref: "#/components/schemas/RepositoryMetadata"
+        - type: object
+          required: [hosting_kind]
+          properties:
+            hosting_kind: { type: string, enum: [hosted, registered] }
+            pull_request_requires_conversation_resolution:
+              type: boolean
+              description: Whether a matching active branch ruleset requires resolution of all inline conversations on the requested target branch.
+            pull_request_merge_methods:
+              type: array
+              items: { type: string, enum: [merge, squash, rebase] }
+    ActionsRetentionDays:
+      type: integer
+      minimum: 0
+      maximum: 400
+      description: Retention for new workflow logs and artifacts, with a maximum of 90 days for public repositories. Zero uses the platform default. Object storage can impose a shorter limit.
     RepositoryMetadata:
       type: object
-      required: [organization_id, slug, default_branch, fork, is_template, push_ref_limit, created_by, created_at, updated_at]
+      required: [organization_id, slug, default_branch, fork, is_template, actions_disabled, actions_retention_days, delete_merged_branches, allow_merge_commit, allow_squash_merge, allow_rebase_merge, web_commit_signoff_required, issues_disabled, auto_close_issues_disabled, push_ref_limit, created_by, created_at, updated_at]
       properties:
         is_template: { type: boolean }
+        actions_disabled: { type: boolean }
+        actions_retention_days: { $ref: "#/components/schemas/ActionsRetentionDays" }
+        delete_merged_branches: { type: boolean }
+        allow_merge_commit: { type: boolean, default: true }
+        allow_squash_merge: { type: boolean, default: true }
+        allow_rebase_merge: { type: boolean, default: true }
+        merge_commit_message_format: { type: string, enum: [default, title, description], default: default }
+        squash_commit_message_format: { type: string, enum: [default, title, description, commits], default: default }
+        web_commit_signoff_required: { type: boolean }
+        issues_disabled: { type: boolean }
+        auto_close_issues_disabled: { type: boolean }
         protected_refs: { $ref: "#/components/schemas/RepositoryProtectedRefs" }
+        ref_rules: { $ref: "#/components/schemas/RepositoryRefRules" }
         push_ref_limit: { type: integer, minimum: 0, maximum: 128 }
         organization_id: { type: string }
         slug: { type: string }
@@ -2487,6 +2770,8 @@ components:
         path: { type: string, description: "For inline comments, the file path." }
         side: { type: string, enum: [left, right], description: "For inline comments, which side of the diff." }
         line: { type: integer, minimum: 1, description: "For inline comments, the line number." }
+        resolved_by: { type: string, description: "User ID of the resolver. Present only for resolved inline conversations." }
+        resolved_at: { type: string, format: date-time, description: "When the inline conversation was resolved." }
     PullRequest:
       type: object
       required: [base_branch, source_branch, draft, closed, comments]

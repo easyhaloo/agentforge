@@ -17,7 +17,7 @@ type issueDetailQuerier interface {
 }
 
 func scopedIssue(ctx context.Context, db issueDetailQuerier, scope issues.DetailScope, number int, lock bool) (id, author string, err error) {
-	query := `SELECT id, created_by FROM issues WHERE organization_id = $1 AND repository = $2 AND number = $3`
+	query := `SELECT id, created_by FROM enabled_repository_issues WHERE organization_id = $1 AND repository = $2 AND number = $3`
 	if lock {
 		query += ` FOR KEY SHARE`
 	}
@@ -33,7 +33,7 @@ func scopedIssue(ctx context.Context, db issueDetailQuerier, scope issues.Detail
 
 func (r *IssueRepository) GitHubSource(ctx context.Context, scope issues.DetailScope) (*issues.GitHubSource, error) {
 	var source *issues.GitHubSource
-	err := r.store.pool.QueryRow(ctx, `SELECT github_source FROM issues
+	err := r.store.pool.QueryRow(ctx, `SELECT github_source FROM enabled_repository_issues
 		WHERE organization_id = $1 AND repository = $2 AND number = $3`,
 		scope.OrganizationID, scope.Repository, scope.Number).Scan(&source)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -51,7 +51,9 @@ func (r *IssueRepository) SetGitHubSource(ctx context.Context, scope issues.Deta
 	}
 	tag, err := r.store.pool.Exec(ctx, `UPDATE issues SET github_source = $4
 		WHERE organization_id = $1 AND repository = $2 AND number = $3
-		AND (github_source->>'fetched_at') IS NOT DISTINCT FROM NULLIF($5, '')`,
+		AND (github_source->>'fetched_at') IS NOT DISTINCT FROM NULLIF($5, '')
+		AND EXISTS (SELECT 1 FROM enabled_repository_issues i
+			WHERE i.organization_id = issues.organization_id AND i.id = issues.id)`,
 		scope.OrganizationID, scope.Repository, scope.Number, source, expected)
 	if err != nil {
 		return fmt.Errorf("update GitHub issue source: %w", err)
@@ -64,7 +66,7 @@ func (r *IssueRepository) SetGitHubSource(ctx context.Context, scope issues.Deta
 
 // CreateBranch holds the issue at this repository and number until Git finishes.
 // A later transfer leaves its Git refs in the original repository.
-func (r *IssueRepository) CreateBranch(ctx context.Context, scope issues.DetailScope, write func(issues.ID) (delivery.RepositoryRef, error)) (delivery.RepositoryRef, error) {
+func (r *IssueRepository) CreateBranch(ctx context.Context, scope issues.DetailScope, write func(issues.ID, delivery.BranchWriteCheck) (delivery.RepositoryRef, error)) (delivery.RepositoryRef, error) {
 	if !scope.CanManage {
 		return delivery.RepositoryRef{}, issues.ErrDetailForbidden
 	}
@@ -77,7 +79,13 @@ func (r *IssueRepository) CreateBranch(ctx context.Context, scope issues.DetailS
 	if err != nil {
 		return delivery.RepositoryRef{}, err
 	}
-	return write(issues.ID(id))
+	// Take the repository policy lock after the Issue row lock, on the same
+	// transaction. Neither native pushes nor merges take an Issue row lock.
+	policy, err := lockGitPolicyRow(ctx, tx, scope.OrganizationID, scope.Repository)
+	if err != nil {
+		return delivery.RepositoryRef{}, err
+	}
+	return write(issues.ID(id), policy.CheckBranchWrite)
 }
 
 func (r *IssueRepository) CreateLinkedPullRequest(ctx context.Context, scope issues.DetailScope, changeset *delivery.Changeset) (delivery.StoredChangeset, error) {
@@ -93,6 +101,9 @@ func (r *IssueRepository) CreateLinkedPullRequest(ctx context.Context, scope iss
 	}
 	defer tx.Rollback(ctx)
 	org := scope.OrganizationID
+	if err := requireRepositoryIssues(ctx, tx, org, scope.Repository); err != nil {
+		return delivery.StoredChangeset{}, err
+	}
 	var issueID string
 	err = tx.QueryRow(ctx, `UPDATE issues SET updated_at = clock_timestamp(), version = version + 1
 		WHERE organization_id = $1 AND repository = $2 AND number = $3 RETURNING id`, org, scope.Repository, scope.Number).Scan(&issueID)
@@ -134,11 +145,11 @@ func readIssueRelationships(ctx context.Context, db issueDetailQuerier, scope is
 	result := issues.Relationships{Children: []issues.IssueSummary{}}
 	rows, err := db.Query(ctx, `
 		SELECT true AS is_parent, i.id, i.number, i.title, i.state FROM issue_parents p
-		JOIN issues i ON (i.organization_id, i.repository, i.id) = (p.organization_id, p.repository, p.parent_id)
+		JOIN enabled_repository_issues i ON (i.organization_id, i.repository, i.id) = (p.organization_id, p.repository, p.parent_id)
 		WHERE p.organization_id = $1 AND p.repository = $2 AND p.child_id = $3
 		UNION ALL
 		SELECT false, i.id, i.number, i.title, i.state FROM issue_parents p
-		JOIN issues i ON (i.organization_id, i.repository, i.id) = (p.organization_id, p.repository, p.child_id)
+		JOIN enabled_repository_issues i ON (i.organization_id, i.repository, i.id) = (p.organization_id, p.repository, p.child_id)
 		WHERE p.organization_id = $1 AND p.repository = $2 AND p.parent_id = $3
 		ORDER BY number`, scope.OrganizationID, scope.Repository, id)
 	if err != nil {
@@ -185,7 +196,7 @@ func (r *IssueRepository) SetParent(ctx context.Context, scope issues.DetailScop
 	if parentNumber == 0 {
 		var parentAuthor string
 		err := tx.QueryRow(ctx, `SELECT i.created_by FROM issue_parents p
-			JOIN issues i ON (i.organization_id, i.repository, i.id) = (p.organization_id, p.repository, p.parent_id)
+			JOIN enabled_repository_issues i ON (i.organization_id, i.repository, i.id) = (p.organization_id, p.repository, p.parent_id)
 			WHERE p.organization_id = $1 AND p.repository = $2 AND p.child_id = $3`, scope.OrganizationID, scope.Repository, child).Scan(&parentAuthor)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -284,7 +295,7 @@ func (r *IssueRepository) SetArtifact(ctx context.Context, scope issues.DetailSc
 	defer tx.Rollback(ctx)
 	// Serialize writes to one issue so simultaneous uploads cannot exceed the limit.
 	var id, author string
-	err = tx.QueryRow(ctx, `SELECT id, created_by FROM issues WHERE organization_id = $1 AND repository = $2 AND number = $3 FOR NO KEY UPDATE`,
+	err = tx.QueryRow(ctx, `SELECT id, created_by FROM enabled_repository_issues WHERE organization_id = $1 AND repository = $2 AND number = $3 FOR NO KEY UPDATE`,
 		scope.OrganizationID, scope.Repository, scope.Number).Scan(&id, &author)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return issues.ErrDetailNotFound
@@ -355,7 +366,7 @@ func (r *IssueRepository) Report(ctx context.Context, scope issues.DetailScope, 
 	// Verify the issue/comment and write the private report in one statement. Hold the
 	// matched resources until the report is inserted so concurrent deletion has a defined order.
 	err := r.store.pool.QueryRow(ctx, `WITH target AS (
-		SELECT i.organization_id, i.id FROM issues i WHERE i.organization_id = $1 AND i.repository = $2 AND i.number = $3
+		SELECT i.organization_id, i.id FROM enabled_repository_issues i WHERE i.organization_id = $1 AND i.repository = $2 AND i.number = $3
 		AND ($6 = '' OR EXISTS (SELECT 1 FROM comments c WHERE c.organization_id = i.organization_id
 			AND c.resource_type = 'issue' AND c.resource_id = i.id AND c.id = $6 FOR KEY SHARE))
 		FOR KEY SHARE

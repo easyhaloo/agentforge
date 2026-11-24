@@ -21,6 +21,8 @@ func runTestGit(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func allowBranchWrite(string, bool) error { return nil }
+
 func TestLocalGitProviderSaveTextFileUsesChangesetBranchAndCAS(t *testing.T) {
 	root := t.TempDir()
 	repo := filepath.Join(root, "org-1", "owner", "repo")
@@ -42,9 +44,13 @@ func TestLocalGitProviderSaveTextFileUsesChangesetBranchAndCAS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("after\n"))
+	signoff := NewWebCommitSignoff("user-123", "Contributor")
+	result, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("after\n"), allowBranchWrite, signoff)
 	if err != nil {
 		t.Fatalf("save: %v", err)
+	}
+	if got := runTestGit(t, repo, "show", "-s", "--format=%(trailers:key=Signed-off-by)", result.CommitSHA); got != "Signed-off-by: Contributor <"+signoff.email+">" {
+		t.Fatalf("unexpected sign-off: %q", got)
 	}
 	if result.Branch != "agentforge/changesets/cs-123" {
 		t.Fatalf("unexpected branch: %s", result.Branch)
@@ -63,9 +69,26 @@ func TestLocalGitProviderSaveTextFileUsesChangesetBranchAndCAS(t *testing.T) {
 		t.Fatalf("read saved blob: %q %s %v", content, gotBlob, err)
 	}
 
-	_, err = provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("stale\n"))
+	_, err = provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-123", base, blob, "hello.txt", []byte("stale\n"), allowBranchWrite, WebCommitSignoff{})
 	if err != ErrWriteConflict {
 		t.Fatalf("expected CAS conflict, got %v", err)
+	}
+
+	// A writer that observes an absent ref must keep the create-only CAS even
+	// when another process creates the same ref at the requested base commit.
+	const raceRef = "refs/heads/agentforge/changesets/cs-race"
+	_, err = provider.SaveTextFile(t.Context(), "org-1", "owner/repo", "cs-race", base, blob, "hello.txt", []byte("racing edit\n"), func(ref string, creating bool) error {
+		if ref != raceRef || !creating {
+			t.Fatalf("checked %q (creating %t), want creation of %q", ref, creating, raceRef)
+		}
+		runTestGit(t, repo, "update-ref", raceRef, base)
+		return nil
+	}, WebCommitSignoff{})
+	if err != ErrWriteConflict {
+		t.Fatalf("expected CAS conflict after concurrent creation, got %v", err)
+	}
+	if got := runTestGit(t, repo, "rev-parse", raceRef); got != base {
+		t.Fatalf("concurrently created ref moved: %s != %s", got, base)
 	}
 }
 
@@ -93,12 +116,12 @@ func TestLocalGitProviderSaveTextFileRejectsUnsafePathsAndSymlinks(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, path := range []string{"../escape", "/absolute", "a//b", "a\\b"} {
-		if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, blob, path, []byte("x")); err != ErrWriteInvalid {
+		if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, blob, path, []byte("x"), allowBranchWrite, WebCommitSignoff{}); err != ErrWriteInvalid {
 			t.Fatalf("path %q: expected invalid input, got %v", path, err)
 		}
 	}
 	linkBlob := runTestGit(t, repo, "rev-parse", "HEAD:link.txt")
-	if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, linkBlob, "link.txt", []byte("x")); err != ErrWriteInvalid {
+	if _, err := provider.SaveTextFile(context.Background(), "org-1", "owner/repo", "cs-456", base, linkBlob, "link.txt", []byte("x"), allowBranchWrite, WebCommitSignoff{}); err != ErrWriteInvalid {
 		t.Fatalf("expected symlink rejection, got %v", err)
 	}
 }

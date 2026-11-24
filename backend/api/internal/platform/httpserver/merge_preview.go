@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
-	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
+	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
+	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
+	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 )
 
 func (d DeliveryDependencies) integrationGit() delivery.GitProvider {
@@ -75,9 +76,28 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 			writeProblem(w, 503, "Catalog unavailable", "Could not read registered repositories")
 			return
 		}
-		if !slices.ContainsFunc(repos, func(item delivery.RepositoryMetadata) bool { return item.Slug == input.Repository }) {
+		repoIndex := slices.IndexFunc(repos, func(item delivery.RepositoryMetadata) bool { return item.Slug == input.Repository })
+		if repoIndex < 0 {
 			writeProblem(w, 404, "Unknown repository", "Select a repository registered in this organization")
 			return
+		}
+		repo := repos[repoIndex]
+		target := strings.TrimPrefix(input.Target, "refs/heads/")
+		if queueRequest {
+			input.Strategy, err = githttp.QueueMergeStrategy(repo.RefRules, target, repo.DefaultBranch)
+			if err != nil {
+				writeProblem(w, 409, "Repository ruleset blocks queue admission", err.Error())
+				return
+			}
+			if err := repo.MergeMethods.CheckBranch(input.Strategy, repo.RefRules, target, repo.DefaultBranch); err != nil {
+				writeQueueError(w, err)
+				return
+			}
+		} else if input.Strategy == "squash" || input.Strategy == "rebase" {
+			writeProblem(w, 422, "Invalid integration strategy", "Configure that merge method in the merge queue ruleset")
+			return
+		} else if input.Strategy == "" && githttp.LinearHistoryRule(repo.RefRules, target, repo.DefaultBranch) != "" {
+			input.Strategy = "ff-only"
 		}
 		select {
 		case slots <- struct{}{}:
@@ -109,7 +129,8 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 					writeProblem(w, 503, "Queue unavailable", "Durable storage is required")
 					return
 				}
-				entry, err := queue.Enqueue(r.Context(), user.OrganizationID, r.PathValue("id"), version, user.UserID, inputs, execution.Integration{Repository: input.Repository, Strategy: input.Strategy, MergePreview: result})
+				git, _ := d.integrationGit().(*delivery.LocalGitProvider)
+				entry, err := queue.Enqueue(r.Context(), user.OrganizationID, r.PathValue("id"), version, user.UserID, inputs, execution.Integration{Repository: input.Repository, Strategy: input.Strategy, MergePreview: result}, git)
 				if err != nil {
 					writeQueueError(w, err)
 					return
@@ -121,6 +142,8 @@ func (d DeliveryDependencies) mergePreviewRoutes(mux *http.ServeMux) {
 			switch {
 			case runErr == nil:
 				writeJSON(w, 201, run)
+			case errors.Is(runErr, execution.ErrRepositoryActionsDisabled):
+				writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 			case errors.Is(runErr, execution.ErrInputs):
 				writeProblem(w, 422, "Invalid integration workflow", runErr.Error())
 			case errors.Is(runErr, pipeline.ErrMissing):
@@ -182,6 +205,13 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 		writeProblem(w, 403, "Promotion denied", "Check organization membership and the registered default branch")
 	case errors.Is(err, pipeline.ErrMissing):
 		writeProblem(w, 404, "Run unavailable", "Select a run in this organization")
+	case errors.Is(err, githttp.ErrMergeMethodDisabled):
+		writeProblem(w, 409, "Merge method disabled", err.Error())
+	case errors.Is(err, githttp.ErrUnresolvedConversations):
+		writeUnresolvedConversations(w)
+	case errors.Is(err, githttp.ErrBranchUpdatesRestricted), errors.Is(err, githttp.ErrBranchPullRequestRequired),
+		errors.Is(err, githttp.ErrBranchMergeQueueRequired), errors.Is(err, githttp.ErrRequiredWorkflows), errors.Is(err, githttp.ErrStrictWorkflowBase), errors.Is(err, githttp.ErrRefNameRestricted), errors.Is(err, githttp.ErrLinearHistoryRequired):
+		writeProblem(w, http.StatusConflict, "Repository ruleset blocks promotion", err.Error())
 	case errors.Is(err, pipeline.ErrConflict):
 		writeProblem(w, 409, "Merge gate closed", "Check the exact candidate, build, evidence and current revision approvals")
 	case errors.Is(err, delivery.ErrCandidateStale):
@@ -193,6 +223,14 @@ func (d DeliveryDependencies) promoteIntegration(w http.ResponseWriter, r *http.
 
 func writeQueueError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, githttp.ErrMergeMethodDisabled):
+		writeProblem(w, 409, "Merge method disabled", err.Error())
+	case errors.Is(err, githttp.ErrUnresolvedConversations):
+		writeUnresolvedConversations(w)
+	case errors.Is(err, githttp.ErrBranchPullRequestRequired), errors.Is(err, githttp.ErrRequiredWorkflows), errors.Is(err, githttp.ErrStrictWorkflowBase):
+		writeProblem(w, http.StatusConflict, "Repository ruleset blocks queue admission", err.Error())
+	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
+		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 	case errors.Is(err, execution.ErrTriggerDenied):
 		writeProblem(w, 403, "Queue admission denied", "An active organization membership is required")
 	case errors.Is(err, pipeline.ErrMissing):

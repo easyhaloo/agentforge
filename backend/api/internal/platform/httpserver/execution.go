@@ -88,6 +88,8 @@ func (d DeliveryDependencies) executionRequest(w http.ResponseWriter, r *http.Re
 		run, err = d.Runs.GetRun(r.Context(), user.OrganizationID, r.PathValue("run"))
 	}
 	switch {
+	case errors.Is(err, execution.ErrRepositoryActionsDisabled):
+		writeProblem(w, 403, "Repository Actions disabled", "Enable Actions in repository settings to start new workflow runs")
 	case errors.Is(err, execution.ErrInputs):
 		writeProblem(w, 400, "Invalid inputs", err.Error())
 	case errors.Is(err, pipeline.ErrMissing):

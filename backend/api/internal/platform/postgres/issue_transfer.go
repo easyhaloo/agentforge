@@ -12,10 +12,11 @@ import (
 
 func (r *IssueRepository) MovedIssue(ctx context.Context, org, repository string, number int) (*issues.Issue, error) {
 	return scanIssue(r.store.pool.QueryRow(ctx, `SELECT `+issueColumns+`
-		FROM issues WHERE (organization_id, id) = (
+		FROM enabled_repository_issues issues WHERE (organization_id, id) = (
 			SELECT organization_id, issue_id FROM issue_redirects
 			WHERE organization_id = $1 AND repository = $2 AND number = $3
-		)`, org, repository, number))
+		) AND NOT EXISTS (SELECT 1 FROM delivery_repositories r
+			WHERE r.organization_id = $1 AND r.slug = $2 AND r.issues_disabled)`, org, repository, number))
 }
 
 func (r *IssueRepository) Transfer(ctx context.Context, scope issues.DetailScope, destination string, expected time.Time) (*issues.Issue, error) {
@@ -32,6 +33,16 @@ func (r *IssueRepository) Transfer(ctx context.Context, scope issues.DetailScope
 	defer tx.Rollback(ctx)
 
 	org := scope.OrganizationID
+	// Acquire repository locks in the same order for transfers in either direction.
+	first, second := scope.Repository, destination
+	if first > second {
+		first, second = second, first
+	}
+	for _, name := range []string{first, second} {
+		if err := requireRepositoryIssues(ctx, tx, org, name); err != nil {
+			return nil, err
+		}
+	}
 	var id string
 	var updated time.Time
 	err = tx.QueryRow(ctx, `SELECT id, updated_at FROM issues

@@ -218,10 +218,11 @@ test("the merge queue loads automatically and only its ready head can be promote
     expect(route.request().postDataJSON()).toEqual({candidateSHA: entries[0].candidateSHA});
     entries.splice(0); return route.fulfill({ json: { promotedSHA: "1".repeat(40) } });
   });
-  await page.goto("/orgs/demo/pipelines");
+  await page.goto("/orgs/demo/pipelines?queueRepository=team%2Frepo&queueTarget=main&queueSource=first");
   await page.getByRole("link", {name:"checks",exact:true}).click();
-  await page.getByText("Merge queue", { exact: true }).click();
-  await page.getByLabel("Registered repository").fill("team/repo");
+  await expect(page.getByLabel("Registered repository")).toHaveValue("team/repo");
+  await expect(page.getByLabel("Target branch")).toHaveValue("main");
+  await expect(page.getByLabel("Source branch or commit")).toHaveValue("first");
   await expect(page.getByRole("button", { name: "Refresh queue" })).toHaveCount(0);
   await expect(page.getByText("Building", { exact: false }).filter({ hasText: "first" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Promote candidate" })).toHaveCount(0);
