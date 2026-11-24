@@ -20,17 +20,6 @@ afterEach(() => {
 });
 
 describe("NotificationsSettingsPage", () => {
-  const mockNotifications = {
-    email_notifications: {
-      evaluation_complete: true,
-      review_assigned: true,
-      changeset_status: false,
-      org_invitation: true,
-    },
-    web_push_enabled: false,
-    notification_frequency: "real-time" as const,
-  };
-
   it("shows loading state on initial render", () => {
     const html = renderToStaticMarkup(<NotificationsSettingsPage />);
 

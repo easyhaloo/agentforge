@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/notifications"
+	"github.com/jackc/pgx/v5"
 )
 
 type NotificationRepository struct {
@@ -15,6 +16,72 @@ type NotificationRepository struct {
 
 func NewNotificationRepository(store *Store) *NotificationRepository {
 	return &NotificationRepository{store: store}
+}
+
+// notifyIssueActivity inserts at most one inbox item per recipient. A direct mention
+// takes precedence over a subscription when both delivery rules match.
+func notifyIssueActivity(ctx context.Context, tx pgx.Tx, organizationID, issueID, commentID, actorID, body string, createdAt time.Time, mailOrigin string) error {
+	_, err := tx.Exec(ctx, `
+		WITH recipients AS (
+			SELECT i.organization_id, i.id, i.repository, i.number, i.title, m.user_id,
+				COALESCE(u.username = ANY($6), false) OR s.user_id IS NOT NULL AS participates,
+				w.user_id IS NOT NULL AS watches,
+				COALESCE(p.inbox_participating, true) AND COALESCE(u.username = ANY($6), false) AS mentioned,
+				COALESCE(p.inbox_participating, true) AND s.user_id IS NOT NULL AS subscribed,
+				COALESCE(p.inbox_watching, true) AND w.user_id IS NOT NULL AS watching
+			FROM issues i
+			JOIN organization_memberships m ON m.organization_id = i.organization_id
+			JOIN users u ON u.id = m.user_id
+			LEFT JOIN notification_preferences p ON p.user_id = m.user_id
+			LEFT JOIN issue_subscriptions s ON (s.organization_id, s.issue_id, s.user_id) = (i.organization_id, i.id, m.user_id)
+			LEFT JOIN repository_watches w ON (w.organization_id, w.repository, w.user_id) = (i.organization_id, i.repository, m.user_id)
+			WHERE i.organization_id = $1 AND i.id = $2 AND m.status = 'active' AND m.user_id <> $4
+				AND (u.username = ANY($6) OR s.user_id IS NOT NULL OR w.user_id IS NOT NULL)
+		), inbox AS (
+		INSERT INTO notifications (organization_id, id, user_id, type, reason, issue_id,
+			repository, issue_number, issue_title, comment_id, actor_id, created_at)
+		SELECT organization_id, gen_random_uuid()::text, user_id,
+			CASE WHEN mentioned THEN 'mention' WHEN $3 = '' THEN 'issue_created' ELSE 'comment' END,
+			CASE WHEN mentioned THEN 'mentioned' ELSE 'subscribed' END,
+			id, repository, number, title, NULLIF($3, ''), $4, $5
+		FROM recipients WHERE mentioned OR subscribed OR watching
+		)
+		INSERT INTO email_queue (id, organization_id, to_address, subject, body, is_html)
+		SELECT gen_random_uuid()::text, r.organization_id, e.address,
+			CASE WHEN $3 = '' THEN 'New issue: ' ELSE 'New comment: ' END || r.repository || '#' || r.number || ' ' || r.title,
+			$7 || '/orgs/' || COALESCE(o.slug, o.id) || '/repositories/' || r.repository || '/issues/' || r.number,
+			false
+		FROM recipients r
+		JOIN notification_email_settings e ON e.user_id = r.user_id
+		JOIN organizations o ON o.id = r.organization_id
+		WHERE $7 <> '' AND e.address <> '' AND ((r.participates AND e.participating) OR (r.watches AND e.watching))`,
+		organizationID, issueID, commentID, actorID, createdAt, notifications.ParseMentions(body), mailOrigin)
+	if err != nil {
+		return fmt.Errorf("notify issue activity: %w", err)
+	}
+	return EnqueueRepositoryWebhooks(ctx, tx, organizationID, issueID, commentID)
+}
+
+func (r *NotificationRepository) IsWatchingRepository(ctx context.Context, organizationID, repository, userID string) (bool, error) {
+	var watching bool
+	err := r.store.pool.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM repository_watches WHERE organization_id = $1 AND repository = $2 AND user_id = $3
+	)`, organizationID, repository, userID).Scan(&watching)
+	if err != nil {
+		return false, fmt.Errorf("get repository watch: %w", err)
+	}
+	return watching, nil
+}
+
+func (r *NotificationRepository) SetRepositoryWatch(ctx context.Context, organizationID, repository, userID string, watching bool) error {
+	query := `DELETE FROM repository_watches WHERE organization_id = $1 AND repository = $2 AND user_id = $3`
+	if watching {
+		query = `INSERT INTO repository_watches (organization_id, repository, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`
+	}
+	if _, err := r.store.pool.Exec(ctx, query, organizationID, repository, userID); err != nil {
+		return fmt.Errorf("update repository watch: %w", err)
+	}
+	return nil
 }
 
 // Create persists a new notification

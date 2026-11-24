@@ -11,10 +11,12 @@
 .preferences-settings .af-field__hint { font-size: 12px; }
 .preferences-settings button[type="submit"] {
   justify-self: start;
+}
+.preferences-settings .af-button--primary[type="submit"] {
   background: #1f883d;
   border-color: #1b7836;
 }
-.preferences-settings button[type="submit"]:enabled:hover { background: #1a7f37; }
+.preferences-settings .af-button--primary[type="submit"]:enabled:hover { background: #1a7f37; }
 .preferences-settings .preference-error {
   padding: 12px;
   border-radius: 6px;
@@ -92,3 +94,13 @@
   accent-color: var(--color-primary);
 }
 .preferences-settings :is(.theme-card, .preference-row, .preference-checkbox):hover { background: var(--color-bg-hover); }
+
+.notification-email-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.notification-email-form .af-field { flex: 1 1 18rem; }
+.preferences-settings .settings-note { overflow-wrap: anywhere; }

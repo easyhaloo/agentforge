@@ -6,6 +6,9 @@ import (
 
 // Repository defines the persistence interface for notifications
 type Repository interface {
+	IsWatchingRepository(ctx context.Context, organizationID, repository, userID string) (bool, error)
+	SetRepositoryWatch(ctx context.Context, organizationID, repository, userID string, watching bool) error
+
 	// Create persists a new notification
 	Create(ctx context.Context, organizationID string, notification *Notification) error
 

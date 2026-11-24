@@ -10,6 +10,7 @@ it("selects the Settings repository tab for its panels and omits the former Bran
   expect(repositorySectionForPath(`${repository}/settings/branches`)).toBe("settings");
   expect(repositorySectionForPath(`${repository}/settings/actions`)).toBe("settings");
   expect(repositorySectionForPath(`${repository}/actions`)).toBe("actions");
+  expect(repositorySectionForPath(`${repository}/settings/webhooks`)).toBe("settings");
   expect(repositorySectionForPath(`${repository}/branches`)).toBeUndefined();
 });
 

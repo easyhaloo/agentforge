@@ -8,13 +8,13 @@ test("mobile preference cards and rows work by label and keyboard", async ({ pag
   await page.route("**/users/me/preferences", route => route.fulfill({
     json: { theme: "auto", language: "en-US", timezone: "UTC" },
   }));
-  let notifications = {
-    email_notifications: { evaluation_complete: true, review_assigned: false, changeset_status: true, org_invitation: false },
-    web_push_enabled: false,
-    notification_frequency: "real-time",
-  };
+  let notifications = { inbox_participating: true, inbox_watching: true };
+  let failSave = false;
   await page.route("**/users/me/notification-preferences", route => {
-    if (route.request().method() === "PATCH") notifications = route.request().postDataJSON();
+    if (route.request().method() === "PATCH") {
+      if (failSave) return route.abort();
+      notifications = { ...notifications, ...route.request().postDataJSON() };
+    }
     return route.fulfill({ json: notifications });
   });
 
@@ -27,16 +27,19 @@ test("mobile preference cards and rows work by label and keyboard", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
 
   await page.goto("/settings/notifications");
-  const save = page.getByRole("button", { name: "Save", exact: true });
-  await expect(save).toBeDisabled();
-  await page.getByText("Review assigned", { exact: true }).click();
-  await page.getByLabel("Enable web push").check();
-  await page.getByRole("radio", { name: "Real-time", exact: true }).press("ArrowDown");
-  await save.click();
-  await expect(save).toBeDisabled();
+  const participating = page.getByRole("checkbox", { name: "Show participating notifications in the inbox" });
+  const watching = page.getByRole("checkbox", { name: "Show watching notifications in the inbox" });
+  await expect(participating).toBeChecked();
+  await participating.press("Space");
+  await expect(participating).not.toBeChecked();
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: "Review assigned" })).toBeChecked();
-  await expect(page.getByRole("checkbox", { name: "Enable web push" })).toBeChecked();
-  await expect(page.getByRole("radio", { name: "Hourly digest" })).toBeChecked();
+  await expect(participating).toBeVisible();
+  await expect(participating).not.toBeChecked();
+  await expect(watching).toBeChecked();
+
+  failSave = true;
+  await watching.click();
+  await expect(page.getByText("Unable to save notification preferences")).toBeVisible();
+  await expect(watching).toBeChecked();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
 });

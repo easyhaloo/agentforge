@@ -24,8 +24,9 @@ var migrations embed.FS
 var ErrVersionConflict = delivery.ErrVersionConflict
 
 type Store struct {
-	objects *artifact.Storage
-	pool    *pgxpool.Pool
+	notificationMailOrigin string
+	objects                *artifact.Storage
+	pool                   *pgxpool.Pool
 	// lockPool serves only changeset advisory locks (LockChangeset) and never shares a connection with pool.
 	lockPool *pgxpool.Pool
 }

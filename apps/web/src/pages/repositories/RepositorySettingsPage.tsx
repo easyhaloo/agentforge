@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GitBranch, KeyRound, Play, Scale, Settings, Tag } from "lucide-react";
+import { GitBranch, KeyRound, Play, Scale, Settings, Tag, Webhook } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { repositoryAPI, repositoryGitAPI, type GitCredentialSummary, repositoryPreviewAPI, type OrganizationSummary, type RepositoryMergeMessageFormat, type RepositoryMetadata, type RepositoryPreviewRefs } from "../../shared/api/identity";
@@ -10,6 +10,7 @@ import { Button, Checkbox, Input, Modal, Select, TextArea } from "../../shared/u
 import { canManageRepository, repositoryIssuesSettingChanged } from "./repositoryPermissions";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import { RepositoryRulesetsSettings } from "./RepositoryRulesetsSettings";
+import { RepositoryWebhooks } from "./RepositoryWebhooks";
 import "./repositories.css";
 import "./repository-settings.css";
 
@@ -21,7 +22,7 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const isActions = section === "actions";
-  const needsRefs = !isActions && section !== "rulesets";
+  const needsRefs = !isActions && section !== "rulesets" && section !== "webhooks";
   const handle = organizationHandle(organization);
   const path = (panel: RepositorySettingsSection) => repositorySettingsPath(handle, repository, panel);
 
@@ -33,7 +34,8 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
     return () => { active = false; };
   }, [organization.id, repository, t, attempt]);
 
-  const title = t({ general: "settings.general", rulesets: "settings.rulesets.title", branches: "sections.branches", tags: "settings.tags", actions: "sections.actions", "git-tokens": "git.tokens" }[section]);
+  const title = t({ general: "settings.general", rulesets: "settings.rulesets.title", branches: "sections.branches", tags: "settings.tags", actions: "sections.actions", "git-tokens": "git.tokens", webhooks: "webhooks.title" }[section]);
+  const canManage = canManageRepository(organization);
   return <div className="repo-layout repo-browser repo-settings">
     <nav className="repo-settings-nav" aria-label={t("sections.settingsFor", { repository })}>
       <NavLink to={path("general")} end><Settings size={16} aria-hidden="true"/>{t("settings.general")}</NavLink>
@@ -50,11 +52,17 @@ export function RepositorySettingsPage({ organization, repository, section }: Pr
       <div className="repo-settings-nav-group">
         <NavLink to={path("actions")} end><Play size={16} aria-hidden="true"/>{t("sections.actions")}</NavLink>
       </div>
+      {canManage && <div className="repo-settings-nav-group">
+        <NavLink to={path("webhooks")} end><Webhook size={16} aria-hidden="true"/>{t("webhooks.title")}</NavLink>
+      </div>}
     </nav>
     <section className="repo-settings-content" aria-labelledby="repository-settings-title">
       <header className="repo-settings-heading">
         <h1 id="repository-settings-title">{title}</h1>
       </header>
+      {section === "webhooks" && (canManage
+        ? <RepositoryWebhooks organization={organization.id} repository={repository} />
+        : <p role="alert">{t("sections.settingsDenied")}</p>)}
       {needsRefs && error && <div className="repo-settings-card">
         <p role="alert" className="org-error">{error}</p>
         <Button onClick={() => { setError(""); setAttempt(attempt + 1); }}>{t("app:organizationGate.retry")}</Button>

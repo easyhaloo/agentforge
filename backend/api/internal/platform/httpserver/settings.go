@@ -84,6 +84,7 @@ func (d DeliveryDependencies) getNotificationPreferences(w http.ResponseWriter, 
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, prefs)
 }
 
@@ -105,6 +106,7 @@ func (d DeliveryDependencies) updateNotificationPreferences(w http.ResponseWrite
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, prefs)
 }
 

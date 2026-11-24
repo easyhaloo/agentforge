@@ -36,7 +36,7 @@ export function repositoryPath(handle: string, slug: string, section?: Repositor
   return section ? `${base}/${section}` : base;
 }
 
-export const repositorySettingsSections = ["general", "rulesets", "branches", "tags", "git-tokens", "actions"] as const;
+export const repositorySettingsSections = ["general", "rulesets", "branches", "tags", "git-tokens", "actions", "webhooks"] as const;
 export type RepositorySettingsSection = typeof repositorySettingsSections[number];
 
 export function repositorySettingsPath(handle: string, slug: string, section: RepositorySettingsSection = "general"): string {

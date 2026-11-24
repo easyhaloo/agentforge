@@ -45,7 +45,7 @@ test("Rulesets validates, saves, reloads, edits and removes a rule when refs can
   await page.goto(settingsPath);
   const nav = page.getByRole("navigation", { name: `Settings for ${repository}` });
   const link = nav.getByRole("link", { name: "Rulesets", exact: true });
-  expect(await nav.getByRole("link").allTextContents()).toEqual(["General", "Rulesets", "Branches", "Tags", "Actions"]);
+  expect(await nav.getByRole("link").allTextContents()).toEqual(["General", "Rulesets", "Branches", "Tags", "Actions", "Webhooks"]);
   await link.press("Enter");
   await expect(page).toHaveURL(`${settingsPath}/rulesets`);
   await expect(link).toHaveAttribute("aria-current", "page");

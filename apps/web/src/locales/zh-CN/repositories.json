@@ -213,6 +213,10 @@
     "failed": "无法管理 Git 凭据。"
   },
   "browser": {
+    "watch": "关注议题",
+    "unwatch": "取消关注议题",
+    "retryWatch": "重试加载关注状态",
+    "watchFailed": "无法管理仓库关注设置",
     "about": "仓库概览",
     "branches_one": "{{count}} 个分支",
     "branches_other": "{{count}} 个分支",
@@ -946,5 +950,43 @@
     "empty": "暂无有效的 Git 访问令牌。",
     "failed": "Git 访问令牌操作失败。",
     "manage": "新建 Git 访问令牌"
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "description": "所选仓库事件发生时，向 HTTPS 地址发送签名请求。",
+    "add": "添加 Webhook",
+    "edit": "编辑 Webhook",
+    "empty": "尚未配置 Webhook。",
+    "active": "已启用",
+    "inactive": "已停用",
+    "remove": "删除",
+    "confirm": "删除此 Webhook 及其投递记录？",
+    "confirmRemove": "删除 Webhook",
+    "history": "最近投递",
+    "refreshHistory": "刷新投递记录",
+    "noDeliveries": "暂无投递记录。",
+    "loadError": "无法加载 Webhook。",
+    "saveError": "无法保存 Webhook 更改。",
+    "historyError": "无法加载投递记录。",
+    "invalid": "请输入公网 HTTPS 地址、至少 16 个字符的密钥，并选择至少一个事件。",
+    "saved": "Webhook 更改已保存。",
+    "url": "接收地址",
+    "secret": "签名密钥",
+    "secretHelp": "至少 16 个字符，用于为每次请求签名。",
+    "replaceSecret": "留空则保留当前密钥。",
+    "subscriptions": "订阅事件",
+    "events": {
+      "issues": "议题创建",
+      "issue_comment": "议题评论"
+    },
+    "status": {
+      "pending": "待投递",
+      "sending": "投递中",
+      "delivering": "投递中",
+      "delivered": "已投递",
+      "succeeded": "已投递",
+      "failed": "投递失败",
+      "skipped": "已跳过"
+    }
   }
 }

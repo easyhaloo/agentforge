@@ -106,53 +106,46 @@ type EventRepository interface {
 	ListByType(ctx context.Context, organizationID string, issueID string, eventType events.EventType) ([]*events.Event, error)
 }
 
-type NotificationRepository interface {
-	Create(ctx context.Context, organizationID string, notification *notifications.Notification) error
-	List(ctx context.Context, organizationID string, userID string, unreadOnly bool, limit, offset int) ([]*notifications.Notification, int, error)
-	MarkAsRead(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
-	MarkAllAsRead(ctx context.Context, organizationID string, userID string) error
-	Delete(ctx context.Context, organizationID string, notificationID notifications.ID, userID string) error
-	Subscribe(ctx context.Context, organizationID string, userID string, issueID string) error
-	Unsubscribe(ctx context.Context, organizationID string, userID string, issueID string) error
-	IsSubscribed(ctx context.Context, organizationID string, userID string, issueID string) (bool, error)
-	GetSubscribers(ctx context.Context, organizationID string, issueID string) ([]string, error)
-}
+type NotificationRepository = notifications.Repository
 
 type DeliveryDependencies struct {
-	Repository       delivery.Repository
-	Identity         identity.PrincipalResolver
-	RevokeSession    func(context.Context, string) error
-	CSRF             identity.CSRFValidator
-	AllowedOrigin    string
-	SSO              map[string]identity.OIDCHandler
-	LocalAuth        LocalAuthHandler
-	Membership       MembershipRepository
-	Account          AccountRepository
-	Settings         SettingsRepository
-	Git              delivery.GitProvider
-	IntegrationGit   delivery.IntegrationGitProvider
-	GitHTTP          *githttp.Transport
-	GitCredentials   GitCredentialStore
-	Evaluator        delivery.Evaluator
-	Evidence         delivery.EvidenceStore
-	Reviewers        ReviewerAuthorizer
-	WebhookDirectory string
-	Runs             execution.Store
-	Pipelines        pipeline.Store
-	Catalog          delivery.RepositoryCatalog
-	Preview          delivery.RepositoryPreviewReader
-	Locker           delivery.ChangesetLocker
-	Workspaces       workspace.Repository
-	Tasks            *tasks.PostgresStore
-	IssueRepo        issues.Repository
-	IssueDetailRepo  issues.DetailRepository
-	ProjectRepo      issues.ProjectRepository
-	CommentRepo      CommentRepository
-	LabelRepo        LabelRepository
-	MilestoneRepo    MilestoneRepository
-	ReactionRepo     ReactionRepository
-	EventRepo        EventRepository
-	NotificationRepo NotificationRepository
+	Repository        delivery.Repository
+	Identity          identity.PrincipalResolver
+	RevokeSession     func(context.Context, string) error
+	CSRF              identity.CSRFValidator
+	AllowedOrigin     string
+	SSO               map[string]identity.OIDCHandler
+	LocalAuth         LocalAuthHandler
+	Membership        MembershipRepository
+	Account           AccountRepository
+	Settings          SettingsRepository
+	NotificationEmail NotificationEmailRepository
+	Git               delivery.GitProvider
+	IntegrationGit    delivery.IntegrationGitProvider
+	GitHTTP           *githttp.Transport
+	GitCredentials    GitCredentialStore
+	Evaluator         delivery.Evaluator
+	Evidence          delivery.EvidenceStore
+	Reviewers         ReviewerAuthorizer
+	WebhookDirectory  string
+	Runs              execution.Store
+	Pipelines         pipeline.Store
+	Catalog           delivery.RepositoryCatalog
+	Preview           delivery.RepositoryPreviewReader
+	Locker            delivery.ChangesetLocker
+	Workspaces        workspace.Repository
+	Tasks             *tasks.PostgresStore
+	IssueRepo         issues.Repository
+	IssueDetailRepo   issues.DetailRepository
+	ProjectRepo       issues.ProjectRepository
+	CommentRepo       CommentRepository
+	LabelRepo         LabelRepository
+	MilestoneRepo     MilestoneRepository
+	ReactionRepo      ReactionRepository
+	EventRepo         EventRepository
+	NotificationRepo  NotificationRepository
+
+	RepositoryWebhooks RepositoryWebhookStore
 }
 
 type storedChangesetResponse struct {
@@ -193,6 +186,7 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	deps.pipelineRoutes(mux)
 	deps.executionRoutes(mux)
 	deps.mergePreviewRoutes(mux)
+	deps.repositoryWebhookRoutes(mux)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/workspaces", deps.createWorkspace)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}", deps.getWorkspaceHandler)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/workspaces/{workspaceID}/tree", deps.listWorkspaceTree)
@@ -267,6 +261,8 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/organizations/{organizationID}/issues/{number}/subscription", deps.unsubscribeFromIssue)
 
 	// Notification routes
+	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/watch", deps.repositoryWatch)
+	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/repositories/{owner}/{repo}/watch", deps.repositoryWatch)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/notifications", deps.listNotifications)
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/notifications/{id}/read", deps.markNotificationAsRead)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/notifications/read-all", deps.markAllNotificationsAsRead)

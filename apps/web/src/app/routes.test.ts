@@ -79,7 +79,7 @@ describe("route table", () => {
     expect(newNameLeaf?.params).toMatchObject({ org: "demo", owner: "new", repo: "name" });
     expect(newNameLeaf?.route.handle).toEqual({ label: "Repository" });
 
-    for (const suffix of ["", "/branches", "/actions", "/settings", "/settings/rulesets", "/settings/branches", "/settings/tags", "/settings/git-tokens", "/settings/actions", "/issues"]) {
+    for (const suffix of ["", "/branches", "/actions", "/settings", "/settings/rulesets", "/settings/branches", "/settings/tags", "/settings/git-tokens", "/settings/actions", "/settings/webhooks", "/issues"]) {
       const leaf = leafOf(`/orgs/demo/repositories/team/repo${suffix}`);
       expect(leaf?.params, suffix).toMatchObject({ org: "demo", owner: "team", repo: "repo" });
       expect(leaf?.route.handle, suffix).toEqual({ label: "Repository" });

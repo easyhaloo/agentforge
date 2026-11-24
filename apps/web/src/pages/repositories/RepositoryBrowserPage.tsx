@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
+import { notificationsAPI } from "../../shared/api/notifications";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { issueDetailPath, organizationHandle, repositorySettingsPath, webIDEPath } from "../../shared/routing";
@@ -24,6 +25,10 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   const [refError, setRefError] = useState("");
   const [copyError, setCopyError] = useState("");
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [watching, setWatching] = useState<boolean>();
+  const [watchError, setWatchError] = useState("");
+  const [watchPending, setWatchPending] = useState(true);
+  const [watchRetry, setWatchRetry] = useState(0);
   const selectedRef = search.get("ref") || "";
   const snapshot = search.get("commit") || "";
   const change = search.get("change") || "";
@@ -43,6 +48,34 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
       .catch(cause => { if (active) setRefError(translateError(cause, t, "repositories:browser.refsFailed")); });
     return () => { active = false; };
   }, [organization.id, repository, t]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void notificationsAPI.getRepositoryWatch(organization.id, repository, controller.signal)
+      .then(result => { if (!controller.signal.aborted) setWatching(result.watching); })
+      .catch(cause => {
+        if (!controller.signal.aborted) setWatchError(translateError(cause, t, "repositories:browser.watchFailed"));
+      }).finally(() => { if (!controller.signal.aborted) setWatchPending(false); });
+    return () => controller.abort();
+  }, [organization.id, repository, t, watchRetry]);
+
+  const toggleWatch = async () => {
+    if (watchPending) return;
+    setWatchPending(true);
+    setWatchError("");
+    if (watching === undefined) {
+      setWatchRetry(value => value + 1);
+      return;
+    }
+    try {
+      const result = await notificationsAPI.setRepositoryWatch(organization.id, repository, !watching);
+      setWatching(result.watching);
+    } catch (cause) {
+      setWatchError(translateError(cause, t, "repositories:browser.watchFailed"));
+    } finally {
+      setWatchPending(false);
+    }
+  };
 
   const makeQuery = (params: Record<string, string>) => {
     const query = new URLSearchParams();
@@ -80,10 +113,14 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   </div>;
   return <section className="repo-layout repo-browser" aria-label={t("repositories:preview.ariaLabel")}>
     <div className="repo-code-actions">
+      <Button variant="secondary" loading={watchPending} disabled={watchPending} onClick={() => void toggleWatch()}>
+        {watching === undefined && watchError ? t("browser.retryWatch") : watching ? t("browser.unwatch") : t("browser.watch")}
+      </Button>
       <Button onClick={() => setCloneOpen(true)}>{t("clone.title")}</Button>
       <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
     </div>
     <RepositoryCloneDialog open={cloneOpen} onClose={() => setCloneOpen(false)} organization={organization} repository={repository} />
+    {watchError && <p className="org-error" role="alert">{watchError}</p>}
     {refError && <p className="org-error" role="alert">{refError}</p>}
     {copyError && <p className="org-error" role="alert">{copyError}</p>}
     {change ? <CommitDetails key={`${change}:${compareBase}`} {...browse} handle={handle} change={change} base={compareBase} onCopy={anchor => void copyPermalink(change, anchor)}

@@ -1148,3 +1148,11 @@
   padding: 0;
   margin: 0;
 }
+
+.repo-webhook, .repo-webhook-form { padding: 16px; border: 1px solid var(--color-border); border-radius: 6px; }
+.repo-webhook { display: grid; gap: 8px; }
+.repo-webhook-form fieldset { margin: 0; }
+.repo-webhook-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.repo-webhook-url { overflow-wrap: anywhere; }
+.repo-webhook-history { display: grid; gap: 8px; justify-items: start; }
+.repo-webhook-history ul { margin: 0; padding-inline-start: 20px; }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/comments"
-	"github.com/easyhaloo/agentforge/backend/api/internal/notifications"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -47,21 +46,8 @@ func (r *CommentRepository) Create(ctx context.Context, organizationID string, c
 	}
 
 	if comment.ResourceType == comments.ResourceTypeIssue {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO notifications (organization_id, id, user_id, type, reason, issue_id,
-				repository, issue_number, issue_title, comment_id, actor_id, created_at)
-			SELECT i.organization_id, gen_random_uuid()::text, m.user_id,
-				CASE WHEN u.username = ANY($6) THEN 'mention' ELSE 'comment' END,
-				CASE WHEN u.username = ANY($6) THEN 'mentioned' ELSE 'subscribed' END,
-				i.id, i.repository, i.number, i.title, $3, $4, $5
-			FROM issues i JOIN organization_memberships m ON m.organization_id = i.organization_id
-			JOIN users u ON u.id = m.user_id
-			WHERE i.organization_id = $1 AND i.id = $2 AND m.status = 'active' AND m.user_id <> $4
-			AND (u.username = ANY($6) OR EXISTS (SELECT FROM issue_subscriptions s
-				WHERE s.organization_id = i.organization_id AND s.issue_id = i.id AND s.user_id = m.user_id))`,
-			organizationID, comment.ResourceID, comment.ID, comment.AuthorID, comment.CreatedAt, notifications.ParseMentions(comment.Body))
-		if err != nil {
-			return nil, fmt.Errorf("notify issue comment participants: %w", err)
+		if err := notifyIssueActivity(ctx, tx, organizationID, string(comment.ResourceID), string(comment.ID), comment.AuthorID, comment.Body, comment.CreatedAt, r.store.notificationMailOrigin); err != nil {
+			return nil, err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {

@@ -72,7 +72,7 @@ test("select a member mention in the composer, preview and publish it", async ({
 // The fixture only sets up memberships. Issue creation and notification reads go through the browser.
 const psql = process.env.AGENTFORGE_TEST_PSQL;
 
-test("notifies only the mentioned member on publish and persists read state", async ({ page, browser }) => {
+test("applies inbox delivery preferences to mentions and repository watches", async ({ page, browser }) => {
   test.skip(!psql, "Requires a psql fixture command for the local test database");
   const organization = await register(page, "Issue Author");
   const [recipient, codeOnly, suspended, outside] = await Promise.all(Array.from({ length: 4 }, () => browser.newPage()));
@@ -121,6 +121,11 @@ test("notifies only the mentioned member on publish and persists read state", as
     await expect(page.getByRole("tabpanel", { name: "Preview" })).toContainText(`Please ask @${recipientHandle}`);
 
     const inbox = `${origin}${organization}/notifications`;
+    await recipient.goto(repositoryURL);
+    await recipient.getByRole("button", { name: "Watch Issues", exact: true }).click();
+    await expect(recipient.getByRole("button", { name: "Unwatch Issues", exact: true })).toBeVisible();
+    await recipient.reload();
+    await expect(recipient.getByRole("button", { name: "Unwatch Issues", exact: true })).toBeEnabled();
     await recipient.goto(`${repositoryURL}/issues`);
     await (await openNavigation(recipient)).getByRole("link", { name: "Inbox", exact: true }).click();
     await expect(recipient).toHaveURL(inbox);
@@ -138,6 +143,47 @@ test("notifies only the mentioned member on publish and persists read state", as
     await recipient.goto(inbox);
     await recipient.reload();
     await expect(inboxList.getByText(/Mentioned you · Read/)).toBeVisible();
+
+    const publish = async (title: string, description: string) => {
+      await page.goto(`${repositoryURL}/issues`);
+      await page.getByRole("link", { name: "New issue", exact: true }).click();
+      await page.getByRole("textbox", { name: "Title" }).fill(title);
+      await page.getByRole("textbox", { name: "Description", exact: true }).fill(description);
+      await page.getByRole("button", { name: "Create issue" }).click();
+      await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    };
+    const setInbox = async (key: string, enabled: boolean) => {
+      const checkbox = recipient.locator(`#inbox_${key}`);
+      await expect(checkbox).toBeVisible();
+      await expect(checkbox).toBeChecked({ checked: !enabled });
+      await checkbox.click();
+      await expect(checkbox).toBeChecked({ checked: enabled });
+    };
+
+    await recipient.goto(`${origin}/settings/notifications`);
+    await setInbox("participating", false);
+    await publish("Repository watch only", `@${recipientHandle}.`);
+    await recipient.goto(inbox);
+    const watchItem = inboxList.getByRole("listitem").filter({ hasText: "Repository watch only" });
+    await expect(watchItem).toBeVisible();
+    await expect(watchItem).not.toContainText("Mentioned you");
+    await expect(inboxList.getByRole("listitem")).toHaveCount(2);
+
+    await recipient.goto(`${origin}/settings/notifications`);
+    await setInbox("watching", false);
+    await publish("Both inbox sources disabled", `@${recipientHandle}.`);
+    await recipient.goto(inbox);
+    await expect(inboxList.getByRole("listitem")).toHaveCount(2);
+
+    await recipient.goto(repositoryURL);
+    await recipient.getByRole("button", { name: "Unwatch Issues", exact: true }).click();
+    await expect(recipient.getByRole("button", { name: "Watch Issues", exact: true })).toBeEnabled();
+    await recipient.goto(`${origin}/settings/notifications`);
+    await setInbox("watching", true);
+    await publish("Created after unwatching", "A new issue without mentions.");
+    await recipient.goto(inbox);
+    await expect(inboxList.getByRole("listitem")).toHaveCount(2);
+
 
     const otherInboxes: [Page, string][] = [
       [page, inbox], [codeOnly, inbox],

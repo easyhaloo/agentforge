@@ -80,6 +80,12 @@ func (q *PostgresQueue) Dequeue(ctx context.Context) (*QueuedEmail, error) {
 	}
 	defer tx.Rollback(ctx)
 
+	if _, err := tx.Exec(ctx, `UPDATE email_queue SET status='failed', body=''
+		WHERE status='pending' AND (next_retry_at IS NULL OR next_retry_at <= now())
+		AND (attempts >= max_attempts OR (organization_id='' AND created_at <= now() - interval '30 minutes'))`); err != nil {
+		return nil, fmt.Errorf("expire email queue entries: %w", err)
+	}
+
 	var email QueuedEmail
 	err = tx.QueryRow(ctx, `
 		SELECT id, organization_id, to_address, subject, body, is_html,
@@ -98,6 +104,9 @@ func (q *PostgresQueue) Dequeue(ctx context.Context) (*QueuedEmail, error) {
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("commit email expiry: %w", err)
+		}
 		return nil, ErrQueueEmpty
 	}
 	if err != nil {
@@ -130,7 +139,7 @@ func (q *PostgresQueue) MarkSent(ctx context.Context, id string) error {
 	now := time.Now()
 	tag, err := q.pool.Exec(ctx, `
 		UPDATE email_queue
-		SET status = 'sent', sent_at = $1
+		SET status = 'sent', sent_at = $1, body = '', error_message = NULL
 		WHERE id = $2
 	`, now, id)
 
@@ -152,6 +161,7 @@ func (q *PostgresQueue) MarkFailed(ctx context.Context, id string, errorMsg stri
 	_, err := q.pool.Exec(ctx, `
 		UPDATE email_queue
 		SET error_message = $1,
+		    body = CASE WHEN attempts >= max_attempts THEN '' ELSE body END,
 		    status = CASE
 		        WHEN attempts >= max_attempts THEN 'failed'
 		        ELSE 'pending'
