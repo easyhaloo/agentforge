@@ -27,6 +27,7 @@ func (d DeliveryDependencies) registerIssueProjects(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+base+"/{number}/updates", d.listProjectUpdates)
 	mux.HandleFunc("POST "+base+"/{number}/updates", d.createProjectUpdate)
 	mux.HandleFunc("GET "+base+"/{number}/status-history", d.projectStatusHistory)
+	mux.HandleFunc("GET "+base+"/{number}/workflow-runs", d.listProjectWorkflowRuns)
 	d.RegisterProjectFields(mux)
 }
 
@@ -312,9 +313,20 @@ func (d DeliveryDependencies) patchIssueProject(w http.ResponseWriter, r *http.R
 		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project text", "Description or README exceeds the allowed length or contains invalid text")
 		return
 	}
-	if input.Workflows != nil && !input.Workflows.Valid() {
-		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project workflows", "Supply valid project status targets for the built-in workflows")
-		return
+	if input.Workflows != nil {
+		if !input.Workflows.Valid() {
+			writeProblem(w, http.StatusUnprocessableEntity, "Invalid project workflows", "Supply valid built-in workflow settings")
+			return
+		}
+		if rule := input.Workflows.AutoAdd; rule != nil {
+			if !projectText(rule.Repository, 512) || !projectText(rule.LabelID, 128) {
+				projectError(w, issues.ErrProjectInvalid)
+				return
+			}
+			if _, ok := d.resolveRegisteredRepository(w, r, principal, rule.Repository); !ok {
+				return
+			}
+		}
 	}
 	if body.Views != nil {
 		var views []issues.ProjectView
@@ -381,5 +393,24 @@ func (d DeliveryDependencies) projectStatusHistory(w http.ResponseWriter, r *htt
 	}
 	writeJSON(w, http.StatusOK, struct {
 		Items []issues.ProjectStatusDay `json:"items"`
+	}{Items: items})
+}
+
+func (d DeliveryDependencies) listProjectWorkflowRuns(w http.ResponseWriter, r *http.Request) {
+	principal, ok := d.projectPrincipal(w, r, true)
+	if !ok {
+		return
+	}
+	number, ok := projectNumber(w, r)
+	if !ok {
+		return
+	}
+	items, err := d.ProjectRepo.ListProjectWorkflowRuns(r.Context(), principal.OrganizationID, number)
+	if err != nil {
+		projectError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Items []issues.ProjectWorkflowRun `json:"items"`
 	}{Items: items})
 }

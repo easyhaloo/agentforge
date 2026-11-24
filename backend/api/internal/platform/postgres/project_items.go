@@ -11,7 +11,7 @@ import (
 
 const projectItemSelect = `SELECT pi.id,
 	CASE WHEN pi.issue_id IS NOT NULL THEN 'issue' WHEN pi.pull_request_id IS NOT NULL THEN 'pull_request' ELSE 'draft' END,
-	coalesce(i.title, pr.title, pi.draft_title), coalesce(i.repository, pr.repository, ''), coalesce(i.number, 0),
+	coalesce(i.title, pr.title, pi.draft_title), pi.draft_body, coalesce(i.repository, pr.repository, ''), coalesce(i.number, 0),
 	coalesce(pi.pull_request_id, ''), pi.status,
 	pi.priority, coalesce(to_char(pi.start_date, 'YYYY-MM-DD'), ''), coalesce(to_char(pi.target_date, 'YYYY-MM-DD'), ''),
 	pi.iteration, pi.archived, pi.version,
@@ -115,8 +115,8 @@ func (s *Store) AddProjectItem(ctx context.Context, org string, number int, inpu
 	created := true
 	switch input.Kind {
 	case "draft":
-		err = tx.QueryRow(ctx, `INSERT INTO project_items (organization_id, project_id, draft_title)
-			VALUES ($1, $2, $3) RETURNING id`, org, projectID, input.Title).Scan(&id)
+		err = tx.QueryRow(ctx, `INSERT INTO project_items (organization_id, project_id, draft_title, draft_body)
+			VALUES ($1, $2, $3, coalesce($4, '')) RETURNING id`, org, projectID, input.Title, input.DraftBody).Scan(&id)
 	case "issue":
 		if err := requireRepositoryIssues(ctx, tx, org, input.Repository); err != nil {
 			return issues.ProjectItem{}, false, err
@@ -190,7 +190,7 @@ func (s *Store) PatchProjectItem(ctx context.Context, org string, number int, id
 	if item.Version != patch.Version {
 		return issues.ProjectItem{}, issues.ErrProjectConflict
 	}
-	if patch.Title != nil && item.Kind != "draft" {
+	if (patch.Title != nil || patch.DraftBody != nil) && item.Kind != "draft" {
 		return issues.ProjectItem{}, issues.ErrProjectInvalid
 	}
 	if patch.StartDate != nil {
@@ -204,9 +204,9 @@ func (s *Store) PatchProjectItem(ctx context.Context, org string, number int, id
 	}
 	_, err = tx.Exec(ctx, `UPDATE project_items SET draft_title = coalesce($4, draft_title), status = coalesce($5, status),
 		priority = coalesce($6, priority), start_date = nullif($7, '')::date, target_date = nullif($8, '')::date,
-		iteration = coalesce($9, iteration), archived = coalesce($10, archived), version = version + 1
+		iteration = coalesce($9, iteration), archived = coalesce($10, archived), draft_body = coalesce($11, draft_body), version = version + 1
 		WHERE organization_id = $1 AND project_id = $2 AND id = $3`, org, projectID, id, patch.Title,
-		patch.Status, patch.Priority, item.StartDate, item.TargetDate, patch.Iteration, patch.Archived)
+		patch.Status, patch.Priority, item.StartDate, item.TargetDate, patch.Iteration, patch.Archived, patch.DraftBody)
 	if err != nil {
 		return issues.ProjectItem{}, fmt.Errorf("update project item: %w", err)
 	}
@@ -293,8 +293,9 @@ func (s *Store) ConvertProjectItem(ctx context.Context, org string, number int, 
 		return issues.ProjectItem{}, issues.ErrProjectInvalid
 	}
 	issue.Title = item.Title
+	issue.Body = item.DraftBody
 	issue.ProjectIDs = []string{projectID}
-	_, err = tx.Exec(ctx, `UPDATE project_items SET draft_title = NULL, issue_id = $4, version = version + 1
+	_, err = tx.Exec(ctx, `UPDATE project_items SET draft_title = NULL, draft_body = '', issue_id = $4, version = version + 1
 		WHERE organization_id = $1 AND project_id = $2 AND id = $3`, org, projectID, id, issue.ID)
 	if err != nil {
 		return issues.ProjectItem{}, fmt.Errorf("claim project item for conversion: %w", err)

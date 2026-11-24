@@ -159,6 +159,25 @@ func (s *Store) PatchIssueProject(ctx context.Context, organizationID string, nu
 	if scope != "" && input.DefaultRepository != nil && *input.DefaultRepository != "" && *input.DefaultRepository != scope {
 		return issues.Project{}, issues.ErrProjectInvalid
 	}
+	if input.Workflows != nil && input.Workflows.AutoAdd != nil {
+		rule := input.Workflows.AutoAdd
+		if scope != "" && scope != rule.Repository {
+			return issues.Project{}, issues.ErrProjectInvalid
+		}
+		var valid bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS (
+			SELECT 1 FROM delivery_repositories r WHERE r.organization_id = $1 AND r.slug = $2
+			AND ($3 <> 'issue' OR NOT r.issues_disabled)
+			AND ($4 = '' OR EXISTS (SELECT 1 FROM labels l
+				WHERE (l.organization_id, l.repository, l.id) = (r.organization_id, r.slug, $4)))
+		)`, organizationID, rule.Repository, rule.Kind, rule.LabelID).Scan(&valid)
+		if err != nil {
+			return issues.Project{}, fmt.Errorf("validate automatic project addition: %w", err)
+		}
+		if !valid {
+			return issues.Project{}, issues.ErrProjectInvalid
+		}
+	}
 	var layout *issues.ProjectLayout
 	var views any
 	if input.Views != nil {

@@ -55,6 +55,7 @@ func main() {
 	}
 
 	go store.RunRepositoryWebhookWorker(ctx, logger)
+	go store.RunProjectArchiveWorker(ctx, logger)
 
 	providers := make(map[string]identity.OIDCHandler)
 	for _, provider := range []struct {

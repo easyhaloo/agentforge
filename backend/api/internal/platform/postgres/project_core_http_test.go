@@ -194,10 +194,15 @@ func TestProjectCoreHTTP(t *testing.T) {
 	}
 
 	var draft issues.ProjectItem
-	request(member, http.MethodPost, itemsPath, `{"kind":"draft","title":"Ship it"}`, http.StatusCreated, &draft)
+	request(member, http.MethodPost, itemsPath, `{"kind":"draft","title":"Invalid","draft_body":"\u0000"}`, http.StatusUnprocessableEntity, nil)
+	request(member, http.MethodPost, itemsPath, `{"kind":"draft","title":"Ship it","draft_body":"Initial description"}`, http.StatusCreated, &draft)
+	if draft.DraftBody != "Initial description" {
+		t.Fatalf("draft creation lost its body: %+v", draft)
+	}
 	draftPath := itemsPath + "/" + draft.ID
 	request(member, http.MethodPatch, draftPath, `{"version":1,"target_date":"2026-02-30"}`, http.StatusUnprocessableEntity, nil)
-	request(member, http.MethodPatch, draftPath, `{"version":1,"status":"done","priority":"p1","start_date":"2026-11-20","target_date":"2026-11-23","iteration":"Sprint 1"}`, http.StatusOK, &draft)
+	request(member, http.MethodPatch, draftPath, fmt.Sprintf(`{"version":1,"draft_body":%q}`, strings.Repeat("界", 65537)), http.StatusUnprocessableEntity, nil)
+	request(member, http.MethodPatch, draftPath, `{"version":1,"draft_body":"**Release**\n\n  keep spacing","status":"done","priority":"p1","start_date":"2026-11-20","target_date":"2026-11-23","iteration":"Sprint 1"}`, http.StatusOK, &draft)
 	request(member, http.MethodPatch, draftPath, `{"version":2,"target_date":"2026-11-19"}`, http.StatusUnprocessableEntity, nil)
 	request(member, http.MethodPost, draftPath+"/convert", `{"version":2,"repository":"team/one"}`, http.StatusForbidden, nil)
 	request(owner, http.MethodPost, draftPath+"/convert", `{"version":1,"repository":"team/one"}`, http.StatusConflict, nil)
@@ -205,13 +210,14 @@ func TestProjectCoreHTTP(t *testing.T) {
 	request(owner, http.MethodPost, draftPath+"/convert", `{"version":2,"repository":"team/one"}`, http.StatusOK, &converted)
 	if converted.ID != draft.ID || converted.Kind != "issue" || converted.Title != draft.Title || converted.Number != 2 || converted.Version != 3 ||
 		converted.Status != draft.Status || converted.Priority != draft.Priority || converted.StartDate != draft.StartDate ||
-		converted.TargetDate != draft.TargetDate || converted.Iteration != draft.Iteration {
+		converted.TargetDate != draft.TargetDate || converted.Iteration != draft.Iteration || converted.DraftBody != "" {
 		t.Fatalf("conversion lost fields or consumed an extra number: draft=%+v converted=%+v", draft, converted)
 	}
 	request(owner, http.MethodPost, draftPath+"/convert", `{"version":2,"repository":"team/one"}`, http.StatusConflict, nil)
+	request(member, http.MethodPatch, draftPath, `{"version":3,"draft_body":"Cannot update the source here"}`, http.StatusUnprocessableEntity, nil)
 	source = issues.Issue{}
 	request(owner, http.MethodGet, org+"/issues/2?repository=team%2Fone", "", http.StatusOK, &source)
-	if len(source.Projects) != 1 || source.Projects[0].ID != project.ID || source.State != issues.StateOpen {
+	if len(source.Projects) != 1 || source.Projects[0].ID != project.ID || source.State != issues.StateOpen || source.Body != "**Release**\n\n  keep spacing" {
 		t.Fatalf("conversion did not create a normal linked Issue: %+v", source)
 	}
 

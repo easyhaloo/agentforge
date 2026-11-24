@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { History } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { translateError } from "../../shared/api/errors";
 import { changesetAPI, repositoryAPI, type OrganizationSummary } from "../../shared/api/identity";
 import { issuesAPI } from "../../shared/api/issues";
-import { projectGroups, projectLayouts, projectPriorities, projectSorts, projectStatuses, projectUpdateStatuses, projectsAPI, type NewProjectItem, type Project, type ProjectItem, type ProjectItemPlacement, type ProjectUpdateInput, type ProjectView, type ProjectWorkflows } from "../../shared/api/projects";
+import { projectGroups, projectLayouts, projectPriorities, projectSorts, projectStatuses, projectUpdateStatuses, projectsAPI, type NewProjectItem, type Project, type ProjectAutoAdd, type ProjectItem, type ProjectItemPlacement, type ProjectUpdateInput, type ProjectView, type ProjectWorkflowRun, type ProjectWorkflows } from "../../shared/api/projects";
 import { organizationHandle, orgPath, projectPath } from "../../shared/routing";
-import { Button, Checkbox, Input, Select, TextArea } from "../../shared/ui";
+import { Button, Checkbox, Input, NumberInput, Select, TextArea } from "../../shared/ui";
 import { ProjectItemFieldEditor } from "./ProjectCustomFields";
 import { parseProjectSourceLink, projectItemSource } from "./projectViews";
 
@@ -116,6 +117,7 @@ function AddItems({ organization, project, initialRepository, viewURL, complete,
   const [repository, setRepository] = useState(initialRepository);
   const selectedRepo = repos.names?.includes(repository) ? repository : repos.names?.[0] ?? "";
   const [title, setTitle] = useState("");
+  const [draftBody, setDraftBody] = useState("");
   const [sourceLink, setSourceLink] = useState("");
   const [archivedMatches, setArchivedMatches] = useState<ProjectItem[]>([]);
   const [query, setQuery] = useState("");
@@ -157,7 +159,7 @@ function AddItems({ organization, project, initialRepository, viewURL, complete,
     void write(async () => {
       if (mode === "draft") {
         if (!title.trim()) return;
-        await projectsAPI.addItem(organization.id, project.number, { kind: "draft", title: title.trim(), ...placement });
+        await projectsAPI.addItem(organization.id, project.number, { kind: "draft", title: title.trim(), draft_body: draftBody, ...placement });
       } else {
         const batch = Object.values(selected);
         const archivedItems: ProjectItem[] = [];
@@ -193,7 +195,10 @@ function AddItems({ organization, project, initialRepository, viewURL, complete,
       </div>}
       <Select label={t("projects.itemType")} value={mode} disabled={busy} options={(["issue", "pull_request", "draft"] as const).map((value) => ({ value, label: t(`projects.kind.${value}`) }))}
         onChange={(event) => { setMode(event.target.value as typeof mode); setOffset(0); setQuery(""); }} />
-      {mode === "draft" ? <Input label={t("projects.itemTitle")} required maxLength={500} value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} /> : <>
+      {mode === "draft" ? <>
+        <Input label={t("projects.itemTitle")} required maxLength={500} value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} />
+        <TextArea label={t("projects.description")} rows={8} maxLength={65536} value={draftBody} disabled={busy} onChange={(event) => setDraftBody(event.target.value)} />
+      </> : <>
         {repos.failed && <div role="alert">{t("projects.repositoryLoadFailed")} <Button onClick={repos.retry}>{t("issues.composer.retry")}</Button></div>}
         <Select label={t("projects.repository")} value={selectedRepo} disabled={busy || !repos.names?.length} options={(repos.names ?? []).map((value) => ({ value, label: value }))}
           onChange={(event) => { setRepository(event.target.value); setOffset(0); }} />
@@ -225,6 +230,7 @@ function ItemForm({ organization, project, item, viewURL, complete, writable, it
   const { t } = useTranslation("repositories");
   const { busy, error, write } = useWrite();
   const [title, setTitle] = useState(item.title);
+  const [draftBody, setDraftBody] = useState(item.draft_body ?? "");
   const [status, setStatus] = useState(item.status);
   const [priority, setPriority] = useState(item.priority ?? "");
   const [start, setStart] = useState(item.start_date ?? "");
@@ -237,6 +243,9 @@ function ItemForm({ organization, project, item, viewURL, complete, writable, it
   const link = projectItemSource(organizationHandle(organization), item);
   const returnURL = itemArchive ? `${viewURL}${viewURL.includes("?") ? "&" : "?"}page=archive` : viewURL;
   const validDates = !start || !target || start <= target;
+  const hasUnsavedChanges = title.trim() !== item.title || draftBody !== (item.draft_body ?? "") || status !== item.status ||
+    priority !== (item.priority ?? "") || start !== (item.start_date ?? "") || target !== (item.target_date ?? "") ||
+    iteration.trim() !== (item.iteration ?? "");
   function patch(change: Omit<Parameters<typeof projectsAPI.updateItem>[3], "version">) {
     return write(async () => {
       await projectsAPI.updateItem(organization.id, project.number, item.id, { version: item.version, ...change });
@@ -245,12 +254,15 @@ function ItemForm({ organization, project, item, viewURL, complete, writable, it
   }
   return <><FormHeading title={item.title} project={project} />
     <form className="projects-form" onSubmit={(event) => { event.preventDefault(); if (writable && validDates) void patch({
-      ...(item.kind === "draft" && { title: title.trim() }), status, priority, start_date: start, target_date: target, iteration: iteration.trim(),
+      ...(item.kind === "draft" && { title: title.trim(), draft_body: draftBody }), status, priority, start_date: start, target_date: target, iteration: iteration.trim(),
     }); }}>
       {error && <p className="projects-error" role="alert">{error}</p>}
       {link && <Link to={link}>{t("projects.openSource", { repository: item.repository })}</Link>}
       <fieldset className="projects-fields" disabled={!writable || busy || item.archived}>
-        {item.kind === "draft" && <Input label={t("projects.itemTitle")} required maxLength={500} value={title} onChange={(event) => setTitle(event.target.value)} />}
+        {item.kind === "draft" && <>
+          <Input label={t("projects.itemTitle")} required maxLength={500} value={title} onChange={(event) => setTitle(event.target.value)} />
+          <TextArea label={t("projects.description")} rows={8} maxLength={65536} value={draftBody} onChange={(event) => setDraftBody(event.target.value)} />
+        </>}
         <Select label={t("projects.statusLabel")} value={status} onChange={(event) => setStatus(event.target.value as typeof status)}
           options={projectStatuses.map((value) => ({ value, label: value ? t(`projects.status.${value}`) : t("projects.unset") }))} />
         <Select label={t("projects.priority")} value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}
@@ -265,7 +277,10 @@ function ItemForm({ organization, project, item, viewURL, complete, writable, it
       canEdit={writable && !item.archived && !busy} onItemVersionChange={onItemVersionChange} onRefresh={retry} />
     {writable && <div className="projects-toolbar">
       <Button disabled={busy} onClick={() => void patch({ archived: !item.archived })}>{t(item.archived ? "projects.restoreItem" : "projects.archiveItem")}</Button>
-      {admin && item.kind === "draft" && !item.archived && <Button disabled={busy} onClick={() => setConvert(!convert)}>{t("projects.convertItem")}</Button>}
+      {admin && item.kind === "draft" && !item.archived && <>
+        <Button disabled={busy || hasUnsavedChanges} onClick={() => setConvert(!convert)}>{t("projects.convertItem")}</Button>
+        {hasUnsavedChanges && <span>{t("projects.saveBeforeConvert")}</span>}
+      </>}
       <Button disabled={busy} onClick={() => setConfirmRemove(!confirmRemove)}>{t("projects.removeItem")}</Button>
     </div>}
     {convert && writable && <div className="projects-message projects-form">
@@ -273,7 +288,7 @@ function ItemForm({ organization, project, item, viewURL, complete, writable, it
       <Select label={t("projects.repository")} value={destination} disabled={busy || !repos.names?.length} options={[
         { value: "", label: t("projects.chooseRepository") }, ...(repos.names ?? []).map((value) => ({ value, label: value })),
       ]} onChange={(event) => setDestination(event.target.value)} />
-      <Button variant="primary" loading={busy} disabled={!repos.names?.includes(destination)} onClick={() => void write(async () => {
+      <Button variant="primary" loading={busy} disabled={hasUnsavedChanges || !repos.names?.includes(destination)} onClick={() => void write(async () => {
         await projectsAPI.convertItem(organization.id, project.number, item.id, destination, item.version);
         complete();
       })}>{t("projects.convertConfirm")}</Button>
@@ -293,6 +308,9 @@ function WorkflowForm({ organization, project, viewURL, complete }: FormContext)
   const { t } = useTranslation("repositories");
   const { busy, error, write } = useWrite();
   const [workflows, setWorkflows] = useState<ProjectWorkflows>(project.workflows);
+  const [archiveDays, setArchiveDays] = useState(project.workflows.auto_archive_days ? String(project.workflows.auto_archive_days) : "");
+  const [invalidArchiveDays, setInvalidArchiveDays] = useState(false);
+  const archiveLabel = t("projects.workflows.autoArchiveDays");
   const statuses = projectStatuses.map((value) => ({ value, label: t(`projects.status.${value}`) }));
   const optionalStatuses = [{ value: "", label: t("projects.workflows.disabled") }, ...statuses];
   return <><FormHeading title={t("projects.workflows.title")} project={project} />
@@ -300,7 +318,10 @@ function WorkflowForm({ organization, project, viewURL, complete }: FormContext)
     <form className="projects-form" onSubmit={(event) => {
       event.preventDefault();
       if (project.closed) return;
-      void write(async () => complete(await projectsAPI.update(organization.id, project.number, { version: project.version, workflows })));
+      void write(async () => complete(await projectsAPI.update(organization.id, project.number, {
+        version: project.version,
+        workflows: { ...workflows, auto_archive_days: Number(archiveDays) },
+      })));
     }}>
       {error && <p role="alert">{error}</p>}
       <fieldset className="projects-fields" disabled={busy || project.closed}>
@@ -308,10 +329,133 @@ function WorkflowForm({ organization, project, viewURL, complete }: FormContext)
           onChange={(event) => setWorkflows({ ...workflows, item_added: event.target.value as ProjectWorkflows["item_added"] })} />
         {sourceWorkflows.map((key) => <Select key={key} label={t(`projects.workflows.${key}`)} value={workflows[key]} options={optionalStatuses}
           onChange={(event) => setWorkflows({ ...workflows, [key]: event.target.value })} />)}
+        <NumberInput
+          label={archiveLabel}
+          aria-label={archiveLabel}
+          placeholder={t("projects.workflows.disabled")}
+          hint={t("projects.workflows.autoArchiveHint")}
+          error={invalidArchiveDays ? t("projects.workflows.autoArchiveInvalid") : undefined}
+          min={0} max={365} step={1} value={archiveDays}
+          onInvalid={() => setInvalidArchiveDays(true)}
+          onChange={(event) => {
+            setArchiveDays(event.currentTarget.value);
+            setInvalidArchiveDays(!event.currentTarget.validity.valid);
+          }}
+        />
+        <AutoAddFields orgID={organization.id} repositoryScope={project.repository} value={workflows.auto_add}
+          onChange={(auto_add) => setWorkflows({ ...workflows, auto_add })} />
       </fieldset>
       <FormActions busy={busy} cancel={viewURL}>{!project.closed && <Button type="submit" variant="primary" loading={busy}>{t("projects.saveChanges")}</Button>}</FormActions>
     </form>
+    <WorkflowHistory key={`${organization.id}/${project.number}`} orgID={organization.id} number={project.number} />
   </>;
+}
+
+function AutoAddFields({ orgID, repositoryScope, value, onChange }: {
+  orgID: string; repositoryScope?: string; value?: ProjectAutoAdd; onChange: (value?: ProjectAutoAdd) => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const repos = useRepositories(orgID);
+  const repository = value?.repository ?? "";
+  const names = repos.names?.filter((name) => !repositoryScope || name === repositoryScope);
+  const available = names?.includes(repository) ?? false;
+  const choices = (names ?? []).map((name) => ({ value: name, label: name }));
+  if (repository && !available) choices.unshift({ value: repository, label: names
+    ? t("issues.composer.unavailableOption", { id: repository }) : repository });
+  let hint = "disabledHint";
+  if (value?.kind === "issue") hint = value.label_id ? "labeledIssueHint" : "issueHint";
+  if (value?.kind === "pull_request") hint = "pullRequestHint";
+
+  return <fieldset className="projects-fields">
+    <legend>{t("projects.workflows.auto_add")}</legend>
+    <Select label={t("projects.workflows.autoAdd.repository")} value={repository} hint={t(`projects.workflows.autoAdd.${hint}`)}
+      options={[{ value: "", label: t("projects.workflows.disabled") }, ...choices]}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (next !== repository) onChange(next ? { repository: next, kind: value?.kind ?? "issue" } : undefined);
+      }} />
+    {repos.failed ? <div className="projects-toolbar">
+      <p role="alert">{t("projects.workflows.autoAdd.repositoriesFailed")}</p>
+      <Button type="button" onClick={repos.retry}>{t("issues.composer.retry")}</Button>
+    </div> : !repos.names && <p role="status">{t("common:components.loading")}</p>}
+    {value && <Select label={t("projects.workflows.autoAdd.kind")} value={value.kind}
+      options={(["issue", "pull_request"] as const).map((kind) => ({ value: kind, label: t(`projects.kind.${kind}`) }))}
+      onChange={(event) => {
+        const kind = event.target.value as ProjectAutoAdd["kind"];
+        if (kind !== value.kind) onChange({ repository, kind });
+      }} />}
+    {value?.kind === "issue" && <AutoAddLabel key={`${orgID}/${repository}`} orgID={orgID} repository={repository}
+      available={available} value={value.label_id ?? ""}
+      onChange={(labelID) => onChange({ ...value, label_id: labelID || undefined })} />}
+  </fieldset>;
+}
+
+function AutoAddLabel({ orgID, repository, available, value, onChange }: {
+  orgID: string; repository: string; available: boolean; value: string; onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation("repositories");
+  const [labels, setLabels] = useState<Awaited<ReturnType<typeof issuesAPI.labels>>>();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!available) return;
+    const [owner, repo] = repository.split("/");
+    let current = true;
+    issuesAPI.labels(orgID, owner, repo).then((items) => {
+      if (current) setLabels(items);
+    }, () => {
+      if (current) setFailed(true);
+    });
+    return () => { current = false; };
+  }, [orgID, repository, available, attempt]);
+  const choices = (labels ?? []).map(({ id, name }) => ({ value: id, label: name }));
+  if (value && !choices.some((choice) => choice.value === value)) choices.unshift({ value, label: labels
+    ? t("issues.composer.unavailableOption", { id: value }) : value });
+
+  return <>
+    <Select label={t("projects.workflows.autoAdd.label")} value={value}
+      options={[{ value: "", label: t("projects.workflows.autoAdd.anyLabel") }, ...choices]}
+      onChange={(event) => onChange(event.target.value)} />
+    {failed ? <div className="projects-toolbar">
+      <p role="alert">{t("projects.workflows.autoAdd.labelsFailed")}</p>
+      <Button type="button" onClick={() => { setFailed(false); setAttempt((current) => current + 1); }}>{t("issues.composer.retry")}</Button>
+    </div> : available && !labels && <p role="status">{t("common:components.loading")}</p>}
+  </>;
+}
+
+function WorkflowHistory({ orgID, number }: { orgID: string; number: number }) {
+  const { t, i18n } = useTranslation("repositories");
+  const headingID = useId();
+  const [runs, setRuns] = useState<ProjectWorkflowRun[]>();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    projectsAPI.workflowRuns(orgID, number, controller.signal).then((items) => {
+      if (!controller.signal.aborted) setRuns(items);
+    }, () => {
+      if (!controller.signal.aborted) setFailed(true);
+    });
+    return () => controller.abort();
+  }, [orgID, number, attempt]);
+  const formatTime = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
+
+  return <section className="projects-form" aria-labelledby={headingID}>
+    <h2 id={headingID}>{t("projects.workflows.history.title")}</h2>
+    {failed ? <div className="projects-message">
+      <p role="alert">{t("projects.workflows.history.failed")}</p>
+      <Button onClick={() => { setFailed(false); setAttempt((value) => value + 1); }}>{t("issues.composer.retry")}</Button>
+    </div> : !runs ? <p role="status">{t("common:components.loading")}</p> : !runs.length ?
+      <p className="projects-message">{t("projects.workflows.history.empty")}</p> :
+      <ul className="projects-directory">
+        {runs.map(({ id, rule, item_count, occurred_at }) => <li key={id}>
+          <span className="projects-glyph"><History size={16} aria-hidden /></span>
+          <strong>{t(`projects.workflows.${rule}`)}</strong>
+          <span>{t("projects.workflows.history.itemCount", { count: item_count })}</span>
+          <span><time dateTime={occurred_at}>{formatTime.format(new Date(occurred_at))}</time></span>
+        </li>)}
+      </ul>}
+  </section>;
 }
 
 function SettingsForm({ organization, project, viewURL, complete, fieldsURL, workflowsURL }: FormContext & { fieldsURL: string; workflowsURL: string }) {

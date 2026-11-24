@@ -20,11 +20,26 @@ export type ProjectView = {
   group: typeof projectGroups[number];
 };
 
+export type ProjectAutoAdd = {
+  repository: string;
+  kind: "issue" | "pull_request";
+  label_id?: string;
+};
+
 export type ProjectWorkflows = {
   item_added: ProjectStatus;
   issue_closed: ProjectStatus | "";
   pull_request_closed: ProjectStatus | "";
   pull_request_merged: ProjectStatus | "";
+  auto_archive_days?: number;
+  auto_add?: ProjectAutoAdd;
+};
+
+export type ProjectWorkflowRun = {
+  id: string;
+  rule: "issue_closed" | "pull_request_closed" | "pull_request_merged" | "auto_archive" | "auto_add";
+  item_count: number;
+  occurred_at: string;
 };
 
 export type Project = IssueProject & {
@@ -42,6 +57,7 @@ export type ProjectItem = {
   id: string;
   kind: ProjectItemKind;
   title: string;
+  draft_body?: string;
   repository?: string;
   number?: number;
   source_id?: string;
@@ -67,10 +83,10 @@ export type ProjectUpdateInput = {
 export type ProjectProgress = ProjectUpdateInput & { id: string; author_name: string; created_at: string };
 
 type ProjectUpdate = Partial<Pick<Project, "name" | "description" | "readme" | "closed" | "default_repository" | "repositories" | "views" | "workflows">> & { version: number };
-export type ProjectItemUpdate = Partial<Pick<ProjectItem, "title" | "status" | "priority" | "start_date" | "target_date" | "iteration" | "archived">> & { version: number };
+export type ProjectItemUpdate = Partial<Pick<ProjectItem, "title" | "draft_body" | "status" | "priority" | "start_date" | "target_date" | "iteration" | "archived">> & { version: number };
 export type ProjectItemPlacement = { status?: ProjectStatus; priority?: ProjectPriority };
 export type NewProjectItem = ProjectItemPlacement & (
-  { kind: "draft"; title: string } | { kind: "issue"; repository: string; number: number } | { kind: "pull_request"; repository: string; source_id: string }
+  { kind: "draft"; title: string; draft_body?: string } | { kind: "issue"; repository: string; number: number } | { kind: "pull_request"; repository: string; source_id: string }
 );
 
 function projectURL(orgID: string, number?: number | string) {
@@ -93,6 +109,10 @@ export const projectsAPI = {
   get: (orgID: string, number: string, signal?: AbortSignal) => request<Project>(projectURL(orgID, number), { signal }),
   update: (orgID: string, number: number, input: ProjectUpdate) =>
     request<Project>(projectURL(orgID, number), { method: "PATCH", body: JSON.stringify(input) }),
+  async workflowRuns(orgID: string, number: number, signal?: AbortSignal) {
+    const response = await request<{ items: ProjectWorkflowRun[] }>(`${projectURL(orgID, number)}/workflow-runs`, { signal });
+    return response.items ?? [];
+  },
   remove: (orgID: string, number: number, version: number) =>
     request<void>(`${projectURL(orgID, number)}?version=${version}`, { method: "DELETE" }),
   async statusHistory(orgID: string, number: number, signal?: AbortSignal) {

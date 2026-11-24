@@ -33,7 +33,8 @@ func (d DeliveryDependencies) listProjectItems(w http.ResponseWriter, r *http.Re
 }
 
 func validProjectItemInput(input issues.ProjectItemInput) bool {
-	if !validProjectItemPatch(issues.ProjectItemPatch{Status: input.Status, Priority: input.Priority}) {
+	if !validProjectItemPatch(issues.ProjectItemPatch{DraftBody: input.DraftBody, Status: input.Status, Priority: input.Priority}) ||
+		(input.Kind != "draft" && input.DraftBody != nil) {
 		return false
 	}
 	switch input.Kind {
@@ -63,7 +64,7 @@ func (d DeliveryDependencies) addProjectItem(w http.ResponseWriter, r *http.Requ
 	input.Title = strings.TrimSpace(input.Title)
 	input.Repository = strings.TrimSpace(input.Repository)
 	if !validProjectItemInput(input) {
-		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project item", "Supply a draft title, an issue repository and number or a pull request repository and source ID, with an optional valid status and priority")
+		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project item", "Supply a draft title and optional description, an issue repository and number or a pull request repository and source ID, with an optional valid status and priority")
 		return
 	}
 	if input.Repository != "" {
@@ -107,6 +108,7 @@ func validProjectItemPatch(patch issues.ProjectItemPatch) bool {
 		}
 	}
 	return (patch.Title == nil || (*patch.Title != "" && projectText(*patch.Title, 500))) &&
+		(patch.DraftBody == nil || projectText(*patch.DraftBody, 65536)) &&
 		(patch.Iteration == nil || projectText(*patch.Iteration, 100)) && validProjectDate(patch.StartDate) && validProjectDate(patch.TargetDate)
 }
 
@@ -127,7 +129,7 @@ func (d DeliveryDependencies) patchProjectItem(w http.ResponseWriter, r *http.Re
 		*input.Title = strings.TrimSpace(*input.Title)
 	}
 	if !validProjectItemPatch(input) {
-		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project item fields", "Check the title, status, priority, iteration or dates")
+		writeProblem(w, http.StatusUnprocessableEntity, "Invalid project item fields", "Check the title, description, status, priority, iteration or dates")
 		return
 	}
 	item, err := d.ProjectRepo.PatchProjectItem(r.Context(), principal.OrganizationID, number, r.PathValue("itemID"), input)

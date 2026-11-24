@@ -499,7 +499,7 @@ paths:
       operationId: convertProjectItem
       summary: Convert a draft into an issue
       tags: [Issues]
-      description: Requires an organization owner or admin. The item keeps its ID and project fields.
+      description: Requires an organization owner or admin. The draft title and body become the Issue title and body. The item keeps its ID and project fields.
       security: [{ sessionCookie: [], csrfCookie: [], csrfToken: [] }]
       requestBody:
         required: true
@@ -518,6 +518,41 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/issue-projects/{number}/workflow-runs:
+    parameters:
+      - $ref: "#/components/parameters/organizationID"
+      - { name: number, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: listProjectWorkflowRuns
+      summary: List recent successful automation runs that changed items (organization owner or admin)
+      tags: [Issues]
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Up to 50 runs in reverse chronological order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items:
+                      type: object
+                      required: [id, rule, item_count, occurred_at]
+                      properties:
+                        id: { type: string }
+                        rule: { type: string, enum: [issue_closed, pull_request_closed, pull_request_merged, auto_archive, auto_add] }
+                        item_count: { type: integer, minimum: 1 }
+                        occurred_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
 
   /api/v1/organizations/{organizationID}/issue-projects/{number}/status-history:
@@ -2236,6 +2271,21 @@ components:
         issue_closed: { type: string, enum: ["", todo, in_progress, done] }
         pull_request_closed: { type: string, enum: ["", todo, in_progress, done] }
         pull_request_merged: { type: string, enum: ["", todo, in_progress, done] }
+        auto_archive_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+          default: 0
+          description: Archive items after this many consecutive days in Done. Zero disables the rule. Restoring an item restarts the clock.
+        auto_add:
+          type: object
+          additionalProperties: false
+          required: [repository, kind]
+          description: Auto-add on future open or reopen events. A configured Issue label also triggers addition when applied to an open Issue. Omit to disable.
+          properties:
+            repository: { type: string, description: "Registered repository slug in this organization" }
+            kind: { type: string, enum: [issue, pull_request] }
+            label_id: { type: string, description: "Optional Issue label ID in the configured repository" }
     ProjectView:
       type: object
       required: [id, name, layout, filter, sort, group]
@@ -2271,6 +2321,7 @@ components:
         id: { type: string }
         kind: { type: string, enum: [issue, pull_request, draft] }
         title: { type: string }
+        draft_body: { type: string, maxLength: 65536, description: Markdown body for a draft item. Omitted when empty. }
         repository: { type: string }
         number: { type: integer, minimum: 0 }
         source_id: { type: string, description: Native Changeset ID used by the pull request route. }
@@ -2366,6 +2417,7 @@ components:
       properties:
         kind: { type: string, enum: [issue, pull_request, draft] }
         title: { type: string, minLength: 1, maxLength: 500 }
+        draft_body: { type: string, maxLength: 65536, description: Optional Markdown body for draft items only. }
         repository: { type: string }
         number: { type: integer, minimum: 1 }
         source_id: { type: string, maxLength: 128 }
@@ -2377,6 +2429,7 @@ components:
       properties:
         version: { type: integer, minimum: 1 }
         title: { type: string, minLength: 1, maxLength: 500, description: Only applicable to draft items. }
+        draft_body: { type: string, maxLength: 65536, description: Draft items only. Send an empty string to clear the body. }
         status: { type: string, enum: [todo, in_progress, done] }
         priority: { type: string, enum: ["", p0, p1, p2] }
         start_date: { type: string, description: ISO date or empty string to clear. }

@@ -13,7 +13,31 @@
       "item_added": "添加条目时",
       "issue_closed": "关闭议题时",
       "pull_request_closed": "关闭拉取请求时",
-      "pull_request_merged": "合并拉取请求时"
+      "pull_request_merged": "合并拉取请求时",
+      "auto_archive": "自动归档",
+      "autoArchiveDays": "自动归档等待天数",
+      "autoArchiveHint": "条目连续处于「完成」状态达到此天数后会自动归档。恢复已归档的条目会重新计时。留空或输入 0 可停用。",
+      "autoArchiveInvalid": "请输入 0 到 365 之间的整数，或留空。",
+      "auto_add": "自动添加",
+      "autoAdd": {
+        "repository": "自动添加来源仓库",
+        "kind": "自动添加条目类型",
+        "label": "议题标签（可选）",
+        "anyLabel": "不限标签",
+        "disabledHint": "选择一个仓库后，后续事件中符合条件的条目将自动添加。",
+        "issueHint": "议题创建或重新打开时自动添加。",
+        "labeledIssueHint": "带有此标签的议题在创建或重新打开时自动添加。打开的议题被加上此标签时也会自动添加。",
+        "pullRequestHint": "拉取请求发布或重新打开时自动添加。",
+        "repositoriesFailed": "无法加载供自动添加使用的仓库。",
+        "labelsFailed": "无法加载议题标签。"
+      },
+      "history": {
+        "title": "工作流历史",
+        "failed": "无法加载工作流历史。",
+        "empty": "暂无工作流运行记录。",
+        "itemCount_one": "{{count}} 个条目",
+        "itemCount_other": "{{count}} 个条目"
+      }
     },
     "archivedMatches": "这些条目已归档。打开条目即可恢复。",
     "updates": "项目进展",
@@ -118,6 +142,7 @@
     "restoreItem": "恢复条目",
     "archiveItem": "归档条目",
     "convertItem": "转为 Issue",
+    "saveBeforeConvert": "请先保存更改，再转换草稿。",
     "removeItem": "从项目移除",
     "chooseRepository": "选择仓库",
     "convertConfirm": "从草稿创建 Issue",

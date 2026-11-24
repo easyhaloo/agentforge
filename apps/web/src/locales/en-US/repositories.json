@@ -13,7 +13,31 @@
       "item_added": "When an item is added",
       "issue_closed": "When an issue is closed",
       "pull_request_closed": "When a pull request is closed",
-      "pull_request_merged": "When a pull request is merged"
+      "pull_request_merged": "When a pull request is merged",
+      "auto_archive": "Auto-archive",
+      "autoArchiveDays": "Auto-archive after (days)",
+      "autoArchiveHint": "Archive items after this many consecutive days in Done. Restoring an archived item resets the timer. Leave blank or enter 0 to disable.",
+      "autoArchiveInvalid": "Enter a whole number from 0 to 365 or leave blank.",
+      "auto_add": "Auto-add",
+      "autoAdd": {
+        "repository": "Auto-add repository",
+        "kind": "Auto-add item type",
+        "label": "Issue label (optional)",
+        "anyLabel": "No label filter",
+        "disabledHint": "Choose a repository to add matching items from future events.",
+        "issueHint": "Adds issues when they are created or reopened.",
+        "labeledIssueHint": "Adds issues with this label when they are created or reopened, or when this label is added to an open issue.",
+        "pullRequestHint": "Adds pull requests when they are published or reopened.",
+        "repositoriesFailed": "Could not load repositories for Auto-add.",
+        "labelsFailed": "Could not load issue labels."
+      },
+      "history": {
+        "title": "Workflow history",
+        "failed": "Could not load workflow history.",
+        "empty": "No workflow runs yet.",
+        "itemCount_one": "{{count}} item",
+        "itemCount_other": "{{count}} items"
+      }
     },
     "archivedMatches": "These items are already archived. Open an item to restore it.",
     "updates": "Updates",
@@ -119,6 +143,7 @@
     "restoreItem": "Restore item",
     "archiveItem": "Archive item",
     "convertItem": "Convert to issue",
+    "saveBeforeConvert": "Save your changes before converting this draft.",
     "removeItem": "Remove from project",
     "chooseRepository": "Choose a repository",
     "convertConfirm": "Create issue from draft",
