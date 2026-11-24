@@ -28,7 +28,7 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project>();
-  const [fields, setFields] = useState<ProjectField[]>([]);
+  const [fields, setFields] = useState<ProjectField[]>();
   const [fieldsFailed, setFieldsFailed] = useState(false);
   const [items, setItems] = useState<ProjectItem[]>();
   const [error, setError] = useState("");
@@ -102,6 +102,7 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
   const repository = project?.default_repository || project?.repository;
 
   function exportItems() {
+    if (!fields) return;
     const csv = projectCsv([
       [["itemTitle", "source", "statusLabel", "priority", "iteration", "startDate", "targetDate"].map((key) => t(`projects.${key}`)), fields.map(({ name }) => name)].flat(),
       ...visible.map((item) => [item.title, projectItemSource(handle, item) ?? "", item.status ? t(`projects.status.${item.status}`) : "",
@@ -179,7 +180,7 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
           {currentView && !views.some(({ id }) => id === currentView) && <p role="status">{t("projects.viewUnavailable")}</p>}
           <div className="projects-toolbar projects-workspace-toolbar">
             <Input type="search" aria-label={t("projects.filter")} placeholder={t("projects.filterHint")} value={search} onChange={(event) => setFilter({ view, value: event.target.value })} />
-            <Button disabled={!visible.length || fieldsFailed} onClick={exportItems}><Download size={16} aria-hidden /> {t("projects.export")}</Button>
+            <Button disabled={!visible.length || !fields || fieldsFailed} onClick={exportItems}><Download size={16} aria-hidden /> {t("projects.export")}</Button>
             {editViews && <Link className={secondaryLink} to={pageURL("view-edit")}>{t("projects.viewOptions")}</Link>}
             {writable && <>
               <Link className={primaryLink} to={pageURL("add")}><Plus size={16} aria-hidden /> {t("projects.addItems")}</Link>
@@ -193,7 +194,7 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
         {page === "insights" && items ? <><ProjectInsights items={visible} /><ProjectHistory orgID={orgID} number={project.number} /></> : items && (!visible.length && (archived || view.layout !== "board" || search.trim()) ? <div className="projects-message">
           <p>{t(items.length ? "projects.noMatchingItems" : archived ? "projects.noArchived" : "projects.noItems")}</p>
           {search && !archived && <Button onClick={() => setFilter({ view, value: "" })}>{t("projects.clearFilter")}</Button>}
-        </div> : <ProjectItems {...{ handle, view, visible, fields, archived, writable, pendingItem, moveItem }}
+        </div> : <ProjectItems {...{ handle, view, visible, archived, writable, pendingItem, moveItem }} fields={fields ?? []}
           addItemsURL={(field, value) => pageURL("add", { [field]: value })}
           itemURL={(item) => pageURL("item", { item: item.id, ...(archived && { archived: "true" }) })} />)}
         {archived && items && <Button className="projects-back" onClick={() => setParams(currentView ? { view: currentView } : {})}>{t("projects.backToProject")}</Button>}
@@ -304,9 +305,10 @@ function ProjectItems({ visible, fields, view, handle, archived, writable, pendi
     { key: "target_date", title: t("projects.targetDate"), render: (_, item) => item.target_date || "—" },
     ...fields.map((field) => ({ key: field.id, title: field.name, render: (_: unknown, item: ProjectItem) => customFieldLabel(field, item) ?? "—" })),
   ];
+  const visibleColumnKeys = columns.map(({ key }) => String(key));
   return <div className="projects-form">{groups.filter(([, entries]) => entries.length).map(([key, entries]) => <section key={key} className="projects-table-scroll">
     {group !== "none" && !archived && <h2 className="projects-group-heading">{fieldLabel(group, key)}</h2>}
-    <DataTable data={entries} columns={columns} rowKey="id" className="projects-table" showColumnVisibility={false} />
+    <DataTable data={entries} columns={columns} rowKey="id" className="projects-table" visibleColumnKeys={visibleColumnKeys} showColumnVisibility={false} />
   </section>)}</div>;
 }
 

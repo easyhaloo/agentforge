@@ -296,6 +296,12 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("textbox", { name: "View name", exact: true }).fill("Release table");
   await page.getByRole("button", { name: "Create view", exact: true }).click();
   await expect(page.getByRole("link", { name: "Release table", exact: true })).toHaveAttribute("aria-current", "page");
+  // The project table must pick up custom columns even when items load first.
+  await page.route("**/issue-projects/1/fields", async (route) => {
+    await expect(page.getByRole("columnheader", { name: "Title", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+    await route.continue();
+  }, { times: 1 });
   await page.reload();
   await expect(page.getByRole("columnheader", { name: "Reviewer notes" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Verify upgrade path" })).toBeVisible();
