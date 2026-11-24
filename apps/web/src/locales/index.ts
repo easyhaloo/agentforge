@@ -14,6 +14,7 @@ import enOverview from "./en-US/overview.json";
 import enPipelines from "./en-US/pipelines.json";
 import enErrors from "./en-US/errors.json";
 import enPulls from "./en-US/pulls.json";
+import enProjectFields from "./en-US/projectFields.json";
 import enApp from "./en-US/app.json";
 
 import zhCommon from "./zh-CN/common.json";
@@ -28,6 +29,7 @@ import zhOverview from "./zh-CN/overview.json";
 import zhPipelines from "./zh-CN/pipelines.json";
 import zhErrors from "./zh-CN/errors.json";
 import zhPulls from "./zh-CN/pulls.json";
+import zhProjectFields from "./zh-CN/projectFields.json";
 import zhApp from "./zh-CN/app.json";
 
 const resources = {
@@ -45,6 +47,7 @@ const resources = {
     errors: enErrors,
     app: enApp,
     pulls: enPulls,
+    projectFields: enProjectFields,
   },
   "zh-CN": {
     common: zhCommon,
@@ -60,6 +63,7 @@ const resources = {
     errors: zhErrors,
     app: zhApp,
     pulls: zhPulls,
+    projectFields: zhProjectFields,
   },
 };
 
@@ -108,7 +112,7 @@ i18n
     resources,
     fallbackLng: "en-US",
     defaultNS: "common",
-    ns: ["common", "navigation", "changesets", "login", "register", "settings", "organization", "repositories", "overview", "pipelines", "errors", "app"],
+    ns: ["common", "navigation", "changesets", "login", "register", "settings", "organization", "repositories", "overview", "pipelines", "errors", "app", "projectFields"],
     interpolation: {
       escapeValue: false, // React already escapes
     },

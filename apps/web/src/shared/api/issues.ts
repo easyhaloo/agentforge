@@ -21,7 +21,7 @@ export interface Assignee {
   display_name?: string;
 }
 
-export type ProjectLayout = "table" | "board";
+export type ProjectLayout = "table" | "board" | "roadmap";
 
 export type IssueProject = {
   id: string;

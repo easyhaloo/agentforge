@@ -1,4 +1,15 @@
 {
+  "pullProjects": {
+    "none": "没有关联的项目",
+    "choose": "选择项目",
+    "add": "添加",
+    "remove": "移除",
+    "removeNamed": "从 {{name}} 移除",
+    "archived": "已归档",
+    "loadFailed": "无法加载关联项目。",
+    "saveFailed": "无法更新项目关联。",
+    "refresh": "刷新项目"
+  },
   "footer": {
     "prototype": "AgentForge 原型",
     "version": "v0.1.0",

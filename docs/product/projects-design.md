@@ -1,6 +1,16 @@
 # AgentForge Projects 产品设计
 
-设计提案 · 对标 GitHub Projects · 2026-11-23
+组织项目工作区 · 参考 GitHub Projects · 2026-11-24
+
+## 当前交付
+
+- 组织与仓库均可进入项目目录。新建项目、保存视图、添加条目、编辑字段和发布进展使用当前标签页的独立页面。
+- 项目工作区支持表格、看板、路线图、保存视图和 CSV 导出。组织内可跨仓导入 Issue 与 PR，草稿转换保留条目 ID 和项目字段。看板列支持拖动、键盘选择和直接添加条目。
+- 组织 Owner / Admin 管理项目、视图、字段和工作流。Member 编辑条目与发布进展，Viewer 只读。旧单仓项目保留原有范围。来源状态与项目 Status 分开存储，项目操作不改变交付审批或合并权限。
+- 内置工作流支持条目默认状态、Issue 关闭、PR 关闭与 PR 合并。显式选择的新增列优先于默认规则，重复导入保留已有条目字段。来源规则随事务执行，只响应实际状态变更，关闭项目与归档条目不参与。已有项目的来源规则默认关闭。
+- 洞察展示筛选后的当前状态与迭代分布，以及全项目最近最多 30 天的 UTC 日末状态计数。历史从项目创建或迁移日起计算。接入仓库级权限后，历史聚合须同时过滤来源条目。
+
+实现范围为组织项目。下文的项目与团队 ACL、仓库级条目可见性、条件自动添加、定时自动归档、工作流运行审计、来源时间线事件、个人与公开项目、跨组织内容和直接跟踪未发布 PR 的 Changeset 属于后续设计。
 
 ## 1. 产品行为
 
@@ -21,13 +31,13 @@ GitHub Projects 参考行为见[产品概览][github-overview]、[添加条目][
 
 ## 2. 页面与入口
 
-| 页面 | 建议路径 | 核心操作 |
+| 页面 | 当前路径 | 核心操作 |
 | --- | --- | --- |
 | 组织项目目录 | `/orgs/:org/projects` | 浏览开启、已关闭的项目，搜索标题或编号，新建项目 |
 | 新建项目 | `/orgs/:org/projects/new` | 选择空白布局或模板，填写项目名称并提交 |
 | 项目默认视图 | `/orgs/:org/projects/:number` | 打开首个按顺序排列的保存视图 |
-| 保存视图 | `/orgs/:org/projects/:number/views/:viewId` | 查看、过滤、排序、分组和编辑项目条目 |
-| 项目归档、工作流、洞察、设置 | `/orgs/:org/projects/:number/{archive,workflows,insights,settings}` | 管理归档、规则、图表、字段和权限 |
+| 保存视图 | `/orgs/:org/projects/:number?view=:viewId` | 查看、过滤、排序、分组和编辑项目条目 |
+| 项目归档、工作流、洞察、设置 | `/orgs/:org/projects/:number?page={archive,workflows,insights,settings}` | 管理归档、规则、洞察及字段 |
 | 仓库项目页 | `/orgs/:org/repositories/:owner/:repo/projects` | 查看和关联同组织的项目，进入同一项目详情 |
 | 旧入口 | `/projects` | 按现有组织选择规则跳转，保留登录后的返回位置 |
 
@@ -45,7 +55,7 @@ GitHub Projects 参考行为见[产品概览][github-overview]、[添加条目][
 
 目录使用紧凑行列表。项目标题打开默认视图，行内显示编号、描述摘要、可见的关联仓库和最近更新时间。
 
-「新建项目」在当前标签页转到独立页面 `/orgs/:org/projects/new`。组织入口和仓库入口共用该页，仓库入口预填来源仓库。页头提供返回入口和「新建项目」标题。桌面左栏选择空白布局或模板，右栏填写项目名称和可选的初始配置。窄屏按同样顺序堆叠。模板开放后，选中模板可在同页查看将复制的字段、视图和工作流。页面结构参考 [Primer 创建模式][primer-create]和 [PageHeader][primer-header]，布局与模板选择流程参考[新建项目][github-create]。
+「新建项目」在当前标签页转到独立页面 `/orgs/:org/projects/new`。组织入口和仓库入口共用该页，仓库入口预填来源仓库。页头提供返回入口和「新建项目」标题。桌面左栏选择空白布局或模板，右栏填写项目名称和可选的初始配置。窄屏按同样顺序堆叠。提供团队待办和发布计划模板，配置对应的初始保存视图。页面结构参考 [Primer 创建模式][primer-create]和 [PageHeader][primer-header]，布局与模板选择流程参考[新建项目][github-create]。
 
 ```text
 ‹ 返回项目
@@ -169,19 +179,20 @@ GitHub 的条目入口和生命周期见[添加条目][github-items]、[转换�
 
 PR 条目引用真实 PR 对应的内部交付记录，校验 PR 已存在，页面链接使用仓库路径和 PR 编号。若后续直接跟踪 Changeset，继续用稳定 Changeset ID 绑定。该 Changeset 发布 PR 后，原条目补充 PR 入口。同项目添加该 PR 时复用已有条目，保留计划字段。新增 Revision 时，交付摘要读取新的当前 Revision，过期 Evidence 和 Review 随来源规则失效。审批和合并继续走原有服务端校验，项目状态和自动化均无权授权交付操作。
 
-### 提议 API
+### 当前 API
 
-统一前缀 `/api/v1/organizations/{organizationID}/projects`。项目列表和详情支持按组织内编号定位，条目和保存视图使用稳定的 ID。
+统一前缀 `/api/v1/organizations/{organizationID}/issue-projects`。组织内用编号定位项目，条目、字段和保存视图使用稳定 ID。
 
 | 操作 | 接口 |
 | --- | --- |
-| 项目列表、创建、详情、更新 | `GET/POST /`，`GET/PATCH /{number}` |
-| 生命周期与协作设置 | `POST /{number}/close`，`POST /{number}/reopen`，`DELETE /{number}`，`/{number}/repositories`，`/{number}/access` |
+| 项目列表、创建、详情 | `GET/POST /`，`GET /{number}` |
+| 设置、关闭、重开、视图、工作流和仓库关联 | `PATCH /{number}`，提交当前项目 `version` |
+| 删除项目 | `DELETE /{number}?version=…` |
 | 条目列表、添加与编辑 | `GET/POST /{number}/items`，`PATCH/DELETE /{number}/items/{itemID}` |
-| 归档、恢复、草稿转换 | `POST /{number}/items/{itemID}/{archive,restore,convert}` |
-| 保存视图、字段与自动化 | `/{number}/{views,fields,workflows,updates,insights}`，按资源提供读取和允许的写入，导出使用 `GET /{number}/export` |
+| 归档、恢复、草稿转换 | 条目 `PATCH` 接受 `archived`，`POST /{number}/items/{itemID}/convert` 转换草稿 |
+| 字段与进展、状态历史 | `/{number}/fields`，`/{number}/items/{itemID}/field-values`，`/{number}/updates`，`GET /{number}/status-history` |
 
-列表使用游标分页，鉴权先于过滤和聚合。会话写入沿用 CSRF 校验。项目版本、条目版本及视图版本独立，过期写入返回 `409`，界面保留输入并提示重新加载对应资源。无效字段值、日期范围和不受支持的来源类型返回 `422`。已知资源但操作权限不足返回 `403`，不可访问的项目或来源统一返回 `404`。批量添加按条目报告新增、已存在与失败，已成功项可在重试时复用。
+写入沿用会话与 CSRF 校验。项目与条目各自使用版本检测，保存视图及工作流配置共用项目版本。过期写入返回 `409`。CSV 由页面按当前筛选结果生成。请求参数和错误语义见 [OpenAPI](../../contracts/openapi/issues.yaml)。
 
 ### 兼容迁移
 
@@ -192,7 +203,7 @@ PR 条目引用真实 PR 对应的内部交付记录，校验 PR 已存在，页
 
 ## 7. 实施顺序和验收
 
-首批实现覆盖组织项目目录、独立创建页和 Issue 表格与看板。初始布局跟随项目保存，详情内切换布局只影响本次浏览。看板按来源 Issue 的开启或关闭状态分列。其余能力按下面的阶段推进。
+以下为原设计的实施顺序。已交付阶段 1 和阶段 2 的组织规划工作区，阶段 2 的授权和管理历史仍为后续范围。
 
 | 阶段 | 可独立验收的交付 |
 | --- | --- |

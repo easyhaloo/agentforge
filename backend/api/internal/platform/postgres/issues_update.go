@@ -61,12 +61,24 @@ func (r *IssueRepository) Update(ctx context.Context, organizationID string, iss
 	}{
 		{meta.AssigneeIDs, `DELETE FROM issue_assignees WHERE organization_id = $1 AND issue_id = $2`},
 		{meta.LabelIDs, `DELETE FROM issue_labels WHERE organization_id = $1 AND issue_id = $2`},
-		{meta.ProjectIDs, `DELETE FROM issue_projects WHERE organization_id = $1 AND issue_id = $2`},
 	} {
 		if group.ids != nil {
 			if _, err := tx.Exec(ctx, group.statement, organizationID, issue.ID); err != nil {
 				return nil, fmt.Errorf("replace issue metadata: %w", err)
 			}
+		}
+	}
+	// Keep unchanged project links so their item IDs and local fields survive Issue edits.
+	if meta.ProjectIDs != nil {
+		if _, err := tx.Exec(ctx, `WITH open_projects AS MATERIALIZED (
+			SELECT p.id FROM organization_projects p JOIN issue_projects ip
+			ON (ip.organization_id, ip.project_id) = (p.organization_id, p.id)
+			WHERE ip.organization_id = $1 AND ip.issue_id = $2 AND NOT (p.id = ANY($3)) AND NOT p.closed
+			ORDER BY p.id FOR KEY SHARE OF p
+		)
+		DELETE FROM issue_projects WHERE organization_id = $1 AND issue_id = $2
+		AND project_id IN (SELECT id FROM open_projects)`, organizationID, issue.ID, meta.ProjectIDs); err != nil {
+			return nil, fmt.Errorf("remove issue project links: %w", err)
 		}
 	}
 	if err := insertIssueMetadata(ctx, tx, organizationID, issue, meta); err != nil {
@@ -99,9 +111,6 @@ func insertIssueMetadata(ctx context.Context, tx pgx.Tx, organizationID string, 
 			WHERE organization_id = $1 AND status = 'active' AND user_id = ANY($3) FOR SHARE`, false},
 		{meta.LabelIDs, `INSERT INTO issue_labels (organization_id, issue_id, label_id)
 			SELECT $1, $2, id FROM labels WHERE organization_id = $1 AND id = ANY($3) AND repository = $4 FOR KEY SHARE`, true},
-		{meta.ProjectIDs, `INSERT INTO issue_projects (organization_id, issue_id, project_id)
-			SELECT $1, $2, id FROM organization_projects
-			WHERE organization_id = $1 AND id = ANY($3) AND (repository IS NULL OR repository = $4) FOR KEY SHARE`, true},
 	} {
 		if len(group.ids) == 0 {
 			continue
@@ -115,6 +124,25 @@ func insertIssueMetadata(ctx context.Context, tx pgx.Tx, organizationID string, 
 			return fmt.Errorf("insert issue metadata: %w", err)
 		}
 		if inserted.RowsAffected() != int64(len(group.ids)) {
+			return issues.ErrInvalidMetadata
+		}
+	}
+	if len(meta.ProjectIDs) != 0 {
+		var matched int
+		err := tx.QueryRow(ctx, `WITH projects AS MATERIALIZED (
+			SELECT p.id FROM organization_projects p WHERE p.organization_id = $1 AND p.id = ANY($3)
+			AND (p.repository IS NULL OR p.repository = $4) AND (NOT p.closed OR EXISTS (
+				SELECT 1 FROM issue_projects ip WHERE ip.organization_id = $1 AND ip.project_id = p.id AND ip.issue_id = $2
+			)) ORDER BY p.id FOR KEY SHARE
+		), linked AS (
+			INSERT INTO issue_projects (organization_id, issue_id, project_id)
+			SELECT $1, $2, id FROM projects ON CONFLICT DO NOTHING
+		)
+		SELECT count(*) FROM projects`, organizationID, issue.ID, meta.ProjectIDs, issue.Repository).Scan(&matched)
+		if err != nil {
+			return fmt.Errorf("link issue projects: %w", err)
+		}
+		if matched != len(meta.ProjectIDs) {
 			return issues.ErrInvalidMetadata
 		}
 	}

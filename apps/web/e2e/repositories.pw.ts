@@ -17,6 +17,29 @@ test("the organization has its own repositories page", async ({ page }) => {
   await expect(page.getByRole("link", { exact: true, name: "easyhaloo/agentforge" })).toBeVisible();
 });
 
+test("repository Projects opens the linked directory and creates in the same tab", async ({ page }) => {
+  const repository = "easyhaloo/agentforge";
+  const path = `/orgs/demo/repositories/${repository}`;
+  await page.route(/\/api\/v1\/organizations\/org-demo\/issue-projects\?linked_repository=/, route => {
+    expect(new URL(route.request().url()).searchParams.get("linked_repository")).toBe(repository);
+    return route.fulfill({ json: { items: [{ id: "project-1", number: 1, name: "Release backlog", layout: "table", version: 1 }] } });
+  });
+  await page.goto(path);
+  const tab = page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Projects", exact: true });
+  await tab.click();
+  await expect(page).toHaveURL(`${path}/projects`);
+  await expect(tab).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Release backlog" })).toHaveAttribute("href", "/orgs/demo/projects/1");
+
+  await page.getByRole("link", { name: "New project", exact: true }).click();
+  await expect(page).toHaveURL(`/orgs/demo/projects/new?${new URLSearchParams({ repository, return: "repository" })}`);
+  await expect(page.getByRole("heading", { name: "New project", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Repository sections" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Cancel", exact: true }).click();
+  await expect(page).toHaveURL(`${path}/projects`);
+  await expect(tab).toHaveAttribute("aria-current", "page");
+});
+
 test("rejects number-only names and displays the workspace name for new repositories", async ({ page }, testInfo) => {
   const id = "1e123caae752c71a2bdcee9a4d658ce6";
   const catalog = `/orgs/${id}/repositories`;

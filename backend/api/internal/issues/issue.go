@@ -124,7 +124,7 @@ type Issue struct {
 	ParentCanManage     bool              `json:"-"`
 	MetadataUpdate      MetadataUpdate    `json:"-"`
 	ProjectIDs          []string          `json:"-"`
-	Projects            []Project         `json:"projects,omitempty"`
+	Projects            []ProjectRef      `json:"projects,omitempty"`
 	State               State             `json:"state"`
 	StateReason         StateReason       `json:"state_reason,omitempty"`
 	MilestoneID         string            `json:"milestone_id,omitempty"`

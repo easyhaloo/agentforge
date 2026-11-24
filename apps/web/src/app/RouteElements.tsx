@@ -159,7 +159,7 @@ export function RepositoryCreateRoute() {
   return <RepositoryCreatePage key={organization.id} organization={organization} account={account} onNotify={notify} />;
 }
 
-export function RepositoryDetailRoute({ section, settingsSection }: { section?: "issues" | "actions"; settingsSection?: RepositorySettingsSection }) {
+export function RepositoryDetailRoute({ section, settingsSection }: { section?: "issues" | "actions" | "projects"; settingsSection?: RepositorySettingsSection }) {
   const { organization, account } = useOutletContext<OrganizationOutletContext>();
   const { owner, repo, repositorySlug } = useParams();
   const notify = useNotify();
@@ -168,6 +168,7 @@ export function RepositoryDetailRoute({ section, settingsSection }: { section?: 
   }
   const repository = `${owner}/${repo}`;
   if (settingsSection) return <RepositorySettingsPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} section={settingsSection} onNotify={notify} />;
+  if (section === "projects") return <ProjectsPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} />;
   if (section) return <RepositorySectionPage key={`${organization.id}:${repository}:${section}`} organization={organization} repository={repository} section={section} currentUser={account.user_id}/>;
   return <RepositoryBrowserPage key={`${organization.id}:${repository}`} organization={organization} repository={repository} onNotify={notify} />;
 }

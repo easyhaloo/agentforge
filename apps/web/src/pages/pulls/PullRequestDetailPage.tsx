@@ -11,6 +11,7 @@ import { PullRequestConversationTab } from "./PullRequestConversationTab";
 import { PullRequestCommitsTab } from "./PullRequestCommitsTab";
 import { PullRequestChecksTab } from "./PullRequestChecksTab";
 import { PullRequestIssueLinks } from "./PullRequestIssueLinks";
+import { PullRequestProjects } from "./PullRequestProjects";
 import { PullRequestFilesTab } from "./PullRequestFilesTab";
 
 type Props = {
@@ -443,6 +444,7 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
           </section>
           <PullRequestIssueLinks key={`${organization.id}/${repository}/${pullNumber}`} organization={organization}
             repository={repository} pullID={pullNumber} handle={handle} editable={state === "open" || state === "draft"} />
+          <PullRequestProjects organization={organization} handle={handle} repository={repository} pullID={pullNumber} />
         </aside>
       </div>}
       {tab === "commits" && currentComparison?.data && (

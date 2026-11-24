@@ -32,7 +32,7 @@ export function projectPath(handle: string, number: string | number): string {
   return `${orgPath(handle, "projects")}/${encodeURIComponent(number)}`;
 }
 
-export const repositorySections = ["issues", "pulls", "actions", "settings"] as const;
+export const repositorySections = ["issues", "pulls", "actions", "projects", "settings"] as const;
 export type RepositorySection = typeof repositorySections[number];
 
 export function repositoryPath(handle: string, slug: string, section?: RepositorySection): string {

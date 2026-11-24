@@ -40,6 +40,17 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 	}
 	defer tx.Rollback(ctx)
 
+	created, err := r.store.createIssueInTx(ctx, tx, organizationID, issue)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit issue creation: %w", err)
+	}
+	return created, nil
+}
+
+func (s *Store) createIssueInTx(ctx context.Context, tx pgx.Tx, organizationID string, issue *issues.Issue) (*issues.Issue, error) {
 	if err := requireRepositoryIssues(ctx, tx, organizationID, issue.Repository); err != nil {
 		return nil, err
 	}
@@ -58,7 +69,7 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 	}
 
 	var number int
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		INSERT INTO resource_number_counters (organization_id, repository, last_number)
 		VALUES ($1, $2, 1)
 		ON CONFLICT (organization_id, repository) DO UPDATE
@@ -117,7 +128,7 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 		}
 	}
 
-	if err := notifyIssueActivity(ctx, tx, organizationID, string(issue.ID), "", issue.CreatedBy, issue.Body, issue.CreatedAt, r.store.notificationMailOrigin); err != nil {
+	if err := notifyIssueActivity(ctx, tx, organizationID, string(issue.ID), "", issue.CreatedBy, issue.Body, issue.CreatedAt, s.notificationMailOrigin); err != nil {
 		return nil, err
 	}
 
@@ -125,9 +136,6 @@ func (r *IssueRepository) Create(ctx context.Context, organizationID string, iss
 		FROM issues WHERE organization_id = $1 AND id = $2`, organizationID, issue.ID))
 	if err != nil {
 		return nil, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit issue creation: %w", err)
 	}
 	return created, nil
 }

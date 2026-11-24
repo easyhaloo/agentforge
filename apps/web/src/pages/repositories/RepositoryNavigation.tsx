@@ -1,4 +1,4 @@
-import { AlertCircle, Code2, GitPullRequest, Settings } from "lucide-react";
+import { AlertCircle, Boxes, Code2, GitPullRequest, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import type { OrganizationSummary } from "../../shared/api/identity";
@@ -14,18 +14,18 @@ function ActionsIcon() {
   );
 }
 
-const sectionIcons = { issues: AlertCircle, pulls: GitPullRequest, actions: ActionsIcon, settings: Settings };
+const sectionIcons = { issues: AlertCircle, pulls: GitPullRequest, actions: ActionsIcon, projects: Boxes, settings: Settings };
 
 type Props = { organization: OrganizationSummary; handle: string; repository: string; issuesDisabled: boolean };
 
 export function RepositoryNavigation({ organization, handle, repository, issuesDisabled }: Props) {
-  const { t } = useTranslation("repositories");
+  const { t } = useTranslation(["repositories", "navigation"]);
   return <nav className="repo-section-nav" aria-label={t("repositories:browser.sections")}>
     <NavLink to={repositoryPath(handle, repository)} end><Code2 size={16} aria-hidden="true"/>{t("repositories:browser.code")}</NavLink>
     {repositorySections.filter(section => (section !== "settings" || canManageRepository(organization)) && (section !== "issues" || !issuesDisabled)).map(section => {
       const Icon = sectionIcons[section];
       return <NavLink key={section} to={repositoryPath(handle, repository, section)} end={section === "actions"}>
-        <Icon size={16} aria-hidden="true"/>{t(`repositories:sections.${section}`)}
+        <Icon size={16} aria-hidden="true"/>{section === "projects" ? t("navigation:routes.projects") : t(`repositories:sections.${section}`)}
       </NavLink>;
     })}
   </nav>;

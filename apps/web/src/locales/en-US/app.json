@@ -1,4 +1,15 @@
 {
+  "pullProjects": {
+    "none": "No linked projects",
+    "choose": "Choose a project",
+    "add": "Add",
+    "remove": "Remove",
+    "removeNamed": "Remove from {{name}}",
+    "archived": "Archived",
+    "loadFailed": "Could not load linked projects.",
+    "saveFailed": "Could not update this project association.",
+    "refresh": "Refresh projects"
+  },
   "footer": {
     "prototype": "AgentForge Prototype",
     "version": "v0.1.0",
