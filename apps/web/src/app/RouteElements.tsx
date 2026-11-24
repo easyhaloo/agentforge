@@ -30,7 +30,6 @@ import { SettingsLayout } from "../pages/settings/SettingsLayout";
 import { Button, Loading } from "../shared/ui";
 import { flatPaths, organizationHandle, repositoryPath, repositoryNewPath, type ChangesetTab, type PullRequestTab, type RepositorySettingsSection } from "../shared/routing";
 import type { OrganizationOutletContext } from "./OrganizationGate";
-import { PageHeader } from "./components/PageHeader";
 import { useAppAccount } from "./account-context";
 import { useNotify } from "./useNotify";
 import { LoginRedirect } from "./LoginRedirect";
@@ -108,8 +107,7 @@ export function ChangesetDetailRoute({ tab }: { tab: ChangesetTab }) {
 
 export function PipelinesRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
-  return <PipelinesPage key={organization.id} organization={organization} renderHeader={actions =>
-    <PageHeader label="CI / CD" descriptionKey="navigation:descriptions.cicd" {...actions} />} />;
+  return <PipelinesPage key={organization.id} organization={organization} />;
 }
 
 export function PipelineEditorRoute() {

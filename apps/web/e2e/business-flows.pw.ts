@@ -19,7 +19,7 @@ test("Overview lists pending reviews and passes the filters to Changesets", asyn
   await expect(work.getByRole("link", { name: /Approved change/ })).toBeVisible();
   await page.getByRole("link", { name: "Open review queue" }).click();
   await expect(page).toHaveURL(/reviewer=me&status=in_review$/);
-  await expect(page.getByRole("main").locator(".page-heading h1")).toHaveText("Changesets");
+  await expect(page.getByRole("main", { name: "Changesets" })).toBeVisible();
   await expect(page.getByText("Browser test baseline")).toBeVisible();
   await expect(page.getByText("Approved change")).toHaveCount(0);
 });

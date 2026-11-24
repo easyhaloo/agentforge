@@ -513,6 +513,8 @@ Use the shared workspace Topbar for page labels and repository context. The supp
 
 Vertically center the menu button, brand mark, and label or repository context in the row. Measure gaps from the outer control or mark box to the next layout box. Set page labels at 14 px and weight 600. Keep labels on one line and truncate with an ellipsis when space runs out. At 420 px and below, move the trailing actions to a second row aligned to the end to give the label or repository context room. Verify both rows fit at 320 px. [Topbar browser tests](../../apps/web/e2e/routing.pw.ts)
 
+When the Topbar names the page, start the body with its controls or content. Omit the repeated title, generic introduction, and divider. Keep headings that identify a specific queue, resource, or view, and place page actions beside the content they affect.
+
 ### Repository header
 
 Show the repository owner and name once in the Topbar. Place the repository navigation on the same surface directly below it, with a divider under the navigation. Keep page titles and page-specific actions in the page body. Use route links with `aria-current="page"` and a visible underline for the active section, including on nested issue and pull request URLs. Keep the row horizontally scrollable on narrow screens and every link reachable by keyboard.

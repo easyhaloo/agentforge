@@ -47,7 +47,7 @@ test("local session returns to its repository, reads organization data and signs
   for (const response of await Promise.all(workbenchRequests)) expect(response.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await page.getByRole("region", { name: "Pipelines" }).getByRole("link", { name: "All pipelines" }).click();
-  await page.locator(".heading-actions").getByRole("button", { name: "Create", exact: true }).click();
+  await page.locator(".wf-list-header").getByRole("button", { name: "Create", exact: true }).click();
   const created = page.waitForResponse(response => response.url().endsWith(`/organizations/${org}/pipelines`) && response.request().method() === "POST");
   await page.getByRole("dialog", { name: "Create pipeline" }).getByRole("button", { name: "Create", exact: true }).click();
   const pipelineResponse = await created;

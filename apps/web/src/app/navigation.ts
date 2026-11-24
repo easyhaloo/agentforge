@@ -2,13 +2,12 @@ import { Activity, Bell, ArrowDownUp, Boxes, BrainCircuit, CheckCircle2, Code2, 
 import { flatPaths, orgPath, repositorySections, type OrgSection } from "../shared/routing";
 
 /**
- * Shared page metadata for the sidebar, the command palette, the page header and the breadcrumb.
+ * Shared page metadata for the sidebar, the command palette and the Topbar.
  * Mock pages carry a flat `path`; pages backed by the real API carry an `orgPath` that is
  * completed with an organization handle (see shared/routing).
  */
 export type NavigationItem = {
   label: string;
-  descriptionKey?: string;
   icon: LucideIcon;
   group: string;
 } & ({ path: string } | { orgPath: (handle: string) => string });
@@ -16,26 +15,26 @@ export type NavigationItem = {
 const inOrganization = (section: OrgSection) => (handle: string) => orgPath(handle, section);
 
 export const navigationItems: readonly NavigationItem[] = [
-  { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, descriptionKey: "navigation:descriptions.overview", path: flatPaths.overview },
+  { group: "WORKSPACE", label: "Overview", icon: LayoutDashboard, path: flatPaths.overview },
   { group: "WORKSPACE", label: "Projects", icon: Boxes, orgPath: inOrganization("projects") },
-  { group: "WORKSPACE", label: "Repositories", icon: Code2, descriptionKey: "navigation:descriptions.repositories", orgPath: inOrganization("repositories") },
-  { group: "WORKSPACE", label: "Issues", icon: CircleDot, descriptionKey: "navigation:descriptions.issues", orgPath: inOrganization("issues") },
-  { group: "WORKSPACE", label: "Inbox", icon: Bell, descriptionKey: "navigation:descriptions.inbox", orgPath: inOrganization("notifications") },
-  { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, descriptionKey: "navigation:descriptions.changesets", orgPath: inOrganization("changesets") },
-  { group: "WORKSPACE", label: "Workspaces", icon: Terminal, descriptionKey: "navigation:descriptions.workspaces", path: flatPaths.workspaces },
-  { group: "COORDINATION", label: "Trails", icon: Workflow, descriptionKey: "navigation:descriptions.trails", orgPath: inOrganization("trails") },
+  { group: "WORKSPACE", label: "Repositories", icon: Code2, orgPath: inOrganization("repositories") },
+  { group: "WORKSPACE", label: "Issues", icon: CircleDot, orgPath: inOrganization("issues") },
+  { group: "WORKSPACE", label: "Inbox", icon: Bell, orgPath: inOrganization("notifications") },
+  { group: "WORKSPACE", label: "Changesets", icon: GitCommitHorizontal, orgPath: inOrganization("changesets") },
+  { group: "WORKSPACE", label: "Workspaces", icon: Terminal, path: flatPaths.workspaces },
+  { group: "COORDINATION", label: "Trails", icon: Workflow, orgPath: inOrganization("trails") },
   { group: "COORDINATION", label: "Review", icon: GitPullRequest, orgPath: inOrganization("review") },
   { group: "COORDINATION", label: "Eval", icon: CheckCircle2, orgPath: inOrganization("eval") },
-  { group: "COORDINATION", label: "Self-healing", icon: Activity, descriptionKey: "navigation:descriptions.selfHealing", path: flatPaths.selfHealing },
-  { group: "INTELLIGENCE", label: "Memory", icon: BrainCircuit, descriptionKey: "navigation:descriptions.memory", path: flatPaths.memory },
-  { group: "INTELLIGENCE", label: "CI / CD", icon: Zap, descriptionKey: "navigation:descriptions.cicd", orgPath: inOrganization("pipelines") },
-  { group: "DEVELOPER", label: "WebIDE", icon: Code2, descriptionKey: "navigation:descriptions.webide", orgPath: inOrganization("webide") },
-  { group: "DEVELOPER", label: "UI Components", icon: PanelsTopLeft, descriptionKey: "navigation:descriptions.uiComponents", path: flatPaths.uiComponents },
-  { group: "CONTROL PLANE", label: "Organization", icon: Users, descriptionKey: "navigation:descriptions.organization", orgPath: inOrganization("settings") },
-  { group: "CONTROL PLANE", label: "Security", icon: ShieldCheck, descriptionKey: "navigation:descriptions.security", path: flatPaths.security },
-  { group: "CONTROL PLANE", label: "Governance", icon: LockKeyhole, descriptionKey: "navigation:descriptions.governance", path: flatPaths.governance },
-  { group: "CONTROL PLANE", label: "Cost & Usage", icon: ArrowDownUp, descriptionKey: "navigation:descriptions.usage", path: flatPaths.usage },
-  { group: "CONTROL PLANE", label: "Settings", icon: Settings, descriptionKey: "navigation:descriptions.settings", path: flatPaths.settings },
+  { group: "COORDINATION", label: "Self-healing", icon: Activity, path: flatPaths.selfHealing },
+  { group: "INTELLIGENCE", label: "Memory", icon: BrainCircuit, path: flatPaths.memory },
+  { group: "INTELLIGENCE", label: "CI / CD", icon: Zap, orgPath: inOrganization("pipelines") },
+  { group: "DEVELOPER", label: "WebIDE", icon: Code2, orgPath: inOrganization("webide") },
+  { group: "DEVELOPER", label: "UI Components", icon: PanelsTopLeft, path: flatPaths.uiComponents },
+  { group: "CONTROL PLANE", label: "Organization", icon: Users, orgPath: inOrganization("settings") },
+  { group: "CONTROL PLANE", label: "Security", icon: ShieldCheck, path: flatPaths.security },
+  { group: "CONTROL PLANE", label: "Governance", icon: LockKeyhole, path: flatPaths.governance },
+  { group: "CONTROL PLANE", label: "Cost & Usage", icon: ArrowDownUp, path: flatPaths.usage },
+  { group: "CONTROL PLANE", label: "Settings", icon: Settings, path: flatPaths.settings },
 ];
 
 /** Sidebar sections, with settings links reserved for the user menu. */

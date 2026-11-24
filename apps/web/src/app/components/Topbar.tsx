@@ -8,9 +8,9 @@ import { TopbarIcon } from "./TopbarIcon";
 import { labelToNavKey } from "../navigation-labels";
 import { UserMenu } from "./UserMenu";
 
-type Props = { focused?: boolean; label: string; onSearch: () => void; navigation?: ReactNode; organizationHandle?: string; context?: ReactNode; onSignOut: () => void };
+type Props = { focused?: boolean; label: string; pageLabelId?: string; onSearch: () => void; navigation?: ReactNode; organizationHandle?: string; context?: ReactNode; onSignOut: () => void };
 
-export function Topbar({ focused, label, onSearch, onSignOut, navigation, organizationHandle, context }: Props) {
+export function Topbar({ focused, label, pageLabelId, onSearch, onSignOut, navigation, organizationHandle, context }: Props) {
   const { t } = useTranslation();
   const translatedLabel = t(labelToNavKey(label));
 
@@ -26,7 +26,7 @@ export function Topbar({ focused, label, onSearch, onSignOut, navigation, organi
         <Link to={flatPaths.overview} aria-label={t("navigation:sidebar.brand")}>
           <span className="brand-mark"><Sparkles size={16} aria-hidden="true" /></span>
         </Link>
-        {context ?? <span className="workspace-brand__page">{translatedLabel}</span>}
+        {context ?? <span id={pageLabelId} className="workspace-brand__page">{translatedLabel}</span>}
       </div>}
       <div className="top-actions">
         <Button variant="ghost" className="searchbox" onClick={onSearch} aria-label={t("navigation:commandPalette.title")}

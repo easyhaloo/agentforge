@@ -342,7 +342,7 @@ test("a viewer cannot open the repository registration form", async ({ page }) =
 test("the flat repositories page is gone", async ({ page }) => {
   await page.goto("/repositories");
 
-  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("main", { name: "Page not found" })).toContainText("Nothing is served at /repositories.");
 });
 
 test("repository code and commit details are independently navigable", async ({ page }, testInfo) => {
