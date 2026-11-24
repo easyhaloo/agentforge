@@ -61,7 +61,10 @@ test("Trails preserves change activity when membership audit is restricted", asy
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/membership-audit?*", route => route.fulfill({ status: 403, json: {} }));
   await page.goto("/orgs/demo/trails");
-  const trail = page.getByRole("list", { name: "Activity Trail" });
+  await expect(page.getByRole("banner").getByText("Trails", { exact: true })).toBeVisible();
+  const main = page.getByRole("main", { name: "Trails" });
+  await expect(main.locator(".page-heading")).toHaveCount(0);
+  const trail = main.getByRole("list", { name: "Activity Trail" });
   await expect(trail.getByText("Changeset created").first()).toBeVisible();
   await page.getByRole("button", { name: "Include membership events" }).click();
   await expect(page.getByRole("alert")).toHaveText("You do not have permission to view membership events.");
@@ -71,6 +74,8 @@ test("Trails preserves change activity when membership audit is restricted", asy
 
 test("Self-healing shows a new revision awaiting its own evaluation", async ({ page }) => {
   await page.goto("/self-healing");
+  await expect(page.getByRole("banner").getByText("Self-healing", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main", { name: "Self-healing" }).locator(".page-heading")).toHaveCount(0);
   await expect(page.getByText("Local demo. Uses sample data stored in this browser.")).toBeVisible();
   await expect(page.getByText("CS-2481 · Revision 3")).toBeVisible();
   await page.getByRole("button", { name: "Simulate repair" }).click();

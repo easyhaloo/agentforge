@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { translateError } from "../../shared/api/errors";
 import { type OrganizationSummary } from "../../shared/api/identity";
 import { pipelines, type Definition, type Pipeline, type Summary } from "../../shared/api/pipelines";
@@ -7,7 +7,7 @@ import { Button, ConfirmDialog, DataTable, Empty, Input, Modal, RadioGroup } fro
 
 import { Link, useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { organizationHandle, orgPath, pipelineEditPath, pipelineRunPath, repositoryActionsBackPath, repositoryActionsContext } from "../../shared/routing";
-import { ArrowLeft, Play, Workflow } from "lucide-react";
+import { ArrowLeft, Play, Plus, Workflow } from "lucide-react";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { MergeQueuePanel } from "./MergeQueuePanel";
 import { RunDialog } from "./RunPanel";
@@ -39,10 +39,7 @@ const templates = [
   { definition: scriptTemplate, label: "scriptFlow" },
 ];
 
-export function PipelinesPage({ organization, renderHeader }: {
-  organization: OrganizationSummary;
-  renderHeader: (actions: { onCreate?: () => void; disabled: boolean }) => ReactNode;
-}) {
+export function PipelinesPage({ organization }: { organization: OrganizationSummary }) {
   const { t } = useTranslation("pipelines");
   const org = organization.id;
   const [search] = useSearchParams();
@@ -61,14 +58,15 @@ export function PipelinesPage({ organization, renderHeader }: {
     return () => { active = false; };
   }, [org, t]);
   return <>
-    {renderHeader({
-      onCreate: organization.role === "viewer" ? undefined : () => setCreating(true),
-      disabled: busy || creating,
-    })}
     <section className="org-admin wf-workspace">
       {queue && <p>{t("chooseQueueWorkflow")}</p>}
       {error && <p className="org-error" role="alert">{error}</p>}
-      <h2><Workflow size={17} />{t("title")} {!busy && !error && <small>{items.length}</small>}</h2>
+      <header className="wf-list-header">
+        <h2><Workflow size={17} aria-hidden="true" />{t("title")} {!busy && !error && <small>{items.length}</small>}</h2>
+        {organization.role !== "viewer" && <Button variant="primary" disabled={busy || creating} onClick={() => setCreating(true)}>
+          <Plus size={16} aria-hidden="true" /> {t("common:actions.create")}
+        </Button>}
+      </header>
       <DataTable<Summary> showColumnVisibility={false} aria-label={t("title")} rowKey="id" data={items} loading={busy}
         emptyText={<Empty icon={<Workflow />} title={t("empty")} description={organization.role !== "viewer" && t("emptyHint")} />}
         columns={[

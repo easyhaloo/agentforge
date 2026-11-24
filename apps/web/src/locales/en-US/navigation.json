@@ -37,25 +37,6 @@
     "DEVELOPER": "Developer",
     "CONTROL PLANE": "Control plane"
   },
-  "descriptions": {
-    "inbox": "Open notifications for this organization.",
-    "issues": "View issues across the organization.",
-    "overview": "A live map of changes, verification and delivery across your engineering system.",
-    "repositories": "Git-compatible repositories backed by a canonical object graph.",
-    "changesets": "Reviewable, revisioned units of change — distinct from Git commits.",
-    "workspaces": "Isolated environments for agents and human contributors.",
-    "trails": "Trace changeset and membership activity across the organization.",
-    "selfHealing": "Try the repair and re-evaluation workflow on a sample changeset.",
-    "memory": "Reusable engineering knowledge linked to sessions, code and decisions.",
-    "cicd": "Pipelines, checks and release orchestration.",
-    "uiComponents": "Explore the shared component system, interaction patterns and design tokens.",
-    "organization": "Manage organization members, invitations, roles and access history.",
-    "security": "Identity, secrets, supply-chain and runtime boundaries.",
-    "governance": "Policies, approvals and organization-wide controls.",
-    "usage": "Understand agent, model and compute consumption.",
-    "settings": "Configure your organization and developer experience.",
-    "webide": "Browse files at a pinned commit or edit them on a changeset branch."
-  },
   "inbox": {
     "empty": "No notifications yet.",
     "loadFailed": "Could not load notifications.",

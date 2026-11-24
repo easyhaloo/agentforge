@@ -4,7 +4,10 @@ import { selectOption } from "./support/select-option";
 import type { Pipeline } from "../src/shared/api/pipelines";
 
 async function openCreation(page: Page) {
-  await page.locator(".heading-actions").getByRole("button", { name: "Create", exact: true }).click();
+  const main = page.getByRole("main", { name: "CI / CD" });
+  await expect(main).toBeVisible();
+  await expect(main.locator(".page-heading")).toHaveCount(0);
+  await main.locator(".wf-list-header").getByRole("button", { name: "Create", exact: true }).click();
   return page.getByRole("dialog", { name: "Create pipeline" });
 }
 
@@ -270,7 +273,7 @@ test("脚本模板在独立画布上保存脚本和输出变量", async ({ page 
     return route.fulfill({ json: req.url().endsWith("/pipelines") && req.method() === "GET" ? { items: [] } : pipeline });
   });
   await page.goto("/orgs/demo/pipelines");
-  await page.locator(".heading-actions").getByRole("button", { name: "创建", exact: true }).click();
+  await page.locator(".wf-list-header").getByRole("button", { name: "创建", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "创建流水线" });
   await dialog.getByRole("radio", { name: "脚本与变量传递" }).check();
   await dialog.getByRole("button", { name: "创建", exact: true }).click();

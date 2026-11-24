@@ -28,15 +28,6 @@ export function ResourceListPanel(props: Props) {
   }));
 
   return <section className="card resource-list">
-    <div className="resource-head">
-      <div><h3>{page} workspace</h3><p>{config.intro}</p></div>
-      {config.actionMode !== "none" && <Button variant="primary" size="small" onClick={config.actionMode === "create" ? onShowCreate : onAction}><Sparkles size={14} />{config.action}</Button>}
-    </div>
-    {showCreate && <form className="resource-create" onSubmit={onCreate}>
-      <Input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} aria-label={"New " + page + " name"} />
-      <Button variant="primary" size="small" type="submit">Create</Button>
-      <Button size="small" type="button" onClick={onHideCreate}>Cancel</Button>
-    </form>}
     <div className="resource-filters">
       <Input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={"Search " + page.toLowerCase() + "..."} aria-label={"Search " + page} />
       <Select
@@ -45,7 +36,13 @@ export function ResourceListPanel(props: Props) {
         onChange={(event) => onTabChange(event.target.value)}
         options={statuses.map((status) => ({ label: status === "All" ? "All statuses" : status, value: status }))}
       />
+      {config.actionMode !== "none" && <Button variant="primary" size="small" onClick={config.actionMode === "create" ? onShowCreate : onAction}><Sparkles size={14} />{config.action}</Button>}
     </div>
+    {showCreate && <form className="resource-create" onSubmit={onCreate}>
+      <Input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} aria-label={"New " + page + " name"} />
+      <Button variant="primary" size="small" type="submit">Create</Button>
+      <Button size="small" type="button" onClick={onHideCreate}>Cancel</Button>
+    </form>}
     <div className="resource-table-wrap">
       <DataTable
         columns={columns}

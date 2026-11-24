@@ -60,7 +60,7 @@ test("a deep link renders its page, survives a reload and follows Back and Forwa
   await openNavigation(page);
   await sidebarLink(page, "Memory").click();
   await expect(page).toHaveURL(/\/memory$/);
-  await expect(pageHeading(page)).toHaveText("Memory");
+  await expect(topbarTitle(page)).toHaveText("Memory");
 
   await page.goBack();
   await expect(page).toHaveURL(/\/orgs\/demo\/repositories$/);
@@ -89,15 +89,26 @@ const flatPages = [
 ] as const;
 
 for (const [path, label] of flatPages) {
-  test(`the flat page ${path} renders ${label} when opened directly`, async ({ page }) => {
+  test(`the flat page ${path} renders ${label} when opened directly`, async ({ page }, testInfo) => {
     await installApiMocks(page);
     await page.goto(path);
-    if (label === "Projects") {
-      await expect(topbarTitle(page)).toHaveText(label);
-      await expect(page.getByRole("main").locator(".page-heading")).toHaveCount(0);
-      await expect(page.getByRole("searchbox", { name: "Search project name or number" })).toBeVisible();
-    } else {
-      await expect(pageHeading(page)).toHaveText(label);
+    await expect(topbarTitle(page)).toHaveText(label);
+    const main = page.getByRole("main", { name: label, exact: true });
+    await expect(main).toBeVisible();
+    if (label !== "Overview") await expect(main.locator(".page-heading")).toHaveCount(0);
+    if (label === "Projects") await expect(main.getByRole("searchbox", { name: "Search project name or number" })).toBeVisible();
+    if (label === "Workspaces") {
+      await expect(main.getByText(/^Isolated\b/)).toHaveCount(0);
+      const create = main.getByRole("button", { name: "Create workspace draft" });
+      await expect(main.getByRole("cell", { name: "WS-092", exact: true })).toBeVisible();
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await expect(create).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+        await page.screenshot({ path: testInfo.outputPath(`workspaces-${width}.png`) });
+      }
+      await create.click();
+      await expect(main.getByRole("textbox", { name: "New Workspaces name" })).toBeFocused();
     }
     await openNavigation(page);
     await expect(sidebarLink(page, label)).toHaveAttribute("aria-current", "page");
@@ -110,7 +121,7 @@ for (const [kind, handle] of [["slug", "demo"], ["id", "org-demo"]] as const) {
     const listed = page.waitForRequest((request) => new URL(request.url()).pathname === "/api/v1/organizations/org-demo/changesets" && request.method() === "GET");
     await page.goto(`/orgs/${handle}/changesets`);
     await listed;
-    await expect(pageHeading(page)).toHaveText("Changesets");
+    await expect(topbarTitle(page)).toHaveText("Changesets");
     await expect(page.getByText("Browser test baseline")).toBeVisible();
     await openNavigation(page);
     await expect(changesetsLink(page)).toHaveAttribute("aria-current", "page");
@@ -141,7 +152,7 @@ test("the current alias is replaced, not pushed, so Back never bounces through i
   await page.goto("/");
   await page.goto("/orgs/current/changesets");
   await expect(page).toHaveURL(/\/orgs\/demo\/changesets$/);
-  await expect(pageHeading(page)).toHaveText("Changesets");
+  await expect(topbarTitle(page)).toHaveText("Changesets");
 
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
@@ -248,7 +259,7 @@ test("an unknown path renders the not-found state inside the shell and highlight
   // The last three sit below a real page: a prefix match would keep that page's sidebar item highlighted.
   for (const path of ["/nope", "/orgs/demo/nope", "/orgs/demo", "/projects/extra", "/dev/ui/x", "/orgs/demo/changesets/x/extra"]) {
     await page.goto(path);
-    await expect(pageHeading(page)).toHaveText("Page not found");
+    await expect(topbarTitle(page)).toHaveText("Page not found");
     await expect(page.getByText(`Nothing is served at ${path}.`)).toBeVisible();
     await openNavigation(page);
     await expect(sidebarLink(page, "Overview")).toBeVisible();
