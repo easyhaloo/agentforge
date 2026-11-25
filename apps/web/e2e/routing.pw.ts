@@ -99,7 +99,7 @@ for (const [path, label] of flatPages) {
     if (label === "Projects") await expect(main.getByRole("searchbox", { name: "Search project name or number" })).toBeVisible();
     if (label === "Workspaces") {
       await expect(main.getByText(/^Isolated\b/)).toHaveCount(0);
-      const create = main.getByRole("button", { name: "Create workspace draft" });
+      const create = main.getByRole("button", { name: "New workspace draft" });
       await expect(main.getByRole("cell", { name: "WS-092", exact: true })).toBeVisible();
       for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 844 });
