@@ -618,6 +618,7 @@ paths:
                 kind: {$ref: '#/components/schemas/WorkflowTriggerKind'}
                 version: {type: integer, minimum: 1}
                 everySeconds: {type: integer, minimum: 60, maximum: 31536000, description: Required for schedule triggers only.}
+                tagPattern: {type: string, maxLength: 128, pattern: '^[^/\\\s\x00]+$', description: Required for tag triggers only. A glob over the tag name, for example v*.}
       responses:
         '201':
           description: Enabled
@@ -802,7 +803,7 @@ components:
       additionalProperties: false
     WorkflowTriggerKind:
       type: string
-      enum: [schedule, changeset_revision]
+      enum: [schedule, changeset_revision, tag]
     WorkflowTrigger:
       type: object
       required: [id, kind, version]
@@ -811,6 +812,7 @@ components:
         kind: {$ref: '#/components/schemas/WorkflowTriggerKind'}
         version: {type: integer, minimum: 1}
         everySeconds: {type: integer, minimum: 60}
+        tagPattern: {type: string, maxLength: 128}
     Run:
       type: object
       additionalProperties: false
@@ -845,6 +847,16 @@ components:
                 repository: {type: string}
                 changesetId: {type: string}
                 revisionId: {type: string}
+                sha: {type: string, pattern: '^([a-f0-9]{40}|[a-f0-9]{64})$'}
+            - type: object
+              additionalProperties: false
+              required: [kind, bindingId, repository, ref, tag, sha]
+              properties:
+                kind: {type: string, enum: [tag]}
+                bindingId: {type: string, format: uuid}
+                repository: {type: string}
+                ref: {type: string, pattern: '^refs/tags/'}
+                tag: {type: string, maxLength: 128}
                 sha: {type: string, pattern: '^([a-f0-9]{40}|[a-f0-9]{64})$'}
             - type: object
               additionalProperties: false

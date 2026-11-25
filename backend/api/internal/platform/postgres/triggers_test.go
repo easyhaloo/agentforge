@@ -107,9 +107,14 @@ func TestRepositoryWorkflowTriggersAndRerun(t *testing.T) {
 	lockMust(t, json.Unmarshal(post(triggers, `{"kind":"schedule","version":1,"everySeconds":60}`, 201), &schedule))
 	post(triggers, `{"kind":"schedule","version":1,"everySeconds":60}`, 409)
 	post(triggers, `{"kind":"changeset_revision","version":1}`, 201)
+	post(triggers, `{"kind":"tag","version":1}`, 400)
+	post(triggers, `{"kind":"tag","version":1,"tagPattern":"../escape"}`, 400)
+	var tagBinding pipeline.TriggerBinding
+	lockMust(t, json.Unmarshal(post(triggers, `{"kind":"tag","version":1,"tagPattern":"v*"}`, 201), &tagBinding))
+	post(triggers, `{"kind":"tag","version":1,"tagPattern":"other-*"}`, 409)
 	items, err := s.WorkflowTriggers(ctx, org, "repo-ci")
 	lockMust(t, err)
-	if len(items) != 2 || schedule.Version != 1 || schedule.EverySeconds != 60 {
+	if len(items) != 3 || schedule.Version != 1 || schedule.EverySeconds != 60 {
 		t.Fatalf("unexpected bindings: %v", items)
 	}
 	_, err = s.pool.Exec(ctx, `UPDATE pipeline_trigger_bindings SET next_due=now()-interval '1 second' WHERE id=$1`, schedule.ID)
@@ -153,7 +158,7 @@ func TestRepositoryWorkflowTriggersAndRerun(t *testing.T) {
 	}
 	items, err = s.WorkflowTriggers(ctx, org, "repo-ci")
 	lockMust(t, err)
-	if len(items) != 1 || items[0].Kind != "changeset_revision" {
+	if len(items) != 2 || items[0].Kind != "changeset_revision" {
 		t.Fatalf("remaining bindings: %v", items)
 	}
 	var original, retry execution.Run

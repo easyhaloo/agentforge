@@ -73,7 +73,7 @@ func (s *Store) AdvanceTriggers(ctx context.Context) error {
 }
 
 func (s *Store) WorkflowTriggers(ctx context.Context, org, id string) ([]pipeline.TriggerBinding, error) {
-	rows, err := s.pool.Query(ctx, `SELECT b.id, CASE WHEN b.repository IS NULL THEN 'schedule' ELSE 'changeset_revision' END, b.version, COALESCE(b.every_seconds,0)
+	rows, err := s.pool.Query(ctx, `SELECT b.id, CASE WHEN b.tag_pattern IS NOT NULL THEN 'tag' WHEN b.repository IS NULL THEN 'schedule' ELSE 'changeset_revision' END, b.version, COALESCE(b.every_seconds,0), COALESCE(b.tag_pattern,'')
 	FROM pipeline_trigger_bindings b JOIN pipelines p ON (p.organization_id,p.id)=(b.organization_id,b.pipeline_id)
 	WHERE b.organization_id=$1 AND b.pipeline_id=$2 AND p.repository IS NOT NULL AND b.enabled ORDER BY b.id`, org, id)
 	if err != nil {
@@ -82,8 +82,14 @@ func (s *Store) WorkflowTriggers(ctx context.Context, org, id string) ([]pipelin
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[pipeline.TriggerBinding])
 }
 
-func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind string, version, everySeconds int) (pipeline.TriggerBinding, error) {
-	binding := pipeline.TriggerBinding{Kind: kind, Version: version, EverySeconds: everySeconds}
+func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind, tagPattern string, version, everySeconds int) (pipeline.TriggerBinding, error) {
+	binding := pipeline.TriggerBinding{Kind: kind, Version: version, EverySeconds: everySeconds, TagPattern: tagPattern}
+	if kind == "tag" && !pipeline.ValidateTagPattern(tagPattern) {
+		return binding, pipeline.ErrTagPattern
+	}
+	if kind != "tag" && tagPattern != "" {
+		return binding, pipeline.ErrTagPattern
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return binding, err
@@ -102,7 +108,7 @@ func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind 
 		return binding, pipeline.ErrConflict
 	}
 	var exists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pipeline_trigger_bindings WHERE organization_id=$1 AND pipeline_id=$2 AND enabled AND (repository IS NULL)=$3)`, org, id, kind == "schedule").Scan(&exists)
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pipeline_trigger_bindings WHERE organization_id=$1 AND pipeline_id=$2 AND enabled AND (repository IS NULL)=($3='schedule'))`, org, id, kind).Scan(&exists)
 	if err != nil {
 		return binding, err
 	}
@@ -112,9 +118,13 @@ func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind 
 	if _, err = runDefinition(ctx, tx, org, id, version, nil, false); err != nil {
 		return binding, err
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,repository,every_seconds,next_due)
-	VALUES($1,$2,$3,$4,CASE WHEN $5=0 THEN $6 END,NULLIF($5,0),CASE WHEN $5>0 THEN now()+make_interval(secs=>$5) END) RETURNING id`,
-		org, id, version, actor, everySeconds, repository).Scan(&binding.ID)
+	err = tx.QueryRow(ctx, `INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,repository,every_seconds,next_due,tag_pattern)
+	VALUES($1,$2,$3,$4,
+	CASE WHEN $5='tag' THEN $6 ELSE $7 END,
+	CASE WHEN $5='schedule' THEN $8 END,
+	CASE WHEN $5='schedule' THEN now()+make_interval(secs=>$8) END,
+	CASE WHEN $5='tag' THEN $6 END) RETURNING id`,
+		org, id, version, actor, kind, tagPattern, repository, everySeconds).Scan(&binding.ID)
 	if err != nil {
 		return binding, err
 	}
