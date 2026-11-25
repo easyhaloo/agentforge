@@ -113,6 +113,13 @@ func (e *ValidationError) Error() string {
 - **Never edit applied migrations** — create a new migration to alter schema
 - Use transactions for DDL when possible
 
+### Migration numbering rules
+
+- New migrations must use the next number: **current max number + 1** (zero-padded, e.g. `062_description.sql`). Check `backend/api/internal/platform/postgres/migrations/` for the latest number before you start.
+- When developing in parallel with others, **rebase before merging and renumber your new (unreleased) migrations** if the max number moved.
+- **Never rename a released migration.** Renaming makes already-deployed environments re-run it as a new migration (versions are recorded by full filename in `schema_migrations`).
+- A naming test (`migrations_naming_test.go`) guards against duplicate numbers. It keeps an allowlist of historical duplicate-number pairs that must stay untouched; the test fails if an allowlisted file is renamed/deleted or if a new duplicate number appears.
+
 ### Queries
 
 **Always use parameterized queries** to prevent SQL injection:
