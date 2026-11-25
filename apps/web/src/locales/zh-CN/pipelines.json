@@ -107,9 +107,9 @@
     "runFailed": "无法启动运行",
     "queueFailed": "无法加载合并队列"
   },
-  "createPipeline": "创建流水线",
+  "createPipeline": "新建流水线",
   "empty": "暂无流水线",
-  "emptyHint": "点击右上角「创建」，从模板新建第一条流水线。",
+  "emptyHint": "点击右上角「新建」，从模板新建第一条流水线。",
   "status": "状态",
   "revisionLabel": "修订",
   "runNavigation": {

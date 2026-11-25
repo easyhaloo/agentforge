@@ -65,7 +65,7 @@ test("manage personal saved replies and publish an inserted reply through the is
   await page.goto(`${origin}${organization}/repositories/new`);
   await page.getByLabel("Repository name", { exact: true }).fill("reply-walkthrough");
   await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-  await page.getByRole("button", { name: "Create repository", exact: true }).click();
+  await page.getByRole("button", { name: "New repository", exact: true }).click();
   await expect(page).toHaveURL(/\/repositories\/[^/]+\/reply-walkthrough$/);
   const repositoryURL = page.url();
   await page.getByRole("link", { name: "Issues", exact: true }).last().click();
@@ -109,7 +109,7 @@ test("manage personal saved replies and publish an inserted reply through the is
   await expect(body).toHaveValue("\n**Collect logs**");
   await page.getByRole("tab", { name: "Preview" }).click();
   await expect(page.getByRole("tabpanel", { name: "Preview" }).locator("strong")).toHaveText("Collect logs");
-  await page.getByRole("button", { name: "Create issue" }).click();
+  await page.getByRole("button", { name: "New issue" }).click();
   await expect(page).toHaveURL(`${repositoryURL}/issues/1`);
   await page.reload();
   await expect(page.locator("strong").getByText("Collect logs", { exact: true })).toBeVisible();

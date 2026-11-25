@@ -86,7 +86,7 @@ test("verify a notification email and configure repository delivery for issue ac
     const orgPath = new URL(page.url()).pathname.replace(/\/changesets$/, "");
     await page.goto(`${origin}${orgPath}/repositories/new`);
     await page.getByLabel("Repository name", { exact: true }).fill("delivery-check");
-    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await page.getByRole("button", { name: "New repository", exact: true }).click();
     await expect(page).toHaveURL(/\/repositories\/[^/]+\/delivery-check$/);
     const repository = page.url();
     await recipient.goto(repository);
@@ -117,7 +117,7 @@ test("verify a notification email and configure repository delivery for issue ac
     await page.goto(`${repository}/issues/new`);
     await page.getByRole("textbox", { name: "Title", exact: true }).fill("Check notification delivery");
     await page.getByRole("textbox", { name: "Description", exact: true }).fill(`Please check @${username}.`);
-    await page.getByRole("button", { name: "Create issue" }).click();
+    await page.getByRole("button", { name: "New issue" }).click();
     await expect(page).toHaveURL(`${repository}/issues/1`);
     await page.getByRole("textbox", { name: "Comment text" }).fill("Comment for the delivery check.");
     await page.getByRole("button", { name: "Comment", exact: true }).click();

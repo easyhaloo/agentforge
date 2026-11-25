@@ -105,23 +105,23 @@ test("WebIDE saves an overlay and hands it off to the Changeset lifecycle", asyn
 
   await page.goto("/orgs/demo/webide/easyhaloo/agentforge");
   await expect(page.getByRole("heading", { name: "Workspace WebIDE" })).toBeVisible();
-  await page.getByRole("button", { name: "Create workspace" }).click();
+  await page.getByRole("button", { name: "New workspace" }).click();
   await expect(page.getByRole("button", { name: "README.md" })).toBeVisible();
   await page.getByRole("button", { name: "README.md" }).click();
 
   const editor = page.getByRole("textbox", { name: "Source editor" });
   await expect(editor).toHaveValue("base content\n");
   await editor.fill("edited content\n");
-  await expect(page.getByRole("button", { name: "Create changeset" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "New changeset" })).toBeDisabled();
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("button", { name: /Create changeset/ })).toBeEnabled();
-  await page.getByRole("button", { name: "Create changeset" }).click();
+  await expect(page.getByRole("button", { name: /New changeset/ })).toBeEnabled();
+  await page.getByRole("button", { name: "New changeset" }).click();
   const signoff = page.getByRole("checkbox", { name: /I certify this contribution/ });
   await expect(signoff).not.toBeChecked();
   await expect(signoff).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create changeset" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "New changeset" })).toBeDisabled();
   await signoff.check();
-  await page.getByRole("button", { name: "Create changeset" }).click();
+  await page.getByRole("button", { name: "New changeset" }).click();
   await expect.poll(() => submitted).toBe(true);
   await expect(page.getByText(/Changeset cs-webide-e2e created from workspace/)).toBeVisible();
 });

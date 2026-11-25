@@ -7,7 +7,7 @@
     "summary_other": "{{count}} persisted changesets"
   },
   "create": {
-    "title": "Create changeset",
+    "title": "New changeset",
     "description": "Starts a persisted delivery workflow against a registered repository",
     "validated": "Server validated",
     "titleLabel": "Title",
@@ -16,8 +16,8 @@
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "What should this change accomplish?",
     "repositoryLabel": "Repository",
-    "createButton": "Create",
-    "okButton": "Create resource",
+    "createButton": "New",
+    "okButton": "New resource",
     "newResourceEyebrow": "NEW RESOURCE",
     "mockNote": "This creates a local demo record only. No Git or backend operation is performed.",
     "successMessage": "Changeset created and persisted.",

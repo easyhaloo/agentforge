@@ -1,11 +1,11 @@
 {
-  "title": "Create your account",
+  "title": "New account",
   "tagline": "Join AgentForge and start collaborating",
   "email": "Email address",
   "password": "Password",
   "confirmPassword": "Confirm password",
   "displayName": "Display name",
-  "createButton": "Create account",
+  "createButton": "New account",
   "hasAccount": "Already have an account?",
   "signInLink": "Sign in",
   "orDivider": "or sign up with",

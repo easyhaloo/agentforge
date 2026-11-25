@@ -116,19 +116,19 @@ test("reviews an updated pull request and merges only its verified revision", as
     const repositoryUrl = `${base.origin}${repositoryPath}`;
     await page.goto(`${repositoryUrl}/issues/new`);
     await page.getByRole("textbox", { name: "Title", exact: true }).fill("Verify Development entry point");
-    await page.getByRole("button", { name: "Create issue", exact: true }).click();
+    await page.getByRole("button", { name: "New issue", exact: true }).click();
     await expect(page).toHaveURL(`${repositoryUrl}/issues/1`);
     await test.step("DETAIL-14: no branch can be created before a base ref exists", async () => {
       const refs = ["main", "release", "feature/docs"];
       const heads = refs.map((name) => git("rev-parse", name));
-      await expect(page.getByRole("button", { name: "Create a branch", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "New branch", exact: true })).toBeVisible();
       refs.forEach((name) => git("update-ref", "-d", `refs/heads/${name}`));
       try {
         await page.reload();
-        await page.getByRole("button", { name: "Create a branch", exact: true }).click();
-        const dialog = page.getByRole("dialog", { name: "Create a branch" });
+        await page.getByRole("button", { name: "New branch", exact: true }).click();
+        const dialog = page.getByRole("dialog", { name: "New branch" });
         await expect(dialog.getByText("Make the first Git commit before creating a branch.")).toBeVisible();
-        await expect(dialog.getByRole("button", { name: "Create a branch", exact: true })).toBeDisabled();
+        await expect(dialog.getByRole("button", { name: "New branch", exact: true })).toBeDisabled();
         await page.keyboard.press("Escape");
         await expect(dialog).toHaveCount(0);
       } finally {
@@ -137,10 +137,10 @@ test("reviews an updated pull request and merges only its verified revision", as
       }
     });
     await test.step("DETAIL-14: pin, create and reopen a real issue branch", async () => {
-      const create = () => page.getByRole("button", { name: "Create a branch", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Create a branch" });
+      const create = () => page.getByRole("button", { name: "New branch", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "New branch" });
       const suffix = dialog.getByRole("textbox", { name: "Branch name suffix" });
-      const confirm = dialog.getByRole("button", { name: "Create a branch", exact: true });
+      const confirm = dialog.getByRole("button", { name: "New branch", exact: true });
       const branch = dialog.getByRole("combobox", { name: "Base branch", exact: true });
       await create();
       await suffix.fill("bad/name");
@@ -186,12 +186,12 @@ test("reviews an updated pull request and merges only its verified revision", as
     try {
       await keywordIssue.goto(`${repositoryUrl}/issues/new`);
       await keywordIssue.getByRole("textbox", { name: "Title", exact: true }).fill("Verify closure from a pull request description");
-      await keywordIssue.getByRole("button", { name: "Create issue", exact: true }).click();
+      await keywordIssue.getByRole("button", { name: "New issue", exact: true }).click();
       await expect(keywordIssue).toHaveURL(`${repositoryUrl}/issues/2`);
     } finally {
       await keywordIssue.close();
     }
-    await page.getByRole("link", { name: "Create pull request", exact: true }).click();
+    await page.getByRole("link", { name: "New pull request", exact: true }).click();
     await expect(page).toHaveURL(`${base.origin}${pullsPath}/new?issue=1`);
     await expect(page.getByRole("link", { name: "Link to issue #1" })).toHaveAttribute("href", `${orgPath}/repositories/${repository}/issues/1`);
     await selectOption(page, page.getByRole("combobox", { name: "Base branch", exact: true }), "release");
@@ -204,13 +204,13 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.getByLabel("Description", { exact: true }).fill("A real pull request from the Git test repository. Fixes: #2.");
     await page.getByRole("button", { name: "Additional options", exact: true }).click();
     const creationMenu = page.getByRole("dialog", { name: "Additional options" });
-    await expect(creationMenu.getByRole("menuitemradio", { name: "Create pull request", exact: true })).toHaveAttribute("aria-checked", "true");
+    await expect(creationMenu.getByRole("menuitemradio", { name: "New pull request", exact: true })).toHaveAttribute("aria-checked", "true");
     await creationMenu.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath("pull-request-create-draft-menu.png"), animations: "disabled" });
-    await creationMenu.getByRole("menuitemradio", { name: /Create draft pull request/ }).click();
+    await creationMenu.getByRole("menuitemradio", { name: /New draft pull request/ }).click();
     await expect(creationMenu).toHaveCount(0);
     const created = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/changesets"));
-    await page.getByRole("button", { name: "Create draft pull request" }).click();
+    await page.getByRole("button", { name: "New draft pull request" }).click();
     const createdResponse = await created;
     expect(createdResponse.status()).toBe(201);
     const { changeset } = await createdResponse.json() as { changeset: { id: string; title: string; revisions: { id: string; commit_sha: string }[] } };
@@ -255,7 +255,7 @@ test("reviews an updated pull request and merges only its verified revision", as
       await expect(reviewer.getByRole("link", { name: label })).toHaveAttribute("href", new URL(detail).pathname);
       const published = reviewer.waitForResponse(response => response.request().method() === "POST" &&
         new URL(response.url()).pathname.endsWith("/issues"));
-      await reviewer.getByRole("button", { name: "Create issue", exact: true }).click();
+      await reviewer.getByRole("button", { name: "New issue", exact: true }).click();
       expect((await published).status()).toBe(201);
       await expect(reviewer).toHaveURL(new RegExp(`${repositoryUrl}/issues/\\d+$`));
       const issue = await page.context().newPage();
@@ -664,10 +664,10 @@ test("reviews an updated pull request and merges only its verified revision", as
     await page.screenshot({ path: testInfo.outputPath("pull-request-merge-methods.png"), animations: "disabled" });
     await page.goto(`${base.origin}${repositoryPath}/actions`);
     await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
-    const workflowDialog = page.getByRole("dialog", { name: "Create pipeline" });
+    const workflowDialog = page.getByRole("dialog", { name: "New pipeline" });
     await workflowDialog.getByRole("radio", { name: "Check then approve" }).check();
     await workflowDialog.getByLabel("Workflow name").fill("release-ci");
-    await workflowDialog.getByRole("button", { name: "Create", exact: true }).click();
+    await workflowDialog.getByRole("button", { name: "New", exact: true }).click();
     await page.getByRole("button", { name: "Publish version" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
     await page.getByRole("link", { name: "Back to Actions" }).click();

@@ -1,11 +1,22 @@
 {
   "resourceDemoNotice": "This page shows sample data. Changes are stored in this browser only.",
+  "resourceActions": {
+    "project": "New project",
+    "changeset": "New changeset",
+    "workspaceDraft": "New workspace draft",
+    "trail": "New trail",
+    "stack": "New stack",
+    "memory": "Capture memory",
+    "securityPolicy": "Draft security policy",
+    "policy": "New policy",
+    "deployment": "New deployment"
+  },
   "actions": {
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
-    "create": "Create",
+    "create": "New",
     "retry": "Retry",
     "search": "Search",
     "filter": "Filter",

@@ -61,7 +61,7 @@
       "emailLabel": "邮箱地址",
       "emailPlaceholder": "teammate@company.com",
       "roleLabel": "角色",
-      "createButton": "创建邀请",
+      "createButton": "新建邀请",
       "creating": "正在创建…"
     },
     "columns": {

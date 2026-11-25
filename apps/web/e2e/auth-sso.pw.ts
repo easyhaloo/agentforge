@@ -87,7 +87,7 @@ test("provider discovery failure leaves password registration available", async 
   await expect(page.getByRole("status")).toHaveText(/Single sign-on options are temporarily unavailable/);
   await expect(page.getByText("or sign up with")).toHaveCount(0);
   await expect(providerLinks(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Create account" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "New account" })).toBeEnabled();
 });
 
 test("provider discovery rejects noncanonical login URLs", async ({ page }) => {
