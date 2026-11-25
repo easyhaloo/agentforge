@@ -1,26 +1,34 @@
 :root {
   color-scheme: dark;
-  --af-color-background: #0d1117;
-  --af-color-surface: #161b22;
-  --af-color-surface-raised: #212830;
-  --af-color-row-hover: #939db81f;
-  --af-color-border: #3d444d;
-  --af-color-text: #f0f6fc;
-  --af-color-text-secondary: #b1bac4;
-  --af-color-text-muted: #9198a1;
-  --af-color-primary: #58a6ff;
-  --af-color-primary-hover: #79c0ff;
-  --af-color-action: #238636;
-  --af-color-action-hover: #29903b;
-  --af-color-success: #56d364;
-  --af-color-merged: #c3a4ff;
-  --af-color-warning: #e3b341;
-  --af-color-danger: #ff7b72;
-  --af-color-info: #58a6ff;
-  --af-color-primary-subtle: color-mix(in srgb, var(--af-color-primary) 12%, var(--af-color-surface));
-  --af-color-success-subtle: color-mix(in srgb, var(--af-color-success) 12%, var(--af-color-surface));
-  --af-color-warning-subtle: color-mix(in srgb, var(--af-color-warning) 12%, var(--af-color-surface));
-  --af-color-danger-subtle: color-mix(in srgb, var(--af-color-danger) 12%, var(--af-color-surface));
+  --af-color-background: #0d1117; /* bgColor-default */
+  --af-color-surface: #151b23; /* bgColor-muted */
+  --af-color-surface-raised: #212830; /* control-bgColor-rest */
+  --af-color-row-hover: #656c7633; /* control-transparent-bgColor-hover */
+  --af-color-border: #3d444d; /* borderColor-default */
+  --af-color-text: #f0f6fc; /* fgColor-default */
+  --af-color-text-secondary: #b1bac4; /* fgColor-muted (dark, user-pinned) */
+  --af-color-text-muted: #9198a1; /* fgColor-muted */
+  --af-color-primary: #4493f8; /* fgColor-accent */
+  --af-color-primary-hover: #79c0ff; /* fgColor-accent hover (kept from prior palette) */
+  --af-color-action: #238636; /* bgColor-success-emphasis */
+  --af-color-action-hover: #29903b; /* button-primary-bgColor-hover */
+  --af-color-success: #3fb950; /* fgColor-success */
+  --af-color-merged: #ab7df8; /* fgColor-done */
+  --af-color-warning: #d29922; /* fgColor-attention */
+  --af-color-danger: #f85149; /* fgColor-danger */
+  --af-color-info: #4493f8; /* fgColor-accent */
+  --af-color-primary-subtle: #388bfd1a; /* bgColor-accent-muted */
+  --af-color-success-subtle: #2ea04326; /* bgColor-success-muted */
+  --af-color-warning-subtle: #bb800926; /* bgColor-attention-muted */
+  --af-color-danger-subtle: #f851491a; /* bgColor-danger-muted */
+  --af-color-merged-subtle: #ab7df826; /* bgColor-done-muted */
+  --af-color-overlay: #010409; /* overlay-bgColor */
+  --af-color-overlay-backdrop: #21283066; /* overlay-backdrop-bgColor */
+  --af-color-tooltip-bg: #3d444d; /* bgColor-emphasis */
+  --af-color-tooltip-fg: #ffffff; /* fgColor-onEmphasis */
+  --af-button-inactive-bg: #262c36; /* button-inactive-bgColor */
+  --af-button-inactive-fg: #9198a1; /* button-inactive-fgColor */
+  --af-shadow-floating-large: 0 0 0 1px #3d444d, 0 24px 48px 0 #010409; /* shadow-floating-large */
   --af-radius-sm: 5px;
   --af-radius-md: 7px;
   --af-radius-lg: 10px;
@@ -41,23 +49,35 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --af-color-background: #ffffff;
-  --af-color-surface: #ffffff;
-  --af-color-surface-raised: #f6f8fa;
-  --af-color-row-hover: #818b981a;
-  --af-color-border: #d1d9e0;
-  --af-color-text: #1f2328;
-  --af-color-text-secondary: #59636e;
-  --af-color-text-muted: #59636e;
-  --af-color-primary: #0969da;
-  --af-color-primary-hover: #0550ae;
-  --af-color-action: #1f7e36;
-  --af-color-action-hover: #196c2e;
-  --af-color-success: #116329;
-  --af-color-merged: #6f43b5;
-  --af-color-warning: #895700;
-  --af-color-danger: #b62324;
-  --af-color-info: #0969da;
+  --af-color-background: #ffffff; /* bgColor-default */
+  --af-color-surface: #ffffff; /* bgColor-default */
+  --af-color-surface-raised: #f6f8fa; /* bgColor-muted */
+  --af-color-row-hover: #818b981a; /* control-transparent-bgColor-hover */
+  --af-color-border: #d1d9e0; /* borderColor-default */
+  --af-color-text: #1f2328; /* fgColor-default */
+  --af-color-text-secondary: #59636e; /* fgColor-muted */
+  --af-color-text-muted: #59636e; /* fgColor-muted */
+  --af-color-primary: #0969da; /* fgColor-accent */
+  --af-color-primary-hover: #0550ae; /* fgColor-accent hover (kept from prior palette) */
+  --af-color-action: #1f883d; /* bgColor-success-emphasis */
+  --af-color-action-hover: #1c8139; /* button-primary-bgColor-hover */
+  --af-color-success: #1a7f37; /* fgColor-success */
+  --af-color-merged: #8250df; /* fgColor-done */
+  --af-color-warning: #9a6700; /* fgColor-attention */
+  --af-color-danger: #d1242f; /* fgColor-danger */
+  --af-color-info: #0969da; /* fgColor-accent */
+  --af-color-primary-subtle: #ddf4ff; /* bgColor-accent-muted */
+  --af-color-success-subtle: #dafbe1; /* bgColor-success-muted */
+  --af-color-warning-subtle: #fff8c5; /* bgColor-attention-muted */
+  --af-color-danger-subtle: #ffebe9; /* bgColor-danger-muted */
+  --af-color-merged-subtle: #fbefff; /* bgColor-done-muted */
+  --af-color-overlay: #ffffff; /* overlay-bgColor */
+  --af-color-overlay-backdrop: #c8d1da66; /* overlay-backdrop-bgColor */
+  --af-color-tooltip-bg: #25292e; /* bgColor-emphasis */
+  --af-color-tooltip-fg: #ffffff; /* fgColor-onEmphasis */
+  --af-button-inactive-bg: #e6eaef; /* button-inactive-bgColor */
+  --af-button-inactive-fg: #59636e; /* button-inactive-fgColor */
+  --af-shadow-floating-large: 0 0 0 1px #d1d9e000, 0 40px 80px 0 #25292e3d; /* shadow-floating-large */
 }
 
 .settings-layout {
@@ -70,8 +90,8 @@
   --color-text-tertiary: var(--af-color-text-muted);
   --color-text-inverted: #fff;
   --color-primary: var(--af-color-primary);
-  --color-primary-bg: color-mix(in srgb, var(--color-primary) 13%, var(--color-surface));
+  --color-primary-bg: var(--af-color-primary-subtle);
   --color-bg-active: var(--color-primary-bg);
   --color-error: var(--af-color-danger);
-  --color-error-bg: color-mix(in srgb, var(--color-error) 12%, var(--color-surface));
+  --color-error-bg: var(--af-color-danger-subtle);
 }
