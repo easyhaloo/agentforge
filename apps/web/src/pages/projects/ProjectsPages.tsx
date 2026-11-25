@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarRange, Columns3, Plus, Table2 } from "lucide-react";
+import { ArrowLeft, CalendarRange, CircleDot, CircleX, Columns3, Plus, Search, Table2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -49,41 +49,57 @@ export function ProjectsPage({ organization, repository }: ProjectProps & { repo
   const { projects, failed, retry } = useProjects(organization.id, repository);
   const [query, setQuery] = useState("");
   const [closed, setClosed] = useState(false);
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("updated");
   const handle = organizationHandle(organization);
+  const projectCount = projects?.length ?? 0;
+  const closedCount = projects?.filter((project) => project.closed).length ?? 0;
   const search = query.trim().toLocaleLowerCase();
   const listed = projects?.filter((project) => Boolean(project.closed) === closed && (project.name.toLocaleLowerCase().includes(search) ||
     (search !== "" && String(project.number) === search.replace(/^#/, ""))))
-    .sort((a, b) => sort === "name" ? a.name.localeCompare(b.name, i18n.language) : (b.updated_at ?? "").localeCompare(a.updated_at ?? "") || b.number - a.number);
+    .sort((a, b) => sort === "name" ? a.name.localeCompare(b.name, i18n.language) :
+      (b.updated_at ?? b.created_at ?? "").localeCompare(a.updated_at ?? a.created_at ?? "") || b.number - a.number);
   const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" });
 
-  return <section className="projects-page">
+  return <section className="projects-page projects-index">
     <header className="projects-heading">
-      <div><h1>{t("projects.title")}</h1><p>{t("projects.subtitle", { organization: organization.name })}</p></div>
+      <div><h1>{t(repository ? "projects.repositoryTitle" : "projects.title")}</h1><p>{repository ?? t("projects.subtitle", { organization: organization.name })}</p></div>
       {canManageRepository(organization) && <Link className="af-button af-button--primary af-button--middle" to={`${projectPath(handle, "new")}${repository ? `?${new URLSearchParams({ repository, return: "repository" })}` : ""}`}>
         <Plus size={16} aria-hidden /> {t("projects.new")}
       </Link>}
     </header>
     {failed ? <ProjectLoadError retry={retry} /> : !listed ? <p role="status">{t("common:components.loading")}</p> : <>
-      <div className="projects-toolbar">
-        <div className="projects-toolbar" role="group" aria-label={t("projects.state")} >
-          <Button aria-pressed={!closed} onClick={() => setClosed(false)}>{t("projects.open")}</Button>
-          <Button aria-pressed={closed} onClick={() => setClosed(true)}>{t("projects.closed")}</Button>
-        </div>
+      <div className="projects-search">
+        <Search size={16} aria-hidden />
         <Input type="search" aria-label={t("projects.search")} placeholder={t("projects.search")} value={query} onChange={(event) => setQuery(event.target.value)} />
-        <Select aria-label={t("projects.sort")} value={sort} onChange={(event) => setSort(event.target.value)} options={[
-          { value: "newest", label: t("projects.newest") }, { value: "name", label: t("issues.projects.name") },
-        ]} />
       </div>
-      {listed.length === 0 ? <p className="projects-message">{t(search ? "projects.noResults" : "issues.projects.empty")}</p> :
-        <ul className="projects-directory">
-          {listed.map((project) => <li key={project.id}>
-            <span className="projects-glyph">{<ProjectLayoutIcon layout={project.views?.[0]?.layout ?? project.layout ?? "table"} />}</span>
-            <div className="projects-row-title"><Link to={projectPath(handle, project.number)}>{project.name}</Link> <span>#{project.number}</span>{project.description && <p>{project.description}</p>}</div>
-            <span>{project.repositories?.join(", ") || project.repository || project.default_repository || t("issues.projects.organizationWide")}</span>
-            <span>{(project.updated_at ?? project.created_at) && <time dateTime={project.updated_at ?? project.created_at}>{date.format(new Date(project.updated_at ?? project.created_at!))}</time>}</span>
-          </li>)}
-        </ul>}
+      <div className="projects-directory-panel">
+        <div className="projects-directory-header">
+          <div className="projects-states" role="group" aria-label={t("projects.state")}>
+            <Button size="small" variant="ghost" aria-pressed={!closed} onClick={() => setClosed(false)}>
+              <CircleDot size={16} aria-hidden /> {t("projects.open")} <span aria-hidden>{projectCount - closedCount}</span>
+            </Button>
+            <Button size="small" variant="ghost" aria-pressed={closed} onClick={() => setClosed(true)}>
+              <CircleX size={16} aria-hidden /> {t("projects.closed")} <span aria-hidden>{closedCount}</span>
+            </Button>
+          </div>
+          <Select aria-label={t("projects.sort")} value={sort} onChange={(event) => setSort(event.target.value)} options={[
+            { value: "updated", label: t("projects.recentlyUpdated") }, { value: "name", label: t("issues.projects.name") },
+          ]} />
+        </div>
+        {listed.length === 0 ? <p className="projects-directory-empty" role="status">{t(search ? "projects.noResults" : closed ? "projects.noClosedProjects" : "issues.projects.empty")}</p> :
+          <ul className="projects-directory">
+            {listed.map((project) => {
+              const updated = project.updated_at ?? project.created_at;
+              return <li key={project.id}>
+                <span className="projects-glyph"><ProjectLayoutIcon layout={project.views?.[0]?.layout ?? project.layout ?? "table"} /></span>
+                <div className="projects-row-title"><Link to={projectPath(handle, project.number)}>{project.name}</Link>{project.description && <p>{project.description}</p>}
+                  <small>#{project.number} · {project.repositories?.join(", ") || project.repository || project.default_repository || t("issues.projects.organizationWide")}</small>
+                </div>
+                {updated && <time dateTime={updated}>{date.format(new Date(updated))}</time>}
+              </li>;
+            })}
+          </ul>}
+      </div>
     </>}
   </section>;
 }
@@ -179,18 +195,27 @@ export function ProjectCreatePage({ organization }: ProjectProps) {
       <div className="projects-create-grid">
         <fieldset className="projects-layout-options" disabled={saving}>
           <legend>{t("projects.start")}</legend>
-          {projectLayouts.map((layout) => <label key={layout}><Radio name="layout" value={layout} checked={start === layout} onChange={() => setStart(layout)} />
-            <ProjectLayoutIcon layout={layout} /> {t(`projects.${layout}`)}</label>)}
+          <div className="projects-layout-group">
+            {projectLayouts.map((layout) => <label key={layout}>
+              <span className="projects-glyph"><ProjectLayoutIcon layout={layout} /></span>
+              <span><strong id={`project-option-${layout}`}>{t(`projects.${layout}`)}</strong><small id={`project-hint-${layout}`}>{t(`projects.layoutHints.${layout}`)}</small></span>
+              <Radio name="layout" value={layout} aria-labelledby={`project-option-${layout}`} aria-describedby={`project-hint-${layout}`} checked={start === layout} onChange={() => setStart(layout)} />
+            </label>)}
+          </div>
           <h2>{t("projects.templates")}</h2>
-          {(Object.keys(templates) as ProjectTemplate[]).map((template) => <label key={template}>
-            <Radio name="layout" value={template} checked={start === template} onChange={() => setStart(template)} />
-            <ProjectLayoutIcon layout={templates[template]} /> {t(`projects.${template}`)}
-          </label>)}
+          <div className="projects-layout-group">
+            {(Object.keys(templates) as ProjectTemplate[]).map((template) => <label key={template}>
+              <span className="projects-glyph"><ProjectLayoutIcon layout={templates[template]} /></span>
+              <span><strong id={`project-option-${template}`}>{t(`projects.${template}`)}</strong><small id={`project-hint-${template}`}>{t(`projects.layoutHints.${template}`)}</small></span>
+              <Radio name="layout" value={template} aria-labelledby={`project-option-${template}`} aria-describedby={`project-hint-${template}`} checked={start === template} onChange={() => setStart(template)} />
+            </label>)}
+          </div>
         </fieldset>
         <div className="projects-config">
+          <h2>{t("projects.details")}</h2>
+          <dl className="projects-owner"><dt>{t("projects.owner")}</dt><dd>{organization.name}</dd></dl>
           <Input ref={nameRef} label={t("issues.projects.name")} aria-label={t("issues.projects.name")} value={name} onChange={(event) => { setName(event.target.value); setNameError(""); }}
             required maxLength={100} readOnly={saving} error={nameError ? <span role="alert">{nameError}</span> : undefined} />
-          <dl className="projects-owner"><dt>{t("projects.owner")}</dt><dd>{organization.name}</dd></dl>
           <Select label={t("projects.defaultRepository")} value={repository} onChange={(event) => setRepository(event.target.value)}
             disabled={saving || !repositories?.length} options={[
               { value: "", label: t("projects.noDefault") }, ...(repositories ?? []).map((slug) => ({ value: slug, label: slug })),
@@ -201,8 +226,8 @@ export function ProjectCreatePage({ organization }: ProjectProps) {
             setRepositoryError(false); setRepositoryAttempt((value) => value + 1);
           }}>{t("issues.composer.retry")}</Button></div>}
           <div className="projects-actions">
-            <Button type="submit" variant="primary" loading={saving}>{t("projects.create")}</Button>
             <Link className="af-button af-button--secondary af-button--middle" to={returnRepository ? repositoryPath(handle, returnRepository, "projects") : orgPath(handle, "projects")}>{t("projects.cancel")}</Link>
+            <Button type="submit" variant="primary" loading={saving}>{t("projects.create")}</Button>
           </div>
         </div>
       </div>
