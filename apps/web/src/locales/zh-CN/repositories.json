@@ -60,7 +60,17 @@
     "back": "返回项目",
     "search": "搜索项目名称或编号",
     "sort": "排序项目",
-    "newest": "最新创建",
+    "repositoryTitle": "仓库项目",
+    "recentlyUpdated": "最近更新",
+    "noClosedProjects": "没有已关闭的项目。",
+    "actions": "项目操作",
+    "layoutHints": {
+      "table": "并排查看条目字段。",
+      "board": "在不同列之间移动条目，跟踪进度。",
+      "roadmap": "按开始日期和目标日期规划工作。",
+      "team_backlog": "在状态看板上分拣和跟踪团队待办。",
+      "release_plan": "在路线图上安排发布工作。"
+    },
     "start": "选择初始布局",
     "table": "表格",
     "board": "看板",

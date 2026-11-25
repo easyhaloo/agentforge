@@ -1,4 +1,4 @@
-import { Archive, ArrowLeft, CalendarRange, Columns3, Download, Plus, Settings, Table2 } from "lucide-react";
+import { Archive, ArrowLeft, BarChart3, CalendarRange, Columns3, Download, Ellipsis, Info, ListFilter, Plus, Settings, SlidersHorizontal, Table2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,7 +9,7 @@ import type { OrganizationSummary } from "../../shared/api/identity";
 import { projectFieldsAPI, type ProjectField } from "../../shared/api/projectFields";
 import { projectPriorities, projectsAPI, projectStatuses, type Project, type ProjectItem, type ProjectProgress, type ProjectStatusDay, type ProjectView } from "../../shared/api/projects";
 import { issueCreatePath, organizationHandle, orgPath, projectPath } from "../../shared/routing";
-import { Button, DataTable, Input, Select, type DataTableColumn } from "../../shared/ui";
+import { Button, DataTable, Input, Popover, Select, type DataTableColumn } from "../../shared/ui";
 import { ProjectFieldSettings } from "./ProjectCustomFields";
 import { ProjectFormPage } from "./ProjectForms";
 import { filterProjectItems, groupProjectItems, projectCsv, projectItemSource, sortProjectItems } from "./projectViews";
@@ -144,18 +144,25 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
         complete: (updated?: Project, to = viewURL) => { if (updated) setProject(updated); setAttempt((value) => value + 1); void navigate(to); },
         onItemVersionChange: (version: number) => setItems((current) => current?.map((item) => item.id === itemID ? { ...item, version } : item)),
       }} /> : <>
-      <header className="projects-heading">
-        <div><h1>{project.name} <span className="projects-number">#{project.number}</span></h1>
-          {project.description && <p>{project.description}</p>}
-          {project.closed && <p>{t("projects.closedNotice")}</p>}
+      <header className="projects-heading projects-workspace-heading">
+        <div className="projects-workspace-title">
+          <span className="projects-glyph"><Columns3 size={20} aria-hidden /></span>
+          <div><h1>{project.name} <span className="projects-number">#{project.number}</span></h1>
+            {project.description && <p>{project.description}</p>}
+            {project.closed && <p>{t("projects.closedNotice")}</p>}
+          </div>
         </div>
-        <div className="projects-toolbar">
-          <Link className={secondaryLink} to={pageURL("about")}>{t("projects.details")}</Link>
-          <Link className={secondaryLink} to={pageURL("updates")}>{t("projects.updates")}</Link>
-          <Link className={secondaryLink} to={pageURL("insights")}>{t("projects.insights")}</Link>
-          <Link className={secondaryLink} to={pageURL("archive")}><Archive size={16} aria-hidden /> {t("projects.archive")}</Link>
-          {admin && <Link className={secondaryLink} to={pageURL("workflows")}>{t("projects.workflows.title")}</Link>}
-          {admin && <Link className={secondaryLink} to={pageURL("settings")}><Settings size={16} aria-hidden /> {t("projects.settings")}</Link>}
+        <div className="projects-header-actions">
+          <Link className={secondaryLink} to={pageURL("about")} aria-current={page === "about" ? "page" : undefined}><Info size={16} aria-hidden /> {t("projects.details")}</Link>
+          <Link className={secondaryLink} to={pageURL("insights")} aria-current={page === "insights" ? "page" : undefined}><BarChart3 size={16} aria-hidden /> {t("projects.insights")}</Link>
+          <Popover ariaLabel={t("projects.actions")} triggerClassName={secondaryLink} trigger={<><Ellipsis size={16} aria-hidden /> {t("projects.actions")}</>}>
+            {(dismiss) => <div className="projects-menu">
+              <Link to={pageURL("updates")} onClick={dismiss} aria-current={page === "updates" ? "page" : undefined}>{t("projects.updates")}</Link>
+              <Link to={pageURL("archive")} onClick={dismiss} aria-current={archived ? "page" : undefined}><Archive size={16} aria-hidden /> {t("projects.archive")}</Link>
+              {admin && <Link to={pageURL("workflows")} onClick={dismiss}>{t("projects.workflows.title")}</Link>}
+              {admin && <Link to={pageURL("settings")} onClick={dismiss}><Settings size={16} aria-hidden /> {t("projects.settings")}</Link>}
+            </div>}
+          </Popover>
         </div>
       </header>
       {page === "about" ? <div className="projects-message projects-details">
@@ -168,20 +175,25 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
         <ProjectUpdates orgID={orgID} number={project.number} latest />
       </div> : page === "updates" ? <ProjectUpdates orgID={orgID} number={project.number} publishURL={writable ? pageURL("update-new") : undefined} /> : <>
         {archived ? <h2>{t("projects.archive")}</h2> : <>
-          <nav className="projects-views" aria-label={t("projects.view")}>
-            {views.map((candidate) => {
-              const Icon = layoutIcons[candidate.layout];
-              return <Link key={candidate.id} className="projects-view" to={`${base}?${new URLSearchParams({ view: candidate.id })}`} aria-current={candidate.id === view.id ? "page" : undefined}>
-                <Icon size={16} aria-hidden /> {candidate.name || t(`projects.${candidate.layout}`)}
-              </Link>;
-            })}
-            {editViews && <Link className="projects-view" to={pageURL("view-new")}><Plus size={16} aria-hidden /> {t("projects.newView")}</Link>}
-          </nav>
+          <div className="projects-view-bar">
+            <nav className="projects-views" aria-label={t("projects.view")}>
+              {views.map((candidate) => {
+                const Icon = layoutIcons[candidate.layout];
+                return <Link key={candidate.id} className="projects-view" to={`${base}?${new URLSearchParams({ view: candidate.id })}`} aria-current={!page && candidate.id === view.id ? "page" : undefined}>
+                  <Icon size={16} aria-hidden /> {candidate.name || t(`projects.${candidate.layout}`)}
+                </Link>;
+              })}
+              {editViews && <Link className="projects-view" to={pageURL("view-new")}><Plus size={16} aria-hidden /> {t("projects.newView")}</Link>}
+            </nav>
+            {editViews && <Link className={secondaryLink} to={pageURL("view-edit")}><SlidersHorizontal size={16} aria-hidden /> {t("projects.viewOptions")}</Link>}
+          </div>
           {currentView && !views.some(({ id }) => id === currentView) && <p role="status">{t("projects.viewUnavailable")}</p>}
           <div className="projects-toolbar projects-workspace-toolbar">
-            <Input type="search" aria-label={t("projects.filter")} placeholder={t("projects.filterHint")} value={search} onChange={(event) => setFilter({ view, value: event.target.value })} />
+            <div className="projects-search">
+              <ListFilter size={16} aria-hidden />
+              <Input type="search" aria-label={t("projects.filter")} placeholder={t("projects.filterHint")} value={search} onChange={(event) => setFilter({ view, value: event.target.value })} />
+            </div>
             <Button disabled={!visible.length || !fields || fieldsFailed} onClick={exportItems}><Download size={16} aria-hidden /> {t("projects.export")}</Button>
-            {editViews && <Link className={secondaryLink} to={pageURL("view-edit")}>{t("projects.viewOptions")}</Link>}
             {writable && <>
               <Link className={primaryLink} to={pageURL("add")}><Plus size={16} aria-hidden /> {t("projects.addItems")}</Link>
               {repository && <Link className={secondaryLink} to={`${issueCreatePath(handle, repository)}?${new URLSearchParams({ projects: `${handle}/${project.number}` })}`}>{t("projects.newIssue")}</Link>}

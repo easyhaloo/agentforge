@@ -60,7 +60,17 @@
     "back": "Return to projects",
     "search": "Search project name or number",
     "sort": "Sort projects",
-    "newest": "Newest created",
+    "repositoryTitle": "Repository projects",
+    "recentlyUpdated": "Recently updated",
+    "noClosedProjects": "No closed projects.",
+    "actions": "Project actions",
+    "layoutHints": {
+      "table": "See item fields side by side.",
+      "board": "Move items through work in columns.",
+      "roadmap": "Plan work against start and target dates.",
+      "team_backlog": "Triage team tasks on a status board.",
+      "release_plan": "Schedule release work on a roadmap."
+    },
     "start": "Choose a starting point",
     "table": "Table",
     "board": "Board",

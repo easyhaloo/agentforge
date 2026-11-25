@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { demoOrganization, installApiMocks } from "./support/api-mocks";
 import { selectOption } from "./support/select-option";
 
@@ -68,6 +68,58 @@ test("opens project creation as a page, cancels, and retries a duplicate name", 
     expect.objectContaining({ name: existing.name.toUpperCase(), layout: "board" }),
     expect.objectContaining({ name: created.name, layout: "board" }),
   ]);
+});
+
+async function openProjectAction(page: Page, name: string) {
+  await page.getByRole("button", { name: "Project actions" }).click();
+  await page.getByRole("dialog", { name: "Project actions" }).getByRole("link", { name, exact: true }).click();
+}
+
+test("keeps project views and project actions usable on a narrow screen", async ({ page }) => {
+  await installApiMocks(page);
+  await page.setViewportSize({ width: 320, height: 844 });
+  const index = `/orgs/${demoOrganization.slug}/projects`;
+  const api = `/api/v1/organizations/${demoOrganization.id}/issue-projects`;
+  const project = {
+    id: "release", number: 7, name: "Release roadmap", layout: "table", version: 1,
+    views: [
+      { id: "default", name: "Table", layout: "table", filter: "", sort: "manual", group: "none" },
+      { id: "board", name: "Board", layout: "board", filter: "", sort: "manual", group: "status" },
+    ],
+  };
+  await page.route((url) => url.pathname === api, (route) => route.fulfill({
+    json: { items: [project, { id: "closed", number: 8, name: "Last release", closed: true }] },
+  }));
+  await page.route((url) => url.pathname.startsWith(`${api}/7`), (route) => route.fulfill({
+    json: route.request().url().endsWith("/7") ? project : { items: [] },
+  }));
+
+  await page.goto(index);
+  const closed = page.getByRole("button", { name: "Closed", exact: true });
+  await closed.click();
+  await expect(closed).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("link", { name: "Last release" })).toBeVisible();
+  await page.getByRole("button", { name: "Open", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search project name or number" }).fill("#7");
+  await page.getByRole("link", { name: project.name }).click();
+
+  const views = page.getByRole("navigation", { name: "Project view" });
+  const board = views.getByRole("link", { name: "Board", exact: true });
+  await board.press("Enter");
+  await expect(page).toHaveURL(`${index}/7?view=board`);
+  await expect(board).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "Todo 0" })).toBeVisible();
+  const actions = page.getByRole("button", { name: "Project actions" });
+  await actions.press("Enter");
+  const menu = page.getByRole("dialog", { name: "Project actions" });
+  await expect(menu.getByRole("link", { name: "Updates" })).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(actions).toBeFocused();
+  await openProjectAction(page, "Archived items");
+  await expect(page).toHaveURL(`${index}/7?view=board&page=archive`);
+  await expect(page.getByRole("heading", { name: "Archived items" })).toBeVisible();
 });
 
 const origin = process.env.AGENTFORGE_TEST_ORIGIN;
@@ -247,7 +299,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("checkbox", { name: "#1 Imported work" }).check();
   await page.getByRole("button", { name: "Add selected items" }).click();
   await expect(page.getByRole("link", { name: "Imported work" })).toBeVisible();
-  await page.getByRole("link", { name: "Workflows", exact: true }).click();
+  await openProjectAction(page, "Workflows");
   await expect(page).toHaveURL(`${project}?page=workflows`);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await selectOption(page, page.getByRole("combobox", { name: "When an issue is closed" }), "In progress");
@@ -280,7 +332,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   const draftURL = page.url();
   await page.goto(project);
-  await page.getByRole("link", { name: "Project settings" }).click();
+  await openProjectAction(page, "Project settings");
   await page.getByRole("link", { name: "Custom fields" }).click();
   await page.getByRole("link", { name: "New field", exact: true }).click();
   await expect(page).toHaveURL(/page=fields&field=new$/);
@@ -362,7 +414,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await expect(page.getByRole("heading", { name: "Archived items", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Back to project", exact: true }).click();
   await expect(page.getByRole("link", { name: "Prepare release notes" })).toBeVisible();
-  await page.getByRole("link", { name: "Updates", exact: true }).click();
+  await openProjectAction(page, "Updates");
   await page.getByRole("link", { name: "New update", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await selectOption(page, page.getByRole("combobox", { name: "Health" }), "At risk");
@@ -375,14 +427,14 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "Project details" }).click();
   await expect(page.getByRole("heading", { name: "Latest update" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "At risk" })).toBeVisible();
-  await page.getByRole("link", { name: "Project settings" }).click();
+  await openProjectAction(page, "Project settings");
   await page.getByRole("button", { name: "Close project", exact: true }).click();
   await expect(page.getByText("This project is closed and read-only.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Add items" })).toHaveCount(0);
   await page.goto(`${planning}/projects`);
   await page.getByRole("button", { name: "Closed", exact: true }).click();
   await page.getByRole("link", { name: "Release planning" }).click();
-  await page.getByRole("link", { name: "Project settings" }).click();
+  await openProjectAction(page, "Project settings");
   await page.getByRole("button", { name: "Reopen project", exact: true }).click();
   await expect(page.getByRole("link", { name: "Add items" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Prepare release notes" })).toBeVisible();
@@ -394,7 +446,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await expect(page.getByRole("heading", { name: /Follow-up from source repository/ })).toBeVisible();
   await page.goto(project);
   await expect(page.getByRole("link", { name: "Follow-up from source repository" })).toBeVisible();
-  await page.getByRole("link", { name: "Workflows", exact: true }).click();
+  await openProjectAction(page, "Workflows");
   await expect(page.getByRole("spinbutton", { name: "Auto-archive after (days)" })).toHaveValue("14");
   await expect(page.getByRole("combobox", { name: "Auto-add repository" })).toContainText(sourceSlug);
   const runs = page.getByRole("region", { name: "Workflow history" }).getByRole("listitem");
