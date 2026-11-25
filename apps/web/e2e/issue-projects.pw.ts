@@ -337,9 +337,10 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await page.reload();
   await expect(draftDescription).toHaveValue("## Release checklist\n\n- Verify the upgrade guide");
-  await page.getByRole("button", { name: "Convert to issue" }).click();
-  await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), sourceSlug);
-  await page.getByRole("button", { name: "Convert to issue" }).click();
+  await page.getByRole("button", { name: "Convert to issue", exact: true }).first().click();
+  const conversionDialog = page.getByRole("dialog");
+  await selectOption(page, conversionDialog.getByRole("combobox", { name: "Repository", exact: true }), sourceSlug);
+  await conversionDialog.getByRole("button", { name: "Convert to issue", exact: true }).click();
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await expect(page).toHaveURL(new RegExp(`[?&]item=${new URL(draftURL).searchParams.get("item")}$`));
   const convertedItemURL = page.url();
