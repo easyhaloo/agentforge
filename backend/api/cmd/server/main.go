@@ -123,7 +123,7 @@ func main() {
 			logger.Error("Git Smart HTTP initialization failed", "error", err)
 			os.Exit(1)
 		}
-		go projectGitIssues(ctx, provider, issueRepo, logger)
+		go projectGitIssues(ctx, provider, issueRepo, store, logger)
 		go func() {
 			ticker := time.NewTicker(10 * time.Second)
 			defer ticker.Stop()

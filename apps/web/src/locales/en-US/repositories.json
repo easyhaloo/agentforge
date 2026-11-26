@@ -206,7 +206,9 @@
       "disable": "Disable",
       "minutes": "Interval in minutes",
       "interval": "Every {{count}} min",
-      "bindVersion": "Uses published version {{version}}."
+      "bindVersion": "Uses published version {{version}}.",
+      "tagPattern": "Tag pattern",
+      "tagPatternHint": "A glob over the tag name, for example v*."
     },
     "back": "Back to Actions",
     "newWorkflow": "New workflow",
@@ -242,7 +244,8 @@
       "changeset_revision": "Changeset revision",
       "schedule": "Schedule",
       "merge_queue": "Merge queue",
-      "integration": "Integration"
+      "integration": "Integration",
+      "tag": "Tag push"
     }
   },
   "sections": {
@@ -1039,7 +1042,12 @@
       "requireMergeQueue": "Require merge queue",
       "mergeQueueMethodConflict": "Active queue rulesets must use the same merge method.",
       "mergeQueueMethod": "Queue merge method",
-      "mergeQueueMethods": { "automatic": "Automatic", "merge": "Merge commit", "squash": "Squash", "rebase": "Rebase" },
+      "mergeQueueMethods": {
+        "automatic": "Automatic",
+        "merge": "Merge commit",
+        "squash": "Squash",
+        "rebase": "Rebase"
+      },
       "mergeQueueHelp": "Verified pull requests must pass through the merge queue.",
       "mergeQueueTarget": "Use ~DEFAULT_BRANCH as the only include pattern and remove exclusions to require the merge queue.",
       "none": "None",

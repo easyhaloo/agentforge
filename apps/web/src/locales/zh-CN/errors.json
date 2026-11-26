@@ -5,6 +5,7 @@
   "notFound": "该资源不存在。",
   "methodNotAllowed": "此处不允许该操作。",
   "conflict": "该操作与当前状态冲突。",
+  "duplicateTrigger": "已存在相同规则。",
   "repositoryActionsDisabled": "此仓库已禁用 Actions，无法启动新的工作流运行。",
   "unresolvedPullRequestConversations": "请先解决所有行内对话（包括旧修订中的对话），再合并拉取请求。",
   "requiredWorkflowsPending": "当前修订尚未通过必需的仓库工作流检查。",

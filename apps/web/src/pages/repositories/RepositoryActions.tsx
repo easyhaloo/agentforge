@@ -14,7 +14,7 @@ import { RunDialog } from "../pipelines/RunPanel";
 import { WorkflowTriggers } from "./WorkflowTriggers";
 
 const statuses = ["queued", "running", "succeeded", "failed", "cancelled", "timed_out"] as const;
-const events = ["manual", "webhook", "changeset_revision", "schedule", "merge_queue", "integration", "rerun"] as const;
+const events = ["manual", "webhook", "changeset_revision", "schedule", "tag", "merge_queue", "integration", "rerun"] as const;
 
 export function RepositoryActions({ organization, repository }: { organization: OrganizationSummary; repository: string }) {
   const { t } = useTranslation("repositories");
