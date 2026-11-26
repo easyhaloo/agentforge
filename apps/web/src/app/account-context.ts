@@ -32,5 +32,10 @@ export const useAppAccount = () => useContext(AppAccountContext);
 export function useSelectedOrganization(account: AccountContext | null) {
   const [id, selectOrganization] = usePersistentState(`agentforge-organization:${account?.user_id ?? ""}`, "");
   const organizations = account?.organizations;
-  return [organizations?.find(org => org.id === id) ?? organizations?.[0], selectOrganization] as const;
+  // Default to the first active organization: /me now also returns suspended
+  // and pending-deletion organizations, which are read-only or locked.
+  const preferred = organizations?.find(org => org.id === id)
+    ?? organizations?.find(org => (org.status ?? "active") === "active")
+    ?? organizations?.[0];
+  return [preferred, selectOrganization] as const;
 }

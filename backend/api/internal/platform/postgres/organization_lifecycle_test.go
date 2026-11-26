@@ -205,3 +205,40 @@ func slugOpenFixtures(t *testing.T, ctx context.Context, store *Store, actor str
 		slugInsertMember(t, ctx, store, organizationID, actor, "owner", "active")
 	}
 }
+
+func TestOrganizationSlugChangeLengthBoundaries(t *testing.T) {
+	ctx, store := slugOpenStore(t)
+	actor := "lifecycle-actor-" + newTestSuffix()
+	slugOpenFixtures(t, ctx, store, actor, "org-slug-len")
+
+	// 2 characters: rejected by the stricter change rule (SPEC deviation 3).
+	if _, err := store.UpdateOrganization(ctx, "org-slug-len", actor, nil, ptr("ab"), time.Hour, 0); !errors.Is(err, ErrSlugInvalid) {
+		t.Fatalf("2-char slug: %v, want ErrSlugInvalid", err)
+	}
+	// 3 characters: accepted.
+	if _, err := store.UpdateOrganization(ctx, "org-slug-len", actor, nil, ptr("abc"), time.Hour, 0); err != nil {
+		t.Fatalf("3-char slug: %v", err)
+	}
+	// 40 characters: rejected.
+	long40 := "a" + string(repeat('b', 38)) + "c"
+	if _, err := store.UpdateOrganization(ctx, "org-slug-len", actor, nil, ptr(long40), time.Hour, 0); !errors.Is(err, ErrSlugInvalid) {
+		t.Fatalf("40-char slug: %v, want ErrSlugInvalid", err)
+	}
+	// Leading and trailing hyphens: rejected.
+	if _, err := store.UpdateOrganization(ctx, "org-slug-len", actor, nil, ptr("-abc"), time.Hour, 0); !errors.Is(err, ErrSlugInvalid) {
+		t.Fatalf("leading hyphen: %v, want ErrSlugInvalid", err)
+	}
+	if _, err := store.UpdateOrganization(ctx, "org-slug-len", actor, nil, ptr("abc-"), time.Hour, 0); !errors.Is(err, ErrSlugInvalid) {
+		t.Fatalf("trailing hyphen: %v, want ErrSlugInvalid", err)
+	}
+
+	// A legacy 2-character slug keeps resolving: reads and routing are
+	// unaffected by the change validation.
+	slugInsertUser(t, ctx, store, "legacy-user")
+	slugInsertOrganization(t, ctx, store, "legacy-org", "xy", "active")
+	slugInsertMember(t, ctx, store, "legacy-org", "legacy-user", "owner", "active")
+	var storedSlug string
+	if err := store.pool.QueryRow(ctx, `SELECT slug FROM organizations WHERE id = 'legacy-org'`).Scan(&storedSlug); err != nil || storedSlug != "xy" {
+		t.Fatalf("legacy short slug not stored: %q %v", storedSlug, err)
+	}
+}

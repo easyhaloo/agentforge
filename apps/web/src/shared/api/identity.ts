@@ -1,7 +1,19 @@
 import type { components, operations } from "./pipeline-contract";
 
 // `slug` is the URL handle; the API may not return it yet, so routing falls back to `id` (see shared/routing).
-export type OrganizationSummary = { id: string; slug: string; name: string; personal?: boolean; role: "owner" | "admin" | "member" | "viewer" };
+// `status` is the organization lifecycle state; /me also returns suspended and
+// pending-deletion organizations so the 我的组织 page can show (and owners can
+// resolve) them. deletion_scheduled_at is set only when status is pending_deletion.
+export type OrganizationLifecycleStatus = "active" | "suspended" | "pending_deletion";
+export type OrganizationSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  personal?: boolean;
+  role: "owner" | "admin" | "member" | "viewer";
+  status?: OrganizationLifecycleStatus;
+  deletion_scheduled_at?: string | null;
+};
 export type AccountContext = { user_id: string; display_name: string; email?: string; organizations: OrganizationSummary[] };
 export type OrganizationMember = { user_id: string; display_name: string; email?: string; role: string; status: string; created_at: string; updated_at: string };
 export type OrganizationInvitation = { id: string; email: string; role: string; status: string; invited_by: string; expires_at: string; created_at: string };

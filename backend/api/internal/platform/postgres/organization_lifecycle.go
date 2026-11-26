@@ -37,6 +37,14 @@ func ValidOrganizationSlug(slug string) bool {
 	return identity.ValidateOrganizationSlug(slug) == nil
 }
 
+// ValidOrganizationSlugChange reports whether a user-supplied slug may be
+// stored by PATCH /organizations/{org} (SPEC deviation 3): the stricter
+// 3–39 pattern, so 1–2 character legacy slugs keep working but cannot be
+// newly assigned. Reads, routing and bootstrap are unaffected.
+func ValidOrganizationSlugChange(slug string) bool {
+	return organizationSlugPattern.MatchString(slug)
+}
+
 // OrganizationLifecycle is the persisted lifecycle state of an organization.
 type OrganizationLifecycle struct {
 	ID                  string     `json:"id"`
@@ -93,7 +101,9 @@ func (s *Store) UpdateOrganization(ctx context.Context, organizationID, actorID 
 	}
 	if slug != nil {
 		*slug = strings.ToLower(strings.TrimSpace(*slug))
-		if !ValidOrganizationSlug(*slug) {
+		// Stricter 3–39 pattern for new slugs only (SPEC deviation 3): 1–2
+		// character legacy slugs keep resolving but cannot be re-assigned.
+		if !ValidOrganizationSlugChange(*slug) {
 			return OrganizationLifecycle{}, ErrSlugInvalid
 		}
 	}

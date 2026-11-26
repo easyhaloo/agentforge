@@ -24,9 +24,14 @@ func (s *Store) CurrentAccount(ctx context.Context, sessionToken string) (identi
 	if err != nil {
 		return identity.AccountContext{}, fmt.Errorf("load authenticated account: %w", err)
 	}
-	rows, err := s.pool.Query(ctx, `SELECT o.id,COALESCE(o.slug,o.id),o.name,m.role,COALESCE(o.personal_owner_id=m.user_id,false)
+	// Members see every organization they are active in, including suspended
+	// and pending-deletion ones (SPEC deviation 8): the 我的组织 page and the
+	// organization switcher must show them so owners can resolve the state.
+	// Resolution (ResolvePrincipal) still accepts non-active organizations;
+	// the write gate refuses writes there.
+	rows, err := s.pool.Query(ctx, `SELECT o.id,COALESCE(o.slug,o.id),o.name,m.role,COALESCE(o.personal_owner_id=m.user_id,false),o.status,o.deletion_scheduled_at
 		FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id
-		WHERE m.user_id=$1 AND m.status='active' AND o.status='active'
+		WHERE m.user_id=$1 AND m.status='active' AND o.status IN ('active','suspended','pending_deletion')
 		ORDER BY o.name,o.id`, account.UserID)
 	if err != nil {
 		return identity.AccountContext{}, fmt.Errorf("list account organizations: %w", err)
@@ -35,7 +40,7 @@ func (s *Store) CurrentAccount(ctx context.Context, sessionToken string) (identi
 	account.Organizations = make([]identity.OrganizationSummary, 0)
 	for rows.Next() {
 		var organization identity.OrganizationSummary
-		if err := rows.Scan(&organization.ID, &organization.Slug, &organization.Name, &organization.Role, &organization.Personal); err != nil {
+		if err := rows.Scan(&organization.ID, &organization.Slug, &organization.Name, &organization.Role, &organization.Personal, &organization.Status, &organization.DeletionScheduledAt); err != nil {
 			return identity.AccountContext{}, fmt.Errorf("scan account organization: %w", err)
 		}
 		account.Organizations = append(account.Organizations, organization)

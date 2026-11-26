@@ -2930,7 +2930,11 @@ components:
         status:
           type: string
           enum: [active, suspended, pending_deletion]
-          description: Organization lifecycle status (migration 063). Suspended and pending-deletion organizations refuse writes with 423.
+          description: Organization lifecycle status (migration 063). Suspended and pending-deletion organizations refuse writes with 423 but still appear here so members can see and owners can resolve them.
+        deletion_scheduled_at:
+          type: string
+          format: date-time
+          description: Present only while the status is pending_deletion; deletion becomes permanent after ORG_DELETION_GRACE.
     AccountContext:
       type: object
       required: [user_id, display_name, organizations]
