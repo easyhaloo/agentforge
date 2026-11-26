@@ -109,7 +109,6 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
       onChange={event => setSearch(makeQuery({ ref: event.target.value, commit: "", view: isHistory ? "commits" : "" }).slice(1))}
       options={refs.items.map(ref => ({ value: refValue(ref), label: ref.kind === "branch" ? t("repositories:preview.branchOption", { name: ref.name }) : t("repositories:preview.tagOption", { name: ref.name }) }))}/>}
     {snapshot && <span className="repo-meta" title={snapshot}>{t("repositories:preview.pinnedCommit", { commit: snapshot.slice(0, 12) })}</span>}
-    {snapshot && <Link className="repo-back" to={makeQuery({ commit: "", view: isHistory ? "commits" : "" })}>{t("repositories:browser.backToBranch")}</Link>}
   </div>;
   return <section className="repo-layout repo-browser" aria-label={t("repositories:preview.ariaLabel")}>
     <div className="repo-code-actions">
@@ -243,7 +242,6 @@ function CommitDetails({ organizationID, repository, makeQuery, handle, change, 
   }, [organizationID, repository, parent, commit, t]);
 
   return <section className="repo-commit-detail" aria-label={t("repositories:compare.ariaLabel")}>
-    <Link className="repo-back" to={makeQuery({ view: "commits" })}>{t("repositories:browser.backToHistory")}</Link>
     <header className="repo-commit-heading">
       <h2>{base ? t("repositories:compare.title") : commit ? <>{t("repositories:diff.commit")} <code title={commit.sha}>{commit.sha.slice(0, 7)}</code></> : t("repositories:browser.commitDetails")}</h2>
       {commit && <div className="repo-toolbar">

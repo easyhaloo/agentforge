@@ -670,7 +670,7 @@ test("reviews an updated pull request and merges only its verified revision", as
     await workflowDialog.getByRole("button", { name: "New", exact: true }).click();
     await page.getByRole("button", { name: "Publish version" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await page.getByRole("button", { name: "Triggers" }).click();
     const triggers = page.getByRole("dialog", { name: "Triggers" });
     await triggers.getByRole("button", { name: "Enable trigger" }).click();

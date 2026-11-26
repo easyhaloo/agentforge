@@ -43,7 +43,7 @@ test("an owner creates, edits and publishes the saved workflow revision", async 
   await expect(page.locator(".shell, .topbar, footer")).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("heading", {name:"new-release"})).toBeVisible();
-  await page.getByRole("link", {name:"Back to pipelines"}).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Pipelines", exact: true }).click();
   await expect(page).toHaveURL(/\/orgs\/demo\/pipelines$/);
   await expect(page.getByRole("link", {name:"new-release"})).toHaveAttribute("href", "/orgs/demo/pipelines/p/edit");
   await expect(page.getByRole("region", {name:"Workflow graph"})).toHaveCount(0);
@@ -192,7 +192,7 @@ test("a template can be configured directly on the canvas without a JSON editor"
   await expect(page.getByRole("button", { name: "Step lint", exact: true })).toBeVisible();
   const canvas = page.getByRole("region", {name:"Workflow graph"});
   expect(await canvas.evaluate(el => window.innerHeight - el.getBoundingClientRect().bottom)).toBeLessThan(32);
-  await page.getByRole("link", {name:"Back to pipelines"}).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Pipelines", exact: true }).click();
   const discard = page.getByRole("dialog", {name:"Discard unsaved changes?"});
   await discard.getByRole("button", {name:"Cancel"}).click();
   await expect(page.getByLabel("Step ID")).toHaveValue("lint");

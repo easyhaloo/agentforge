@@ -424,6 +424,13 @@ Use the [pull request frontend standard](pull-requests.md) for repository change
 - Avoid one-off inline styles when reusable class or design token is appropriate
 - Do not add decorative UI that obscures primary task or makes page look more complete than underlying behavior
 
+### Parent navigation on detail pages
+
+- Start the page body with its title or primary content. Omit standalone links and buttons such as **← Back to commits** and **Back to issues**, including on empty and error states.
+- Keep parent pages reachable from deep links and at narrow widths. Use existing workspace or repository navigation. On focused pages without that navigation, use a breadcrumb in the header labeled with the destination name. Preserve relevant scope and filters in its URL.
+- Keep browser history intact. For example, the repository **Code** tab opens the repository, where **Commit history** opens the list. The browser Back command restores the previous filtered list when the user opened a commit from it.
+- Keep actions such as **Cancel**, **Previous step**, and **Retry** where they perform those tasks.
+
 ### Data loading and recovery
 
 - Keep routine Refresh and Reload controls out of page headers, toolbars, and panels. Fetch when a view opens or its scope changes, and update the affected data after a successful write.

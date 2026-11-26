@@ -57,7 +57,7 @@ test("read-only viewers can read issues but cannot open either creation entry po
     await page.goto(`${issuesPath}${path}`);
     await expect(page.getByRole("alert")).toHaveText("Your organization role does not allow you to create issues.");
     await expect(page.getByRole("button", { name: "New issue", exact: true })).toHaveCount(0);
-    await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+    await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Issues", exact: true }).click();
     await expect(page).toHaveURL(issuesPath);
   }
 });

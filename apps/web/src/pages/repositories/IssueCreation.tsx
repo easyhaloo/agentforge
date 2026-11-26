@@ -12,11 +12,9 @@ export function IssueCreation({ chooseTemplate, ...props }: IssueCreatePageProps
   const { t } = useTranslation("repositories");
   const [query] = useSearchParams();
   if (props.organization.role === "viewer") {
-    const issuesPath = repositoryPath(organizationHandle(props.organization), `${props.owner}/${props.repo}`, "issues");
     return <section className="issue-create">
       <h1>{t("issues.newIssue")}</h1>
       <p role="alert">{t("issues.createDenied")}</p>
-      <Link to={issuesPath}>{t("issues.detail.backToList")}</Link>
     </section>;
   }
   const requested = query.get("template");

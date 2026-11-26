@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, FileCode2, Folder, Save, Search } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { FileCode2, Folder, Save, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Input, TextArea } from "../../shared/ui";
 import { workspaceAPI, type OrganizationSummary, type Workspace, type WorkspaceTreeEntry, type WorkspaceFile, type WorkspaceDiffEntry } from "../../shared/api/identity";
@@ -118,7 +118,6 @@ export function WorkspaceEditorPage({ organization, onNotify }: Props) {
       <Button className="button secondary" disabled={!workspace || loading} onClick={() => setShowDiff(value => !value)}> {showDiff ? t("repositories:workspace.hideDiff") : t("repositories:workspace.showDiff")} ({diffItems.length})</Button>
       <Button className="button primary" disabled={!workspace || diffItems.length === 0 || loading || dirty || (requiresSignoff && !signoff)} onClick={() => void createChangeset()}>{t("repositories:workspace.createChangeset")}</Button>
       <Button className="button secondary" disabled={!selected || !dirty || loading} onClick={() => void save()}><Save size={14}/> {t("repositories:workspace.save")}</Button>
-      <Link className="button secondary" to={`/orgs/${organization.slug}/repositories`}><ArrowLeft size={14}/> {t("repositories:workspace.backToRepositories")}</Link>
     </div>
     {workspace && <p className="changeset-hint">{t("repositories:workspace.summary", { id: workspace.id, base: workspace.base_commit_sha.slice(0, 12), expires: new Date(workspace.expires_at).toLocaleString() })}</p>}
     {requiresSignoff && !dirty && diffItems.length > 0 && <div className="changeset-hint"><Checkbox label={t("webide.signoffConsent")} checked={signoff} disabled={loading}

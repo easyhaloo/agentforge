@@ -114,7 +114,7 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
   await capture("actions-workflow-config");
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await expect(page).toHaveURL(`${pagePath}?workflow=ci`);
   await page.getByRole("button", { name: "Triggers" }).click();
   const triggerDialog = page.getByRole("dialog", { name: "Triggers" });
@@ -148,14 +148,14 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await expect(checks.getByText("No log lines match your search.")).toBeVisible();
   await logSearch.fill("FINISHED");
   await expect(checks.getByText("Finished check")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to Actions" })).toHaveAttribute("href", `${pagePath}?workflow=ci`);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true })).toHaveAttribute("href", `${pagePath}?workflow=ci`);
   await page.screenshot({ path: testInfo.outputPath("actions-job.png"), fullPage: true });
   await page.getByRole("button", { name: "Re-run workflow" }).click();
   await page.getByRole("dialog", { name: "Re-run workflow" }).getByRole("button", { name: "Re-run workflow" }).click();
   await expect(page).toHaveURL(/\/pipeline-runs\/ci-rerun\?/);
   await page.getByRole("link", { name: "View original run" }).click();
   await expect(page).toHaveURL(/\/pipeline-runs\/ci-run\?/);
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   const result = page.locator(".repo-actions-run");
   await expect(result).toContainText("Demo Owner");
   await expect(result).toContainText("43s");
@@ -202,7 +202,7 @@ test("repository Actions creates and runs a workflow and preserves history filte
   waitingForApproval = true;
   await expect(page.getByRole("button", { name: "Review approve" })).toBeVisible();
   await capture("actions-waiting-approval");
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await selectOption(page, page.getByRole("combobox", { name: "Status", exact: true }), "Failed");
   await expect(result).toHaveCount(1);
   await result.getByRole("link").click();
@@ -216,7 +216,7 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await logSearch.fill("validation");
   await expect(checks.getByText("Release validation failed", { exact: true })).toBeVisible();
   await capture("actions-failed-log");
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await expect(page).toHaveURL(/status=failed/);
   await expect(result).toHaveCount(1);
 });
@@ -270,7 +270,7 @@ test("repository Actions persists a published workflow and its runs through the 
   await page.getByRole("dialog").getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
   await expect(page).toHaveURL(/\/pipeline-runs\/[^?]+\?/);
@@ -279,7 +279,7 @@ test("repository Actions persists a published workflow and its runs through the 
   await page.getByRole("button", { name: "Re-run workflow" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Re-run workflow" }).click();
   await expect(page.getByRole("link", { name: "View original run" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await page.reload();
   await expect(page.locator(".repo-actions-run")).toHaveCount(2);
   await selectOption(page, page.getByRole("combobox", { name: "Event", exact: true }), "Re-run");
@@ -306,7 +306,7 @@ test("repository Actions enables and disables the live Changeset revision trigge
   await page.getByRole("dialog").getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await expect(page).toHaveURL(/[?&]workflow=/);
   const actionsURL = page.url();
 
@@ -408,7 +408,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
   const publish = async () => {
     await page.getByRole("button", { name: "Publish version" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   };
   await publish();
   await page.getByRole("button", { name: "Triggers" }).click();
@@ -441,7 +441,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await page.getByRole("searchbox", { name: "Search logs" }).fill("Release v2.4.0");
     await expect(page.getByText("Release v2.4.0", { exact: true })).toBeVisible();
     await capture("07-success-log");
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await startRun("invalid");
     await expect(runState(/Version 1 · Failed/)).toBeVisible({ timeout: 20_000 });
     const failedRun = page.url();
@@ -456,7 +456,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await expect(runState(/Version 1 · Failed/)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("definition").filter({ hasText: "invalid" })).toBeVisible();
     await capture("09-rerun");
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
 
     const approval = await createWorkflow("deploy-approval", "Manual approval");
     await approval.getByRole("button", { name: "New", exact: true }).click();
@@ -466,7 +466,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await expect(review).toBeVisible({ timeout: 20_000 });
     await expect(runState(/Version 1 · Running/)).toBeVisible();
     await capture("10-waiting-approval");
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await page.getByRole("link", { name: "All workflows", exact: true }).click();
     const rows = page.locator(".repo-actions-run");
     await expect(rows).toHaveCount(4);
@@ -482,7 +482,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await expect(rows).toHaveCount(2);
     await capture("13-filtered");
     await rows.first().getByRole("link").click();
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await expect(page).toHaveURL(/status=failed/);
     await expect(rows).toHaveCount(2);
     await selectOption(page, page.getByRole("combobox", { name: "Status", exact: true }), "Timed out");
