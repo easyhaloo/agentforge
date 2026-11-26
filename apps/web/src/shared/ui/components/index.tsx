@@ -75,7 +75,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={`af-button af-button--${variant} af-button--${size} ${inactive ? "af-button--inactive" : ""} ${className}`.trim()}
       type={props.type ?? "button"}
       disabled={disabled || loading}
-      aria-disabled={inactive || undefined}
+      aria-disabled={inactive ? true : props["aria-disabled"]}
       aria-describedby={inactive && inactiveReason ? `${props.id ?? ""}-inactive-reason`.trim() : props["aria-describedby"]}
       aria-busy={loading || undefined}
     >
