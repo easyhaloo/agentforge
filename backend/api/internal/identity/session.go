@@ -20,11 +20,19 @@ const (
 
 var ErrUnauthenticated = errors.New("unauthenticated")
 
+// ErrOrganizationLocked reports that the organization exists but is suspended
+// or scheduled for deletion: reads stay allowed, writes are refused with 423.
+var ErrOrganizationLocked = errors.New("organization is locked")
+
 type Principal struct {
 	UserID           string
 	OrganizationID   string
 	OrganizationSlug string
 	Role             string
+	// OrganizationStatus is the lifecycle status of the resolved organization:
+	// active, suspended, or pending_deletion. Empty for resolvers that do not
+	// populate it (fakes in tests).
+	OrganizationStatus string
 }
 
 // PrincipalResolver maps a request and the organization handle from its path

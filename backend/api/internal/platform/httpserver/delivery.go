@@ -28,6 +28,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/milestones"
 	"github.com/easyhaloo/agentforge/backend/api/internal/notifications"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/authz"
 	"github.com/easyhaloo/agentforge/backend/api/internal/reactions"
 	"github.com/easyhaloo/agentforge/backend/api/internal/tasks"
 	"github.com/easyhaloo/agentforge/backend/api/internal/workspace"
@@ -146,6 +147,18 @@ type DeliveryDependencies struct {
 	NotificationRepo  NotificationRepository
 
 	RepositoryWebhooks RepositoryWebhookStore
+
+	// Organization lifecycle store and settings. Lifecycle is nil when the
+	// lifecycle endpoints are unavailable; OrganizationDeletionGrace backs
+	// slug redirect reservations and the deletion deadline.
+	Lifecycle                 OrganizationLifecycleStore
+	OrganizationDeletionGrace time.Duration
+	// OrgSelfServiceCreate enables POST /api/v1/organizations.
+	OrgSelfServiceCreate bool
+
+	// IdentityAdmin gates /api/v1/admin/identity and the org identity-health
+	// banner endpoint. Nil disables both surfaces.
+	IdentityAdmin *identityAdmin
 }
 
 type storedChangesetResponse struct {
@@ -236,6 +249,9 @@ func newDeliveryHandler(deps DeliveryDependencies) http.Handler {
 	mux.HandleFunc("PATCH /api/v1/organizations/{organizationID}/changesets/{id}/pull-request/comments/{commentID}/resolution", deps.setPRCommentResolution)
 
 	// Issue tracking routes
+	deps.registerAdminIdentity(mux)
+	deps.registerOrganizationIdentityHealth(mux)
+	deps.registerOrganizationLifecycleRoutes(mux)
 	deps.registerIssueDetail(mux)
 	mux.HandleFunc("POST /api/v1/organizations/{organizationID}/issue-attachments", deps.stageIssueAttachment)
 	mux.HandleFunc("GET /api/v1/organizations/{organizationID}/issue-attachments/{attachmentID}", deps.getIssueAttachment)
@@ -1667,6 +1683,17 @@ func (d DeliveryDependencies) principal(w http.ResponseWriter, r *http.Request, 
 	if strings.TrimSpace(principal.UserID) == "" || !principalNamedBy(principal, organizationID) {
 		writeProblem(w, http.StatusForbidden, "Organization access denied", "The authenticated principal is not authorized for the selected organization")
 		return Principal{}, false
+	}
+	// Centralized lifecycle gate (SPEC section 2): while the organization is
+	// suspended or pending_deletion every org-scoped write returns 423, in one
+	// place after principal resolution. Whitelisted writes (resume, cancel
+	// deletion) bypass this gate by passing write=false here and performing
+	// their own status checks.
+	if write {
+		if err := authz.AllowWrite(principal.OrganizationStatus); err != nil {
+			writeProblem(w, http.StatusLocked, "Organization locked", authz.ErrLockedDetail)
+			return Principal{}, false
+		}
 	}
 	switch principal.Role {
 	case "owner", "admin", "member":

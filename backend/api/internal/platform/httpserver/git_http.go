@@ -13,7 +13,9 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
 	"github.com/easyhaloo/agentforge/backend/api/internal/identity"
+	"github.com/easyhaloo/agentforge/backend/api/internal/platform/authz"
 	"github.com/google/uuid"
+	"strconv"
 )
 
 const gitCredentialLifetime = time.Hour
@@ -91,6 +93,14 @@ func (d DeliveryDependencies) gitHTTP(w http.ResponseWriter, r *http.Request) {
 	organization, actor, defaultBranch, err := d.GitCredentials.AuthorizeGitCredential(ctx, hash[:], org, repository, service == githttp.ReceivePack)
 	if errors.Is(err, identity.ErrUnauthenticated) {
 		unauthorized()
+		return
+	}
+	if errors.Is(err, identity.ErrOrganizationLocked) {
+		// Organization suspended or scheduled for deletion: clone/fetch keep
+		// working, pushes are refused with 423 per the lifecycle SPEC.
+		w.Header().Set("Content-Type", "application/problem+json")
+		w.WriteHeader(http.StatusLocked)
+		_, _ = w.Write([]byte(`{"type":"about:blank","title":"Organization locked","status":423,"detail":` + strconv.Quote(authz.ErrLockedDetail) + `}`))
 		return
 	}
 	if err != nil {
