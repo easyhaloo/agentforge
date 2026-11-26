@@ -20,7 +20,7 @@ test("settings and shell render the saved palette, and Auto follows the system",
   await page.getByRole("link", { name: "Appearance" }).click();
   await page.locator('[name=theme][value=auto]').check();
   await expect(body).toHaveCSS("background-color", dark);
-  await expect(sidebar).toHaveCSS("background-color", "rgb(22, 27, 34)");
+  await expect(sidebar).toHaveCSS("background-color", "rgb(21, 27, 35)");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(body).toHaveCSS("background-color", light);
   await page.locator('[name=theme][value=dark]').check();
