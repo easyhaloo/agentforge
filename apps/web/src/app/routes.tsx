@@ -11,13 +11,15 @@ import {
   KeysSettingsPage,
   SessionsSettingsPage,
   AgentSettingsPage,
+  MyOrganizationsSettingsPage,
 } from "../pages/settings";
 import { repositorySections, repositorySettingsSections, pullRequestTabs, type ChangesetTab, type PullRequestTab } from "../shared/routing";
 import App from "./App";
 import type { RouteHandle } from "./navigation";
 import { OrganizationGate } from "./OrganizationGate";
 import { FocusedLayout } from "./layouts/FocusedLayout";
-import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, NotificationsRoute, OrganizationIssuesRoute, OrganizationRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, ProjectsRedirect, ProjectsRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, IssueCreateRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
+import { AdminIdentityPage } from "../pages/organization/settings/AdminIdentityPage";
+import { ChangesetDetailRoute, ChangesetsRoute, DeliveryRoute, LoginRoute, RegisterRoute, NotFound, NotificationsRoute, OrganizationIssuesRoute, OrganizationRoute, OrganizationGeneralSettingsRoute, OrganizationAuditSettingsRoute, OverviewRoute, PageError, PipelineEditorRoute, PipelineRunRoute, PipelinesRoute, PullRequestCompareRoute, PullRequestDetailRoute, PullRequestListRoute, ProjectsRedirect, ProjectsRoute, RepositoriesRoute, RepositoryCreateRoute, RepositoryDetailRoute, IssueDetailRoute, IssueCreateRoute, WebIDERoute, WorkspaceEditorRoute, ResourceRoute, RootError, SettingsRoute, ReviewRoute, EvalRoute, TrailsRoute } from "./RouteElements";
 
 /**
  * The only place that knows the whole URL tree (see ADR-008). Every leaf declares its label in `handle`;
@@ -80,6 +82,7 @@ export const routes: RouteObject[] = [
               { path: "keys", handle: routeHandle("SSH and GPG keys"), element: <KeysSettingsPage /> },
               { path: "sessions", handle: routeHandle("Sessions"), element: <SessionsSettingsPage /> },
               { path: "agents", handle: routeHandle("Agent Interactions"), element: <AgentSettingsPage /> },
+              { path: "organizations", handle: routeHandle("Organizations"), element: <MyOrganizationsSettingsPage /> },
             ],
           },
         ],
@@ -156,6 +159,7 @@ export const routes: RouteObject[] = [
           resource("governance", "Governance"),
           resource("usage", "Cost & Usage"),
           { path: "dev/ui", handle: routeHandle("UI Components"), element: <UIShowcasePage /> },
+          { path: "admin/identity", handle: routeHandle("Identity provider"), element: <AdminIdentityPage /> },
           {
             element: <OrganizationGate variant="changesets" />,
             children: [
@@ -173,7 +177,12 @@ export const routes: RouteObject[] = [
           },
           {
             element: <OrganizationGate variant="organization" />,
-            children: [organizationPage("settings", "Organization", <OrganizationRoute />)],
+            children: [
+              organizationPage("settings", "Organization", <OrganizationRoute />),
+              organizationPage("settings/general", "Organization", <OrganizationGeneralSettingsRoute />),
+              organizationPage("settings/members", "Organization", <Navigate to="../settings" relative="path" replace />),
+              organizationPage("settings/audit", "Organization", <OrganizationAuditSettingsRoute />),
+            ],
           },
           { path: "*", handle: routeHandle("Page not found"), element: <NotFound /> },
         ],

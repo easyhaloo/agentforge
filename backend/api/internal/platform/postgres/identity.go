@@ -32,10 +32,12 @@ func validOrganizationHandle(handle string) bool {
 // is either an organization id or slug, among the caller's own active
 // memberships only. A handle that is malformed, unknown, or that belongs to an
 // organization the caller cannot access yields the same ErrUnauthenticated.
-// Principal.OrganizationID is always the canonical id, never the slug, and
-// Principal.OrganizationSlug is the organization's handle: its slug, or its id
-// when it has none. If one organization matches by id and another by slug, the
-// id match wins.
+// Organizations that are suspended or pending_deletion still resolve (so
+// owners can read and resume), with Principal.OrganizationStatus set; the
+// write-blocking middleware turns that status into 423. Principal.OrganizationID
+// is always the canonical id, never the slug, and Principal.OrganizationSlug is
+// the organization's handle: its slug, or its id when it has none. If one
+// organization matches by id and another by slug, the id match wins.
 func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle string) (identity.Principal, error) {
 	cookie, err := request.Cookie(identity.SessionCookieName)
 	if err != nil || cookie.Value == "" || len(cookie.Value) > 128 || !validOrganizationHandle(organizationHandle) {
@@ -44,7 +46,7 @@ func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle strin
 
 	var principal identity.Principal
 	err = s.pool.QueryRow(request.Context(), `
-		SELECT s.user_id, m.organization_id, COALESCE(o.slug, o.id), m.role
+		SELECT s.user_id, m.organization_id, COALESCE(o.slug, o.id), m.role, o.status
 		FROM sessions AS s
 		JOIN organization_memberships AS m ON m.user_id = s.user_id
 		JOIN organizations AS o ON o.id = m.organization_id
@@ -53,11 +55,11 @@ func (s *Store) ResolvePrincipal(request *http.Request, organizationHandle strin
 		  AND s.revoked_at IS NULL
 		  AND (m.organization_id = $2 OR o.slug = $3)
 		  AND m.status = 'active'
-		  AND o.status = 'active'
+		  AND o.status IN ('active', 'suspended', 'pending_deletion')
 		ORDER BY (m.organization_id = $2) DESC
 		LIMIT 1
 	`, identity.HashToken(cookie.Value), organizationHandle, foldASCIICase(organizationHandle)).Scan(
-		&principal.UserID, &principal.OrganizationID, &principal.OrganizationSlug, &principal.Role,
+		&principal.UserID, &principal.OrganizationID, &principal.OrganizationSlug, &principal.Role, &principal.OrganizationStatus,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return identity.Principal{}, identity.ErrUnauthenticated

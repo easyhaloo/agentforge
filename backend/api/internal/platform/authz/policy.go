@@ -8,7 +8,14 @@ import (
 var (
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrForbidden    = errors.New("forbidden")
+	// ErrLocked reports that the organization is suspended or scheduled for
+	// deletion: the HTTP layer maps it to 423 Locked.
+	ErrLocked = errors.New("organization is locked")
 )
+
+// ErrLockedDetail is the stable client-facing reason returned with 423
+// responses so the frontend can render one consistent message.
+const ErrLockedDetail = "The organization is suspended or scheduled for deletion. Write operations are refused; ask an owner to resume the organization."
 
 // Principal represents an authenticated user's identity within an organization context.
 type Principal struct {
@@ -127,4 +134,16 @@ func (p *StandardPolicy) CanStartPipelineRuns(principal Principal) error {
 		return fmt.Errorf("%w: viewers cannot start pipeline runs", ErrForbidden)
 	}
 	return nil
+}
+
+// AllowWrite reports whether an organization-scoped write may proceed for a
+// principal resolved against an organization in the given lifecycle status.
+// Writes are allowed only for active organizations; suspended and
+// pending_deletion organizations are read-only, with a whitelist (resume,
+// cancel deletion) enforced by the callers that own those endpoints.
+func AllowWrite(organizationStatus string) error {
+	if organizationStatus == "" || organizationStatus == "active" {
+		return nil
+	}
+	return fmt.Errorf("%w: organization status %q refuses writes", ErrLocked, organizationStatus)
 }

@@ -17,6 +17,7 @@ export {
   Tabs,
   AsyncSelect,
   type ButtonProps,
+  type ConfirmDialogProps,
   type TabsProps,
   type TabsItem,
   type InputProps,

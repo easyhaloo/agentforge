@@ -158,7 +158,10 @@ func TestRepositoryWorkflowTriggersAndRerun(t *testing.T) {
 	}
 	items, err = s.WorkflowTriggers(ctx, org, "repo-ci")
 	lockMust(t, err)
-	if len(items) != 2 || items[0].Kind != "tag" {
+	// Ordering is by binding UUID, which is random per run: assert the set of
+	// remaining kinds, not their order.
+	if len(items) != 2 || items[0].Kind == items[1].Kind ||
+		(items[0].Kind != "tag" && items[0].Kind != "changeset_revision") {
 		t.Fatalf("remaining bindings: %v", items)
 	}
 	var original, retry execution.Run

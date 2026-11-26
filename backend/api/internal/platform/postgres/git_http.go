@@ -42,7 +42,15 @@ func (s *Store) RevokeGitCredential(ctx context.Context, id, organizationID, rep
 }
 
 // AuthorizeGitCredential uses the exact repository slug and checks current access.
+// Suspended / pending_deletion organizations keep clone and fetch working
+// (read scope) but refuse pushes: write authorization requires an active
+// organization, yielding identity.ErrOrganizationLocked for 423 mapping.
 func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organization, repository string, write bool) (organizationID, actorID, defaultBranch string, err error) {
+	if write {
+		if err := s.organizationWriteAllowed(ctx, organization); err != nil {
+			return "", "", "", err
+		}
+	}
 	err = s.pool.QueryRow(ctx, `
 		UPDATE git_http_credentials c SET last_used_at = now()
 		FROM organizations o, organization_memberships m, delivery_repositories r
@@ -62,6 +70,23 @@ func (s *Store) AuthorizeGitCredential(ctx context.Context, hash []byte, organiz
 		return "", "", "", fmt.Errorf("authorize Git credential: %w", err)
 	}
 	return organizationID, actorID, defaultBranch, nil
+}
+
+// organizationWriteAllowed reports whether organization (handle: id or slug)
+// accepts writes. Resolves the same lifecycle statuses as ResolvePrincipal.
+func (s *Store) organizationWriteAllowed(ctx context.Context, organization string) error {
+	var status string
+	err := s.pool.QueryRow(ctx, `
+		SELECT status FROM organizations
+		WHERE id = $1 OR (slug = $2 AND NOT EXISTS (SELECT 1 FROM organizations WHERE id = $1))
+	`, organization, foldASCIICase(organization)).Scan(&status)
+	if err != nil {
+		return identity.ErrUnauthenticated
+	}
+	if status != "active" {
+		return identity.ErrOrganizationLocked
+	}
+	return nil
 }
 
 // LockGitPolicy serializes native pushes and regular merges against concurrent

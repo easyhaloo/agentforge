@@ -3,6 +3,11 @@
 .af-button:hover:not(:disabled):where(:not(.af-action-row, .af-action-row > .af-button)){border-color:var(--af-color-primary);background:var(--af-color-surface-raised)}
 a.af-button{text-decoration:none}
 .af-button:disabled{opacity:.48;cursor:not-allowed}
+/* Primer button-inactive: focusable, tooltip explains why, clicks fire onInactiveClick */
+.af-button--inactive,.af-button--inactive:hover:not(:disabled),.af-button--inactive:active:not(:disabled){background:var(--af-button-inactive-bg);border-color:transparent;color:var(--af-button-inactive-fg);cursor:default}
+.af-button--inactive .af-button__tooltip{display:none}
+.af-button--inactive:hover .af-button__tooltip,.af-button--inactive:focus-visible .af-button__tooltip{display:block;position:absolute;bottom:calc(100% + 6px);right:0;z-index:30;padding:4px 8px;border-radius:6px;background:var(--af-color-tooltip-bg);color:var(--af-color-tooltip-fg);font-size:12px;font-weight:400;white-space:nowrap}
+.af-button--inactive{position:relative}
 .af-button--primary{border-color:var(--af-color-primary);background:var(--af-color-primary);color:#fff}
 .af-button--primary:hover:not(:disabled){background:var(--af-color-primary)}
 .af-button--danger{border-color:var(--af-color-border);background:var(--af-color-danger-subtle);color:var(--af-color-danger)}
@@ -27,8 +32,10 @@ a.af-button{text-decoration:none}
 .af-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--af-color-text);font-family:inherit;font-size:11px}
 .af-search input::placeholder{color:var(--af-color-text-muted)}
 .af-search button,.af-modal__close{border:0;background:transparent;color:var(--af-color-text-secondary);font-size:17px;cursor:pointer}
-.af-modal-backdrop{position:fixed;inset:0;z-index:var(--af-z-overlay,10);display:grid;place-items:center;padding:20px;background:#050810c9;backdrop-filter:blur(4px)}
-.af-modal{max-width:100%;max-height:min(90vh,760px);overflow:auto;border:1px solid var(--af-color-border);border-radius:12px;background:var(--af-color-surface-raised);box-shadow:0 25px 80px #0009}
+.af-modal-backdrop{position:fixed;inset:0;z-index:var(--af-z-overlay,10);display:grid;place-items:center;padding:20px;background:var(--af-color-overlay-backdrop);backdrop-filter:blur(4px)}
+.af-modal{max-width:100%;max-height:min(90vh,760px);overflow:auto;border:1px solid var(--af-color-border);border-radius:12px;background:var(--af-color-overlay);box-shadow:var(--af-shadow-floating-large)}
+.af-modal--fullscreen{width:100%!important;max-width:100%!important;height:100%;max-height:none;border-radius:0;display:flex;flex-direction:column}
+.af-modal--fullscreen .af-modal__body{flex:1;overflow:auto}
 .af-modal__header{display:flex;align-items:center;justify-content:space-between;padding:17px 20px;border-bottom:1px solid var(--af-color-border)}
 .af-modal__header h2{margin:0;color:var(--af-color-text);font-size:16px}
 .af-modal__close{font-size:22px}
@@ -50,6 +57,7 @@ a.af-button{text-decoration:none}
 .af-date-range{display:flex;align-items:center;gap:8px;min-width:0;color:var(--af-color-text-secondary)}
 .af-date-range .af-field{flex:1}
 @media(max-width:560px){.af-modal-backdrop{padding:10px}.af-modal{width:100%!important}.af-pagination{align-items:flex-start;flex-direction:column}}
+@media(max-width:543px){.af-modal-backdrop{padding:0;place-items:stretch}.af-modal{width:100%!important;height:100%;max-height:none;border-radius:0;display:flex;flex-direction:column}.af-modal .af-modal__body{flex:1;overflow:auto}}
 
 .af-table__selection{width:36px;text-align:center}
 .af-table__selection input{accent-color:var(--af-color-primary)}
@@ -184,7 +192,7 @@ a.af-button{text-decoration:none}
 .af-button--primary:hover:not(:disabled), .button.primary:hover:not(:disabled) { background: var(--af-color-action-hover); border-color: var(--af-color-action-hover); }
 .af-table th { background: var(--af-color-surface-raised); color: var(--af-color-text-secondary); font-size: 12px; letter-spacing: normal; }
 .af-table td { font-size: 14px; }
-.af-modal__header, .af-modal__footer { background: var(--af-color-surface-raised); }
+.af-modal__header, .af-modal__footer { background: var(--af-color-overlay); }
 :where(a,button,summary,select,input,textarea,[tabindex]):focus-visible { outline: 2px solid var(--af-color-primary); outline-offset: 2px; }
 
 .af-action-row { border-radius: var(--af-radius-md); }

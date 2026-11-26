@@ -16,6 +16,8 @@ export interface AlertProps {
   title?: string;
   children: ReactNode;
   closable?: boolean;
+  /** When true, the close button hides the banner immediately; non-closable banners cannot be dismissed. */
+  dismissible?: boolean;
   onClose?: () => void;
   className?: string;
 }
@@ -25,6 +27,7 @@ export function Alert({
   title,
   children,
   closable = false,
+  dismissible = true,
   onClose,
   className = "",
 }: AlertProps) {
@@ -32,9 +35,11 @@ export function Alert({
   const [visible, setVisible] = useState(true);
   if (!visible) return null;
   const close = () => {
+    if (!dismissible) return;
     setVisible(false);
     onClose?.();
   };
+  const showClose = closable && dismissible;
   return (
     <div className={`af-alert af-alert--${status} ${className}`.trim()} role={status === "error" ? "alert" : "status"}>
       <span className="af-alert__icon" aria-hidden="true">{status === "success" ? "✓" : status === "warning" ? "!" : status === "error" ? "×" : "i"}</span>
@@ -42,7 +47,7 @@ export function Alert({
         {title && <strong className="af-alert__title">{title}</strong>}
         <div>{children}</div>
       </div>
-      {closable && <button type="button" className="af-alert__close" aria-label={t("common:components.dismissMessage")} onClick={close}>×</button>}
+      {showClose && <button type="button" className="af-alert__close" aria-label={t("common:components.dismissMessage")} onClick={close}>×</button>}
     </div>
   );
 }

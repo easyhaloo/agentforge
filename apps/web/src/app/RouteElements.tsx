@@ -8,6 +8,9 @@ import { ReviewPage } from "../pages/review";
 import { EvalPage } from "../pages/eval";
 import { TrailsPage } from "../pages/trails";
 import { OrganizationManagementPage } from "../pages/organization/OrganizationManagementPage";
+import { OrganizationGeneralSettingsPage } from "../pages/organization/settings/GeneralSettingsPage";
+import { OrganizationAuditSettingsPage } from "../pages/organization/settings/AuditSettingsPage";
+import { useOrganizationLifecycle } from "../pages/organization/settings/useOrganizationLifecycle";
 import { NotificationsPage } from "../pages/notifications/NotificationsPage";
 import { OverviewPage, OverviewUnavailable } from "../pages/overview";
 import { PipelineRunPage } from "../pages/pipelines/PipelineRunPage";
@@ -49,11 +52,11 @@ export function RegisterRoute() {
 
 export function SettingsRoute() {
   const notify = useNotify();
-  const { account, updateDisplayName, selectedOrganization, selectOrganization } = useAppAccount();
+  const { account, updateDisplayName, selectedOrganization, selectOrganization, reload } = useAppAccount();
   if (!account) return null;
   return <SettingsLayout organizations={account.organizations} displayName={account.display_name}
     selectedOrganization={selectedOrganization} selectOrganization={selectOrganization}
-    notify={notify} updateDisplayName={updateDisplayName} />;
+    notify={notify} updateDisplayName={updateDisplayName} reload={reload} />;
 }
 
 export function OverviewRoute() {
@@ -238,6 +241,17 @@ export function OrganizationRoute() {
   const { organization } = useOutletContext<OrganizationOutletContext>();
   const notify = useNotify();
   return <OrganizationManagementPage key={organization.id} organization={organization} onNotify={notify} />;
+}
+
+/** The organization lifecycle settings pages live under /orgs/:org/settings/* with their own layout. */
+export function OrganizationGeneralSettingsRoute() {
+  useOutletContext<OrganizationOutletContext>();
+  return <OrganizationGeneralSettingsPage lifecycle={useOrganizationLifecycle()} />;
+}
+
+export function OrganizationAuditSettingsRoute() {
+  useOutletContext<OrganizationOutletContext>();
+  return <OrganizationAuditSettingsPage lifecycle={useOrganizationLifecycle()} />;
 }
 
 export function ReviewRoute() {

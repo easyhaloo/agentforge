@@ -36,28 +36,54 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   loading?: boolean;
   size?: "small" | "middle" | "large";
+  /**
+   * Renders an "inactive" button (Primer button-inactive): visually disabled
+   * but focusable, so the reason can be announced. Clicks fire
+   * `onInactiveClick` instead of being swallowed; use it to open a dialog
+   * explaining why the action is unavailable.
+   */
+  inactive?: boolean;
+  inactiveReason?: string;
+  onInactiveClick?: () => void;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant = "secondary",
   loading = false,
   size = "middle",
+  inactive = false,
+  inactiveReason,
+  onInactiveClick,
   disabled,
   className = "",
   children,
   ...props
 }: ButtonProps, ref) {
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (inactive) {
+      event.preventDefault();
+      onInactiveClick?.();
+      return;
+    }
+    props.onClick?.(event);
+  };
   return (
     <button
       {...props}
+      onClick={handleClick}
       ref={ref}
-      className={`af-button af-button--${variant} af-button--${size} ${className}`.trim()}
+      className={`af-button af-button--${variant} af-button--${size} ${inactive ? "af-button--inactive" : ""} ${className}`.trim()}
       type={props.type ?? "button"}
       disabled={disabled || loading}
+      aria-disabled={inactive ? true : props["aria-disabled"]}
+      aria-describedby={inactive && inactiveReason ? `${props.id ?? ""}-inactive-reason`.trim() : props["aria-describedby"]}
       aria-busy={loading || undefined}
     >
       {loading && <span className="af-spinner" aria-hidden="true" />}
       {children}
+      {inactive && inactiveReason ? (
+        <span className="af-button__tooltip" role="tooltip" id={`${props.id ?? ""}-inactive-reason`.trim()}>{inactiveReason}</span>
+      ) : null}
     </button>
   );
 });
@@ -349,6 +375,12 @@ export interface ModalProps {
   cancelText?: string;
   confirmLoading?: boolean;
   closeOnBackdrop?: boolean;
+  /** Banner rendered below the header, full width (Primer Dialog guideline). */
+  banner?: ReactNode;
+  /** When true, clicking the backdrop or pressing Escape is ignored. Set while the dialog contains user input. */
+  lockDismiss?: boolean;
+  /** Auto-focus this element on open instead of the first focusable (e.g. the Cancel button for danger dialogs). */
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
   width?: number | string;
 }
 export function Modal({
@@ -363,6 +395,9 @@ export function Modal({
   cancelText,
   confirmLoading = false,
   closeOnBackdrop = true,
+  banner,
+  lockDismiss = false,
+  initialFocusRef,
   width = 520,
 }: ModalProps) {
   const { t } = useTranslation("common");
@@ -371,10 +406,12 @@ export function Modal({
   const busy = submitting || confirmLoading;
   const busyRef = useRef(busy);
   const onCancelRef = useRef(onCancel);
+  const lockDismissRef = useRef(lockDismiss);
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   busyRef.current = busy;
   onCancelRef.current = onCancel;
+  lockDismissRef.current = lockDismiss;
 
   useEffect(() => {
     if (!open) return;
@@ -383,9 +420,10 @@ export function Modal({
     const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
       'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
     ) ?? []);
-    focusable()[0]?.focus();
+    (initialFocusRef?.current ?? focusable()[0])?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !busyRef.current) {
+        if (lockDismissRef.current) return;
         onCancelRef.current();
         return;
       }
@@ -413,7 +451,8 @@ export function Modal({
       window.removeEventListener("keydown", onKeyDown);
       previouslyFocused?.focus();
     };
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFocusRef]);
 
   useEffect(() => {
     if (!open) {
@@ -437,21 +476,27 @@ export function Modal({
     }
   };
 
+  const requestCancel = () => {
+    if (lockDismiss) return;
+    onCancel();
+  };
+
   return (
     <div className="af-modal-backdrop" onMouseDown={(event) => {
-      if (closeOnBackdrop && event.target === event.currentTarget && !busy) onCancel();
+      if (closeOnBackdrop && event.target === event.currentTarget && !busy) requestCancel();
     }}>
       <section ref={dialogRef} tabIndex={-1} className="af-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ width }}>
         <header className="af-modal__header">
           <h2 id={titleId}>{title}</h2>
-          <button type="button" className="af-modal__close" aria-label={t("common:components.closeDialog")} onClick={onCancel} disabled={busy}>×</button>
+          <button type="button" className="af-modal__close" aria-label={t("common:components.closeDialog")} onClick={requestCancel} disabled={busy}>×</button>
         </header>
+        {banner}
         <div className="af-modal__body">
           {children}
           {submitError && <p className="af-modal__error" role="alert">{submitError}</p>}
         </div>
         <footer className="af-modal__footer">
-          <Button onClick={onCancel} disabled={busy}>{cancelText ?? t("common:components.cancel")}</Button>
+          <Button onClick={requestCancel} disabled={busy}>{cancelText ?? t("common:components.cancel")}</Button>
           {onOk && <Button variant={okVariant} disabled={okDisabled} onClick={handleOk} loading={busy}>{okText ?? t("common:components.confirm")}</Button>}
         </footer>
       </section>
@@ -865,13 +910,40 @@ export function Drawer({ open, title, hideTitle = false, children, onClose, widt
   );
 }
 
+export interface ConfirmDialogProps {
+  open: boolean;
+  title?: string;
+  description: ReactNode;
+  /** Extra body content (form fields, lists) rendered under the description. */
+  children?: ReactNode;
+  confirmText?: string;
+  cancelText?: string;
+  danger?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void | Promise<void>;
+  /** Banner rendered below the header, full width (Primer Dialog guideline). */
+  banner?: ReactNode;
+  /** Ignore backdrop clicks and Escape while set — use when the dialog contains user input. */
+  lockDismiss?: boolean;
+  /** Default-focus the Cancel button for danger dialogs (Primer ConfirmationDialog). */
+  focusCancel?: boolean;
+}
 export function ConfirmDialog({
-  open, title, description, confirmText, danger = false, onCancel, onConfirm,
-}: {
-  open: boolean; title?: string; description: ReactNode; confirmText?: string; danger?: boolean;
-  onCancel: () => void; onConfirm: () => void | Promise<void>;
-}) {
+  open,
+  title,
+  description,
+  children,
+  confirmText,
+  cancelText,
+  danger = false,
+  onCancel,
+  onConfirm,
+  banner,
+  lockDismiss = false,
+  focusCancel = false,
+}: ConfirmDialogProps) {
   const { t } = useTranslation("common");
+  const cancelRef = useRef<HTMLButtonElement>(null);
   return (
     <Modal
       open={open}
@@ -880,9 +952,16 @@ export function ConfirmDialog({
       onOk={onConfirm}
       okText={confirmText ?? t("common:components.confirm")}
       okVariant={danger ? "danger" : "primary"}
+      cancelText={cancelText}
+      banner={banner}
+      lockDismiss={lockDismiss}
+      initialFocusRef={focusCancel ? cancelRef : undefined}
     >
       <p className="af-confirm-description">{description}</p>
+      {children}
       {danger && <p className="af-confirm-warning">{t("common:components.cannotUndo")}</p>}
+      {/* Hidden focus sink: Primer defaults danger confirmations to the cancel action. */}
+      {focusCancel && open && <button ref={cancelRef} type="button" hidden aria-hidden="true" tabIndex={-1} />}
     </Modal>
   );
 }

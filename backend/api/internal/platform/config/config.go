@@ -31,6 +31,15 @@ type Config struct {
 	EvidenceRoot          string
 	EvaluationDockerImage string
 	EvaluationCommand     string
+	// PlatformAdminSubjects lists `issuer|subject` pairs (comma separated)
+	// allowed to call /api/v1/admin/identity. Empty disables the endpoint.
+	PlatformAdminSubjects []string
+	// OrgSelfServiceCreate enables POST /api/v1/organizations for any signed-in
+	// user. Default false: organizations are created via bootstrap-owner.
+	OrgSelfServiceCreate bool
+	// OrgDeletionGrace is how long a pending_deletion organization can be
+	// restored, and how long retired slugs redirect. Default 720h (30 days).
+	OrgDeletionGrace time.Duration
 }
 
 func LoadFromEnv() (Config, error) {
@@ -87,7 +96,69 @@ func LoadFromEnv() (Config, error) {
 			return Config{}, errors.New("EVIDENCE_ROOT must be a valid local path")
 		}
 	}
+	if configuration.PlatformAdminSubjects, err = loadPlatformAdminSubjects(os.Getenv("PLATFORM_ADMIN_SUBJECTS")); err != nil {
+		return Config{}, err
+	}
+	if configuration.OrgSelfServiceCreate, err = loadBoolEnv("ORG_SELF_SERVICE_CREATE"); err != nil {
+		return Config{}, err
+	}
+	if configuration.OrgDeletionGrace, err = loadDeletionGrace(os.Getenv("ORG_DELETION_GRACE")); err != nil {
+		return Config{}, err
+	}
 	return configuration, nil
+}
+
+// loadPlatformAdminSubjects parses a comma-separated list of `issuer|subject`
+// pairs. Whitespace around entries is ignored; empty values disable the
+// platform-admin surface entirely.
+func loadPlatformAdminSubjects(value string) ([]string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	subjects := make([]string, 0, 4)
+	for _, entry := range strings.Split(value, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		issuer, subject, _ := strings.Cut(entry, "|")
+		issuer, subject = strings.TrimSpace(issuer), strings.TrimSpace(subject)
+		if issuer == "" || subject == "" {
+			return nil, errors.New("PLATFORM_ADMIN_SUBJECTS entries must look like issuer|subject")
+		}
+		subjects = append(subjects, issuer+"|"+subject)
+	}
+	if len(subjects) == 0 {
+		return nil, errors.New("PLATFORM_ADMIN_SUBJECTS entries must look like issuer|subject")
+	}
+	return subjects, nil
+}
+
+func loadBoolEnv(key string) (bool, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	switch value {
+	case "":
+		return false, nil
+	case "true", "1":
+		return true, nil
+	case "false", "0":
+		return false, nil
+	default:
+		return false, errors.New(key + " must be true or false")
+	}
+}
+
+func loadDeletionGrace(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 720 * time.Hour, nil
+	}
+	grace, err := time.ParseDuration(value)
+	if err != nil || grace < time.Hour || grace > 365*24*time.Hour {
+		return 0, errors.New("ORG_DELETION_GRACE must be a duration between 1h and 8760h")
+	}
+	return grace, nil
 }
 
 func load(port, databaseURL, appOrigin string) (Config, error) {

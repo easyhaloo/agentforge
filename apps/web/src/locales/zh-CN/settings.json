@@ -12,7 +12,8 @@
     "sessions": "会话",
     "agents": "Agent 交互",
     "groupAccess": "访问控制",
-    "groupCode": "代码"
+    "groupCode": "代码",
+    "organizations": "组织"
   },
   "savedReplies": {
     "title": "常用回复",
@@ -322,5 +323,212 @@
       "validation": "请检查以上字段。",
       "generic": "无法更新密码，请重试。"
     }
+  },
+  "lifecycle": {
+    "nav": {
+      "general": "常规",
+      "audit": "审计日志",
+      "members": "成员与邀请",
+      "identity": "登录与身份",
+      "groupAccess": "访问",
+      "groupSecurity": "安全",
+      "groupArchive": "存档",
+      "readOnlyLabel": "只读",
+      "settingsAriaLabel": "组织设置导航"
+    },
+    "orgStatus": {
+      "suspended": "已暂停",
+      "pendingDeletion": "待删除"
+    },
+    "banner": {
+      "pendingDeletionTitle": "该组织计划于 {{date}} 永久删除。",
+      "pendingDeletionBody": "在此之前可以撤销；删除后代码仓库、流水线和 Issue 无法恢复，审计日志会保留。",
+      "suspendedTitle": "该组织已于 {{date}} 暂停，所有内容为只读。",
+      "suspendedBody": "原因：{{reason}}。Git push、合并、流水线和设置修改都会被拒绝。",
+      "suspendedBodyPlain": "Git push、合并、流水线和设置修改都会被拒绝。",
+      "identityNotReadyTitle": "生产环境身份提供方未就绪。",
+      "identityNotReadyBody": "新成员和受邀用户暂时无法登录，已登录的会话不受影响。请联系平台运维检查 OIDC 配置。",
+      "resumeAction": "恢复组织",
+      "cancelDeletionAction": "撤销删除"
+    },
+    "general": {
+      "title": "常规",
+      "nameLabel": "组织显示名称",
+      "urlLabel": "组织 URL",
+      "urlHint": "旧链接 30 天内自动重定向。",
+      "updateButton": "更新资料",
+      "inactiveOrgLocked": "组织暂停期间设置为只读。恢复组织后可以修改。",
+      "inactiveNotOwner": "仅 Owner 可执行",
+      "saveSuccess": "组织资料已更新。",
+      "urlTaken": "已被占用",
+      "urlInvalid": "只能使用小写字母、数字和连字符，长度 3–39，首尾不能是连字符"
+    },
+    "danger": {
+      "title": "危险操作",
+      "url": {
+        "title": "修改组织 URL",
+        "description": "当前为 {{slug}}。旧地址会在 30 天内自动跳转，期间其他组织不能使用它。",
+        "action": "修改 URL",
+        "dialogTitle": "修改组织 URL？",
+        "dialogBanner": "旧地址 /{{oldSlug}} 会在 30 天内跳转到新地址；期间旧的 Git 远程地址仍可 clone 和 push，其他组织不能使用它。",
+        "newLabel": "新的组织 URL",
+        "confirm": "修改 URL",
+        "success": "组织 URL 已改为 {{slug}}，旧地址将在 30 天内自动跳转。"
+      },
+      "transfer": {
+        "title": "转让所有权",
+        "description": "把 Owner 身份转给另一位活跃成员。转让后你将成为 Admin。",
+        "action": "转让",
+        "dialogTitle": "转让所有权？",
+        "dialogDescription": "新的 Owner 将拥有全部权限，转让后你的角色变为 Admin。",
+        "searchLabel": "新的 Owner",
+        "searchPlaceholder": "搜索成员",
+        "noMatches": "没有匹配的活跃成员",
+        "confirm": "转让所有权",
+        "success": "所有权已转让给 {{name}}，你的角色变为 Admin。"
+      },
+      "suspend": {
+        "title": "暂停组织",
+        "description": "所有内容变为只读：Git push、合并、流水线和设置修改都会返回 423。正在运行的流水线会被取消。",
+        "action": "暂停组织",
+        "dialogTitle": "暂停组织？",
+        "dialogBanner": "暂停后所有写操作返回 423 Locked，正在运行的流水线会被取消。读取不受影响，可以随时恢复。",
+        "reasonLabel": "原因（可选，会显示给成员）",
+        "reasonPlaceholder": "例如：合同到期，等待续签",
+        "confirm": "暂停组织",
+        "success": "组织已暂停，成员可以继续读取内容。"
+      },
+      "resume": {
+        "title": "恢复组织",
+        "descriptionPending": "先撤销删除，组织会回到“已暂停”状态，再执行恢复。",
+        "descriptionSuspended": "恢复后成员可以重新推送、合并和运行流水线。",
+        "action": "恢复组织",
+        "inactivePendingDeletion": "请先撤销删除",
+        "success": "组织已恢复，成员可以重新推送、合并和运行流水线。"
+      },
+      "delete": {
+        "title": "删除组织",
+        "description": "删除后有 30 天可以撤销，到期后代码仓库、流水线、Issue 将被永久清除，审计日志会保留。",
+        "action": "删除组织",
+        "inactiveNotSuspended": "请先暂停组织",
+        "dialogTitle": "删除组织？",
+        "step1Of3": "第 1 步，共 3 步",
+        "step2Of3": "第 2 步，共 3 步",
+        "step3Of3": "第 3 步，共 3 步",
+        "step1Body": "你即将开始删除组织 {{name}}。",
+        "step1Next": "我要删除这个组织",
+        "step2Banner": "以下影响会在 {{date}} 生效，在此之前可以撤销。",
+        "step2Items": "代码仓库、Changeset、流水线和制品将被永久清除|成员失去访问权限，相关会话立即失效|组织 URL 在 30 天后释放|审计日志保留，不会被删除",
+        "step2Next": "我已了解这些影响",
+        "typeToConfirm": "请输入 {{slug}} 以确认",
+        "confirm": "删除组织",
+        "success": "组织已计划删除，{{date}} 前可以撤销。"
+      },
+      "cancelDeletion": {
+        "title": "撤销删除",
+        "description": "组织计划于 {{date}} 永久删除。撤销后回到“已暂停”状态。",
+        "action": "撤销删除",
+        "success": "已撤销删除，组织回到“已暂停”状态。"
+      },
+      "typeToConfirm": "请输入 {{slug}} 以确认",
+      "inactiveTooltipPendingDeletion": "组织未处于正常状态"
+    },
+    "audit": {
+      "title": "审计日志",
+      "description": "记录组织生命周期和成员变更。删除组织后仍会保留。",
+      "searchPlaceholder": "按操作、成员筛选",
+      "empty": "没有符合条件的事件",
+      "loadFailed": "无法加载审计日志",
+      "actor": "操作者",
+      "actions": {
+        "organization.created": "创建组织",
+        "organization.renamed": "组织更名",
+        "organization.slug_changed": "组织 URL 变更",
+        "organization.ownership_transferred": "所有权转让",
+        "organization.suspended": "组织暂停",
+        "organization.resumed": "组织恢复",
+        "organization.deletion_scheduled": "计划删除组织",
+        "organization.deletion_cancelled": "撤销删除组织",
+        "role_changed": "角色变更",
+        "suspended": "成员被停用",
+        "reactivated": "成员已重新激活",
+        "removed": "成员被移除",
+        "invite_accepted": "邀请已接受"
+      }
+    },
+    "errors": {
+      "renameFailed": "组织资料更新失败",
+      "transferFailed": "所有权转让失败",
+      "suspendFailed": "暂停组织失败",
+      "resumeFailed": "恢复组织失败",
+      "deleteFailed": "计划删除失败",
+      "cancelDeletionFailed": "撤销删除失败",
+      "auditLoadFailed": "无法加载审计日志",
+      "orgLocked": "组织已暂停或待删除，写操作被拒绝。请让 Owner 恢复组织。",
+      "slugTaken": "该组织 URL 已被占用",
+      "slugInvalid": "组织 URL 格式不正确"
+    }
+  },
+  "identity": {
+    "title": "身份提供方",
+    "subtitle": "站点管理 · 仅 PLATFORM_ADMIN_SUBJECTS 可见",
+    "description": "这里只显示当前生效的配置。修改需要通过部署环境变量完成。",
+    "notReadyBanner": "身份提供方未就绪，新的登录和邀请接受都会失败。",
+    "configTitle": "OIDC 配置",
+    "effective": "已生效",
+    "incomplete": "配置不完整",
+    "fields": {
+      "issuerUrl": "OIDC_ISSUER_URL",
+      "clientId": "OIDC_CLIENT_ID",
+      "clientSecret": "OIDC_CLIENT_SECRET",
+      "redirectUrl": "OIDC_REDIRECT_URL",
+      "appOrigin": "APP_ORIGIN",
+      "sessionTtl": "SESSION_TTL"
+    },
+    "secretConfigured": "已配置",
+    "secretMissing": "未配置",
+    "checksTitle": "就绪检查",
+    "lastChecked": "上次检查：刚刚",
+    "recheck": "重新检查",
+    "rechecking": "正在检查…",
+    "testLogin": "在新窗口测试登录",
+    "ssoButtonsTitle": "登录页的单点登录按钮",
+    "showing": "显示中",
+    "hiddenIncomplete": "已隐藏（配置不完整）",
+    "hiddenMissingSecret": "已隐藏",
+    "loadFailed": "无法加载身份提供方状态",
+    "forbidden": "只有平台运维可以访问身份提供方页面",
+    "status": {
+      "ok": "通过",
+      "fail": "失败",
+      "warn": "警告"
+    }
+  },
+  "myOrgs": {
+    "title": "组织",
+    "description": "组织由平台运维通过 bootstrap-owner 创建，或在开启自助创建后由你新建。",
+    "createInactiveTitle": "自助新建组织未开启",
+    "createInactiveReason": "平台未开启自助新建组织（ORG_SELF_SERVICE_CREATE=false）。请联系平台运维通过 bootstrap-owner 创建。",
+    "create": "新建组织",
+    "membersCount": "{{count}} 名成员",
+    "settings": "设置",
+    "cancelDeletion": "撤销删除",
+    "cancelDeletionFailed": "撤销删除失败",
+    "leave": "退出",
+    "leaveInactiveOnlyOwner": "你是该组织唯一的 Owner。请先在组织设置中转让所有权，再退出。",
+    "daysRemaining": "{{days}} 天后删除",
+    "empty": "你还没有加入任何组织。",
+    "loadFailed": "无法加载组织列表"
+  },
+  "statuses": {
+    "active": "正常",
+    "suspended": "已暂停",
+    "pending_deletion": "待删除"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member",
+    "viewer": "Viewer"
   }
 }

@@ -32,6 +32,32 @@ describe("shared UI primitives", () => {
     expect(html).toContain('aria-busy="true"');
   });
 
+  it("keeps inactive buttons focusable, annotated and clickable", async () => {
+    const onInactiveClick = vi.fn();
+    const html = renderToStaticMarkup(
+      <Button inactive inactiveReason="Only owners can do this" onInactiveClick={onInactiveClick}>Pause</Button>,
+    );
+    expect(html).toContain("af-button--inactive");
+    expect(html).not.toContain('disabled=""');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('role="tooltip"');
+    expect(html).toContain("Only owners can do this");
+    const screen = render(<Button inactive inactiveReason="Only owners" onInactiveClick={onInactiveClick}>Pause</Button>);
+    await act(async () => {
+      screen.getByRole("button").click();
+    });
+    expect(onInactiveClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("still lets regular buttons receive native clicks", async () => {
+    const onClick = vi.fn();
+    const screen = render(<Button onClick={onClick}>Save</Button>);
+    await act(async () => {
+      screen.getByRole("button").click();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   it("renders labelled input validation and hint relationships", () => {
     const error = renderToStaticMarkup(<Input label="Email" name="email" error="Required" />);
     expect(error).toContain('for="email"');
@@ -79,6 +105,35 @@ describe("shared UI primitives", () => {
     expect(confirmation).toContain("Are you sure?");
     expect(confirmation).toContain("Remove this member?");
     expect(confirmation).toContain("af-button--danger");
+  });
+
+  it("renders confirm dialog banners and dismiss locks", () => {
+    const banner = renderToStaticMarkup(
+      <Alert status="error" dismissible={false}>This cannot be undone</Alert>,
+    );
+    expect(banner).toContain("This cannot be undone");
+    expect(banner).not.toContain("aria-label=");
+    const dialog = renderToStaticMarkup(
+      <ConfirmDialog
+        open
+        danger
+        focusCancel
+        lockDismiss
+        banner={<Alert status="error" dismissible={false}>Impact</Alert>}
+        description="Delete this organization?"
+        onCancel={() => undefined}
+        onConfirm={() => undefined}
+      />,
+    );
+    expect(dialog).toContain("Impact");
+    expect(dialog).toContain('aria-modal="true"');
+  });
+
+  it("hides the close button on non-dismissible alerts", () => {
+    const locked = renderToStaticMarkup(<Alert status="warning" closable dismissible={false}>Locked state</Alert>);
+    expect(locked).not.toContain("af-alert__close");
+    const unlocked = renderToStaticMarkup(<Alert status="warning" closable>Closable state</Alert>);
+    expect(unlocked).toContain("af-alert__close");
   });
 
   it("exposes accessible popover trigger relationships", () => {

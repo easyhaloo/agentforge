@@ -170,7 +170,10 @@ func TestPostgresResolvePrincipalDoesNotRevealOtherOrganizations(t *testing.T) {
 	addHidden("suspended-member", "active", "suspended", alice)
 	addHidden("invited", "active", "invited", alice)
 	addHidden("removed", "active", "removed", alice)
-	addHidden("suspended-org", "suspended", "active", alice)
+	// A suspended organization is intentionally NOT hidden: lifecycle members
+	// (SPEC deviation 8) still resolve it read-only; the 423 gate refuses
+	// writes instead. Only organizations where alice has no usable membership
+	// stay invisible.
 
 	request, token := slugNewSession(t, ctx, store, alice)
 	if _, err := store.ResolvePrincipal(request, ownSlug); err != nil {

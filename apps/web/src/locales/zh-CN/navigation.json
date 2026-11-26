@@ -28,7 +28,9 @@
     "organization": "组织",
     "uiComponents": "UI 组件",
     "notFound": "页面未找到",
-    "webide": "WebIDE"
+    "webide": "WebIDE",
+    "identityProvider": "身份提供方",
+    "organizationsSettings": "组织"
   },
   "groups": {
     "WORKSPACE": "工作区",
