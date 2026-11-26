@@ -914,6 +914,8 @@ export interface ConfirmDialogProps {
   open: boolean;
   title?: string;
   description: ReactNode;
+  /** Extra body content (form fields, lists) rendered under the description. */
+  children?: ReactNode;
   confirmText?: string;
   cancelText?: string;
   danger?: boolean;
@@ -930,6 +932,7 @@ export function ConfirmDialog({
   open,
   title,
   description,
+  children,
   confirmText,
   cancelText,
   danger = false,
@@ -955,6 +958,7 @@ export function ConfirmDialog({
       initialFocusRef={focusCancel ? cancelRef : undefined}
     >
       <p className="af-confirm-description">{description}</p>
+      {children}
       {danger && <p className="af-confirm-warning">{t("common:components.cannotUndo")}</p>}
       {/* Hidden focus sink: Primer defaults danger confirmations to the cancel action. */}
       {focusCancel && open && <button ref={cancelRef} type="button" hidden aria-hidden="true" tabIndex={-1} />}

@@ -32,6 +32,8 @@ export const routeKeyByLabel: Record<string, string> = {
   "WebIDE": "navigation:routes.webide",
   "UI Components": "navigation:routes.uiComponents",
   "Organization": "navigation:routes.organization",
+  "Identity provider": "navigation:routes.identityProvider",
+  "Organizations": "navigation:routes.organizationsSettings",
   "Security": "navigation:routes.security",
   "Governance": "navigation:routes.governance",
   "Cost & Usage": "navigation:routes.usage",

@@ -9,6 +9,9 @@ import "./settings.css";
 export interface SettingsOutletContext {
   updateDisplayName?: (name: string) => void;
   notify: (message: string) => void;
+  /** The whole account so settings pages (e.g. 我的组织) can list organizations. */
+  organizations: OrganizationSummary[];
+  reload?: () => Promise<void>;
 }
 
 type Props = SettingsOutletContext & {
@@ -18,7 +21,7 @@ type Props = SettingsOutletContext & {
   selectOrganization?: (id: string) => void;
 };
 
-export function SettingsLayout({ organizations, displayName, selectedOrganization, selectOrganization, ...context }: Props) {
+export function SettingsLayout({ organizations, displayName, selectedOrganization, selectOrganization, notify, updateDisplayName, reload }: Props) {
   const { t } = useTranslation("settings");
   const organizationName = (org: OrganizationSummary) => org.personal && displayName.trim()
     ? t("nav.personalWorkspace", { name: displayName })
@@ -45,7 +48,7 @@ export function SettingsLayout({ organizations, displayName, selectedOrganizatio
         <SettingsSidebar />
       </aside>
       <main className="settings-content">
-        <Outlet context={context} />
+        <Outlet context={{ notify, updateDisplayName, organizations, reload }} />
       </main>
     </div>
   );

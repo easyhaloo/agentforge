@@ -12,7 +12,8 @@
     "sessions": "Sessions",
     "agents": "Agent Interactions",
     "groupAccess": "ACCESS",
-    "groupCode": "CODE"
+    "groupCode": "CODE",
+    "organizations": "Organizations"
   },
   "savedReplies": {
     "title": "Saved replies",
@@ -322,5 +323,212 @@
       "validation": "Check the fields above.",
       "generic": "Could not update your password. Please try again."
     }
+  },
+  "lifecycle": {
+    "nav": {
+      "general": "General",
+      "audit": "Audit log",
+      "members": "Members and invitations",
+      "identity": "Sign-in and identity",
+      "groupAccess": "Access",
+      "groupSecurity": "Security",
+      "groupArchive": "Archive",
+      "readOnlyLabel": "Read-only",
+      "settingsAriaLabel": "Organization settings navigation"
+    },
+    "orgStatus": {
+      "suspended": "Suspended",
+      "pendingDeletion": "Pending deletion"
+    },
+    "banner": {
+      "pendingDeletionTitle": "This organization will be permanently deleted on {{date}}.",
+      "pendingDeletionBody": "You can still cancel until then; repositories, pipelines and issues cannot be recovered afterwards. Audit logs are kept.",
+      "suspendedTitle": "This organization was suspended on {{date}}; all content is read-only.",
+      "suspendedBody": "Reason: {{reason}}. Git push, merges, pipelines and settings changes are refused.",
+      "suspendedBodyPlain": "Git push, merges, pipelines and settings changes are refused.",
+      "identityNotReadyTitle": "The production identity provider is not ready.",
+      "identityNotReadyBody": "New members and invited users cannot sign in for now; existing sessions are unaffected. Contact platform operations to check the OIDC configuration.",
+      "resumeAction": "Resume organization",
+      "cancelDeletionAction": "Cancel deletion"
+    },
+    "general": {
+      "title": "General",
+      "nameLabel": "Organization display name",
+      "urlLabel": "Organization URL",
+      "urlHint": "Old links redirect automatically for 30 days.",
+      "updateButton": "Update profile",
+      "inactiveOrgLocked": "Settings are read-only while the organization is suspended. Resume it to make changes.",
+      "inactiveNotOwner": "Only owners can do this",
+      "saveSuccess": "Organization profile updated.",
+      "urlTaken": "Already taken",
+      "urlInvalid": "Use lowercase letters, digits and hyphens; length 3-39; no leading or trailing hyphen"
+    },
+    "danger": {
+      "title": "Danger zone",
+      "url": {
+        "title": "Change organization URL",
+        "description": "Currently {{slug}}. Old links redirect for 30 days and cannot be claimed by other organizations meanwhile.",
+        "action": "Change URL",
+        "dialogTitle": "Change the organization URL?",
+        "dialogBanner": "The old address /{{oldSlug}} will redirect for 30 days; existing Git remotes can still clone and push, and other organizations cannot claim it.",
+        "newLabel": "New organization URL",
+        "confirm": "Change URL",
+        "success": "Organization URL changed to {{slug}}; the old address redirects for 30 days."
+      },
+      "transfer": {
+        "title": "Transfer ownership",
+        "description": "Hand the owner role to another active member. You become an admin afterwards.",
+        "action": "Transfer",
+        "dialogTitle": "Transfer ownership?",
+        "dialogDescription": "The new owner gets full permissions; your role becomes Admin.",
+        "searchLabel": "New owner",
+        "searchPlaceholder": "Search members",
+        "noMatches": "No matching active members",
+        "confirm": "Transfer ownership",
+        "success": "Ownership transferred to {{name}}; your role is now Admin."
+      },
+      "suspend": {
+        "title": "Suspend organization",
+        "description": "Everything becomes read-only: Git push, merges, pipelines and settings changes return 423. Running pipelines are cancelled.",
+        "action": "Suspend organization",
+        "dialogTitle": "Suspend the organization?",
+        "dialogBanner": "Writes return 423 Locked while suspended and running pipelines are cancelled. Reads are unaffected; you can resume at any time.",
+        "reasonLabel": "Reason (optional, shown to members)",
+        "reasonPlaceholder": "e.g. contract ended, awaiting renewal",
+        "confirm": "Suspend organization",
+        "success": "Organization suspended; members can still read content."
+      },
+      "resume": {
+        "title": "Resume organization",
+        "descriptionPending": "Cancel the deletion first; the organization returns to suspended, then resume.",
+        "descriptionSuspended": "Members can push, merge and run pipelines again.",
+        "action": "Resume organization",
+        "inactivePendingDeletion": "Cancel the deletion first",
+        "success": "Organization resumed; members can push, merge and run pipelines again."
+      },
+      "delete": {
+        "title": "Delete organization",
+        "description": "You have 30 days to undo. After that repositories, pipelines and issues are purged permanently; audit logs are kept.",
+        "action": "Delete organization",
+        "inactiveNotSuspended": "Suspend the organization first",
+        "dialogTitle": "Delete the organization?",
+        "step1Of3": "Step 1 of 3",
+        "step2Of3": "Step 2 of 3",
+        "step3Of3": "Step 3 of 3",
+        "step1Body": "You are about to delete {{name}}.",
+        "step1Next": "I want to delete this organization",
+        "step2Banner": "These effects take hold on {{date}}; you can cancel until then.",
+        "step2Items": "Repositories, changesets, pipelines and artifacts are purged permanently|Members lose access and their sessions end immediately|The organization URL is released after 30 days|Audit logs are kept, never deleted",
+        "step2Next": "I understand the consequences",
+        "typeToConfirm": "Type {{slug}} to confirm",
+        "confirm": "Delete organization",
+        "success": "Deletion scheduled; you can cancel until {{date}}."
+      },
+      "cancelDeletion": {
+        "title": "Cancel deletion",
+        "description": "The organization is scheduled for permanent deletion on {{date}}. Cancelling returns it to suspended.",
+        "action": "Cancel deletion",
+        "success": "Deletion cancelled; the organization is suspended again."
+      },
+      "typeToConfirm": "Type {{slug}} to confirm",
+      "inactiveTooltipPendingDeletion": "The organization is not in a normal state"
+    },
+    "audit": {
+      "title": "Audit log",
+      "description": "Lifecycle and membership events. Kept after deletion.",
+      "searchPlaceholder": "Filter by action or member",
+      "empty": "No matching events",
+      "loadFailed": "Could not load the audit log",
+      "actor": "Actor",
+      "actions": {
+        "organization.created": "Organization created",
+        "organization.renamed": "Organization renamed",
+        "organization.slug_changed": "Organization URL changed",
+        "organization.ownership_transferred": "Ownership transferred",
+        "organization.suspended": "Organization suspended",
+        "organization.resumed": "Organization resumed",
+        "organization.deletion_scheduled": "Deletion scheduled",
+        "organization.deletion_cancelled": "Deletion cancelled",
+        "role_changed": "Role changed",
+        "suspended": "Member suspended",
+        "reactivated": "Member reactivated",
+        "removed": "Member removed",
+        "invite_accepted": "Invitation accepted"
+      }
+    },
+    "errors": {
+      "renameFailed": "Updating the organization profile failed",
+      "transferFailed": "Transferring ownership failed",
+      "suspendFailed": "Suspending the organization failed",
+      "resumeFailed": "Resuming the organization failed",
+      "deleteFailed": "Scheduling the deletion failed",
+      "cancelDeletionFailed": "Cancelling the deletion failed",
+      "auditLoadFailed": "Could not load the audit log",
+      "orgLocked": "The organization is suspended or scheduled for deletion; writes are refused. Ask an owner to resume it.",
+      "slugTaken": "That organization URL is taken",
+      "slugInvalid": "The organization URL format is invalid"
+    }
+  },
+  "identity": {
+    "title": "Identity provider",
+    "subtitle": "Site admin · only PLATFORM_ADMIN_SUBJECTS",
+    "description": "Only the effective configuration is shown. Changes are made through deployment environment variables.",
+    "notReadyBanner": "The identity provider is not ready; new sign-ins and invitation acceptance fail.",
+    "configTitle": "OIDC configuration",
+    "effective": "Effective",
+    "incomplete": "Incomplete",
+    "fields": {
+      "issuerUrl": "OIDC_ISSUER_URL",
+      "clientId": "OIDC_CLIENT_ID",
+      "clientSecret": "OIDC_CLIENT_SECRET",
+      "redirectUrl": "OIDC_REDIRECT_URL",
+      "appOrigin": "APP_ORIGIN",
+      "sessionTtl": "SESSION_TTL"
+    },
+    "secretConfigured": "Configured",
+    "secretMissing": "Not configured",
+    "checksTitle": "Readiness checks",
+    "lastChecked": "Last checked: just now",
+    "recheck": "Re-check",
+    "rechecking": "Checking…",
+    "testLogin": "Test sign-in in a new window",
+    "ssoButtonsTitle": "Single sign-on buttons on the login page",
+    "showing": "Shown",
+    "hiddenIncomplete": "Hidden (incomplete)",
+    "hiddenMissingSecret": "Hidden",
+    "loadFailed": "Could not load the identity provider status",
+    "forbidden": "Only platform operations can access the identity provider page",
+    "status": {
+      "ok": "Passed",
+      "fail": "Failed",
+      "warn": "Warning"
+    }
+  },
+  "myOrgs": {
+    "title": "Organizations",
+    "description": "Organizations are created by platform operations through bootstrap-owner, or by you once self-service creation is enabled.",
+    "createInactiveTitle": "Self-service creation is disabled",
+    "createInactiveReason": "Self-service organization creation is disabled (ORG_SELF_SERVICE_CREATE=false). Contact platform operations to create one through bootstrap-owner.",
+    "create": "New organization",
+    "membersCount": "{{count}} members",
+    "settings": "Settings",
+    "cancelDeletion": "Cancel deletion",
+    "cancelDeletionFailed": "Cancelling the deletion failed",
+    "leave": "Leave",
+    "leaveInactiveOnlyOwner": "You are the only owner. Transfer ownership in the organization settings before leaving.",
+    "daysRemaining": "Deleted in {{days}} days",
+    "empty": "You have not joined any organization yet.",
+    "loadFailed": "Could not load your organizations"
+  },
+  "statuses": {
+    "active": "Active",
+    "suspended": "Suspended",
+    "pending_deletion": "Pending deletion"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member",
+    "viewer": "Viewer"
   }
 }

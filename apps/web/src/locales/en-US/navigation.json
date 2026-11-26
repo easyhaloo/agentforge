@@ -28,7 +28,9 @@
     "organization": "Organization",
     "uiComponents": "UI Components",
     "notFound": "Page not found",
-    "webide": "WebIDE"
+    "webide": "WebIDE",
+    "identityProvider": "Identity provider",
+    "organizationsSettings": "Organizations"
   },
   "groups": {
     "WORKSPACE": "Workspace",
