@@ -181,6 +181,38 @@ Readiness requirements:
 
 The API returns `503 Service Unavailable` until all dependencies are ready.
 
+## Organization Lifecycle Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PLATFORM_ADMIN_SUBJECTS` | *(empty)* | Comma-separated `issuer\|subject` pairs allowed to call `/api/v1/admin/identity`. Empty disables the endpoint. |
+| `ORG_SELF_SERVICE_CREATE` | `false` | When `true`, any signed-in user can create an organization (`POST /api/v1/organizations`). Keep `false` unless the product explicitly opts in. |
+| `ORG_DELETION_GRACE` | `720h` | How long a scheduled deletion can be cancelled, and how long retired organization slugs redirect (30 days by default). |
+
+Behavior to be aware of after deploying migration 063:
+
+- Suspending an organization (`POST /api/v1/organizations/{org}/suspend`, Owner only) makes every
+  organization-scoped write return `423 Locked`, including Git pushes (`git-receive-pack`).
+  Clones, fetches and reads keep working. The whitelist covers only resume and deletion cancellation.
+- Deletion requires suspension first and can be cancelled for `ORG_DELETION_GRACE`. After the grace
+  window the organization is marked `deleted_at`; **data purge is not implemented in this version**
+  and must be performed manually (audit events are always kept).
+- Retired organization slugs redirect for the grace window and cannot be claimed by other
+  organizations meanwhile.
+
+## Platform Operator Identity and Verification Steps
+
+1. Add the operator's external identity to `PLATFORM_ADMIN_SUBJECTS`, for example
+   `PLATFORM_ADMIN_SUBJECTS=https://accounts.google.com|1147-abc-def`.
+2. After signing in through that provider, open `/admin/identity`. The page shows the effective
+   provider configuration (secrets as configured/unconfigured booleans only), the readiness checks
+   with their durations and raw errors, and a "re-check" action. The same probe code backs `/readyz`.
+3. Acceptance checklist for the identity provider page after go-live:
+   - [ ] `GET /api/v1/admin/identity` returns 200 for operators and 404 for everyone else.
+   - [ ] No response body contains a secret value — only `secret_configured` booleans.
+   - [ ] The checks list shows discovery, JWKS, callback URL, client secret, and email provider rows.
+   - [ ] `POST /api/v1/admin/identity/check` refreshes the list without a redeploy.
+
 ## First Owner Bootstrap
 
 After deploying with OIDC configured, provision the first organization owner:

@@ -81,10 +81,11 @@ Implemented:
 
 Remaining:
 - Add an approved transactional email provider/queue for invitation delivery; current API returns the one-time invitation URL to the authorized administrator.
-- Centralize role and membership authorization policy outside HTTP handlers; current membership mutation transactions re-check actor role and enforce owner/admin boundaries.
+- Centralize role and membership authorization policy outside HTTP handlers; current membership mutation transactions re-check actor role and enforce owner/admin boundaries. (Partial: organization-scoped writes now share a single 423 lifecycle gate in `DeliveryDependencies.principal`, and the lifecycle endpoints check roles in one place; per-resource policy objects are still pending.)
 - Configure the production OIDC provider and registered callback URL through deployment secrets/environment; verify end-to-end login in the deployed environment.
 - Add cross-tenant authorization tests for every read/write path, callback-level rejection tests for unprovisioned identities, and session expiry/rotation tests.
 - Commit reproducible Go module checksums and add explicit migration upgrade tests.
+- Implement the deferred organization deletion purge: migration 063 marks `deleted_at` after `ORG_DELETION_GRACE`, but repository, pipeline and issue data are not yet removed; a `cmd/organization-purge` job (modeled on `pipeline-storage-gc`) is the planned follow-up.
 
 Acceptance: unauthenticated requests are rejected; every organization route is backed by a verified active membership; SQL remains tenant-scoped; readiness reflects PostgreSQL and identity dependencies; security and integration tests pass.
 

@@ -700,6 +700,252 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
 
+  /api/v1/organizations/{organizationID}/lifecycle:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateOrganization
+      summary: Rename the organization and/or change its slug
+      description: Owner only. A slug change retires the previous slug into a 30-day redirect reservation; conflicts return 409. Pass expectedVersion (updated_at epoch seconds) for optimistic concurrency.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                slug: { type: string, pattern: "^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$" }
+                expectedVersion: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Updated organization lifecycle state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationLifecycle" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/transfer-ownership:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    post:
+      operationId: transferOrganizationOwnership
+      summary: Hand the owner role to another active member
+      description: Owner only. The previous owner becomes admin, so exactly one active owner remains. Concurrent transfers are serialized by an advisory lock.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string }
+      responses:
+        "200":
+          description: The new owner's membership
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationMember" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/suspend:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    post:
+      operationId: suspendOrganization
+      summary: Suspend the organization (writes return 423 afterwards)
+      description: Owner only, active organizations only.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Suspended organization state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationLifecycle" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/resume:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    post:
+      operationId: resumeOrganization
+      summary: Resume a suspended organization
+      description: Owner only. This endpoint is whitelisted from the 423 write gate.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Active organization state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationLifecycle" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/deletion:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    post:
+      operationId: scheduleOrganizationDeletion
+      summary: Schedule the organization for deletion
+      description: Owner only, suspended organizations only (otherwise 409). Deletion becomes permanent after ORG_DELETION_GRACE (default 30 days); audit logs are kept.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Pending-deletion organization state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationLifecycle" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: cancelOrganizationDeletion
+      summary: Cancel a scheduled deletion (restores to suspended)
+      description: Owner only. Whitelisted from the 423 write gate.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Suspended organization state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationLifecycle" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/audit:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listOrganizationAudit
+      summary: Merged membership and lifecycle audit events, newest first
+      description: Restricted to active organization owners and administrators.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Audit page with a total count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationAuditPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations:
+    post:
+      operationId: createOrganization
+      summary: Self-service organization creation
+      description: Only enabled when ORG_SELF_SERVICE_CREATE=true; otherwise 404. The creator becomes the sole owner.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name: { type: string }
+                slug: { type: string, pattern: "^[a-z0-9]([a-z0-9-]{0,37}[a-z0-9])?$" }
+      responses:
+        "201":
+          description: Created organization
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationLifecycle" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/identity:
+    get:
+      operationId: getAdminIdentity
+      summary: Effective identity-provider configuration and readiness checks
+      description: Platform operations only (PLATFORM_ADMIN_SUBJECTS, `issuer|subject` pairs); other accounts receive 404. Secrets are reported as a configured boolean, never a value. The same probe code backs /readyz.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Identity status without secret values
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IdentityStatus" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: recheckAdminIdentity
+      summary: Run the readiness checks immediately and return the results
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Fresh identity status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IdentityStatus" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/organizations/{organizationID}/identity-health:
+    parameters:
+      - in: path
+        name: organizationID
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getOrganizationIdentityHealth
+      summary: Identity-provider readiness for the organization status banner
+      description: Owner only. Returns a ready flag and a human-readable summary; no configuration values.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Identity health
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IdentityHealth" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+
   /api/v1/organizations/{organizationID}/repositories:
     parameters:
       - in: path
@@ -2598,6 +2844,78 @@ components:
           items: { $ref: "#/components/schemas/MembershipAuditEvent" }
         limit: { type: integer }
         offset: { type: integer }
+    OrganizationLifecycle:
+      type: object
+      required: [id, name, slug, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        status: { type: string, enum: [active, suspended, pending_deletion] }
+        suspended_at: { type: string, format: date-time, nullable: true }
+        suspended_reason: { type: string }
+        deletion_scheduled_at: { type: string, format: date-time, nullable: true }
+        version: { type: integer, format: int64, description: updated_at epoch seconds, for optimistic concurrency }
+    OrganizationAuditPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationAuditEvent" }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    OrganizationAuditEvent:
+      type: object
+      required: [id, actor_user_id, action, created_at]
+      properties:
+        id: { type: string }
+        actor_user_id: { type: string }
+        target_user_id: { type: string }
+        action:
+          type: string
+          description: Membership actions (role_changed, suspended, reactivated, removed, invite_accepted) or lifecycle actions (organization.created, organization.renamed, organization.slug_changed, organization.ownership_transferred, organization.suspended, organization.resumed, organization.deletion_scheduled, organization.deletion_cancelled).
+        detail: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+    IdentityStatus:
+      type: object
+      required: [ready, providers, checks]
+      properties:
+        ready: { type: boolean, description: Whether the SSO providers passed their readiness checks; the same probe code backs /readyz. }
+        providers:
+          type: array
+          items: { $ref: "#/components/schemas/IdentityProviderStatus" }
+        checks:
+          type: array
+          items: { $ref: "#/components/schemas/IdentityCheck" }
+        app_origin: { type: string }
+    IdentityProviderStatus:
+      type: object
+      required: [id, secret_configured, active]
+      properties:
+        id: { type: string, enum: [oidc, google, github] }
+        login_url: { type: string }
+        issuer_url: { type: string }
+        client_id: { type: string }
+        secret_configured: { type: boolean, description: Whether the client secret is set; the value is never returned. }
+        redirect_url: { type: string }
+        active: { type: boolean, description: Whether the provider is offered on the login page (fully configured). }
+    IdentityCheck:
+      type: object
+      required: [name, status]
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [ok, fail, warn] }
+        detail: { type: string }
+        error: { type: string }
+        duration: { type: string }
+    IdentityHealth:
+      type: object
+      required: [ready, summary]
+      properties:
+        ready: { type: boolean }
+        summary: { type: string }
     OrganizationSummary:
       type: object
       required: [id, slug, name, role]
@@ -2609,6 +2927,10 @@ components:
         name: { type: string }
         role: { type: string, enum: [owner, admin, member, viewer] }
         personal: { type: boolean, description: Whether this is the account’s personal workspace. }
+        status:
+          type: string
+          enum: [active, suspended, pending_deletion]
+          description: Organization lifecycle status (migration 063). Suspended and pending-deletion organizations refuse writes with 423.
     AccountContext:
       type: object
       required: [user_id, display_name, organizations]
