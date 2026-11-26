@@ -1,35 +1,53 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActionList,
+  ActionListGroup,
+  ActionListItem,
+  Alert,
   AsyncSelect,
+  BorderBox,
+  BorderBoxHeader,
+  BorderBoxRow,
+  BranchChip,
   Button,
+  ButtonGroup,
   Checkbox,
   ConfirmDialog,
+  CounterLabel,
   DataTable,
   DatePicker,
   DateRangePicker,
+  DiffStat,
   Drawer,
+  Empty,
+  FileStatusBadge,
+  FilterBar,
   Form,
   FormItem,
   Input,
-  Alert,
-  Empty,
+  Label,
   Loading,
-  NotificationProvider,
-  Skeleton,
-  useNotification,
   Modal,
+  NotificationProvider,
   NumberInput,
   PasswordInput,
   Popover,
   RadioGroup,
   SearchInput,
   Select,
+  Skeleton,
+  StateLabel,
+  Subhead,
   Switch,
   TextArea,
+  UnderlineNav,
+  useNotification,
   type DataTableColumn,
   type SelectOption,
 } from "@/shared/ui";
+
+type PrimerTheme = "dark" | "dark-dimmed" | "light";
 
 type DemoRow = { id: number; name: string; status: string; updated: string };
 const initialRows: DemoRow[] = [
@@ -42,6 +60,18 @@ const environmentOptions: SelectOption[] = [
   { label: "Staging", value: "staging" },
   { label: "Production", value: "production" },
 ];
+const primerThemes: readonly { id: PrimerTheme; label: string; description: string }[] = [
+  { id: "dark", label: "Dark default", description: "Inset #010409 / Canvas #0d1117" },
+  { id: "dark-dimmed", label: "Dark dimmed", description: "Inset #1c2128 / Canvas #22272e" },
+  { id: "light", label: "Light default", description: "Inset #f6f8fa / Canvas #ffffff" },
+];
+const canvasSwatches = [
+  { name: "Canvas Inset", token: "--bgColor-inset" },
+  { name: "Canvas Default", token: "--bgColor-default" },
+  { name: "Canvas Muted", token: "--bgColor-muted" },
+  { name: "Underline Active", token: "--underlineNav-borderColor-active" },
+] as const;
+
 async function loadTeamOptions(keyword: string, signal: AbortSignal) {
   await new Promise<void>((resolve, reject) => {
     const timer = window.setTimeout(resolve, 280);
@@ -58,6 +88,16 @@ export function UIShowcasePage() {
 function UIShowcaseContent() {
   const { t } = useTranslation();
   const { notify } = useNotification();
+  const [previewTheme, setPreviewTheme] = useState<PrimerTheme>(() => {
+    const current = document.documentElement.getAttribute("data-theme");
+    return current === "light" || current === "dark-dimmed" ? current : "dark";
+  });
+  const [navTab, setNavTab] = useState("code");
+  const [settingsSection, setSettingsSection] = useState("members");
+  const [filterQuery, setFilterQuery] = useState("is:changeset is:open");
+  const [submittedFilter, setSubmittedFilter] = useState("is:changeset is:open");
+  const [diffViewMode, setDiffViewMode] = useState<"unified" | "split">("unified");
+
   const [inputValue, setInputValue] = useState("agentforge-core");
   const [environment, setEnvironment] = useState("staging");
   const [date, setDate] = useState("2026-11-17");
@@ -77,6 +117,18 @@ function UIShowcaseContent() {
   const [rows] = useState(initialRows);
   const [sortMessage, setSortMessage] = useState("No sort applied");
 
+  useEffect(() => {
+    const previousTheme = document.documentElement.getAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", previewTheme);
+    return () => {
+      if (previousTheme === null) {
+        document.documentElement.removeAttribute("data-theme");
+      } else {
+        document.documentElement.setAttribute("data-theme", previousTheme);
+      }
+    };
+  }, [previewTheme]);
+
   const columns: DataTableColumn<DemoRow>[] = [
     { key: "id", title: "ID", width: 90, sortable: true },
     { key: "name", title: "SERVICE", sortable: true },
@@ -87,8 +139,209 @@ function UIShowcaseContent() {
   return (
     <div className="af-showcase">
       <section className="af-showcase-intro">
-        <div><span className="af-showcase-kicker">DESIGN SYSTEM / FOUNDATIONS</span><h2>Shared UI components</h2><p>Reusable controls, interaction patterns and data primitives used across AgentForge.</p></div>
-        <span className="af-showcase-version">UI FOUNDATION · v0.2</span>
+        <div>
+          <span className="af-showcase-kicker">DESIGN SYSTEM / GITHUB PRIMER</span>
+          <h2>Shared UI components</h2>
+          <p>GitHub Primer-aligned tokens, navigation primitives, form controls and data tables used across AgentForge.</p>
+        </div>
+        <div className="af-showcase-row">
+          {primerThemes.map((theme) => (
+            <Button
+              key={theme.id}
+              size="small"
+              variant={previewTheme === theme.id ? "primary" : "secondary"}
+              onClick={() => setPreviewTheme(theme.id)}
+            >
+              {theme.label}
+            </Button>
+          ))}
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <Subhead
+          heading="Primer Theme & Canvas Tokens"
+          description="Live preview across Dark default, Dark dimmed and Light default themes."
+          actions={<Label variant="accent">{previewTheme}</Label>}
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          {canvasSwatches.map((swatch) => (
+            <BorderBox key={swatch.token}>
+              <div style={{ height: 48, background: `var(${swatch.token})`, borderBottom: "1px solid var(--borderColor-muted)" }} />
+              <div style={{ padding: "8px 12px" }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{swatch.name}</div>
+                <code style={{ fontSize: 12, color: "var(--fgColor-muted)" }}>{swatch.token}</code>
+              </div>
+            </BorderBox>
+          ))}
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <Subhead
+          heading="UnderlineNav & Semantic Badges"
+          description="Coral-orange active bar, StateLabel, Label pills, CounterLabel and BranchChip."
+          actions={<BranchChip>feat/primer-ui-components</BranchChip>}
+        />
+        <BorderBox>
+          <UnderlineNav
+            ariaLabel="Showcase repository sections"
+            activeKey={navTab}
+            onChange={setNavTab}
+            items={[
+              { key: "code", label: "Code" },
+              { key: "changesets", label: "Changesets", counter: 6 },
+              { key: "pipelines", label: "CI / CD", counter: 2 },
+              { key: "settings", label: "Settings" },
+            ]}
+          />
+          <BorderBoxRow>
+            <span style={{ color: "var(--fgColor-muted)", fontSize: 13 }}>
+              Active UnderlineNav tab: <strong style={{ color: "var(--fgColor-default)" }}>{navTab}</strong>
+            </span>
+          </BorderBoxRow>
+        </BorderBox>
+
+        <div className="af-showcase-row">
+          <StateLabel status="open">Open</StateLabel>
+          <StateLabel status="merged">Merged</StateLabel>
+          <StateLabel status="closed">Closed</StateLabel>
+          <StateLabel status="draft" size="small">Draft</StateLabel>
+          <Label variant="accent">ui-system</Label>
+          <Label variant="success">verified</Label>
+          <Label variant="done">dark-mode</Label>
+          <Label variant="attention">needs-review</Label>
+          <Label variant="danger">breaking</Label>
+          <CounterLabel>42</CounterLabel>
+          <CounterLabel scheme="secondary">7</CounterLabel>
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <Subhead
+          heading="ActionList & BorderBox"
+          description="Grouped settings navigation paired with standard and danger BorderBox containers."
+        />
+        <div className="af-showcase-grid">
+          <BorderBox>
+            <BorderBoxHeader>
+              <strong>Settings Navigation</strong>
+              <Label>{settingsSection}</Label>
+            </BorderBoxHeader>
+            <div style={{ padding: 12 }}>
+              <ActionList>
+                <ActionListGroup title="Organization">
+                  <ActionListItem
+                    active={settingsSection === "members"}
+                    trailingVisual={<CounterLabel>5</CounterLabel>}
+                    onClick={() => setSettingsSection("members")}
+                  >
+                    Members &amp; Invitations
+                  </ActionListItem>
+                  <ActionListItem
+                    active={settingsSection === "general"}
+                    onClick={() => setSettingsSection("general")}
+                  >
+                    General
+                  </ActionListItem>
+                </ActionListGroup>
+                <ActionListGroup title="Access & Security">
+                  <ActionListItem
+                    active={settingsSection === "sso"}
+                    onClick={() => setSettingsSection("sso")}
+                  >
+                    SSO &amp; SSH Keys
+                  </ActionListItem>
+                  <ActionListItem
+                    danger
+                    onClick={() => notify({ status: "warning", title: "Danger action", message: "Destructive actions require confirmation." })}
+                  >
+                    Delete organization
+                  </ActionListItem>
+                </ActionListGroup>
+              </ActionList>
+            </div>
+          </BorderBox>
+
+          <div style={{ display: "grid", gap: 12 }}>
+            <BorderBox>
+              <BorderBoxHeader>
+                <strong>Active Changesets</strong>
+                <CounterLabel>2</CounterLabel>
+              </BorderBoxHeader>
+              <BorderBoxRow hoverable style={{ justifyContent: "space-between" }}>
+                <span>#184 feat(ui): adopt Primer tokens</span>
+                <StateLabel status="open" size="small">Open</StateLabel>
+              </BorderBoxRow>
+              <BorderBoxRow hoverable style={{ justifyContent: "space-between" }}>
+                <span>#181 fix(repo): clean hardcoded hex values</span>
+                <StateLabel status="merged" size="small">Merged</StateLabel>
+              </BorderBoxRow>
+            </BorderBox>
+
+            <BorderBox danger>
+              <BorderBoxHeader>
+                <strong style={{ color: "var(--fgColor-danger)" }}>Danger Zone</strong>
+                <Label variant="danger">Restricted</Label>
+              </BorderBoxHeader>
+              <BorderBoxRow style={{ justifyContent: "space-between" }}>
+                <span>Archive or permanently delete this workspace</span>
+                <Button size="small" variant="danger" onClick={() => setConfirmOpen(true)}>Delete</Button>
+              </BorderBoxRow>
+            </BorderBox>
+          </div>
+        </div>
+      </section>
+
+      <section className="af-showcase-section">
+        <Subhead
+          heading="FilterBar, ButtonGroup & Diff Indicators"
+          description="Syntax filter bar, joined button groups, 5-block DiffStat and Git FileStatusBadge."
+          actions={
+            <ButtonGroup ariaLabel="Diff view mode">
+              <Button size="small" variant={diffViewMode === "unified" ? "primary" : "secondary"} onClick={() => setDiffViewMode("unified")}>Unified</Button>
+              <Button size="small" variant={diffViewMode === "split" ? "primary" : "secondary"} onClick={() => setDiffViewMode("split")}>Split</Button>
+            </ButtonGroup>
+          }
+        />
+        <FilterBar
+          value={filterQuery}
+          onChange={setFilterQuery}
+          onSubmit={setSubmittedFilter}
+          placeholder="Filter changesets (e.g. is:open label:ui-system)..."
+          ariaLabel="Showcase filter bar"
+          filterPrefix={<Button size="medium" onClick={() => setFilterQuery("is:changeset is:open")}>Filters ▾</Button>}
+          trailingControls={
+            <ButtonGroup ariaLabel="Filter presets">
+              <Button size="medium" onClick={() => setFilterQuery("is:open label:ui-system")}>Labels <CounterLabel>12</CounterLabel></Button>
+              <Button size="medium" onClick={() => setFilterQuery("is:open milestone:v2.4")}>Milestones <CounterLabel>3</CounterLabel></Button>
+            </ButtonGroup>
+          }
+          primaryAction={<Button variant="primary" onClick={() => setSubmittedFilter(filterQuery)}>Apply</Button>}
+        />
+        <div className="af-showcase-result">Submitted query: <b>{submittedFilter || "(empty)"}</b> · Diff mode: <b>{diffViewMode}</b></div>
+        <BorderBox>
+          <BorderBoxHeader>
+            <strong>Changed files</strong>
+            <DiffStat additions={142} deletions={38} />
+          </BorderBoxHeader>
+          <BorderBoxRow hoverable style={{ justifyContent: "space-between" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><FileStatusBadge status="added" /><code>apps/web/src/shared/ui/components/primer.tsx</code></span>
+            <DiffStat additions={120} deletions={0} />
+          </BorderBoxRow>
+          <BorderBoxRow hoverable style={{ justifyContent: "space-between" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><FileStatusBadge status="modified" /><code>apps/web/src/shared/ui/theme/theme.css</code></span>
+            <DiffStat additions={18} deletions={12} />
+          </BorderBoxRow>
+          <BorderBoxRow hoverable style={{ justifyContent: "space-between" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><FileStatusBadge status="renamed" /><code>docs/development/design-system/colors.md</code></span>
+            <DiffStat additions={4} deletions={2} />
+          </BorderBoxRow>
+          <BorderBoxRow hoverable style={{ justifyContent: "space-between" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><FileStatusBadge status="deleted" /><code>apps/web/src/styles/legacy-sidebar.css</code></span>
+            <DiffStat additions={0} deletions={24} />
+          </BorderBoxRow>
+        </BorderBox>
       </section>
 
       <section className="af-showcase-section">
@@ -140,7 +393,6 @@ function UIShowcaseContent() {
           <Popover trigger="Show contextual info"><div><b>Popover content</b><p>Use for short contextual details and lightweight actions.</p></div></Popover>
         </div>
       </section>
-
 
       <section className="af-showcase-section">
         <div className="af-showcase-section__heading"><div><h3>Feedback and async states</h3><p>Inline status, transient notifications, empty states, skeletons and loading indicators.</p></div></div>
