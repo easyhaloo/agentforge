@@ -108,7 +108,6 @@
   "userMenu": {
     "profile": "个人主页",
     "settings": "设置",
-    "organizationSettings": "组织设置",
     "organization": "组织",
     "signOut": "退出登录",
     "notSignedIn": "未登录",

@@ -38,7 +38,7 @@ export function SettingsLayout({ organizations, displayName, selectedOrganizatio
               <dd>{organizationName(selectedOrganization)}</dd>
             </dl>
           )}
-          <Link to={orgPath(organizationHandle(selectedOrganization), "settings")}>{t("navigation:userMenu.organizationSettings")}</Link>
+          <Link to={orgPath(organizationHandle(selectedOrganization), "settings")}>{t("navigation:userMenu.organization")}</Link>
         </div>
       )}
       <aside className="settings-sidebar">
