@@ -170,6 +170,6 @@ test("personal settings load real account data and persist edits", async ({ page
   await expect(page.getByText("当前组织", { exact: true })).toBeVisible();
   await expect(page.getByText("Updated QA · 个人工作区", { exact: true })).toBeVisible();
   await screenshot("keys-deleted");
-  await page.getByRole("link", { name: /Organization settings|组织设置/ }).click();
+  await page.getByRole("link", { name: /^(Organization|组织)$/ }).click();
   await expect(page).toHaveURL(/\/orgs\/[^/]+\/settings$/);
 });

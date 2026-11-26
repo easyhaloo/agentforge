@@ -108,7 +108,6 @@
   "userMenu": {
     "profile": "Profile",
     "settings": "Settings",
-    "organizationSettings": "Organization settings",
     "organization": "Organization",
     "signOut": "Sign out",
     "notSignedIn": "Not signed in",
