@@ -41,6 +41,7 @@ type TriggerSource struct {
 	Repository  string     `json:"repository,omitempty"`
 	ChangesetID string     `json:"changesetId,omitempty"`
 	RevisionID  string     `json:"revisionId,omitempty"`
+	Tag         string     `json:"tag,omitempty"`
 	SHA         string     `json:"sha,omitempty"`
 	BaseSHA     string     `json:"baseSha,omitempty"`
 }

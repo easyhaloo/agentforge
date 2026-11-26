@@ -98,7 +98,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Admit one pinned source to the default branch queue */
+        /**
+         * Admit one pinned source to the default branch queue
+         * @description When conversation resolution is required by the target ruleset, admission returns 409 for an unresolved inline conversation, including an outdated one.
+         */
         post: operations["enqueueMergeCandidate"];
         delete?: never;
         options?: never;
@@ -507,13 +510,14 @@ export interface components {
             completed_at?: string;
         };
         /** @enum {string} */
-        WorkflowTriggerKind: "schedule" | "changeset_revision";
+        WorkflowTriggerKind: "schedule" | "changeset_revision" | "tag";
         WorkflowTrigger: {
             /** Format: uuid */
             id: string;
             kind: components["schemas"]["WorkflowTriggerKind"];
             version: number;
             everySeconds?: number;
+            tagPattern?: string;
         };
         Run: {
             id: string;
@@ -540,6 +544,15 @@ export interface components {
                 repository: string;
                 changesetId: string;
                 revisionId: string;
+                sha: string;
+            } | {
+                /** @enum {string} */
+                kind: "tag";
+                /** Format: uuid */
+                bindingId: string;
+                repository: string;
+                ref: string;
+                tag: string;
                 sha: string;
             } | {
                 /** @enum {string} */
@@ -573,7 +586,7 @@ export interface components {
         };
         Definition: components["schemas"]["workflow.schema"];
         Summary: {
-            /** @description Registered repository that owns the workflow */
+            /** @description Registered repository that owns the workflow, if present. */
             repository?: string;
             /** @description Whether new runs are disabled for this workflow. */
             disabled?: boolean;
@@ -585,7 +598,7 @@ export interface components {
             version: number;
         };
         Pipeline: {
-            /** @description Registered repository that owns the workflow */
+            /** @description Registered repository that owns the workflow, if present. */
             repository?: string;
             /** @description Whether new runs are disabled for this workflow. */
             disabled?: boolean;
@@ -679,7 +692,7 @@ export interface operations {
                 workflow?: string;
                 status?: components["schemas"]["RunStatus"];
                 event?: components["schemas"]["RepositoryActionEvent"];
-                /** @description Literal search over the workflow name */
+                /** @description Literal search over the workflow name, run ID, branch, SHA or actor name. */
                 q?: string;
                 branch?: string;
                 /** @description Exact user ID or display name. */
@@ -809,7 +822,10 @@ export interface operations {
                     repository: string;
                     target: string;
                     sources: string[];
-                    /** @constant */
+                    /**
+                     * @description The queue selects fast-forward only when the target branch requires linear history.
+                     * @constant
+                     */
                     strategy?: "merge-commit";
                     inputs?: {
                         [key: string]: unknown;
@@ -1268,6 +1284,8 @@ export interface operations {
                     version: number;
                     /** @description Required for schedule triggers only. */
                     everySeconds?: number;
+                    /** @description Required for tag triggers only. A glob over the tag name */
+                    tagPattern?: string;
                 };
             };
         };

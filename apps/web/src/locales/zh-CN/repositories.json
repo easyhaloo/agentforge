@@ -206,7 +206,9 @@
       "disable": "停用",
       "minutes": "间隔（分钟）",
       "interval": "每 {{count}} 分钟",
-      "bindVersion": "使用已发布的版本 {{version}}。"
+      "bindVersion": "使用已发布的版本 {{version}}。",
+      "tagPattern": "标签匹配模式",
+      "tagPatternHint": "标签名的通配符匹配，例如 v*。"
     },
     "back": "返回 Actions",
     "newWorkflow": "新建工作流",
@@ -242,7 +244,8 @@
       "changeset_revision": "Changeset 修订",
       "schedule": "定时",
       "merge_queue": "合并队列",
-      "integration": "集成"
+      "integration": "集成",
+      "tag": "标签推送"
     }
   },
   "sections": {
@@ -1039,7 +1042,12 @@
       "requireMergeQueue": "要求使用合并队列",
       "mergeQueueMethodConflict": "启用的队列规则集必须使用相同的合并方式。",
       "mergeQueueMethod": "队列合并方式",
-      "mergeQueueMethods": { "automatic": "自动", "merge": "合并提交", "squash": "压缩合并", "rebase": "变基合并" },
+      "mergeQueueMethods": {
+        "automatic": "自动",
+        "merge": "合并提交",
+        "squash": "压缩合并",
+        "rebase": "变基合并"
+      },
       "mergeQueueHelp": "通过验证的拉取请求必须经由合并队列合并。",
       "mergeQueueTarget": "要启用合并队列，请仅包含 ~DEFAULT_BRANCH 并清空排除规则。",
       "none": "无",

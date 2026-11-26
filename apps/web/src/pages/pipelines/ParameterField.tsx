@@ -3,7 +3,7 @@ import type { Definition } from "../../shared/api/pipelines";
 import { Input, Select } from "../../shared/ui";
 
 export type Parameter = NonNullable<Definition["parameters"]>[number];
-export const manualInput = (p: Parameter) => p.required && p.override && p.default === undefined;
+export const manualInput = (p: Parameter) => Boolean(p.required && p.override && p.default === undefined);
 export const parameterTypes = ["string", "integer", "number", "boolean", "choice", "branch", "branches", "repository", "secretRef"] satisfies Parameter["type"][];
 export const displayValue = (value: Parameter["default"]) => Array.isArray(value) ? value.join(",") : String(value ?? "");
 

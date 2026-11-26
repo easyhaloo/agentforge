@@ -5,6 +5,7 @@
   "notFound": "That resource does not exist.",
   "methodNotAllowed": "That action is not allowed here.",
   "conflict": "That conflicts with the current state.",
+  "duplicateTrigger": "An identical rule already exists.",
   "repositoryActionsDisabled": "Actions are disabled for this repository. New workflow runs cannot start.",
   "unresolvedPullRequestConversations": "Resolve all inline conversations, including outdated ones, before merging.",
   "requiredWorkflowsPending": "Required repository workflows have not passed for the current revision.",

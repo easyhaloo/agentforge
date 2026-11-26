@@ -64,7 +64,7 @@ export function PipelineRunPage({ organization, actorId, runId }: { organization
   const eventKind = run?.integration ? (run.integration.queueEntry ? "merge_queue" : "integration")
     : run?.webhook ? "webhook" : run?.trigger?.kind ?? "manual";
   const sourceSHA = run?.integration?.candidateSHA ?? run?.webhook?.sha ??
-    (run?.trigger?.kind === "changeset_revision" ? run.trigger.sha : undefined);
+    (run?.trigger?.kind === "changeset_revision" || run?.trigger?.kind === "tag" ? run.trigger.sha : undefined);
   const selection = jobs.find(job => job.key === search.get("job"));
   const returnSearch = new URLSearchParams(search);
   returnSearch.delete("job");
