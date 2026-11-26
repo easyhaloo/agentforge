@@ -7,6 +7,7 @@ import (
 	"github.com/easyhaloo/agentforge/backend/api/internal/execution"
 	"github.com/easyhaloo/agentforge/backend/api/internal/pipeline"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // AdvanceTriggers captures one due timer and dispatches one durable event. They use separate
@@ -31,12 +32,12 @@ func (s *Store) AdvanceTriggers(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 	var event int64
-	var org, id, actor string
+	var org, id, actor, tagPattern string
 	var version int
 	var enabled bool
 	var source execution.TriggerSource
-	err = tx.QueryRow(ctx, `SELECT e.id,b.organization_id,b.pipeline_id,b.version,b.actor_id,b.enabled,e.source FROM pipeline_trigger_events e JOIN pipeline_trigger_bindings b ON b.id=e.binding_id
- WHERE e.outcome IS NULL AND e.available_at<=now() ORDER BY e.available_at,e.id LIMIT 1 FOR UPDATE OF e SKIP LOCKED FOR SHARE OF b SKIP LOCKED`).Scan(&event, &org, &id, &version, &actor, &enabled, &source)
+	err = tx.QueryRow(ctx, `SELECT e.id,b.organization_id,b.pipeline_id,b.version,b.actor_id,b.enabled,COALESCE(b.tag_pattern,''),e.source FROM pipeline_trigger_events e JOIN pipeline_trigger_bindings b ON b.id=e.binding_id
+ WHERE e.outcome IS NULL AND e.available_at<=now() ORDER BY e.available_at,e.id LIMIT 1 FOR UPDATE OF e SKIP LOCKED FOR SHARE OF b SKIP LOCKED`).Scan(&event, &org, &id, &version, &actor, &enabled, &tagPattern, &source)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -46,24 +47,30 @@ func (s *Store) AdvanceTriggers(ctx context.Context) error {
 	outcome := "disabled"
 	var runID *string
 	if enabled {
-		run, err := createRunTx(ctx, tx, org, id, version, actor, nil, nil, nil, &source)
-		switch {
-		case err == nil:
-			outcome = "queued"
-			runID = &run.ID
-		case errors.Is(err, execution.ErrQuota):
-			if _, err = tx.Exec(ctx, `UPDATE pipeline_trigger_events SET available_at=now()+interval '5 seconds' WHERE id=$1`, event); err != nil {
+		// Tag dispatch re-validates the binding's current pattern: the rule may have changed
+		// between enqueue and dispatch, and a stale event must not start a run.
+		if source.Kind == "tag" && !pipeline.MatchTagPattern(tagPattern, source.Tag) {
+			outcome = "skipped"
+		} else {
+			run, err := createRunTx(ctx, tx, org, id, version, actor, nil, nil, nil, &source)
+			switch {
+			case err == nil:
+				outcome = "queued"
+				runID = &run.ID
+			case errors.Is(err, execution.ErrQuota):
+				if _, err = tx.Exec(ctx, `UPDATE pipeline_trigger_events SET available_at=now()+interval '5 seconds' WHERE id=$1`, event); err != nil {
+					return err
+				}
+				return tx.Commit(ctx)
+			case errors.Is(err, execution.ErrRepositoryActionsDisabled):
+				outcome = "disabled"
+			case errors.Is(err, execution.ErrTriggerDenied):
+				outcome = "denied"
+			case errors.Is(err, execution.ErrInputs), errors.Is(err, pipeline.ErrConflict), errors.Is(err, pipeline.ErrMissing):
+				outcome = "invalid"
+			default:
 				return err
 			}
-			return tx.Commit(ctx)
-		case errors.Is(err, execution.ErrRepositoryActionsDisabled):
-			outcome = "disabled"
-		case errors.Is(err, execution.ErrTriggerDenied):
-			outcome = "denied"
-		case errors.Is(err, execution.ErrInputs), errors.Is(err, pipeline.ErrConflict), errors.Is(err, pipeline.ErrMissing):
-			outcome = "invalid"
-		default:
-			return err
 		}
 	}
 	if _, err = tx.Exec(ctx, `UPDATE pipeline_trigger_events SET outcome=$2,run_id=$3 WHERE id=$1`, event, outcome, runID); err != nil {
@@ -125,7 +132,12 @@ func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind,
 	CASE WHEN $5='schedule' THEN now()+make_interval(secs=>$8) END,
 	CASE WHEN $5='tag' THEN $6 END) RETURNING id`,
 		org, id, version, actor, kind, tagPattern, repository, everySeconds).Scan(&binding.ID)
+	// The partial unique index over enabled tag bindings guards duplicates created concurrently.
 	if err != nil {
+		var pgError *pgconn.PgError
+		if errors.As(err, &pgError) && pgError.Code == "23505" && pgError.ConstraintName == "pipeline_trigger_tag_binding" {
+			return binding, pipeline.ErrConflict
+		}
 		return binding, err
 	}
 	return binding, tx.Commit(ctx)

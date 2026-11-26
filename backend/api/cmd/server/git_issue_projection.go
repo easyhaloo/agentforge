@@ -13,10 +13,22 @@ import (
 
 	"github.com/easyhaloo/agentforge/backend/api/internal/delivery"
 	"github.com/easyhaloo/agentforge/backend/api/internal/githttp"
-	"github.com/easyhaloo/agentforge/backend/api/internal/platform/postgres"
 )
 
-func projectGitIssues(ctx context.Context, git *delivery.LocalGitProvider, issues *postgres.IssueRepository, logger *slog.Logger) {
+// The projections depend on these two slices of the store, not on the concrete types, so tests
+// can drive the journal loop without a database.
+type issueLinker interface {
+	LinkCommitIssues(ctx context.Context, org, repository, sha, subject, message string) error
+}
+
+type tagEnqueuer interface {
+	EnqueueTagRuns(ctx context.Context, org, repository, ref, sha string) error
+}
+
+// projectGitIssues is the single consumer of the push journal. Each event walks pushed commits
+// for issue links and then enqueues tag trigger runs for refs/tags updates, so one archive
+// rename covers both projections and no second cursor can race it for the same file.
+func projectGitIssues(ctx context.Context, git *delivery.LocalGitProvider, issues issueLinker, store tagEnqueuer, logger *slog.Logger) {
 	journal := filepath.Join(git.Root, ".agentforge-push-events")
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -33,10 +45,10 @@ func projectGitIssues(ctx context.Context, git *delivery.LocalGitProvider, issue
 				continue
 			}
 			eventCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			err := projectGitIssueEvent(eventCtx, journal, entry.Name(), git, issues)
+			err := projectPushEvent(eventCtx, journal, entry.Name(), git, issues, store)
 			cancel()
 			if err != nil && ctx.Err() == nil {
-				logger.Error("project Git push issue links", "event", entry.Name(), "error", err)
+				logger.Error("project Git push event", "event", entry.Name(), "error", err)
 			}
 		}
 		select {
@@ -47,7 +59,7 @@ func projectGitIssues(ctx context.Context, git *delivery.LocalGitProvider, issue
 	}
 }
 
-func projectGitIssueEvent(ctx context.Context, journal, name string, git *delivery.LocalGitProvider, issues *postgres.IssueRepository) error {
+func projectPushEvent(ctx context.Context, journal, name string, git *delivery.LocalGitProvider, issues issueLinker, store tagEnqueuer) error {
 	path := filepath.Join(journal, name)
 	payload, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -61,17 +73,33 @@ func projectGitIssueEvent(ctx context.Context, journal, name string, git *delive
 		return fmt.Errorf("read push event: %w", err)
 	}
 	for _, update := range event.Updates {
-		if !strings.HasPrefix(update.Ref, "refs/heads/") || strings.Trim(update.New, "0") == "" {
-			continue
-		}
-		base := update.Old
-		if strings.Trim(base, "0") == "" {
-			base = event.Base
-		}
-		if err := git.VisitPushedCommits(ctx, event.Organization, event.Repository, base, update.New, func(sha, subject, message string) error {
-			return issues.LinkCommitIssues(ctx, event.Organization, event.Repository, sha, subject, message)
-		}); err != nil {
-			return err
+		switch {
+		case strings.HasPrefix(update.Ref, "refs/tags/"):
+			// Deletions carry a zero SHA; only creations and updates trigger runs. Annotation
+			// tags peel to their commit so the run pins a revision Git can check out.
+			if strings.Trim(update.New, "0") == "" {
+				continue
+			}
+			revision, err := git.ResolveRevision(ctx, event.Organization, event.Repository, strings.TrimPrefix(update.Ref, "refs/"))
+			if err != nil {
+				return fmt.Errorf("resolve %s: %w", update.Ref, err)
+			}
+			if err := store.EnqueueTagRuns(ctx, event.Organization, event.Repository, update.Ref, revision.CommitSHA); err != nil {
+				return err
+			}
+		case strings.HasPrefix(update.Ref, "refs/heads/"):
+			if strings.Trim(update.New, "0") == "" {
+				continue
+			}
+			base := update.Old
+			if strings.Trim(base, "0") == "" {
+				base = event.Base
+			}
+			if err := git.VisitPushedCommits(ctx, event.Organization, event.Repository, base, update.New, func(sha, subject, message string) error {
+				return issues.LinkCommitIssues(ctx, event.Organization, event.Repository, sha, subject, message)
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	archive := filepath.Join(journal, "projected")

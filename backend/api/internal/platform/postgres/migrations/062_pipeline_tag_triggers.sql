@@ -8,3 +8,9 @@ ALTER TABLE pipeline_trigger_bindings ADD CHECK (
      tag_pattern <> '' AND octet_length(tag_pattern) <= 128 AND tag_pattern !~ '[/\\]' AND tag_pattern !~ '[[:cntrl:]]'));
 CREATE INDEX pipeline_trigger_tag ON pipeline_trigger_bindings(organization_id,repository) WHERE enabled AND tag_pattern IS NOT NULL;
 CREATE UNIQUE INDEX pipeline_trigger_tag_push ON pipeline_trigger_events(binding_id,(source->>'ref'),(source->>'sha')) WHERE source->>'kind'='tag';
+-- One enabled tag rule per workflow; the dispatcher enforces the same rule for duplicates
+-- created before this index (EnableWorkflowTrigger answers 409 with pipeline.ErrConflict).
+CREATE UNIQUE INDEX pipeline_trigger_tag_binding ON pipeline_trigger_bindings(pipeline_id) WHERE enabled AND tag_pattern IS NOT NULL;
+-- Skipped marks a durable tag event whose binding pattern no longer matches at dispatch time.
+ALTER TABLE pipeline_trigger_events DROP CONSTRAINT pipeline_trigger_events_outcome_check;
+ALTER TABLE pipeline_trigger_events ADD CHECK (outcome IN ('queued','disabled','denied','invalid','skipped'));
