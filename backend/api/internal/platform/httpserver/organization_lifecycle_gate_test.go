@@ -63,6 +63,12 @@ func TestSuspendedOrganizationWritesReturn423(t *testing.T) {
 			if response := call(http.MethodPost, base+"/pipelines", `{}`); response.Code != http.StatusLocked {
 				t.Errorf("pipeline write while locked: %d, want 423", response.Code)
 			}
+			// Tag trigger binding write (the #175 endpoint): enabling a kind=tag
+			// trigger is an organization-scoped write, so the 423 gate must
+			// cover it too.
+			if response := call(http.MethodPost, base+"/pipelines/p-1/triggers", `{"kind":"tag","pattern":"v*","pipeline_id":"p-1"}`); response.Code != http.StatusLocked {
+				t.Errorf("tag trigger write while locked: %d, want 423", response.Code)
+			}
 			// Member management write.
 			if response := call(http.MethodPatch, base+"/members/user-2", `{"role":"admin"}`); response.Code != http.StatusLocked {
 				t.Errorf("membership write while locked: %d, want 423", response.Code)
