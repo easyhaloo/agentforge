@@ -89,15 +89,6 @@
   font-size: 14px;
   gap: 16px;
 }
-.pull-back-link {
-  display: inline-flex;
-  justify-self: start;
-  align-items: center;
-  gap: 6px;
-  color: var(--af-color-text-secondary);
-  text-decoration: none;
-}
-.pull-back-link:hover { color: var(--af-color-primary); }
 .pull-request-header { display: grid; gap: 12px; padding: 4px 0 2px; }
 .pull-request-title, .pull-request-title-form {
   display: flex;

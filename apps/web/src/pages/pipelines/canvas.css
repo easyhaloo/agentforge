@@ -69,7 +69,8 @@
 .wf-badge:is([data-state=leased],[data-state=running]) { color: var(--af-color-primary); background: var(--af-color-primary-subtle); }
 .wf-fullscreen { padding: 0 20px 16px; background: var(--af-color-background); }
 .wf-fullscreen .wf-editor-heading { padding: 14px 20px; margin-inline: -20px; background: var(--af-color-surface-raised); }
-.wf-editor-title { border-left: 1px solid var(--af-color-border); padding-left: 16px; }
+.wf-editor-breadcrumb { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; color: var(--af-color-text-secondary); font-size: 14px; }
+.wf-editor-breadcrumb h1 { min-width: 0; color: var(--af-color-text); }
 .wf-designer { grid-template-columns: minmax(0,1fr) minmax(280px,340px); }
 .wf-canvas>header, .wf-card { background: var(--af-color-surface); color: var(--af-color-text); }
 .wf-canvas>header>span:not(.wf-badge, .wf-run-state) { color: var(--af-color-text-muted); margin-right: auto; }

@@ -321,7 +321,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   const history = page.getByRole("region", { name: "Project status history" });
   await expect(history.getByRole("columnheader", { name: "Date (UTC)" })).toBeVisible();
   await expect(history.getByRole("row").nth(1).getByRole("cell").nth(2)).toHaveText("1");
-  await page.getByRole("link", { name: "Back to project", exact: true }).click();
+  await page.getByRole("heading", { name: "Release planning #1" }).getByRole("link", { name: "Release planning" }).click();
   await page.getByRole("link", { name: "Add items" }).click();
   await selectOption(page, page.getByRole("combobox", { name: "Item type" }), "Draft");
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Prepare release notes");
@@ -413,7 +413,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await page.getByRole("button", { name: "Restore item" }).click();
   await expect(page.getByRole("heading", { name: "Archived items", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Back to project", exact: true }).click();
+  await page.getByRole("heading", { name: "Release planning #1" }).getByRole("link", { name: "Release planning" }).click();
   await expect(page.getByRole("link", { name: "Prepare release notes" })).toBeVisible();
   await openProjectAction(page, "Updates");
   await page.getByRole("link", { name: "New update", exact: true }).click();

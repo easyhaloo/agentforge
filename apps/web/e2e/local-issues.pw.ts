@@ -384,7 +384,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
       await expect(reopen).toBeVisible();
       await screenshot("issue-closed-real-api");
 
-      await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+      await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Issues", exact: true }).click();
       await expect(page).toHaveURL(`${base.origin}${issuesPath}`);
       await expect(page.getByText("No issues found matching your filters.")).toBeVisible();
       await page.getByRole("button", { name: /^Closed issues\b/i }).click();
@@ -400,7 +400,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
       expect(reopenedResponse.status()).toBe(200);
       expect(await reopenedResponse.json()).toMatchObject({ state: "open" });
       await expect(page.getByRole("button", { name: "Close issue", exact: true })).toBeVisible();
-      await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+      await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Issues", exact: true }).click();
       const search = page.getByRole("textbox", { name: "Search issues" }).or(page.getByPlaceholder("Search issues..."));
       await search.fill("not present");
       await expect(empty).toBeVisible();
@@ -447,7 +447,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
       await expect(page).toHaveURL(`${base.origin}${issuesPath}/3`);
       await page.reload();
       await verifyIssueReferences();
-      await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+      await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Issues", exact: true }).click();
       await expect(page.getByRole("link", { name: "First follow-up", exact: true })).toBeVisible();
       await expect(page.getByRole("link", { name: "Second follow-up", exact: true })).toBeVisible();
     });
@@ -512,7 +512,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
       expect(milestone.status).toBe(201);
       expect(stale.id).toBeTruthy();
 
-      await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+      await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Issues", exact: true }).click();
       await newIssue.click();
       await titleInput.fill("Issue with metadata");
       await descriptionInput.fill("Keep this draft on validation failure.");
@@ -751,7 +751,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
       await expect(page).toHaveURL(`${base.origin}${issuesPath}/${saved.number}`);
       await page.reload();
       await expect(page.getByText("Seeded through the URL.", { exact: true })).toBeVisible();
-      await page.getByRole("link", { name: "Back to issues", exact: true }).click();
+      await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Issues", exact: true }).click();
     });
 
     await test.step("ISSUE-11: preserve the draft when URL metadata no longer exists", async () => {

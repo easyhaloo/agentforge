@@ -105,7 +105,7 @@
   },
   "breadcrumbs": {
     "home": "首页",
-    "back": "返回{{page}}"
+    "label": "面包屑导航"
   },
   "userMenu": {
     "profile": "个人主页",

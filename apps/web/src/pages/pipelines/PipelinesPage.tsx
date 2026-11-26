@@ -7,7 +7,7 @@ import { Button, ConfirmDialog, DataTable, Empty, Input, Modal, RadioGroup } fro
 
 import { Link, useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { organizationHandle, orgPath, pipelineEditPath, pipelineRunPath, repositoryActionsBackPath, repositoryActionsContext } from "../../shared/routing";
-import { ArrowLeft, Play, Plus, Workflow } from "lucide-react";
+import { Play, Plus, Workflow } from "lucide-react";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { MergeQueuePanel } from "./MergeQueuePanel";
 import { RunDialog } from "./RunPanel";
@@ -186,11 +186,15 @@ export function PipelineEditorPage({ organization, id }: { organization: Organiz
   } : undefined;
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
-      <Link to={backToActions ?? (orgPath(handle, "pipelines") + (queue ? `?${search}` : ""))}><ArrowLeft size={16}/>{backToActions ? t("repositories:actions.back") : t("backToList")}</Link>
+      <div className="wf-editor-title">
+        <nav className="wf-editor-breadcrumb" aria-label={t("navigation:breadcrumbs.label")}>
+          <Link to={backToActions ?? (orgPath(handle, "pipelines") + (queue ? `?${search}` : ""))}>{backToActions ? t("repositories:sections.actions") : t("title")}</Link>
+          <span aria-hidden="true">/</span>
+          <h1>{selected?.name ?? t("editPipeline")}</h1>
+        </nav>
+        {selected && <span role="status">{t("revision", {status:t(selected.disabled && selected.status !== "archived" ? "disabled" : selected.status), revision:selected.revision, version:selected.version})}</span>}
+      </div>
       {selected && <>
-        <div className="wf-editor-title"><h1>{selected.name}</h1>
-          <span role="status">{t("revision", {status:t(selected.disabled && selected.status !== "archived" ? "disabled" : selected.status), revision:selected.revision, version:selected.version})}</span>
-        </div>
         {organization.role !== "viewer" && <Button disabled={busy || dirty || !validShape} onClick={() => setCloning(true)}>{t("clone")}</Button>}
         {canPublish && selected.status === "draft" && <Button disabled={busy || dirty} onClick={() => void apply(() => pipelines.transition(org, selected, "publish"))}>{t("publish")}</Button>}
         {canPublish && selected.status !== "archived" && <Button disabled={busy || dirty} onClick={() => setArchiving(true)}>{t("archive")}</Button>}

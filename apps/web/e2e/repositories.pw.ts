@@ -363,7 +363,11 @@ test("repository code and commit details are independently navigable", async ({ 
   await page.screenshot({ path: testInfo.outputPath("commit-detail.png"), animations: "disabled" });
   await page.reload();
   await expect(page.getByText("+after", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Back to commits" }).click();
+  await expect(page.getByRole("link", { name: /Back to commits/ })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("navigation", { name: "Repository sections" }).getByRole("link", { name: "Code", exact: true }).click();
+  await page.getByRole("region", { name: "Files", exact: true }).getByRole("link", { name: "Commit history" }).click();
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole("link", { name: "Compare to current" }).click();
   await expect(page.getByRole("heading", { name: "Commit comparison" })).toBeVisible();
   await expect(page.getByText("+after", { exact: true })).toBeVisible();
@@ -378,6 +382,10 @@ test("a commit-pinned file permalink opens directly", async ({ page }) => {
   await expect(copyPermalink).toBeEnabled();
   await expect(copyPermalink).toHaveText("");
   await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to ref" })).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Repository branch or tag" }).click();
+  await page.getByRole("option", { name: "Branch · main" }).click();
+  await expect(page.getByText(/Pinned commit:/)).toHaveCount(0);
 });
 
 test("WebIDE guides an empty organization to its own repositories", async ({ page }) => {
@@ -411,7 +419,8 @@ test("commit history groups and filters real API-shaped records and preserves th
 
   await page.getByRole("link", { name: "Initial commit" }).click();
   await expect(page.getByText("+before", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Back to commits" }).click();
+  await expect(page.getByRole("link", { name: "Back to commits" })).toHaveCount(0);
+  await page.goBack();
   await expect(author).toContainText("Initial Author");
   await expect(date).toContainText("Nov 17, 2026");
   await page.getByRole("button", { name: "Copy full SHA for bbbbbbb" }).click();

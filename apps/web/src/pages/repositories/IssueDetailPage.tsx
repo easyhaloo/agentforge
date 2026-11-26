@@ -369,12 +369,6 @@ export function IssueDetailPage({ organization, repository, issueNumber, current
         <div className="org-error" role="alert">
           {error || t("issues.detail.loadFailed")}
         </div>
-        <Link
-          className="af-button af-button--secondary af-button--small"
-          to={repositoryPath(handle, repository, "issues")}
-        >
-          {t("issues.detail.backToList")}
-        </Link>
       </section>
     );
   }
@@ -391,9 +385,6 @@ export function IssueDetailPage({ organization, repository, issueNumber, current
     <>
       <section className="issue-detail">
         <header className="issue-detail__header">
-          <Link className="issue-detail__back" to={repositoryPath(handle, repository, "issues")}>
-            {t("issues.detail.backToList")}
-          </Link>
           <div className="issue-detail__title-row">
             <h2 className="issue-detail__title">
               {issue.title}{" "}<span className="issue-number">#{issue.number}</span>

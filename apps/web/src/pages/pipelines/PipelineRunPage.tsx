@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { translateError } from "../../shared/api/errors";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { useDateFormatting } from "../../shared/i18n/format";
@@ -77,8 +77,12 @@ export function PipelineRunPage({ organization, actorId, runId }: { organization
 
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
-      <Link to={backToActions ?? orgPath(handle, "pipelines")}><ArrowLeft size={16} />{backToActions ? t("repositories:actions.back") : t("backToList")}</Link>
-      <div className="wf-editor-title"><h1>{run && <PipelineStatusIcon state={run.status} size={22} />}<span>{definition?.name ?? t("runDetails")}</span></h1>
+      <div className="wf-editor-title">
+        <nav className="wf-editor-breadcrumb" aria-label={t("navigation:breadcrumbs.label")}>
+          <Link to={backToActions ?? orgPath(handle, "pipelines")}>{backToActions ? t("repositories:sections.actions") : t("title")}</Link>
+          <span aria-hidden="true">/</span>
+          <h1>{run && <PipelineStatusIcon state={run.status} size={22} />}<span>{definition?.name ?? t("runDetails")}</span></h1>
+        </nav>
         {run && <span role="status">{t("run", { id: run.id, version: run.version, status: t(run.status) })}</span>}
       </div>
       {run && <Link to={pipelineEditPath(handle, run.pipelineId) + returnQuery}>{t("editPipeline")}</Link>}

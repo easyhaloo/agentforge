@@ -24,20 +24,18 @@
 .repo-clone-dialog { display: grid; gap: 12px; }
 .repo-clone-dialog p { margin: 0; }
 .repo-clone-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.repo-back,
 .repo-link,
 .repo-breadcrumbs a {
   color: var(--af-color-primary);
   text-decoration: none;
   overflow-wrap: anywhere;
 }
-.repo-back:hover,
 .repo-link:hover,
 .repo-breadcrumbs a:hover { text-decoration: underline; }
-.repo-link, .repo-back { display: inline-flex; align-items: center; gap: 8px; }
-.repo-link svg, .repo-back svg { flex-shrink: 0; }
+.repo-link { display: inline-flex; align-items: center; gap: 8px; }
+.repo-link svg { flex-shrink: 0; }
 .repo-link { font-weight: 600; }
-.repo-back, .repo-meta, .repo-empty { font-size: 13px; }
+.repo-meta, .repo-empty { font-size: 13px; }
 .repo-meta, .repo-empty, .repo-row-icon { color: var(--af-color-text-muted); }
 .repo-meta { overflow-wrap: anywhere; }
 .repo-meta code, .repo-sha { font-family: ui-monospace, monospace; }
@@ -243,7 +241,6 @@
 .repo-empty { margin: 0; padding: 14px; }
 .repo-file-content { margin-top: 16px; }
 .repo-file-body, .repo-inspection { padding: 14px; border-top: 1px solid var(--af-color-border); }
-.repo-commit-detail > .repo-back { margin-bottom: 12px; }
 .repo-blame { overflow: auto; max-height: 360px; }
 .repo-blame .repo-row { flex-wrap: nowrap; min-width: max-content; }
 .repo-commit-detail .repository-diff { font-size: 12px; }
@@ -720,13 +717,6 @@
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--af-color-border);
-}
-
-.issue-detail__back {
-  display: inline-block;
-  margin-bottom: 12px;
-  color: var(--af-color-text-secondary);
-  font-size: 13px;
 }
 
 .issue-detail__title-row {
