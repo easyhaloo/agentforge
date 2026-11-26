@@ -389,9 +389,11 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await page.reload();
   await expect(draftDescription).toHaveValue("## Release checklist\n\n- Verify the upgrade guide");
-  await page.getByRole("button", { name: "Convert to issue" }).click();
+  await page.getByRole("button", { name: "Convert to issue", exact: true }).first().click();
   await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), sourceSlug);
-  await page.getByRole("button", { name: "Create issue from draft" }).click();
+  // Opening the toolbar action reveals a second "Convert to issue" button in
+  // the conversion form (projects.convertConfirm). Target the revealed one.
+  await page.getByRole("button", { name: "Convert to issue", exact: true }).last().click();
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await expect(page).toHaveURL(new RegExp(`[?&]item=${new URL(draftURL).searchParams.get("item")}$`));
   const convertedItemURL = page.url();
