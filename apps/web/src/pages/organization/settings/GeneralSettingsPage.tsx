@@ -205,6 +205,7 @@ export function OrganizationGeneralSettingsPage({ lifecycle }: { lifecycle: Orga
       open={dialog === "rename"}
       title={t("settings:lifecycle.danger.url.dialogTitle")}
       description={organization.name}
+      confirmText={t("settings:lifecycle.danger.url.confirm")}
       danger
       focusCancel
       lockDismiss
@@ -233,6 +234,7 @@ export function OrganizationGeneralSettingsPage({ lifecycle }: { lifecycle: Orga
       open={dialog === "transfer"}
       title={t("settings:lifecycle.danger.transfer.dialogTitle")}
       description={organization.slug}
+      confirmText={t("settings:lifecycle.danger.transfer.confirm")}
       danger
       focusCancel
       lockDismiss
@@ -259,6 +261,7 @@ export function OrganizationGeneralSettingsPage({ lifecycle }: { lifecycle: Orga
       open={dialog === "suspend"}
       title={t("settings:lifecycle.danger.suspend.dialogTitle")}
       description={organization.slug}
+      confirmText={t("settings:lifecycle.danger.suspend.confirm")}
       danger
       focusCancel
       lockDismiss

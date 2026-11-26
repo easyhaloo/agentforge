@@ -102,9 +102,9 @@ func TestPostgresCurrentAccountReturnsOrganizationSlugWithIDFallback(t *testing.
 		t.Fatal(err)
 	}
 	want := []map[string]any{
-		{"id": withSlug, "name": withSlug, "role": "owner", "slug": slug},
+		{"id": withSlug, "name": withSlug, "role": "owner", "slug": slug, "status": "active"},
 		// A NULL slug falls back to the id, so every organization always has a handle.
-		{"id": withoutSlug, "name": withoutSlug, "role": "member", "slug": withoutSlug},
+		{"id": withoutSlug, "name": withoutSlug, "role": "member", "slug": withoutSlug, "status": "active"},
 	}
 	if len(wire.Organizations) != len(want) {
 		t.Fatalf("organizations = %v, want %v", wire.Organizations, want)

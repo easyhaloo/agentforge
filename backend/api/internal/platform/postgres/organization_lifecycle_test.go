@@ -95,6 +95,7 @@ func TestOrganizationTransferOwnershipKeepsOneOwner(t *testing.T) {
 	ctx, store := slugOpenStore(t)
 	actor := "lifecycle-actor-" + newTestSuffix()
 	slugOpenFixtures(t, ctx, store, actor, "org-transfer-a")
+	slugInsertUser(t, ctx, store, "transfer-target")
 	slugInsertMember(t, ctx, store, "org-transfer-a", "transfer-target", "member", "active")
 
 	member, err := store.TransferOrganizationOwnership(ctx, "org-transfer-a", actor, "transfer-target")
@@ -122,6 +123,7 @@ func TestOrganizationAuditMergesMembershipAndLifecycle(t *testing.T) {
 	ctx, store := slugOpenStore(t)
 	actor := "lifecycle-actor-" + newTestSuffix()
 	slugOpenFixtures(t, ctx, store, actor, "org-audit-a")
+	slugInsertUser(t, ctx, store, "audit-target")
 	slugInsertMember(t, ctx, store, "org-audit-a", "audit-target", "member", "active")
 
 	if _, err := store.UpdateMembership(ctx, "org-audit-a", actor, "audit-target", ptr("admin"), nil); err != nil {

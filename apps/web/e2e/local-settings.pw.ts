@@ -170,6 +170,8 @@ test("personal settings load real account data and persist edits", async ({ page
   await expect(page.getByText("当前组织", { exact: true })).toBeVisible();
   await expect(page.getByText("Updated QA · 个人工作区", { exact: true })).toBeVisible();
   await screenshot("keys-deleted");
-  await page.getByRole("link", { name: /^(Organization|组织)$/ }).click();
+  // The settings sidebar now also carries an "Organizations" entry, so the
+  // organization link in the context block must be scoped to avoid ambiguity.
+  await page.getByRole("link", { name: /^(Organization|组织)$/ }).first().click();
   await expect(page).toHaveURL(/\/orgs\/[^/]+\/settings$/);
 });

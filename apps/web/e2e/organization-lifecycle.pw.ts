@@ -41,6 +41,6 @@ test("owner suspends the organization, sees the banner, and resumes", async ({ p
 
   // Resume restores normal state.
   await page.getByRole("button", { name: "Resume organization" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Resume organization" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
   await expect(page.locator(".af-alert--warning")).toHaveCount(0);
 });
