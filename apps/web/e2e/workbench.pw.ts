@@ -47,7 +47,7 @@ test("workbench uses the selected organization and keeps navigation usable on mo
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await selectOption(page, current, "AgentForge Labs");
   await expect(current).toContainText("AgentForge Labs");
-  await expect(page.getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
+  await expect(page.getByRole("link", { name: "Organization", exact: true })).toHaveAttribute("href", "/orgs/labs/settings");
   await page.reload();
   await expect(current).toContainText("AgentForge Labs");
   await page.getByRole("link", { name: "agentforge", exact: true }).click();
@@ -56,7 +56,7 @@ test("workbench uses the selected organization and keeps navigation usable on mo
   await expect(repositories.getByRole("link", { name: "easyhaloo/agentforge" })).toHaveCount(0);
   await page.getByRole("button", { name: /^User menu,/ }).click();
   const userMenu = page.getByRole("dialog", { name: "User menu" });
-  await expect(userMenu.getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/orgs/labs/settings");
+  await expect(userMenu.getByRole("link", { name: "Organization", exact: true })).toHaveAttribute("href", "/orgs/labs/settings");
 });
 
 test("global navigation uses compact rows and returns focus through each dismissal path", async ({ page }, testInfo) => {
