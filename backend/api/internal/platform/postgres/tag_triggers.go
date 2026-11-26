@@ -39,7 +39,7 @@ func (s *Store) EnqueueTagRuns(ctx context.Context, org, repository, ref, sha st
 			continue
 		}
 		if _, err := s.pool.Exec(ctx, `INSERT INTO pipeline_trigger_events(binding_id,source)
-		VALUES($1,jsonb_build_object('kind','tag','bindingId',$1,'repository',$2,'ref',$3,'tag',$4,'sha',$5))
+		VALUES($1::uuid,jsonb_build_object('kind','tag','bindingId',$1::uuid,'repository',$2::text,'ref',$3::text,'tag',$4::text,'sha',$5::text))
 		ON CONFLICT DO NOTHING`, b.ID, repository, ref, tag, sha); err != nil {
 			return fmt.Errorf("enqueue tag trigger events: %w", err)
 		}

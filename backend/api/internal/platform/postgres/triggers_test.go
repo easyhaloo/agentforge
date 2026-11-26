@@ -158,7 +158,7 @@ func TestRepositoryWorkflowTriggersAndRerun(t *testing.T) {
 	}
 	items, err = s.WorkflowTriggers(ctx, org, "repo-ci")
 	lockMust(t, err)
-	if len(items) != 2 || items[0].Kind != "changeset_revision" {
+	if len(items) != 2 || items[0].Kind != "tag" {
 		t.Fatalf("remaining bindings: %v", items)
 	}
 	var original, retry execution.Run

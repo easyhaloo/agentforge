@@ -114,8 +114,12 @@ func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind,
 	if archived {
 		return binding, pipeline.ErrConflict
 	}
+	// Duplicates are decided by the binding's own kind: tag rows carry a pattern, schedule rows
+	// have no repository, everything else is a changeset binding. This also catches the tag
+	// duplicates the partial unique index guards concurrently.
 	var exists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pipeline_trigger_bindings WHERE organization_id=$1 AND pipeline_id=$2 AND enabled AND (repository IS NULL)=($3='schedule'))`, org, id, kind).Scan(&exists)
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pipeline_trigger_bindings WHERE organization_id=$1 AND pipeline_id=$2 AND enabled AND
+	CASE WHEN tag_pattern IS NOT NULL THEN 'tag' WHEN repository IS NULL THEN 'schedule' ELSE 'changeset_revision' END=$3)`, org, id, kind).Scan(&exists)
 	if err != nil {
 		return binding, err
 	}
@@ -125,11 +129,13 @@ func (s *Store) EnableWorkflowTrigger(ctx context.Context, org, id, actor, kind,
 	if _, err = runDefinition(ctx, tx, org, id, version, nil, false); err != nil {
 		return binding, err
 	}
+	// schedule keeps its repository NULL (the CHECK requires it); tag and changeset bindings
+	// always pin the pipeline's repository. next_due only applies to schedule intervals.
 	err = tx.QueryRow(ctx, `INSERT INTO pipeline_trigger_bindings(organization_id,pipeline_id,version,actor_id,repository,every_seconds,next_due,tag_pattern)
 	VALUES($1,$2,$3,$4,
-	CASE WHEN $5='tag' THEN $6 ELSE $7 END,
-	CASE WHEN $5='schedule' THEN $8 END,
-	CASE WHEN $5='schedule' THEN now()+make_interval(secs=>$8) END,
+	CASE WHEN $5='schedule' THEN NULL ELSE $7 END,
+	CASE WHEN $5='schedule' AND $8>0 THEN $8 END,
+	CASE WHEN $5='schedule' AND $8>0 THEN now()+make_interval(secs=>$8) END,
 	CASE WHEN $5='tag' THEN $6 END) RETURNING id`,
 		org, id, version, actor, kind, tagPattern, repository, everySeconds).Scan(&binding.ID)
 	// The partial unique index over enabled tag bindings guards duplicates created concurrently.

@@ -618,7 +618,7 @@ paths:
                 kind: {$ref: '#/components/schemas/WorkflowTriggerKind'}
                 version: {type: integer, minimum: 1}
                 everySeconds: {type: integer, minimum: 60, maximum: 31536000, description: Required for schedule triggers only.}
-                tagPattern: {type: string, maxLength: 128, pattern: '^[^/\\\s\x00]+$', description: Required for tag triggers only. A glob over the tag name, for example v*.}
+                tagPattern: {type: string, maxLength: 128, pattern: '^[^/\\\s\x00]+$', description: "Required for tag triggers only. A glob over the tag name, for example v*."}
       responses:
         '201':
           description: Enabled

@@ -58,14 +58,14 @@ func TestTagTriggerEnqueueIdempotentAndIsolated(t *testing.T) {
 	}
 
 	// An annotation tag must peel to the commit before enqueueing.
-	annotated := fixtureGit(t, git, org, "tag", "-a", "-m", "annotated", "annotated-tag", commit)
-	if peeled := resolveCommit(t, git, org, annotated); peeled != commit {
+	fixtureGit(t, git, org, "tag", "-a", "-m", "annotated", "annotated-tag", commit)
+	if peeled := resolveCommit(t, git, org, "annotated-tag"); peeled != commit {
 		t.Fatalf("annotation tag peeled to %s, want %s", peeled, commit)
 	}
 
-	lightweight := fixtureGit(t, git, org, "tag", "v1.0.0", commit)
-	lockMust(t, s.EnqueueTagRuns(ctx, org, "team/repo", "refs/tags/"+lightweight, commit))
-	lockMust(t, s.EnqueueTagRuns(ctx, org, "team/repo", "refs/tags/"+lightweight, commit)) // replay
+	fixtureGit(t, git, org, "tag", "v1.0.0", commit) // git tag prints nothing on success
+	lockMust(t, s.EnqueueTagRuns(ctx, org, "team/repo", "refs/tags/v1.0.0", commit))
+	lockMust(t, s.EnqueueTagRuns(ctx, org, "team/repo", "refs/tags/v1.0.0", commit)) // replay
 
 	var events int
 	lockMust(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM pipeline_trigger_events WHERE source->>'kind'='tag'`).Scan(&events))
@@ -81,10 +81,12 @@ func TestTagTriggerEnqueueIdempotentAndIsolated(t *testing.T) {
 	}
 
 	// A stale event whose pattern changed after enqueue is skipped at dispatch: the durable
-	// event stays but starts no run.
+	// event stays but starts no run. The v1.0.0 event dispatches first (queued under the old
+	// rule), then the pattern edit lands, and the post-edit retag event is skipped.
+	lockMust(t, s.AdvanceTriggers(ctx))
 	_, err = s.pool.Exec(ctx, `INSERT INTO pipeline_trigger_events(binding_id,source)
-	SELECT b.id,jsonb_build_object('kind','tag','bindingId',b.id,'repository',b.repository,'ref','refs/tags/retag','tag','retag','sha',$1)
-	FROM pipeline_trigger_bindings b WHERE b.organization_id=$2 AND b.tag_pattern='v*'`, commit, org)
+	SELECT b.id,jsonb_build_object('kind','tag','bindingId',b.id,'repository',b.repository,'ref','refs/tags/retag','tag','retag','sha',$1::text)
+	FROM pipeline_trigger_bindings b WHERE b.organization_id=$2::text AND b.tag_pattern='v*'`, commit, org)
 	lockMust(t, err)
 	_, err = s.pool.Exec(ctx, `UPDATE pipeline_trigger_bindings SET tag_pattern='v2*' WHERE organization_id=$1 AND tag_pattern='v*'`, org)
 	lockMust(t, err)
@@ -99,12 +101,11 @@ func TestTagTriggerEnqueueIdempotentAndIsolated(t *testing.T) {
 	if err != pipeline.ErrConflict {
 		t.Fatalf("duplicate tag rule returned %v, want ErrConflict", err)
 	}
-	lockMust(t, s.AdvanceTriggers(ctx))
 	var runID string
-	lockMust(t, s.pool.QueryRow(ctx, `SELECT e.run_id FROM pipeline_trigger_events e WHERE e.source->>'kind'='tag' AND e.source->>'tag'=$1 AND e.outcome='queued'`, lightweight).Scan(&runID))
+	lockMust(t, s.pool.QueryRow(ctx, `SELECT e.run_id FROM pipeline_trigger_events e WHERE e.source->>'kind'='tag' AND e.source->>'tag'='v1.0.0' AND e.outcome='queued'`).Scan(&runID))
 	run, err := s.GetRun(ctx, org, runID)
 	lockMust(t, err)
-	if run.Trigger == nil || run.Trigger.Kind != "tag" || run.Trigger.Tag != lightweight || run.Trigger.SHA != commit || run.Trigger.Repository != "team/repo" {
+	if run.Trigger == nil || run.Trigger.Kind != "tag" || run.Trigger.Tag != "v1.0.0" || run.Trigger.SHA != commit || run.Trigger.Repository != "team/repo" {
 		t.Fatalf("tag run lost its provenance: %+v", run.Trigger)
 	}
 
@@ -118,9 +119,8 @@ func TestTagTriggerEnqueueIdempotentAndIsolated(t *testing.T) {
 	// A disabled workflow captures no further tag events.
 	_, err = s.pool.Exec(ctx, `UPDATE pipelines SET disabled=true WHERE organization_id=$1 AND id='tag-ci'`, org)
 	lockMust(t, err)
-	updated := fixtureGit(t, git, org, "tag", "v1.0.1", commit)
-	lockMust(t, s.EnqueueTagRuns(ctx, org, "team/repo", "refs/tags/"+updated, commit))
-	lockMust(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM pipeline_trigger_events WHERE source->>'kind'='tag' AND source->>'tag'=$1`, updated).Scan(&events))
+	lockMust(t, s.EnqueueTagRuns(ctx, org, "team/repo", "refs/tags/v1.0.1", commit))
+	lockMust(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM pipeline_trigger_events WHERE source->>'kind'='tag' AND source->>'tag'='v1.0.1'`).Scan(&events))
 	if events != 0 {
 		t.Fatalf("disabled workflow captured %d tag events", events)
 	}
