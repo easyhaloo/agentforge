@@ -2852,10 +2852,10 @@ components:
         name: { type: string }
         slug: { type: string }
         status: { type: string, enum: [active, suspended, pending_deletion] }
-        suspended_at: { type: string, format: date-time, nullable: true }
+        suspended_at: { type: string, format: date-time }
         suspended_reason: { type: string }
-        deletion_scheduled_at: { type: string, format: date-time, nullable: true }
-        version: { type: integer, format: int64, description: updated_at epoch seconds, for optimistic concurrency }
+        deletion_scheduled_at: { type: string, format: date-time }
+        version: { type: integer, format: int64, description: "updated_at epoch seconds, for optimistic concurrency" }
     OrganizationAuditPage:
       type: object
       required: [items, total, limit, offset]
