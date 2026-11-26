@@ -25,9 +25,9 @@ func TestEventRepository_RecordAndList(t *testing.T) {
 	defer store.Close()
 
 	repo := NewEventRepository(store)
-	orgID := "test-org-events"
+	orgID := "test-org-events-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
-	issueID := "issue-123"
+	issueID := "issue-123-" + newTestSuffix()
 
 	// Create test issue (required by foreign key constraint)
 	_, err = store.pool.Exec(ctx, `

@@ -28,7 +28,8 @@ func TestIssueRepository_List(t *testing.T) {
 
 	repo := NewIssueRepository(store)
 
-	orgID := "test-org-002"
+	suffix := newTestSuffix()
+	orgID := "test-org-002-" + suffix
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/test-repo"
@@ -38,7 +39,7 @@ func TestIssueRepository_List(t *testing.T) {
 	closedAt := now.Add(2 * time.Minute)
 	testIssues := []*issues.Issue{
 		{
-			ID:         "issue-list-001",
+			ID:         issues.ID("issue-list-001-" + suffix),
 			Repository: repo1,
 			Title:      "First issue",
 			Body:       "Body 1",
@@ -48,7 +49,7 @@ func TestIssueRepository_List(t *testing.T) {
 			UpdatedAt:  now,
 		},
 		{
-			ID:         "issue-list-002",
+			ID:         issues.ID("issue-list-002-" + suffix),
 			Repository: repo1,
 			Title:      "Second issue",
 			Body:       "Body 2",
@@ -58,7 +59,7 @@ func TestIssueRepository_List(t *testing.T) {
 			UpdatedAt:  now.Add(1 * time.Minute),
 		},
 		{
-			ID:         "issue-list-003",
+			ID:         issues.ID("issue-list-003-" + suffix),
 			Repository: repo1,
 			Title:      "Third issue",
 			Body:       "Body 3",
@@ -77,7 +78,7 @@ func TestIssueRepository_List(t *testing.T) {
 	}
 
 	// Close the third issue
-	_, err = repo.Close(ctx, orgID, "issue-list-003", issues.ReasonCompleted, "user-001", closedAt)
+	_, err = repo.Close(ctx, orgID, issues.ID("issue-list-003-"+suffix), issues.ReasonCompleted, "user-001", closedAt)
 	if err != nil {
 		t.Fatalf("failed to close issue: %v", err)
 	}

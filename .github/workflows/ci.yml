@@ -82,8 +82,19 @@ jobs:
         run: |
           go test -count=1 ./internal/platform/postgres/ > /dev/null 2>&1 || true
           go test -count=1 ./internal/platform/postgres/ > /dev/null 2>&1 || true
-      - name: Run backend tests against the dirtied database
+      - name: Install MinIO test server
+        working-directory: ${{ runner.temp }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release=RELEASE.2025-09-07T16-13-09Z
+          gh release download "$release" --repo minio/minio --pattern "minio.linux-amd64.$release" --output minio
+          echo "7c5bd8512c6e966455b1d198209358b2d191c77a83ab377c4073281065fb855f  minio" | sha256sum --check
+          chmod +x minio
+      - name: Run the full backend suite against the dirtied database
         run: go test -count=1 ./...
+        env:
+          TEST_MINIO_BINARY: ${{ runner.temp }}/minio
 
   web:
     needs: changes

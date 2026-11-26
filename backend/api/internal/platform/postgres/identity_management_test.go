@@ -45,12 +45,13 @@ func insertLinkedIdentityFixture(t *testing.T, ctx context.Context, store *Store
 func TestListUserIdentities(t *testing.T) {
 	ctx, store := identityManagementOpenStore(t)
 	// Create a user with multiple identities
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "multi@example.test", "password123", "Multi User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "multi-"+newTestSuffix()+"@example.test", "password123", "Multi User")
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
-	insertLinkedIdentityFixture(t, ctx, store, userID, "https://google.com", "google-subject-123")
+	googleSubject := "google-subject-123-" + newTestSuffix()
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://google.com", googleSubject)
 
 	// List identities
 	identities, err := store.ListUserIdentities(ctx, userID)
@@ -69,7 +70,7 @@ func TestListUserIdentities(t *testing.T) {
 		if id.Issuer == "platform:internal" && id.Subject == userID {
 			foundPlatform = true
 		}
-		if id.Issuer == "https://google.com" && id.Subject == "google-subject-123" {
+		if id.Issuer == "https://google.com" && id.Subject == googleSubject {
 			foundGoogle = true
 		}
 	}
@@ -85,7 +86,7 @@ func TestGetUserIdentityCount(t *testing.T) {
 	ctx, store := identityManagementOpenStore(t)
 
 	// Create user with one identity
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "count@example.test", "password123", "Count User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "count-"+newTestSuffix()+"@example.test", "password123", "Count User")
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
@@ -99,7 +100,7 @@ func TestGetUserIdentityCount(t *testing.T) {
 	}
 
 	// Add another identity
-	insertLinkedIdentityFixture(t, ctx, store, userID, "https://github.com", "gh-user-456")
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://github.com", "gh-user-456-"+newTestSuffix())
 
 	count, err = store.GetUserIdentityCount(ctx, userID)
 	if err != nil {
@@ -114,12 +115,12 @@ func TestDeleteUserIdentity(t *testing.T) {
 	ctx, store := identityManagementOpenStore(t)
 
 	// Create user with two identities
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "delete@example.test", "password123", "Delete User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "delete-"+newTestSuffix()+"@example.test", "password123", "Delete User")
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
-	insertLinkedIdentityFixture(t, ctx, store, userID, "https://github.com", "gh-delete-789")
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://github.com", "gh-delete-789-"+newTestSuffix())
 
 	// Get identities
 	identities, err := store.ListUserIdentities(ctx, userID)
@@ -165,12 +166,12 @@ func TestDeleteUserIdentity_PlatformCredentials(t *testing.T) {
 	ctx, store := identityManagementOpenStore(t)
 
 	// Create user with platform and external identity
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "delcred@example.test", "password123", "Del Cred User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "delcred-"+newTestSuffix()+"@example.test", "password123", "Del Cred User")
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
-	insertLinkedIdentityFixture(t, ctx, store, userID, "https://google.com", "google-delcred-999")
+	insertLinkedIdentityFixture(t, ctx, store, userID, "https://google.com", "google-delcred-999-"+newTestSuffix())
 
 	// Verify platform credentials exist
 	hasCreds, err := store.HasPlatformCredentials(ctx, userID)

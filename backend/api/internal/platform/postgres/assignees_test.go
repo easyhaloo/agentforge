@@ -24,13 +24,13 @@ func TestIssueRepository_AddAssignee(t *testing.T) {
 	defer store.Close()
 
 	issueRepo := NewIssueRepository(store)
-	orgID := "test-org-assignees-001"
+	orgID := "test-org-assignees-001-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/assignee-test"
 
 	// Create an issue first
 	issue := &issues.Issue{
-		ID:         "issue-assignee-001",
+		ID:         issues.ID("issue-assignee-001-" + newTestSuffix()),
 		Repository: repoName,
 		Title:      "Test issue for assignees",
 		Body:       "Testing assignee functionality",
@@ -82,13 +82,13 @@ func TestIssueRepository_AddMultipleAssignees(t *testing.T) {
 	defer store.Close()
 
 	issueRepo := NewIssueRepository(store)
-	orgID := "test-org-assignees-002"
+	orgID := "test-org-assignees-002-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/multi-assignee-test"
 
 	// Create an issue
 	issue := &issues.Issue{
-		ID:         "issue-multi-assignee-001",
+		ID:         issues.ID("issue-multi-assignee-001-" + newTestSuffix()),
 		Repository: repoName,
 		Title:      "Test issue for multiple assignees",
 		Body:       "Testing multiple assignee functionality",
@@ -150,13 +150,13 @@ func TestIssueRepository_AddAssigneeIdempotent(t *testing.T) {
 	defer store.Close()
 
 	issueRepo := NewIssueRepository(store)
-	orgID := "test-org-assignees-003"
+	orgID := "test-org-assignees-003-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/idempotent-test"
 
 	// Create an issue
 	issue := &issues.Issue{
-		ID:         "issue-idempotent-001",
+		ID:         issues.ID("issue-idempotent-001-" + newTestSuffix()),
 		Repository: repoName,
 		Title:      "Test issue for idempotent assignee",
 		Body:       "Testing idempotent assignee functionality",
@@ -211,13 +211,13 @@ func TestIssueRepository_RemoveAssignee(t *testing.T) {
 	defer store.Close()
 
 	issueRepo := NewIssueRepository(store)
-	orgID := "test-org-assignees-004"
+	orgID := "test-org-assignees-004-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/remove-assignee-test"
 
 	// Create an issue
 	issue := &issues.Issue{
-		ID:         "issue-remove-assignee-001",
+		ID:         issues.ID("issue-remove-assignee-001-" + newTestSuffix()),
 		Repository: repoName,
 		Title:      "Test issue for removing assignee",
 		Body:       "Testing remove assignee functionality",
@@ -272,13 +272,13 @@ func TestIssueRepository_RemoveOneOfMultipleAssignees(t *testing.T) {
 	defer store.Close()
 
 	issueRepo := NewIssueRepository(store)
-	orgID := "test-org-assignees-005"
+	orgID := "test-org-assignees-005-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/remove-one-test"
 
 	// Create an issue
 	issue := &issues.Issue{
-		ID:         "issue-remove-one-001",
+		ID:         issues.ID("issue-remove-one-001-" + newTestSuffix()),
 		Repository: repoName,
 		Title:      "Test issue for removing one assignee",
 		Body:       "Testing remove one of multiple assignees",
@@ -341,13 +341,13 @@ func TestIssueRepository_GetAssigneesForEmptyIssue(t *testing.T) {
 	defer store.Close()
 
 	issueRepo := NewIssueRepository(store)
-	orgID := "test-org-assignees-006"
+	orgID := "test-org-assignees-006-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/empty-assignee-test"
 
 	// Create an issue
 	issue := &issues.Issue{
-		ID:         "issue-empty-assignee-001",
+		ID:         issues.ID("issue-empty-assignee-001-" + newTestSuffix()),
 		Repository: repoName,
 		Title:      "Test issue with no assignees",
 		Body:       "Testing empty assignee list",

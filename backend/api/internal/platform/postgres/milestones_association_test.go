@@ -31,14 +31,14 @@ func TestMilestoneRepository_SetAndClearMilestone(t *testing.T) {
 	milestoneRepo := NewMilestoneRepository(store)
 	issueRepo := NewIssueRepository(store)
 
-	orgID := "test-org-milestone-assoc-001"
+	orgID := "test-org-milestone-assoc-001-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
 	milestone := &milestones.Milestone{
-		ID:         "milestone-assoc-001",
+		ID:         milestones.ID("milestone-assoc-001-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Sprint 1",
 		State:      milestones.StateOpen,
@@ -51,7 +51,7 @@ func TestMilestoneRepository_SetAndClearMilestone(t *testing.T) {
 
 	// Create an issue
 	issue := &issues.Issue{
-		ID:         "issue-assoc-001",
+		ID:         issues.ID("issue-assoc-001-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Test issue",
 		Body:       "Test body",
@@ -103,14 +103,14 @@ func TestMilestoneRepository_GetProgress(t *testing.T) {
 	milestoneRepo := NewMilestoneRepository(store)
 	issueRepo := NewIssueRepository(store)
 
-	orgID := "test-org-milestone-progress-001"
+	orgID := "test-org-milestone-progress-001-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
 	milestone := &milestones.Milestone{
-		ID:         "milestone-progress-001",
+		ID:         milestones.ID("milestone-progress-001-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Progress Test",
 		State:      milestones.StateOpen,
@@ -201,14 +201,14 @@ func TestMilestoneRepository_CloseWithTimestamp(t *testing.T) {
 
 	repo := NewMilestoneRepository(store)
 
-	orgID := "test-org-milestone-close-001"
+	orgID := "test-org-milestone-close-001-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
 	milestone := &milestones.Milestone{
-		ID:         "milestone-close-001",
+		ID:         milestones.ID("milestone-close-001-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "To be closed",
 		State:      milestones.StateOpen,
@@ -285,14 +285,14 @@ func TestMilestoneRepository_ProgressWithNoIssues(t *testing.T) {
 
 	repo := NewMilestoneRepository(store)
 
-	orgID := "test-org-milestone-empty-001"
+	orgID := "test-org-milestone-empty-001-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone with no issues
 	milestone := &milestones.Milestone{
-		ID:         "milestone-empty-001",
+		ID:         milestones.ID("milestone-empty-001-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Empty milestone",
 		State:      milestones.StateOpen,
