@@ -52,7 +52,7 @@ export function UserMenu({ onSignOut }: Props) {
           <Settings aria-hidden="true" />{t("userMenu.settings")}
         </Link>
         {handle && <Link className="user-menu-item" to={orgPath(handle, "settings")}>
-          <Building2 aria-hidden="true" />{t("userMenu.organizationSettings")}
+          <Building2 aria-hidden="true" />{t("userMenu.organization")}
         </Link>}
         {account && <>
           <hr />
