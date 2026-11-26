@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Code2, Copy, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
+import { Code2, Copy, Ellipsis, FileText, Folder, GitBranch, GitCommit, Link2, Tag, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { repositoryPreviewAPI, type OrganizationSummary, type RepositoryBlameLine, type RepositoryCommit, type RepositoryPreviewBlob, type RepositoryPreviewRefs, type RepositoryPreviewTree } from "../../shared/api/identity";
 import { notificationsAPI } from "../../shared/api/notifications";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { issueDetailPath, organizationHandle, repositorySettingsPath, webIDEPath } from "../../shared/routing";
-import { Button, Input, Select } from "../../shared/ui";
+import { issueDetailPath, organizationHandle, orgPath, repositorySettingsPath, webIDEPath } from "../../shared/routing";
+import { Button, Input, Popover, Select } from "../../shared/ui";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
+import { RepositoryFileTree } from "./RepositoryFileTree";
 import { RepositoryReadme } from "./RepositoryReadme";
+import { RepositoryRefPicker } from "./RepositoryRefPicker";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { formatRepositoryFileSize } from "./repositoryFileUtils";
 import "./repositories.css";
@@ -36,6 +38,7 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   const isHistory = search.get("view") === "commits" || Boolean(change);
   const file = search.get("path") || "";
   const directory = search.get("dir") || (file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "");
+  const isFilePreview = Boolean(file) && !isHistory;
   const refName = snapshot || selectedRef;
   const handle = organizationHandle(organization);
   const author = search.get("author") || "";
@@ -104,20 +107,17 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
   const refValue = (ref: RepositoryPreviewRefs["items"][number]) => `refs/${ref.kind === "branch" ? "heads" : "tags"}/${ref.name}`;
   const currentRef = refs?.items.find(ref => refValue(ref) === selectedRef)
     ?? refs?.items.find(ref => ref.name === (selectedRef || refs.default_branch));
-  const referencePicker = <div className="repo-reference">
-    {refs && refs.items.length > 0 && <Select aria-label={t("repositories:preview.refAriaLabel")} value={currentRef ? refValue(currentRef) : ""}
-      onChange={event => setSearch(makeQuery({ ref: event.target.value, commit: "", view: isHistory ? "commits" : "" }).slice(1))}
-      options={refs.items.map(ref => ({ value: refValue(ref), label: ref.kind === "branch" ? t("repositories:preview.branchOption", { name: ref.name }) : t("repositories:preview.tagOption", { name: ref.name }) }))}/>}
-    {snapshot && <span className="repo-meta" title={snapshot}>{t("repositories:preview.pinnedCommit", { commit: snapshot.slice(0, 12) })}</span>}
-  </div>;
-  return <section className="repo-layout repo-browser" aria-label={t("repositories:preview.ariaLabel")}>
-    <div className="repo-code-actions">
-      <Button variant="secondary" loading={watchPending} disabled={watchPending} onClick={() => void toggleWatch()}>
-        {watching === undefined && watchError ? t("browser.retryWatch") : watching ? t("browser.unwatch") : t("browser.watch")}
-      </Button>
+  const refPicker = refs && refs.items.length > 0 && <RepositoryRefPicker refs={refs} selected={currentRef}
+    onSelect={ref => setSearch(makeQuery({ ref: refValue(ref), commit: "", path: isFilePreview ? file : "", view: isHistory ? "commits" : "" }).slice(1))}/>;
+  const refDetails = snapshot && <span className="repo-meta" title={snapshot}>{t("repositories:preview.pinnedCommit", { commit: snapshot.slice(0, 12) })}</span>;
+  const referencePicker = <div className="repo-reference">{refPicker}{refDetails}</div>;
+  const watchLabel = watching === undefined && watchError ? t("browser.retryWatch") : watching ? t("browser.unwatch") : t("browser.watch");
+  return <section className={`repo-layout repo-browser${isFilePreview ? " repo-file-preview" : ""}`} aria-label={t("repositories:preview.ariaLabel")}>
+    {!isFilePreview && <div className="repo-code-actions">
+      <Button variant="secondary" loading={watchPending} disabled={watchPending} onClick={() => void toggleWatch()}>{watchLabel}</Button>
       <Button onClick={() => setCloneOpen(true)}>{t("clone.title")}</Button>
       <Link className="af-button af-button--secondary af-button--middle" to={webIDEPath(handle, { repository, commit: change || snapshot || currentRef?.sha, path: file })}>{t("repositories:page.openWebide")}</Link>
-    </div>
+    </div>}
     <RepositoryCloneDialog open={cloneOpen} onClose={() => setCloneOpen(false)} organization={organization} repository={repository} />
     {watchError && <p className="org-error" role="alert">{watchError}</p>}
     {refError && <p className="org-error" role="alert">{refError}</p>}
@@ -127,8 +127,21 @@ export function RepositoryBrowserPage({ organization, repository, onNotify }: Pr
       : isHistory ? <CommitHistory key={refName} {...browse} referencePicker={referencePicker} author={author} day={day}
         onFilter={(nextAuthor, nextDay) => setSearch(makeQuery({ view: "commits", author: nextAuthor, day: nextDay }).slice(1))}
         onCopy={copyPermalink} onCopySHA={sha => void copy(sha, t("repositories:browser.shaCopied"))}/>
-      : <CodeBrowser key={`${refName}:${directory}:${file}`} {...browse} refs={refs} referencePicker={referencePicker}
-        file={file} directory={directory} handle={handle} onCopy={copyPermalink}/>}
+      : <div className={file ? "repo-file-layout" : undefined}>
+        {file && <RepositoryFileTree key={refName} organizationID={organization.id} repository={repository} refName={refName}
+          selectedFile={file} fileHref={path => makeQuery({ path })} referencePicker={refPicker}
+          referenceDetails={snapshot ? <div className="repo-reference">{refDetails}</div> : undefined}
+          workspaceHref={`${orgPath(handle, "webide")}/${repository.split("/").map(encodeURIComponent).join("/")}`}/>}
+        <CodeBrowser key={`${refName}:${directory}:${file}`} {...browse} refs={refs} referencePicker={file ? null : referencePicker}
+          file={file} directory={directory} handle={handle} onCopy={copyPermalink} fileActions={file && <Popover
+            trigger={<><Ellipsis size={16} aria-hidden="true"/><span className="repo-file-extra-label">{t("common:components.additionalOptions")}</span></>}
+            triggerClassName="af-button repo-file-icon-button">
+            {dismiss => <div className="repo-file-extra-actions">
+              <Button variant="ghost" disabled={watchPending} loading={watchPending} onClick={() => { dismiss(); void toggleWatch(); }}>{watchLabel}</Button>
+              <Button variant="ghost" onClick={() => { dismiss(); setCloneOpen(true); }}>{t("clone.title")}</Button>
+            </div>}
+          </Popover>}/>
+      </div>}
   </section>;
 }
 
@@ -271,8 +284,9 @@ function CommitDetails({ organizationID, repository, makeQuery, handle, change, 
   </section>;
 }
 
-function CodeBrowser({ organizationID, repository, refName, makeQuery, directory, file, handle, onCopy, refs, referencePicker }: BrowseProps & {
+function CodeBrowser({ organizationID, repository, refName, makeQuery, directory, file, handle, onCopy, refs, referencePicker, fileActions }: BrowseProps & {
   refs?: RepositoryPreviewRefs; referencePicker: React.ReactNode; directory: string; file: string; handle: string; onCopy: (sha: string) => void;
+  fileActions: React.ReactNode;
 }) {
   const { t } = useTranslation("repositories");
   const { formatDateTime, formatRelativeTime } = useDateFormatting();
@@ -328,27 +342,38 @@ function CodeBrowser({ organizationID, repository, refName, makeQuery, directory
     return () => { active = false; };
   }, [organizationID, repository, tree?.commit_sha]);
 
-  return <div className={isRoot ? "repo-overview" : undefined}>
+  const breadcrumbs = !isRoot && <nav className="repo-breadcrumbs" aria-label={t("repositories:preview.pathAriaLabel")}>
+    <Link to={makeQuery({})}>{file ? repository.split("/").at(-1) : t("repositories:preview.root")}</Link>
+    {segments.map((segment, index) => <span key={index}>/ <Link to={makeQuery({ dir: segments.slice(0, index + 1).join("/") })}>{segment}</Link></span>)}
+    {file && <span>/ <strong>{file.split("/").at(-1)}</strong></span>}
+  </nav>;
+  const isMarkdown = !file || /\.(md|markdown)$/i.test(blob?.path ?? file);
+
+  return <div className={isRoot ? "repo-overview" : "repo-code-main"}>
     <div className="repo-code-main">
-      <div className="repo-toolbar repo-code-toolbar">
-        <div className="repo-toolbar">
-          {referencePicker}
-          {isRoot && refs && <span className="repo-ref-summary">
-            <Link to={repositorySettingsPath(handle, repository, "branches")}><GitBranch size={15} aria-hidden="true"/>{t("repositories:browser.branches", { count: refs.items.filter(ref => ref.kind === "branch").length })}</Link>
-            <Link to={repositorySettingsPath(handle, repository, "tags")}><Tag size={15} aria-hidden="true"/>{t("repositories:browser.tags", { count: refs.items.filter(ref => ref.kind === "tag").length })}</Link>
-          </span>}
+      {file ? <div className="repo-toolbar repo-file-pathbar">
+        {breadcrumbs}
+        <div className="repo-toolbar repo-file-actions">
+          {sha && <Button className="repo-file-icon-button" size="small" onClick={() => onCopy(sha)} aria-label={t("repositories:preview.copyPermalink")} title={t("repositories:preview.copyPermalink")}><Link2 size={16} aria-hidden="true"/></Button>}
+          {blob && <Link className="af-button af-button--secondary af-button--small" to={webIDEPath(handle, { repository, commit: sha, path: blob.path })}>{t("repositories:file.openInWebIDE")}</Link>}
+          {fileActions}
         </div>
-        {!file && <div className="repo-toolbar repo-file-controls">
-          <Input type="search" aria-label={t("repositories:browser.filterFiles")} placeholder={t("repositories:browser.filterFiles")} value={query} onChange={event => setQuery(event.target.value)}/>
-          <Select aria-label={t("repositories:browser.sortFiles")} value={sort} onChange={event => setSort(event.target.value)} options={[{ value: "name", label: t("repositories:browser.sortName") }, { value: "size", label: t("repositories:browser.sortSize") }]}/>
-        </div>}
-        {file && sha && <Button size="small" onClick={() => onCopy(sha)} aria-label={t("repositories:preview.copyPermalink")} title={t("repositories:preview.copyPermalink")}><Link2 size={15} aria-hidden="true"/></Button>}
-      </div>
-      {!isRoot && <nav className="repo-breadcrumbs" aria-label={t("repositories:preview.pathAriaLabel")}>
-        <Link to={makeQuery({})}>{t("repositories:preview.root")}</Link>
-        {segments.map((segment, index) => <span key={index}>/ <Link to={makeQuery({ dir: segments.slice(0, index + 1).join("/") })}>{segment}</Link></span>)}
-        {file && <span>/ <strong>{file.split("/").at(-1)}</strong></span>}
-      </nav>}
+      </div> : <>
+        <div className="repo-toolbar repo-code-toolbar">
+          <div className="repo-toolbar">
+            {referencePicker}
+            {isRoot && refs && <span className="repo-ref-summary">
+              <Link to={repositorySettingsPath(handle, repository, "branches")}><GitBranch size={15} aria-hidden="true"/>{t("repositories:browser.branches", { count: refs.items.filter(ref => ref.kind === "branch").length })}</Link>
+              <Link to={repositorySettingsPath(handle, repository, "tags")}><Tag size={15} aria-hidden="true"/>{t("repositories:browser.tags", { count: refs.items.filter(ref => ref.kind === "tag").length })}</Link>
+            </span>}
+          </div>
+          <div className="repo-toolbar repo-file-controls">
+            <Input type="search" aria-label={t("repositories:browser.filterFiles")} placeholder={t("repositories:browser.filterFiles")} value={query} onChange={event => setQuery(event.target.value)}/>
+            <Select aria-label={t("repositories:browser.sortFiles")} value={sort} onChange={event => setSort(event.target.value)} options={[{ value: "name", label: t("repositories:browser.sortName") }, { value: "size", label: t("repositories:browser.sortSize") }]}/>
+          </div>
+        </div>
+        {breadcrumbs}
+      </>}
     {error && <p className="org-error" role="alert">{error}</p>}
     {!tree && !blob && !error && <p className="repo-empty" role="status">{t("repositories:preview.loading")}</p>}
     {tree && <section className="repo-panel" aria-label={t("repositories:browser.files")}>
@@ -378,17 +403,14 @@ function CodeBrowser({ organizationID, repository, refName, makeQuery, directory
       </ul>
     </section>}
     {readmeError && <p className="repo-meta" role="status">{readmeError}</p>}
-    {blob && <section id={file ? undefined : "repository-readme"} className={file ? "repo-panel repo-file-content" : "repo-panel repo-file-content repo-readme"} aria-label={file || t("repositories:preview.readmeAriaLabel")}>
-      <header className="repo-panel-header"><h2>{file ? blob.path : "README"}</h2>
-        {file && <Link className="af-button af-button--secondary af-button--small" to={webIDEPath(handle, { repository, commit: sha, path: blob.path })}>{t("repositories:file.openInWebIDE")}</Link>}
-      </header>
+    {blob && <section id={file ? undefined : "repository-readme"} className={file ? "repo-file-content" : "repo-panel repo-file-content repo-readme"} aria-label={file || t("repositories:preview.readmeAriaLabel")}>
+      {!file && <header className="repo-panel-header"><h2>README</h2></header>}
       {file && <FileInspection organizationID={organizationID} repository={repository} blob={blob} makeQuery={makeQuery}/>}
-      <div className="repo-file-body">
-        {!file || /\.md$|\.markdown$/i.test(blob.path) ? <RepositoryReadme content={blob.content} sourcePath={blob.path}
+      {isMarkdown ? <div className={file ? "repo-panel repo-file-markdown" : "repo-file-body"}>
+        <RepositoryReadme content={blob.content} sourcePath={blob.path}
           onOpenPath={path => navigate(makeQuery({ path, commit: sha }))}
           onOpenImage={path => repositoryPreviewAPI.imageURL(organizationID, repository, path, sha)}/>
-          : <RepositorySourceViewer content={blob.content} path={blob.path}/>}
-      </div>
+      </div> : <RepositorySourceViewer content={blob.content} path={blob.path}/>}
     </section>}
     </div>
     {isRoot && <aside className="repo-about" aria-labelledby="repo-about-title">

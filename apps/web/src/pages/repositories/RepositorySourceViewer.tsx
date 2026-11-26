@@ -20,6 +20,13 @@ export function shouldHighlightRepositorySource(path: string, content: string): 
 }
 
 function tokenStyle(token: RepositorySyntaxResult["tokens"][number][number]): CSSProperties {
+  if (token.htmlStyle && typeof token.htmlStyle !== "string") {
+    return {
+      color: token.htmlStyle.color,
+      fontStyle: token.htmlStyle["--shiki-light-font-style"],
+      fontWeight: token.htmlStyle["--shiki-light-font-weight"],
+    };
+  }
   const style: CSSProperties = {};
   if (token.color) style.color = token.color;
   if (token.fontStyle !== undefined) {
@@ -31,7 +38,7 @@ function tokenStyle(token: RepositorySyntaxResult["tokens"][number][number]): CS
 
 function renderTokens(tokens: RepositorySyntaxResult["tokens"][number] | undefined) {
   if (!tokens?.length) return null;
-  return tokens.map((token, index) => token.color || token.fontStyle
+  return tokens.map((token, index) => token.htmlStyle || token.color || token.fontStyle
     ? <span key={index} className="repository-code__shiki-token" style={tokenStyle(token)}>{token.content}</span>
     : <span key={index}>{token.content}</span>);
 }
@@ -54,7 +61,7 @@ export function RepositorySourceViewer({ path, content, activeLine = 0 }: { path
     if (!highlight) return () => { current = false; };
 
     // Plain text is rendered immediately. Shiki and its grammar are loaded asynchronously.
-    void highlightRepositorySource(normalizedContent, detectCodeLanguage(path, firstLine)?.shiki ?? "")
+    void highlightRepositorySource(normalizedContent, detectCodeLanguage(path, firstLine)?.shiki ?? "", true)
       .then(result => { if (current) setSyntax(result); })
       .catch(() => { if (current) setHighlightFailed(true); });
     return () => { current = false; };

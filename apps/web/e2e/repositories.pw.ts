@@ -383,9 +383,247 @@ test("a commit-pinned file permalink opens directly", async ({ page }) => {
   await expect(copyPermalink).toHaveText("");
   await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to ref" })).toHaveCount(0);
-  await page.getByRole("combobox", { name: "Repository branch or tag" }).click();
-  await page.getByRole("option", { name: "Branch · main" }).click();
+  await page.getByRole("button", { name: "main", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Switch branch or tag" });
+  await picker.getByRole("button", { name: "main Default", exact: true }).click();
+  await expect(page).toHaveURL(/ref=refs%2Fheads%2Fmain&path=README\.md$/);
   await expect(page.getByText(/Pinned commit:/)).toHaveCount(0);
+});
+
+test("file preview shows a responsive tree for the pinned commit", async ({ page }, testInfo) => {
+  const repository = "easyhaloo/agentforge";
+  const commit = "a".repeat(40);
+  await page.route(`**/repositories/${repository}/watch`, route => route.fulfill({ json: { watching: false } }));
+  const entry = (path: string, kind: "tree" | "file") => ({
+    path, name: path.split("/").at(-1), kind, mode: kind === "tree" ? "040000" : "100644", sha: commit,
+  });
+  await page.route(/\/repositories\/easyhaloo\/agentforge\/tree\?/, route => {
+    const params = new URL(route.request().url()).searchParams;
+    expect(params.get("ref")).toBe(commit);
+    const path = params.get("path") ?? "";
+    const items = path === "src" ? [entry("src/index.html", "file")]
+      : [entry("src", "tree"), entry("README.md", "file")];
+    return route.fulfill({ json: { repository, commit_sha: params.get("ref"), path, items } });
+  });
+  await page.route(/\/repositories\/easyhaloo\/agentforge\/blob\?/, route => {
+    const params = new URL(route.request().url()).searchParams;
+    return route.fulfill({ json: { repository, commit_sha: params.get("ref"), blob_sha: commit,
+      path: params.get("path"), encoding: "utf-8", content: params.get("path") === "README.md" ? "# Hello\n" : "<!doctype html>\n<html lang=\"en\">\n  <title>AgentForge</title>\n</html>\n" } });
+  });
+  await page.route(/\/repositories\/easyhaloo\/agentforge\/(file-history|blame)\?/, route => {
+    const params = new URL(route.request().url()).searchParams;
+    expect(params.get("ref")).toBe(commit);
+    expect(params.get("path")).toBe("src/index.html");
+    return route.fulfill({ json: { items: [] } });
+  });
+
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/orgs/demo/repositories/${repository}?commit=${commit}&path=src%2Findex.html`);
+  const tree = page.getByRole("navigation", { name: "Repository file tree" });
+  const folder = tree.getByRole("button", { name: "src" });
+  const file = tree.getByRole("link", { name: "index.html" });
+  const rootFile = tree.getByRole("link", { name: "README.md" });
+  await expect(folder).toHaveAttribute("aria-expanded", "true");
+  await expect(file).toHaveAttribute("aria-current", "true");
+  await expect(tree.locator("../..")).toHaveCSS("width", "320px");
+  await expect(file).toHaveCSS("width", "288px");
+  await expect(file).toHaveCSS("height", "32px");
+  await expect(folder).toHaveCSS("height", "32px");
+  await expect(file).toHaveCSS("font-size", "14px");
+  await expect(file).toHaveCSS("font-weight", "400");
+  await expect(file.locator("svg")).toHaveCSS("width", "16px");
+  await expect(file).toHaveCSS("background-color", "rgba(129, 139, 152, 0.15)");
+  await expect(file.locator("svg")).toHaveCSS("color", "rgb(89, 99, 110)");
+  await expect(folder.locator("svg").first()).toHaveCSS("width", "12px");
+  const folderIcon = folder.locator(".file-tree-folder-icon");
+  await expect(folderIcon).toHaveCSS("fill", "rgb(84, 174, 255)");
+  const openFolderPath = await folderIcon.locator("path").getAttribute("d");
+  expect((await file.boundingBox())!.x).toBe((await rootFile.boundingBox())!.x);
+  expect((await file.locator("svg").boundingBox())!.x - (await rootFile.locator("svg").boundingBox())!.x).toBe(8);
+  await folder.hover();
+  await expect(folder).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  const preview = page.getByRole("region", { name: "src/index.html" });
+  const source = preview.locator(".repository-source");
+  const pathBar = page.getByRole("navigation", { name: "Repository path" }).locator("..");
+  const webIDE = pathBar.getByRole("link", { name: "Open in WebIDE" });
+  await expect(webIDE).toHaveAttribute("href", new RegExp(`commit=${commit}&path=src%2Findex\\.html$`));
+  const copyPermalink = pathBar.getByRole("button", { name: "Copy permalink" });
+  const moreActions = pathBar.getByRole("button", { name: "Additional options" });
+  await expect(copyPermalink).toHaveCSS("width", "32px");
+  for (const button of [copyPermalink, moreActions]) {
+    const icon = button.locator("svg");
+    await expect(icon).toHaveCSS("width", "16px");
+    await expect(icon).toHaveCSS("height", "16px");
+  }
+  await expect(source).toHaveAttribute("data-highlight-engine", "shiki");
+  const token = source.locator(".repository-code__shiki-token").first();
+  const lightTokenColor = await token.evaluate(element => getComputedStyle(element).color);
+  const railBounds = (await tree.locator("../..").boundingBox())!;
+  const sectionNavBounds = (await page.getByRole("navigation", { name: "Repository sections" }).boundingBox())!;
+  const pathBounds = (await pathBar.boundingBox())!;
+  const titleBounds = (await page.getByRole("heading", { name: "Files", exact: true }).boundingBox())!;
+  const sourceBounds = (await source.boundingBox())!;
+  expect(railBounds.x).toBe(0);
+  expect(railBounds.y).toBe(sectionNavBounds.y + sectionNavBounds.height);
+  expect(pathBounds.x - railBounds.width).toBe(16);
+  expect(1440 - (pathBounds.x + pathBounds.width)).toBe(16);
+  expect(pathBounds.y).toBe(titleBounds.y);
+  expect(pathBounds.height).toBe(32);
+  expect(sourceBounds.x).toBe(pathBounds.x);
+  expect(sourceBounds.y - pathBounds.y).toBeLessThanOrEqual(110);
+  await page.screenshot({ path: testInfo.outputPath("file-tree-desktop.png"), animations: "disabled" });
+  await folder.focus();
+  await page.keyboard.press("Enter");
+  await expect(file).toBeHidden();
+  await expect(folder).toHaveCSS("outline-style", "solid");
+  await expect(folderIcon.locator("path")).not.toHaveAttribute("d", openFolderPath!);
+  await page.keyboard.press("Enter");
+  await expect(file).toBeVisible();
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(token).not.toHaveCSS("color", lightTokenColor);
+  await expect(folderIcon).toHaveCSS("fill", "rgb(145, 152, 161)");
+  await expect(file).toHaveCSS("background-color", "rgba(101, 108, 118, 0.2)");
+  await page.setViewportSize({ width: 320, height: 844 });
+  const toggle = page.getByRole("button", { name: "Files", exact: true });
+  await expect(tree).toBeHidden();
+  await expect(toggle).toHaveCSS("height", "32px");
+  await expect(pathBar.getByRole("link", { name: "Open in WebIDE" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.screenshot({ path: testInfo.outputPath("file-preview-narrow.png"), animations: "disabled" });
+  for (const button of [copyPermalink, moreActions]) {
+    const icon = button.locator("svg");
+    await expect(icon).toHaveCSS("width", "16px");
+    await expect(icon).toHaveCSS("height", "16px");
+  }
+  await moreActions.click();
+  const options = page.getByRole("dialog", { name: "Additional options" });
+  await expect(options.getByRole("button", { name: "Watch Issues" })).toBeFocused();
+  await expect(options.getByRole("button", { name: "Clone" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.keyboard.press("Escape");
+  await expect(options).toBeHidden();
+  await expect(moreActions).toBeFocused();
+  await toggle.click();
+  await expect(file).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.screenshot({ path: testInfo.outputPath("file-tree-narrow.png"), animations: "disabled" });
+  await preview.getByRole("button", { name: "File history" }).click();
+  await expect(preview.getByRole("region", { name: "File history" })).toBeVisible();
+  await preview.getByRole("button", { name: "Blame" }).click();
+  await expect(preview.getByRole("region", { name: "File blame" })).toBeVisible();
+  await rootFile.click();
+  await expect(page).toHaveURL(new RegExp(`commit=${commit}&path=README\\.md$`));
+  await expect(rootFile).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
+});
+
+test("the file reference picker searches branches and tags while retaining the file path", async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/orgs/demo/repositories/easyhaloo/agentforge?path=README.md");
+
+  const trigger = page.getByRole("button", { name: "main", exact: true });
+  const picker = page.getByRole("dialog", { name: "Switch branch or tag" });
+  const search = picker.getByRole("searchbox", { name: "Search branches and tags" });
+  await trigger.press("Enter");
+  await expect(search).toBeFocused();
+  await expect(picker.getByRole("button", { name: "main Default" })).toHaveAttribute("aria-current", "true");
+  await page.screenshot({ path: testInfo.outputPath("reference-picker-desktop.png"), animations: "disabled" });
+  await search.fill("missing");
+  await expect(picker.getByRole("status")).toHaveText("No matching branches or tags.");
+  await search.press("Escape");
+  await expect(picker).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.press("Enter");
+  await expect(search).toHaveValue("");
+  await search.fill("RELE");
+  await expect(picker.getByRole("button", { name: "main Default" })).toBeHidden();
+  await picker.getByRole("button", { name: "release", exact: true }).click();
+  await expect(page).toHaveURL(/ref=refs%2Fheads%2Frelease&path=README\.md$/);
+  await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await page.getByRole("button", { name: "release", exact: true }).click();
+  const branches = picker.getByRole("tab", { name: "Branches" });
+  const tags = picker.getByRole("tab", { name: "Tags" });
+  await branches.press("ArrowRight");
+  await expect(tags).toBeFocused();
+  await expect(tags).toHaveAttribute("aria-selected", "true");
+  await search.fill("0.1");
+  await expect(picker.getByRole("button", { name: "v0.1.0", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.screenshot({ path: testInfo.outputPath("reference-picker-narrow.png"), animations: "disabled" });
+  await picker.getByRole("button", { name: "v0.1.0", exact: true }).click();
+  await expect(page).toHaveURL(/ref=refs%2Ftags%2Fv0\.1\.0&path=README\.md$/);
+  const files = page.getByRole("button", { name: "Files", exact: true });
+  await expect(files).toHaveAttribute("aria-expanded", "false");
+  await files.click();
+  await expect(page.getByRole("button", { name: "v0.1.0", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
+});
+
+test("file toolbar aligns the reference, create and folder search controls", async ({ page }) => {
+  const repository = "easyhaloo/agentforge";
+  const commit = "a".repeat(40);
+  const path = `/orgs/demo/repositories/${repository}`;
+  await page.route(`**/repositories/${repository}/tree?*`, route => {
+    const folder = new URL(route.request().url()).searchParams.get("path") ?? "";
+    const items = folder === "docs"
+      ? ["README.md", "guide.md"].map(name => ({ name, path: `docs/${name}`, kind: "file", sha: commit }))
+      : [{ name: "docs", path: "docs", kind: "tree", sha: commit }];
+    return route.fulfill({ json: { repository, commit_sha: commit, path: folder, items } });
+  });
+  await page.route(`**/repositories/${repository}/blob?*`, route => route.fulfill({ json: {
+    repository, commit_sha: commit, blob_sha: commit, encoding: "utf-8",
+    path: new URL(route.request().url()).searchParams.get("path"), content: "# Folder guide\n",
+  } }));
+  const fileURL = `${path}?commit=${commit}&path=docs%2FREADME.md`;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(fileURL);
+
+  const branch = page.getByRole("button", { name: "main", exact: true });
+  const create = page.getByRole("button", { name: "Create", exact: true });
+  const searchTrigger = page.getByRole("button", { name: "Search this folder", exact: true });
+  await expect(branch).toHaveCSS("font-size", "14px");
+  await expect(branch).toHaveCSS("height", "32px");
+  for (const action of [create, searchTrigger]) {
+    await expect(action).toHaveCSS("height", "32px");
+    await expect(action).toHaveCSS("width", "32px");
+    await expect(action.locator("svg")).toHaveCSS("width", "16px");
+    expect((await action.boundingBox())?.y).toBe((await branch.boundingBox())?.y);
+  }
+  await create.press("Enter");
+  const workspace = page.getByRole("link", { name: "New workspace" });
+  await expect(workspace).toBeFocused();
+  await expect(workspace).toHaveAttribute("href", `/orgs/demo/webide/${repository}`);
+  await workspace.press("Escape");
+  await expect(create).toBeFocused();
+  await create.click();
+  await workspace.click();
+  await expect(page.getByRole("heading", { name: "Workspace WebIDE" })).toBeVisible();
+
+  await page.goto(fileURL);
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await searchTrigger.press("Enter");
+  const searchPanel = page.getByRole("dialog", { name: "Search this folder" });
+  const search = searchPanel.getByRole("searchbox");
+  await expect(search).toBeFocused();
+  await expect(search).toHaveCSS("font-size", "14px");
+  await search.fill("missing");
+  await expect(searchPanel.getByRole("status")).toHaveText("No files match “missing”.");
+  await search.fill("GUI");
+  await expect(searchPanel.getByRole("link")).toHaveCount(1);
+  const box = await searchPanel.boundingBox();
+  expect(box && box.x >= 0 && box.x + box.width <= 320).toBe(true);
+  await searchPanel.getByRole("link", { name: "guide.md" }).click();
+  await expect(searchPanel).toBeHidden();
+  await expect(page).toHaveURL(`${path}?commit=${commit}&path=docs%2Fguide.md`);
+  await expect(page.getByRole("heading", { name: "Folder guide" })).toBeVisible();
 });
 
 test("WebIDE guides an empty organization to its own repositories", async ({ page }) => {

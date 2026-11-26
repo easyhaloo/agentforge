@@ -1,4 +1,6 @@
-GitHub Octicons (triangle-circle-16, check-circle-fill-16, x-circle-fill-16)
+GitHub Octicons (triangle-circle-16, check-circle-fill-16, x-circle-fill-16,
+chevron-right-12, chevron-down-12, file-directory-fill-16,
+file-directory-open-fill-16, file-16)
 https://github.com/primer/octicons
 
 MIT License
