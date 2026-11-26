@@ -33,7 +33,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 	commentRepo := NewCommentRepository(store)
 	reactionRepo := NewReactionRepository(store)
 
-	orgID := "test-org-006"
+	orgID := "test-org-006-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/reaction-test"
@@ -41,7 +41,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 
 	// Create a test issue
 	issue := &issues.Issue{
-		ID:         "issue-reaction-001",
+		ID:         issues.ID("issue-reaction-001-" + newTestSuffix()),
 		Repository: repo1,
 		Title:      "Issue with reactions",
 		Body:       "Testing reactions",
@@ -58,7 +58,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 
 	// Create a comment
 	comment := &comments.Comment{
-		ID:           "comment-reaction-001",
+		ID:           comments.ID("comment-reaction-001-" + newTestSuffix()),
 		ResourceType: comments.ResourceTypeIssue,
 		ResourceID:   comments.ID(createdIssue.ID),
 		Body:         "A comment to react to",
@@ -74,7 +74,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 
 	// Test 1: Add a +1 reaction to the comment
 	reaction1 := &reactions.Reaction{
-		ID:            "reaction-001",
+		ID:            reactions.ID("reaction-001-" + newTestSuffix()),
 		ReactableType: reactions.ReactableTypeComment,
 		ReactableID:   reactions.ID(createdComment.ID),
 		UserID:        "user-003",
@@ -107,7 +107,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 
 	// Test 3: Same user adds a different reaction (heart)
 	reaction2 := &reactions.Reaction{
-		ID:            "reaction-002",
+		ID:            reactions.ID("reaction-002-" + newTestSuffix()),
 		ReactableType: reactions.ReactableTypeComment,
 		ReactableID:   reactions.ID(createdComment.ID),
 		UserID:        "user-003",
@@ -132,7 +132,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 
 	// Test 4: Try to add duplicate reaction (same user, same emoji) - should fail
 	reactionDup := &reactions.Reaction{
-		ID:            "reaction-003",
+		ID:            reactions.ID("reaction-003-" + newTestSuffix()),
 		ReactableType: reactions.ReactableTypeComment,
 		ReactableID:   reactions.ID(createdComment.ID),
 		UserID:        "user-003",
@@ -147,7 +147,7 @@ func TestReactionRepository_AddToComment(t *testing.T) {
 
 	// Test 5: Different user adds +1 - should succeed
 	reaction3 := &reactions.Reaction{
-		ID:            "reaction-004",
+		ID:            reactions.ID("reaction-004-" + newTestSuffix()),
 		ReactableType: reactions.ReactableTypeComment,
 		ReactableID:   reactions.ID(createdComment.ID),
 		UserID:        "user-004", // Different user
@@ -234,7 +234,7 @@ func TestReactionRepository_AddToIssue(t *testing.T) {
 	issueRepo := NewIssueRepository(store)
 	reactionRepo := NewReactionRepository(store)
 
-	orgID := "test-org-007"
+	orgID := "test-org-007-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/issue-reaction-test"
@@ -242,7 +242,7 @@ func TestReactionRepository_AddToIssue(t *testing.T) {
 
 	// Create a test issue
 	issue := &issues.Issue{
-		ID:         "issue-reaction-002",
+		ID:         issues.ID("issue-reaction-002-" + newTestSuffix()),
 		Repository: repo1,
 		Title:      "Issue to react to",
 		Body:       "Testing reactions on issues",
@@ -259,7 +259,7 @@ func TestReactionRepository_AddToIssue(t *testing.T) {
 
 	// Add a reaction to the issue
 	reaction := &reactions.Reaction{
-		ID:            "reaction-issue-001",
+		ID:            reactions.ID("reaction-issue-001-" + newTestSuffix()),
 		ReactableType: reactions.ReactableTypeIssue,
 		ReactableID:   reactions.ID(createdIssue.ID),
 		UserID:        "user-005",

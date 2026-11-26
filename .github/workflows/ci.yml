@@ -42,6 +42,60 @@ jobs:
             contracts:
               - 'contracts/openapi/**'
 
+  # Many postgres-package tests connect to DATABASE_URL directly and leave
+  # fixtures behind. Developers share one long-lived database, so a test that
+  # only passes on a fresh database passes CI and breaks locally (or the
+  # reverse). This job runs the same suite against a deliberately dirtied
+  # database to surface that class of failure before merge.
+  api-dirty-db:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: agentforge
+          POSTGRES_PASSWORD: agentforge
+          POSTGRES_DB: agentforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentforge -d agentforge_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://agentforge:agentforge@localhost:5432/agentforge_test?sslmode=disable
+    defaults:
+      run:
+        working-directory: backend/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: backend/api/go.mod
+      - run: go mod tidy
+      - name: Seed the database with leftover fixtures (run the suite twice against one database)
+        run: |
+          go test -count=1 ./internal/platform/postgres/ > /dev/null 2>&1 || true
+          go test -count=1 ./internal/platform/postgres/ > /dev/null 2>&1 || true
+      - name: Install MinIO test server
+        working-directory: ${{ runner.temp }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release=RELEASE.2025-09-07T16-13-09Z
+          gh release download "$release" --repo minio/minio --pattern "minio.linux-amd64.$release" --output minio
+          echo "7c5bd8512c6e966455b1d198209358b2d191c77a83ab377c4073281065fb855f  minio" | sha256sum --check
+          chmod +x minio
+      - name: Run the full backend suite against the dirtied database
+        run: go test -count=1 ./...
+        env:
+          TEST_MINIO_BINARY: ${{ runner.temp }}/minio
+
   web:
     needs: changes
     if: needs.changes.outputs.web == 'true'

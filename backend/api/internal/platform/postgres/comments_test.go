@@ -30,7 +30,7 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 	issueRepo := NewIssueRepository(store)
 	commentRepo := NewCommentRepository(store)
 
-	orgID := "test-org-005"
+	orgID := "test-org-005-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/comment-test"
@@ -38,7 +38,7 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 	// Create a test issue first
 	now := time.Now().UTC()
 	issue := &issues.Issue{
-		ID:         "issue-comment-001",
+		ID:         issues.ID("issue-comment-001-" + newTestSuffix()),
 		Repository: repo1,
 		Title:      "Issue with comments",
 		Body:       "This issue will have comments",
@@ -55,7 +55,7 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 
 	// Test 1: Create comment on issue
 	comment := &comments.Comment{
-		ID:           "comment-001",
+		ID:           comments.ID("comment-001-" + newTestSuffix()),
 		ResourceType: comments.ResourceTypeIssue,
 		ResourceID:   comments.ID(createdIssue.ID),
 		Body:         "This is the first comment",
@@ -99,7 +99,7 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 
 	// Test 4: Create second comment
 	comment2 := &comments.Comment{
-		ID:           "comment-002",
+		ID:           comments.ID("comment-002-" + newTestSuffix()),
 		ResourceType: comments.ResourceTypeIssue,
 		ResourceID:   comments.ID(createdIssue.ID),
 		Body:         "This is the second comment",
@@ -124,11 +124,11 @@ func TestCommentRepository_CreateOnIssue(t *testing.T) {
 	}
 
 	// Comments should be ordered by created_at ASC (chronological)
-	if commentsList[0].ID != "comment-001" {
-		t.Errorf("expected first comment to be comment-001, got %s", commentsList[0].ID)
+	if commentsList[0].ID != comment.ID {
+		t.Errorf("expected first comment to be the first created, got %s", commentsList[0].ID)
 	}
 
-	if commentsList[1].ID != "comment-002" {
-		t.Errorf("expected second comment to be comment-002, got %s", commentsList[1].ID)
+	if commentsList[1].ID != comment2.ID {
+		t.Errorf("expected second comment to be the second created, got %s", commentsList[1].ID)
 	}
 }

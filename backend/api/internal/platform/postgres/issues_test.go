@@ -32,7 +32,7 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 	// Create IssueRepository (this doesn't exist yet - will fail to compile)
 	repo := NewIssueRepository(store)
 
-	orgID := "test-org-001"
+	orgID := "test-org-001-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repoA := "owner/repo-a"
@@ -40,7 +40,7 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 
 	// Test 1: First issue in repo-a should be #1
 	issue1 := &issues.Issue{
-		ID:         "issue-001",
+		ID:         issues.ID("issue-001-" + newTestSuffix()),
 		Repository: repoA,
 		Title:      "First issue",
 		Body:       "This is the first issue",
@@ -59,7 +59,7 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 
 	// Test 2: Second issue in repo-a should be #2
 	issue2 := &issues.Issue{
-		ID:         "issue-002",
+		ID:         issues.ID("issue-002-" + newTestSuffix()),
 		Repository: repoA,
 		Title:      "Second issue",
 		Body:       "This is the second issue",
@@ -78,7 +78,7 @@ func TestIssueRepository_CreateAssignsSequentialNumbers(t *testing.T) {
 
 	// Test 3: First issue in repo-b should be #1 (independent numbering)
 	issue3 := &issues.Issue{
-		ID:         "issue-003",
+		ID:         issues.ID("issue-003-" + newTestSuffix()),
 		Repository: repoB,
 		Title:      "First issue in repo B",
 		Body:       "Different repository",
@@ -126,13 +126,13 @@ func TestIssueRepository_LockAndUnlock(t *testing.T) {
 	defer store.Close()
 
 	repo := NewIssueRepository(store)
-	orgID := "test-org-lock"
+	orgID := "test-org-lock-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a test issue
 	issue := &issues.Issue{
-		ID:         "issue-lock-test",
+		ID:         issues.ID("issue-lock-test-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Test locking",
 		Body:       "This issue will be locked",

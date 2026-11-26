@@ -24,12 +24,12 @@ func TestLabelRepository_Create(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-001"
+	orgID := "test-org-labels-001-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/test-repo"
 
 	label := &labels.Label{
-		ID:          labels.ID("label-001"),
+		ID:          labels.ID("label-001-" + newTestSuffix()),
 		Repository:  repoName,
 		Name:        "bug",
 		Description: "Something isn't working",
@@ -69,7 +69,7 @@ func TestLabelRepository_CreateValidatesColor(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-002"
+	orgID := "test-org-labels-002-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	tests := []struct {
@@ -90,7 +90,7 @@ func TestLabelRepository_CreateValidatesColor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			label := &labels.Label{
-				ID:         labels.ID("label-color-" + tt.name),
+				ID:         labels.ID("label-color-" + newTestSuffix() + "-" + tt.name),
 				Repository: "owner/color-test",
 				Name:       "test-" + tt.name,
 				Color:      tt.color,
@@ -124,14 +124,14 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-003"
+	orgID := "test-org-labels-003-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoA := "owner/repo-a"
 	repoB := "owner/repo-b"
 
 	// Create label in repo A
 	label1 := &labels.Label{
-		ID:         labels.ID("label-unique-001"),
+		ID:         labels.ID("label-unique-001-" + newTestSuffix()),
 		Repository: repoA,
 		Name:       "bug",
 		Color:      "d73a4a",
@@ -145,7 +145,7 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 
 	// Attempt to create same name in repo A - should fail
 	label2 := &labels.Label{
-		ID:         labels.ID("label-unique-002"),
+		ID:         labels.ID("label-unique-002-" + newTestSuffix()),
 		Repository: repoA,
 		Name:       "bug",
 		Color:      "ff0000",
@@ -159,7 +159,7 @@ func TestLabelRepository_CreateEnforcesUniqueNamePerRepo(t *testing.T) {
 
 	// Create same name in repo B - should succeed
 	label3 := &labels.Label{
-		ID:         labels.ID("label-unique-003"),
+		ID:         labels.ID("label-unique-003-" + newTestSuffix()),
 		Repository: repoB,
 		Name:       "bug",
 		Color:      "d73a4a",
@@ -187,11 +187,11 @@ func TestLabelRepository_Get(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-004"
+	orgID := "test-org-labels-004-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	label := &labels.Label{
-		ID:          labels.ID("label-get-001"),
+		ID:          labels.ID("label-get-001-" + newTestSuffix()),
 		Repository:  "owner/get-test",
 		Name:        "enhancement",
 		Description: "New feature or request",
@@ -239,15 +239,15 @@ func TestLabelRepository_List(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-005"
+	orgID := "test-org-labels-005-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	repoName := "owner/list-test"
 
 	// Create multiple labels
 	testLabels := []labels.Label{
-		{ID: labels.ID("label-list-001"), Repository: repoName, Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: labels.ID("label-list-002"), Repository: repoName, Name: "enhancement", Color: "a2eeef", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: labels.ID("label-list-003"), Repository: repoName, Name: "documentation", Color: "0075ca", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-list-001-" + newTestSuffix()), Repository: repoName, Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-list-002-" + newTestSuffix()), Repository: repoName, Name: "enhancement", Color: "a2eeef", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-list-003-" + newTestSuffix()), Repository: repoName, Name: "documentation", Color: "0075ca", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
 	}
 
 	for _, label := range testLabels {
@@ -285,11 +285,11 @@ func TestLabelRepository_Update(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-006"
+	orgID := "test-org-labels-006-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	label := &labels.Label{
-		ID:          labels.ID("label-update-001"),
+		ID:          labels.ID("label-update-001-" + newTestSuffix()),
 		Repository:  "owner/update-test",
 		Name:        "bug",
 		Description: "Old description",
@@ -340,11 +340,11 @@ func TestLabelRepository_Delete(t *testing.T) {
 	defer store.Close()
 
 	repo := NewLabelRepository(store)
-	orgID := "test-org-labels-007"
+	orgID := "test-org-labels-007-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	label := &labels.Label{
-		ID:         labels.ID("label-delete-001"),
+		ID:         labels.ID("label-delete-001-" + newTestSuffix()),
 		Repository: "owner/delete-test",
 		Name:       "wontfix",
 		Color:      "ffffff",
@@ -384,9 +384,9 @@ func TestLabelRepository_AddLabelToIssue(t *testing.T) {
 	defer store.Close()
 
 	labelRepo := NewLabelRepository(store)
-	orgID := "test-org-labels-008"
+	orgID := "test-org-labels-008-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
-	issueID := "issue-label-001"
+	issueID := "issue-label-001-" + newTestSuffix()
 
 	// Create test issue (required by foreign key constraint)
 	_, err = store.pool.Exec(ctx, `
@@ -398,7 +398,7 @@ func TestLabelRepository_AddLabelToIssue(t *testing.T) {
 	}
 
 	label := &labels.Label{
-		ID:         labels.ID("label-assoc-001"),
+		ID:         labels.ID("label-assoc-001-" + newTestSuffix()),
 		Repository: "owner/assoc-test",
 		Name:       "bug",
 		Color:      "d73a4a",
@@ -446,9 +446,9 @@ func TestLabelRepository_AddMultipleLabelsToIssue(t *testing.T) {
 	defer store.Close()
 
 	labelRepo := NewLabelRepository(store)
-	orgID := "test-org-labels-009"
+	orgID := "test-org-labels-009-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
-	issueID := "issue-multi-label-001"
+	issueID := "issue-multi-label-001-" + newTestSuffix()
 
 	// Create test issue (required by foreign key constraint)
 	_, err = store.pool.Exec(ctx, `
@@ -461,9 +461,9 @@ func TestLabelRepository_AddMultipleLabelsToIssue(t *testing.T) {
 
 	// Create multiple labels
 	testLabels := []labels.Label{
-		{ID: labels.ID("label-multi-001"), Repository: "owner/multi-test", Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: labels.ID("label-multi-002"), Repository: "owner/multi-test", Name: "priority-high", Color: "ff0000", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		{ID: labels.ID("label-multi-003"), Repository: "owner/multi-test", Name: "good-first-issue", Color: "7057ff", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-multi-001-" + newTestSuffix()), Repository: "owner/multi-test", Name: "bug", Color: "d73a4a", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-multi-002-" + newTestSuffix()), Repository: "owner/multi-test", Name: "priority-high", Color: "ff0000", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		{ID: labels.ID("label-multi-003-" + newTestSuffix()), Repository: "owner/multi-test", Name: "good-first-issue", Color: "7057ff", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
 	}
 
 	for _, label := range testLabels {
@@ -505,9 +505,9 @@ func TestLabelRepository_RemoveLabelFromIssue(t *testing.T) {
 	defer store.Close()
 
 	labelRepo := NewLabelRepository(store)
-	orgID := "test-org-labels-010"
+	orgID := "test-org-labels-010-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
-	issueID := "issue-remove-label-001"
+	issueID := "issue-remove-label-001-" + newTestSuffix()
 
 	// Create test issue (required by foreign key constraint)
 	_, err = store.pool.Exec(ctx, `
@@ -519,7 +519,7 @@ func TestLabelRepository_RemoveLabelFromIssue(t *testing.T) {
 	}
 
 	label := &labels.Label{
-		ID:         labels.ID("label-remove-001"),
+		ID:         labels.ID("label-remove-001-" + newTestSuffix()),
 		Repository: "owner/remove-test",
 		Name:       "bug",
 		Color:      "d73a4a",

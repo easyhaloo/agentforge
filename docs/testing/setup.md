@@ -34,6 +34,20 @@ cd backend/api
 go test ./...
 ```
 
+> **The `agentforge_test` database is shared and dirty.** Many tests connect to
+> it directly and leave their fixtures behind (fixed ids, retired slugs, short
+> slugs). A dirty database can fail tests that pass on a fresh one — the
+> failure messages point at fixture conflicts, not at the code under test.
+> Reset it with:
+>
+> ```bash
+> docker-compose -f docker-compose.test.yml down -v && docker-compose -f docker-compose.test.yml up -d
+> ```
+>
+> When a test keeps failing only locally, reset the database before debugging
+> the code. New tests should use per-run unique ids (see the lifecycle tests in
+> `organization_lifecycle_test.go`).
+
 ### Run the task and object-storage integration tests
 
 The PostgreSQL user needs `CREATEDB` because the task tests create and remove a scratch database per test. Set `TEST_MINIO_BINARY` to the absolute path of a MinIO server executable. The test starts and stops its own local MinIO instance.

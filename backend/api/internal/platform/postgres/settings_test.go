@@ -25,7 +25,7 @@ func TestUserPreferences(t *testing.T) {
 	defer store.Close()
 
 	// Create a test user
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "prefs@example.com", "password123", "Prefs User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "prefs-"+newTestSuffix()+"@example.test", "password123", "Prefs User")
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestNotificationPreferences(t *testing.T) {
 	defer store.Close()
 
 	// Create a test user
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "notifs@example.com", "password123", "Notifs User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "notifs-"+newTestSuffix()+"@example.test", "password123", "Notifs User")
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestAgentPreferences(t *testing.T) {
 	defer store.Close()
 
 	// Create a test user
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "agent@example.com", "password123", "Agent User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "agent-"+newTestSuffix()+"@example.test", "password123", "Agent User")
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestSessionsManagement(t *testing.T) {
 	defer store.Close()
 
 	// Create a test user
-	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "sessions@example.com", "password123", "Sessions User")
+	userID, _, err := store.CreateOrUpdateLocalUser(ctx, "sessions-"+newTestSuffix()+"@example.test", "password123", "Sessions User")
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}

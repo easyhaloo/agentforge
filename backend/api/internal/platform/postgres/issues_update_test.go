@@ -28,7 +28,7 @@ func TestIssueRepository_Update(t *testing.T) {
 
 	repo := NewIssueRepository(store)
 
-	orgID := "test-org-003"
+	orgID := "test-org-003-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/update-test"
@@ -36,7 +36,7 @@ func TestIssueRepository_Update(t *testing.T) {
 	// Create test issue
 	now := time.Now().UTC()
 	issue := &issues.Issue{
-		ID:         "issue-update-001",
+		ID:         issues.ID("issue-update-001-" + newTestSuffix()),
 		Repository: repo1,
 		Title:      "Original Title",
 		Body:       "Original body text",

@@ -28,7 +28,7 @@ func TestIssueRepository_Close(t *testing.T) {
 
 	repo := NewIssueRepository(store)
 
-	orgID := "test-org-004"
+	orgID := "test-org-004-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repo1 := "owner/close-test"
@@ -36,7 +36,7 @@ func TestIssueRepository_Close(t *testing.T) {
 	// Create test issue
 	now := time.Now().UTC()
 	issue := &issues.Issue{
-		ID:         "issue-close-001",
+		ID:         issues.ID("issue-close-001-" + newTestSuffix()),
 		Repository: repo1,
 		Title:      "Issue to close",
 		Body:       "This will be closed",
@@ -94,7 +94,7 @@ func TestIssueRepository_Close(t *testing.T) {
 
 	// Test 3: Close another issue with 'not_planned' reason
 	issue2 := &issues.Issue{
-		ID:         "issue-close-002",
+		ID:         issues.ID("issue-close-002-" + newTestSuffix()),
 		Repository: repo1,
 		Title:      "Won't fix",
 		Body:       "This will be closed as not planned",

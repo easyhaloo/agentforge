@@ -31,7 +31,7 @@ func TestMilestoneRepository_CreateAndGet(t *testing.T) {
 	// Create MilestoneRepository (doesn't exist yet - will fail to compile)
 	repo := NewMilestoneRepository(store)
 
-	orgID := "test-org-milestone-001"
+	orgID := "test-org-milestone-001-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
@@ -39,7 +39,7 @@ func TestMilestoneRepository_CreateAndGet(t *testing.T) {
 
 	// Test: Create a milestone
 	milestone := &milestones.Milestone{
-		ID:          "milestone-001",
+		ID:          milestones.ID("milestone-001-" + newTestSuffix()),
 		Repository:  repository,
 		Title:       "Version 1.0",
 		Description: "First major release",
@@ -114,21 +114,21 @@ func TestMilestoneRepository_List(t *testing.T) {
 
 	repo := NewMilestoneRepository(store)
 
-	orgID := "test-org-milestone-002"
+	orgID := "test-org-milestone-002-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create two open milestones
 	m1 := &milestones.Milestone{
-		ID:         "milestone-open-1",
+		ID:         milestones.ID("milestone-open-1-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Sprint 1",
 		State:      milestones.StateOpen,
 	}
 
 	m2 := &milestones.Milestone{
-		ID:         "milestone-open-2",
+		ID:         milestones.ID("milestone-open-2-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "Sprint 2",
 		State:      milestones.StateOpen,
@@ -202,14 +202,14 @@ func TestMilestoneRepository_Update(t *testing.T) {
 
 	repo := NewMilestoneRepository(store)
 
-	orgID := "test-org-milestone-003"
+	orgID := "test-org-milestone-003-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
 	original := &milestones.Milestone{
-		ID:          "milestone-update-001",
+		ID:          milestones.ID("milestone-update-001-" + newTestSuffix()),
 		Repository:  repository,
 		Title:       "Original Title",
 		Description: "Original description",
@@ -279,14 +279,14 @@ func TestMilestoneRepository_Delete(t *testing.T) {
 
 	repo := NewMilestoneRepository(store)
 
-	orgID := "test-org-milestone-004"
+	orgID := "test-org-milestone-004-" + newTestSuffix()
 
 	ensureIssueTestFixtures(t, store, orgID)
 	repository := "owner/test-repo"
 
 	// Create a milestone
 	milestone := &milestones.Milestone{
-		ID:         "milestone-delete-001",
+		ID:         milestones.ID("milestone-delete-001-" + newTestSuffix()),
 		Repository: repository,
 		Title:      "To be deleted",
 		State:      milestones.StateOpen,

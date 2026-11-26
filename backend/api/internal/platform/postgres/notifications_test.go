@@ -24,10 +24,10 @@ func TestNotificationRepository_SubscribeAndList(t *testing.T) {
 	defer store.Close()
 
 	repo := NewNotificationRepository(store)
-	orgID := "test-org-notif"
+	orgID := "test-org-notif-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	userID := "user-001"
-	issueID := "issue-001"
+	issueID := "issue-001-" + newTestSuffix()
 
 	// Create test issue (required by foreign key constraint)
 	_, err = store.pool.Exec(ctx, `
@@ -89,7 +89,7 @@ func TestNotificationRepository_SubscribeAndList(t *testing.T) {
 		Repository:  "test-repo",
 		IssueNumber: 42,
 		IssueTitle:  "Test issue",
-		CommentID:   "comment-001",
+		CommentID:   "comment-001-" + newTestSuffix(),
 		ActorID:     "user-003",
 		Unread:      true,
 		CreatedAt:   time.Now().UTC().Add(-1 * time.Hour),
@@ -206,10 +206,10 @@ func TestNotificationRepository_Pagination(t *testing.T) {
 	defer store.Close()
 
 	repo := NewNotificationRepository(store)
-	orgID := "test-org-pagination"
+	orgID := "test-org-pagination-" + newTestSuffix()
 	ensureIssueTestFixtures(t, store, orgID)
 	userID := "user-page"
-	issueID := "issue-page"
+	issueID := "issue-page-" + newTestSuffix()
 
 	// Create test issue (required by foreign key constraint)
 	_, err = store.pool.Exec(ctx, `
