@@ -59,7 +59,7 @@ The frontend lives in `apps/web` with its own `package.json` and dependencies. T
 
 ### Git Hooks
 
-Git hooks are managed in `.husky/` and run automatically on commit and push. They are standalone shell scripts (no npm package dependency).
+Git hooks are managed in `.husky/` and run automatically on commit and push. They are standalone shell scripts (no npm package dependency). Hooks are activated automatically by `npm install` in `apps/web` (via the `prepare` script), or manually with `git config core.hooksPath .husky`.
 
 - **pre-commit**: Runs `cd apps/web && npm test` to ensure tests pass
 - **pre-push**: Comprehensive quality checks before pushing:
