@@ -29,7 +29,7 @@ func enableRequiredWorkflow(t *testing.T, s *Store, h *lockHTTP, rules []githttp
 	if err := s.ValidateRequiredWorkflows(ctx, org, rulesetTestRepo, rules); !errors.Is(err, githttp.ErrIneligibleRequiredWorkflow) {
 		t.Fatalf("workflow without a revision trigger was accepted: %v", err)
 	}
-	_, err = s.EnableWorkflowTrigger(ctx, org, "required-ci", h.userID, "changeset_revision", 1, 0)
+	_, err = s.EnableWorkflowTrigger(ctx, org, "required-ci", h.userID, "changeset_revision", "", 1, 0)
 	lockMust(t, err)
 	lockMust(t, s.ValidateRequiredWorkflows(ctx, org, rulesetTestRepo, rules))
 }

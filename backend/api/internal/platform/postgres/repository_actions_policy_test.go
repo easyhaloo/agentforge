@@ -49,9 +49,9 @@ func TestRepositoryActionsPolicy(t *testing.T) {
 	_, err = s.CreateRepositoryPipeline(ctx, org, "repo-ci", actor, repo, &def.Definition)
 	lockMust(t, err)
 	request("POST", workflow+"/publish", `{"revision":1}`, 200)
-	schedule, err := s.EnableWorkflowTrigger(ctx, org, "repo-ci", actor, "schedule", 1, 60)
+	schedule, err := s.EnableWorkflowTrigger(ctx, org, "repo-ci", actor, "schedule", "", 1, 60)
 	lockMust(t, err)
-	binding, err := s.EnableWorkflowTrigger(ctx, org, "repo-ci", actor, "changeset_revision", 1, 0)
+	binding, err := s.EnableWorkflowTrigger(ctx, org, "repo-ci", actor, "changeset_revision", "", 1, 0)
 	lockMust(t, err)
 	var prior execution.Run
 	lockMust(t, json.Unmarshal(request("POST", version+"/runs", `{}`, 201), &prior))

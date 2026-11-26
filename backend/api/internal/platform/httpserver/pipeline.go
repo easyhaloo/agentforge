@@ -179,17 +179,19 @@ func (d DeliveryDependencies) workflowTriggers(w http.ResponseWriter, r *http.Re
 			Kind         string `json:"kind"`
 			Version      int    `json:"version"`
 			EverySeconds int    `json:"everySeconds"`
+			TagPattern   string `json:"tagPattern"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
 		}
 		if body.Version < 1 || !((body.Kind == "schedule" && body.EverySeconds >= 60 && body.EverySeconds <= 86400*365) ||
-			(body.Kind == "changeset_revision" && body.EverySeconds == 0)) {
+			(body.Kind == "changeset_revision" && body.EverySeconds == 0) ||
+			(body.Kind == "tag" && body.EverySeconds == 0 && pipeline.ValidateTagPattern(body.TagPattern))) {
 			writeProblem(w, 400, "Invalid trigger", "Provide a published version and a supported trigger configuration")
 			return
 		}
 		var binding pipeline.TriggerBinding
-		binding, err = store.EnableWorkflowTrigger(ctx, org, id, user.UserID, body.Kind, body.Version, body.EverySeconds)
+		binding, err = store.EnableWorkflowTrigger(ctx, org, id, user.UserID, body.Kind, body.TagPattern, body.Version, body.EverySeconds)
 		if err == nil {
 			writeJSON(w, http.StatusCreated, binding)
 			return
