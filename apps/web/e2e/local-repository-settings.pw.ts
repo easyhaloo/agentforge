@@ -34,13 +34,13 @@ test("repository settings persist and update the native Git endpoint", async ({ 
   await page.goto(`${orgURL}/repositories/new`);
   await page.getByLabel("Repository name", { exact: true }).fill("settings-example");
   await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-  await page.getByRole("button", { name: "Create repository", exact: true }).click();
+  await page.getByRole("button", { name: "New repository", exact: true }).click();
   await expect(page).toHaveURL(repositoryURL);
   const repoNav = page.getByRole("navigation", { name: "Repository sections" });
   await expect(repoNav.getByRole("link", { name: "Branches", exact: true })).toHaveCount(0);
   await page.goto(`${repositoryURL}/issues/new`);
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Preserve this issue while disabled");
-  await page.getByRole("button", { name: "Create issue", exact: true }).click();
+  await page.getByRole("button", { name: "New issue", exact: true }).click();
   await expect(page).toHaveURL(`${repositoryURL}/issues/1`);
   await repoNav.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(page).toHaveURL(`${repositoryURL}/settings`);
@@ -259,7 +259,7 @@ test("repository settings persist and update the native Git endpoint", async ({ 
     await page.getByRole("checkbox", { name: "Include all branches" }).check();
     await page.getByLabel("Repository name", { exact: true }).fill("generated");
     await capture("template");
-    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await page.getByRole("button", { name: "New repository", exact: true }).click();
     await expect(page).toHaveURL(`${orgURL}/repositories/${org}/generated`);
     await page.goto(`${orgURL}/repositories/${org}/generated/settings/branches`);
     await expect(content.getByRole("link", { name: "main", exact: true })).toBeVisible();
@@ -458,10 +458,10 @@ test("repository settings persist and update the native Git endpoint", async ({ 
 
     await page.goto(`${repositoryURL}/actions`);
     await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
-    const workflowDialog = page.getByRole("dialog", { name: "Create pipeline" });
+    const workflowDialog = page.getByRole("dialog", { name: "New pipeline" });
     await workflowDialog.getByRole("radio", { name: "Check then approve" }).check();
     await workflowDialog.getByLabel("Workflow name").fill("branch-ci");
-    await workflowDialog.getByRole("button", { name: "Create", exact: true }).click();
+    await workflowDialog.getByRole("button", { name: "New", exact: true }).click();
     await page.getByRole("button", { name: "Publish version" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
     await page.getByRole("link", { name: "Back to Actions" }).click();

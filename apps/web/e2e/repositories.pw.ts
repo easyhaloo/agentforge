@@ -54,7 +54,7 @@ test("rejects number-only names and displays the workspace name for new reposito
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto(create);
   const name = page.getByRole("textbox", { name: "Repository name" });
-  const submit = page.getByRole("button", { name: "Create repository", exact: true });
+  const submit = page.getByRole("button", { name: "New repository", exact: true });
   await name.fill("12345678");
   await submit.click();
   await expect(page).toHaveURL(create);
@@ -222,7 +222,7 @@ test("a repository owner can switch spaces, keep configuration, and create", asy
   await page.goto(catalog);
   await page.getByRole("link", { name: "New repository", exact: true }).click();
   await expect(page).toHaveURL(newPage);
-  await expect(page.getByRole("heading", { name: "Create a new repository" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "New repository" })).toBeVisible();
   await page.getByRole("link", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(catalog);
 
@@ -230,7 +230,7 @@ test("a repository owner can switch spaces, keep configuration, and create", asy
   await expect(page).toHaveURL(`${newPage}?mode=register`);
   await expect(page.getByRole("heading", { name: "Register repository" })).toBeVisible();
   await expect(page.getByLabel("Default branch", { exact: true })).toHaveValue("main");
-  await page.getByRole("link", { name: "Create a new repository" }).click();
+  await page.getByRole("link", { name: "New repository" }).click();
   const general = page.getByRole("region", { name: "General" });
   const configuration = page.getByRole("region", { name: "Configuration" });
   const ownerTrigger = general.getByRole("button", { name: "AgentForge Demo", exact: true });
@@ -266,14 +266,14 @@ test("a repository owner can switch spaces, keep configuration, and create", asy
   }
   expect(rail.left + rail.width).toBeLessThan(rail.contentLeft);
   expect(rail.bottom).toBeCloseTo(rail.contentBottom, 0);
-  await expect(page.getByRole("heading", { name: "Create a new repository" })).toHaveCSS("font-size", "20px");
+  await expect(page.getByRole("heading", { name: "New repository" })).toHaveCSS("font-size", "20px");
   await expect(general.getByRole("heading", { name: "General", exact: true })).toHaveCSS("font-size", "16px");
   for (const control of [ownerTrigger, name]) {
     await expect(control).toHaveCSS("height", "32px");
     await expect(control).toHaveCSS("font-size", "14px");
   }
   await expect(general.locator(".repo-create-hint")).toHaveCSS("font-size", "12px");
-  const submit = page.getByRole("button", { name: "Create repository", exact: true });
+  const submit = page.getByRole("button", { name: "New repository", exact: true });
   await submit.click();
   await expect(name).toHaveAttribute("aria-invalid", "true");
   await name.fill("new-repository");

@@ -53,12 +53,12 @@
     "filesChanged_other": "{{count}} 个文件已更改",
     "comparing": "比较 {{base}}...{{head}}",
     "previewChanges": "预览变更",
-    "createPullRequest": "创建拉取请求"
+    "createPullRequest": "新建拉取请求"
   },
   "create": {
     "linkIssue": "关联议题 #{{number}}",
     "invalidIssue": "关联的议题编号无效。",
-    "title": "创建拉取请求",
+    "title": "新建拉取请求",
     "description": "从 {{source}} 提议变更到 {{base}}",
     "titleLabel": "标题",
     "titlePlaceholder": "总结你的变更",
@@ -67,8 +67,8 @@
     "descriptionPlaceholder": "描述此拉取请求的作用（可选）",
     "markdownSupported": "支持 Markdown",
     "draftHelp": "草稿拉取请求在标记为就绪前无法合并",
-    "createButton": "创建拉取请求",
-    "createDraftButton": "创建草稿拉取请求",
+    "createButton": "新建拉取请求",
+    "createDraftButton": "新建草稿拉取请求",
     "creating": "创建拉取请求中...",
     "created": "拉取请求创建成功",
     "failed": "创建拉取请求失败",

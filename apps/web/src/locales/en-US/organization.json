@@ -61,7 +61,7 @@
       "emailLabel": "Email address",
       "emailPlaceholder": "teammate@company.com",
       "roleLabel": "Role",
-      "createButton": "Create invitation",
+      "createButton": "New invitation",
       "creating": "Creating…"
     },
     "columns": {

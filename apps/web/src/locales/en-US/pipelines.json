@@ -107,9 +107,9 @@
     "runFailed": "Could not start run",
     "queueFailed": "Could not load the merge queue"
   },
-  "createPipeline": "Create pipeline",
+  "createPipeline": "New pipeline",
   "empty": "No pipelines yet",
-  "emptyHint": "Use Create in the upper right to start from a template.",
+  "emptyHint": "Use New in the upper right to start from a template.",
   "status": "Status",
   "revisionLabel": "Revision",
   "runNavigation": {

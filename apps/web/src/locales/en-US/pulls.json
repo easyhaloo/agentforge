@@ -53,12 +53,12 @@
     "filesChanged_other": "{{count}} files changed",
     "comparing": "Comparing {{base}}...{{head}}",
     "previewChanges": "Preview changes",
-    "createPullRequest": "Create pull request"
+    "createPullRequest": "New pull request"
   },
   "create": {
     "linkIssue": "Link to issue #{{number}}",
     "invalidIssue": "The linked issue number is invalid.",
-    "title": "Create pull request",
+    "title": "New pull request",
     "description": "Propose changes from {{source}} into {{base}}",
     "titleLabel": "Title",
     "titlePlaceholder": "Summarize your changes",
@@ -67,8 +67,8 @@
     "descriptionPlaceholder": "Describe what this pull request does (optional)",
     "markdownSupported": "Markdown is supported",
     "draftHelp": "Draft pull requests cannot be merged until marked as ready",
-    "createButton": "Create pull request",
-    "createDraftButton": "Create draft pull request",
+    "createButton": "New pull request",
+    "createDraftButton": "New draft pull request",
     "creating": "Creating pull request...",
     "created": "Pull request created successfully",
     "failed": "Failed to create pull request",

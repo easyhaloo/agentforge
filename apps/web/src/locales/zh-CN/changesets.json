@@ -7,7 +7,7 @@
     "summary_other": "{{count}} 个持久化变更集"
   },
   "create": {
-    "title": "创建变更集",
+    "title": "新建变更集",
     "description": "针对已注册的代码仓库启动持久化交付工作流",
     "validated": "服务器验证",
     "titleLabel": "标题",
@@ -16,8 +16,8 @@
     "descriptionLabel": "描述",
     "descriptionPlaceholder": "此变更应该完成什么？",
     "repositoryLabel": "代码仓库",
-    "createButton": "创建",
-    "okButton": "创建资源",
+    "createButton": "新建",
+    "okButton": "新建资源",
     "newResourceEyebrow": "新资源",
     "mockNote": "这仅创建本地演示记录。不执行 Git 或后端操作。",
     "successMessage": "变更集已创建并持久化。",

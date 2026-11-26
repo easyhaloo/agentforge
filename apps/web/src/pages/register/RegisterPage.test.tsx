@@ -18,13 +18,13 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
-        "title": "Create your account",
+        "title": "New account",
         "tagline": "Join AgentForge and start collaborating",
         "email": "Email address",
         "password": "Password",
         "confirmPassword": "Confirm password",
         "displayName": "Display name",
-        "createButton": "Create account",
+        "createButton": "New account",
         "hasAccount": "Already have an account?",
         "signInLink": "Sign in",
         "orDivider": "or sign up with",
@@ -73,13 +73,13 @@ describe("RegisterPage", () => {
   it("renders registration form with all fields", async () => {
     renderRegisterPage();
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Create your account" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "New account" })).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Email address")).toBeInTheDocument();
     expect(screen.getByLabelText("Display name")).toBeInTheDocument();
     expect(screen.getByLabelText("Password", { selector: 'input' })).toBeInTheDocument();
     expect(screen.getByLabelText("Confirm password", { selector: 'input' })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New account" })).toBeInTheDocument();
   });
 
   it("shows link to login page", async () => {
@@ -142,7 +142,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Email is required.")).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Invalid email format.")).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Email address"), "test@example.com");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Display name is required.")).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe("RegisterPage", () => {
 
       await user.type(screen.getByLabelText("Email address"), "test@example.com");
       await user.type(screen.getByLabelText("Display name"), "Test User");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Password is required.")).toBeInTheDocument();
@@ -219,7 +219,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "short");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "short");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Password must be at least 8 characters long.")).toBeInTheDocument();
@@ -239,7 +239,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "different123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Passwords don't match.")).toBeInTheDocument();
@@ -273,7 +273,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -318,7 +318,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Custom Page")).toBeInTheDocument();
@@ -348,7 +348,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("This email is already registered.")).toBeInTheDocument();
@@ -377,7 +377,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Registration failed. Please try again.")).toBeInTheDocument();
@@ -400,7 +400,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Display name"), "Test User");
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
-      await user.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("button", { name: "New account" }));
 
       await waitFor(() => {
         expect(screen.getByText("Registration failed. Please check your connection and try again.")).toBeInTheDocument();
@@ -429,7 +429,7 @@ describe("RegisterPage", () => {
       await user.type(screen.getByLabelText("Password", { selector: 'input' }), "password123");
       await user.type(screen.getByLabelText("Confirm password", { selector: 'input' }), "password123");
 
-      const submitButton = screen.getByRole("button", { name: "Create account" });
+      const submitButton = screen.getByRole("button", { name: "New account" });
       await user.click(submitButton);
 
       await waitFor(() => {

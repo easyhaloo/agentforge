@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AsyncSelect,
   Button,
@@ -55,6 +56,7 @@ export function UIShowcasePage() {
 }
 
 function UIShowcaseContent() {
+  const { t } = useTranslation();
   const { notify } = useNotification();
   const [inputValue, setInputValue] = useState("agentforge-core");
   const [environment, setEnvironment] = useState("staging");
@@ -172,7 +174,7 @@ function UIShowcaseContent() {
           </div>
           <div className="af-showcase-card">
             <h4>Empty state</h4>
-            <Empty title="No deployments yet" description="Create your first deployment to see runtime health and release history." action={<Button size="small" variant="primary">Create deployment</Button>} />
+            <Empty title="No deployments yet" description="Create your first deployment to see runtime health and release history." action={<Button size="small" variant="primary">{t("common:resourceActions.deployment")}</Button>} />
           </div>
         </div>
       </section>
@@ -182,7 +184,7 @@ function UIShowcaseContent() {
         <DataTable columns={columns} data={rows} rowKey="id" selectedRowKeys={selectedRows} onSelectionChange={setSelectedRows} onSort={(key, direction) => setSortMessage(direction ? key + " " + direction : "No sort applied")} bulkActions={<Button size="small" variant="danger" onClick={() => setSelectedRows([])}>Clear selection</Button>} pagination={{ page: 1, pageSize: 10, total: rows.length }} />
       </section>
 
-      <Modal open={modalOpen} title="Create workspace" onCancel={() => setModalOpen(false)} onOk={async () => { await new Promise((resolve) => window.setTimeout(resolve, 350)); setModalOpen(false); }}>
+      <Modal open={modalOpen} title={t("repositories:workspace.create")} onCancel={() => setModalOpen(false)} onOk={async () => { await new Promise((resolve) => window.setTimeout(resolve, 350)); setModalOpen(false); }}>
         <Form><Input label="Workspace name" defaultValue="new-workspace" /><Select label="Environment" defaultValue="development" options={environmentOptions} /></Form>
       </Modal>
       <Drawer open={drawerOpen} title="Service details" onClose={() => setDrawerOpen(false)}>
