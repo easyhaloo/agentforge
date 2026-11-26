@@ -37,7 +37,7 @@ test("DETAIL: edit, collaborate and manage a persisted issue in independent sess
     const orgPath = new URL(page.url()).pathname.replace(/\/changesets$/, "");
     await page.goto(`${origin}${orgPath}/repositories/new`);
     await page.getByLabel("Repository name", { exact: true }).fill("issue-detail");
-    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await page.getByRole("button", { name: "New repository", exact: true }).click();
     await expect(page).toHaveURL(/\/repositories\/[^/]+\/issue-detail$/);
     const repository = page.url();
     const detail = `${repository}/issues/1`;
@@ -50,13 +50,13 @@ test("DETAIL: edit, collaborate and manage a persisted issue in independent sess
     await page.goto(`${repository}/issues/new`);
     await page.getByRole("textbox", { name: "Title", exact: true }).fill("Verify issue details");
     await page.getByRole("textbox", { name: "Description", exact: true }).fill(body);
-    await button(page, "Create issue").click();
+    await button(page, "New issue").click();
     await expect(page).toHaveURL(detail);
 
     await test.step("DETAIL-14: members cannot create issue branches", async () => {
       await member.goto(detail);
       await expect(description(member)).toBeVisible();
-      await expect(button(member, "Create a branch")).toHaveCount(0);
+      await expect(button(member, "New branch")).toHaveCount(0);
     });
 
     await test.step("DETAIL-01/02: deep link, clipboard and quote preview", async () => {
@@ -191,9 +191,9 @@ test("DETAIL: edit, collaborate and manage a persisted issue in independent sess
       await confirm(page, "Add existing issue").click();
       await expect(dialog(page).getByRole("alert")).toBeVisible();
       await confirm(page, "Cancel").click();
-      await button(page, "Create sub-issue").click();
+      await button(page, "New sub-issue").click();
       await dialog(page).getByLabel("Title").fill("Child issue QA");
-      await confirm(page, "Create sub-issue").click();
+      await confirm(page, "New sub-issue").click();
       const child = page.getByRole("link", { name: "#2 Child issue QA" });
       await child.click();
       await expect(page.getByRole("link", { name: "#1 Updated issue title" })).toBeVisible();
@@ -260,7 +260,7 @@ test("DETAIL: edit, collaborate and manage a persisted issue in independent sess
         const create = changes.locator("form.changeset-create");
         await create.getByLabel("Title", { exact: true }).fill("Linked delivery QA");
         await selectOption(changes, create.getByRole("combobox", { name: "Repository", exact: true }), /\/issue-detail · /);
-        await create.getByRole("button", { name: "Create", exact: true }).click();
+        await create.getByRole("button", { name: "New", exact: true }).click();
         await changes.getByRole("link", { name: "Linked delivery QA", exact: true }).click();
         await expect(changes).toHaveURL(/\/changesets\/[^/]+$/);
         await button(page, "Edit Development").click();
@@ -313,7 +313,7 @@ test("DETAIL: edit, collaborate and manage a persisted issue in independent sess
       try {
         await target.goto(`${origin}${orgPath}/repositories/new`);
         await target.getByLabel("Repository name", { exact: true }).fill("issue-transfer-target");
-        await button(target, "Create repository").click();
+        await button(target, "New repository").click();
         await expect(target).toHaveURL(/\/repositories\/[^/]+\/issue-transfer-target$/);
         const destination = target.url();
         const openTransfer = async () => {

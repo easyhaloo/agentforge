@@ -56,7 +56,7 @@ test("read-only viewers can read issues but cannot open either creation entry po
   for (const path of ["/new", "/new/choose", "/new?template=bug.md"]) {
     await page.goto(`${issuesPath}${path}`);
     await expect(page.getByRole("alert")).toHaveText("Your organization role does not allow you to create issues.");
-    await expect(page.getByRole("button", { name: "Create issue", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "New issue", exact: true })).toHaveCount(0);
     await page.getByRole("link", { name: "Back to issues", exact: true }).click();
     await expect(page).toHaveURL(issuesPath);
   }
@@ -81,7 +81,7 @@ test("a writer can select a maintainers-only blank issue", async ({ page }) => {
   await expect(page.getByText("Maintainers only", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Blank issue", exact: true }).click();
   await expect(page).toHaveURL(`${issuesPath}/new`);
-  await expect(page.getByRole("button", { name: "Create issue", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New issue", exact: true })).toBeVisible();
 });
 
 test("the legacy repository Issues link opens the canonical list", async ({ page }) => {

@@ -31,7 +31,7 @@ test("select a member mention in the composer, preview and publish it", async ({
   await page.goto(`${origin}${organization}/repositories/new`);
   await page.getByLabel("Repository name", { exact: true }).fill("mention-walkthrough");
   await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-  await page.getByRole("button", { name: "Create repository", exact: true }).click();
+  await page.getByRole("button", { name: "New repository", exact: true }).click();
   await expect(page).toHaveURL(/\/repositories\/[^/]+\/mention-walkthrough$/);
   const repositoryURL = page.url();
   await page.getByRole("link", { name: "Issues", exact: true }).last().click();
@@ -63,7 +63,7 @@ test("select a member mention in the composer, preview and publish it", async ({
   await expect(body).toHaveValue(`Please ask ${mention} `);
   await page.getByRole("tab", { name: "Preview" }).click();
   await expect(page.getByRole("tabpanel", { name: "Preview" })).toContainText(`Please ask ${mention}`);
-  await page.getByRole("button", { name: "Create issue" }).click();
+  await page.getByRole("button", { name: "New issue" }).click();
   await expect(page).toHaveURL(`${repositoryURL}/issues/1`);
   await page.reload();
   await expect(page.getByText(`Please ask ${mention}`, { exact: true })).toBeVisible();
@@ -103,7 +103,7 @@ test("applies inbox delivery preferences to mentions and repository watches", as
     await page.goto(`${origin}${organization}/repositories/new`);
     await page.getByLabel("Repository name", { exact: true }).fill("notification-walkthrough");
     await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await page.getByRole("button", { name: "New repository", exact: true }).click();
     await expect(page).toHaveURL(/\/repositories\/[^/]+\/notification-walkthrough$/);
     const repositoryURL = page.url();
     await page.getByRole("link", { name: "Issues", exact: true }).last().click();
@@ -131,7 +131,7 @@ test("applies inbox delivery preferences to mentions and repository watches", as
     await expect(recipient).toHaveURL(inbox);
     await expect(recipient.getByText("No notifications yet.")).toBeVisible();
 
-    await page.getByRole("button", { name: "Create issue" }).click();
+    await page.getByRole("button", { name: "New issue" }).click();
     await expect(page).toHaveURL(`${repositoryURL}/issues/1`);
     await recipient.reload();
     const inboxList = recipient.getByRole("region", { name: "Inbox" });
@@ -149,7 +149,7 @@ test("applies inbox delivery preferences to mentions and repository watches", as
       await page.getByRole("link", { name: "New issue", exact: true }).click();
       await page.getByRole("textbox", { name: "Title" }).fill(title);
       await page.getByRole("textbox", { name: "Description", exact: true }).fill(description);
-      await page.getByRole("button", { name: "Create issue" }).click();
+      await page.getByRole("button", { name: "New issue" }).click();
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
     };
     const setInbox = async (key: string, enabled: boolean) => {

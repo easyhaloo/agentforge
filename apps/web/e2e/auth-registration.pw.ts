@@ -11,12 +11,12 @@ test.describe("Registration Page", () => {
     await page.goto("/register");
 
     // Verify page title and form elements
-    await expect(page.getByRole("heading", { name: /Create your account/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /New account/i })).toBeVisible();
     await expect(page.getByLabel("Email address")).toBeVisible();
     await expect(page.getByLabel("Display name")).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New account" })).toBeVisible();
 
     // Verify login link
     await expect(page.getByText("Already have an account?")).toBeVisible();
@@ -35,7 +35,7 @@ test.describe("Registration Page", () => {
     await page.locator('input[name="confirmPassword"]').fill("password123");
 
     // Submit registration
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "New account" }).click();
 
     // Verify successful redirect
     await expect(page).toHaveURL(/\/projects/);
@@ -50,7 +50,7 @@ test.describe("Registration Page", () => {
     await page.locator('input[name="password"]').fill("password123");
     await page.locator('input[name="confirmPassword"]').fill("different456");
 
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "New account" }).click();
 
     // Verify error message
     await expect(page.getByRole("alert")).toContainText(/don't match/i);
@@ -65,7 +65,7 @@ test.describe("Registration Page", () => {
     await page.locator('input[name="password"]').fill("short");
     await page.locator('input[name="confirmPassword"]').fill("short");
 
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "New account" }).click();
 
     // Verify error message
     await expect(page.getByRole("alert")).toBeVisible();
@@ -80,7 +80,7 @@ test.describe("Registration Page", () => {
     await page.locator('input[name="password"]').fill("password123");
     await page.locator('input[name="confirmPassword"]').fill("password123");
 
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "New account" }).click();
 
     // Verify error message
     await expect(page.getByRole("alert")).toContainText(/Invalid email/i);
@@ -95,7 +95,7 @@ test.describe("Registration Page", () => {
     await page.locator('input[name="password"]').fill("password123");
     await page.locator('input[name="confirmPassword"]').fill("password123");
 
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "New account" }).click();
 
     // Verify error message is displayed (409 conflict from server)
     await expect(page.getByRole("alert")).toBeVisible();
@@ -127,7 +127,7 @@ test.describe("Registration Page", () => {
     await page.goto("/register");
 
     // Click submit directly
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "New account" }).click();
 
     // Verify error message displays
     await expect(page.getByRole("alert")).toBeVisible();

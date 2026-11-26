@@ -69,7 +69,7 @@ test("Changesets loads organization records, searches and persists a new changes
   await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), /^easyhaloo\/agentforge \· main$/);
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("E2E persisted changeset");
   const createResponse = page.waitForResponse((response) => response.url().includes("/api/v1/organizations/org-demo/changesets") && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("button", { name: "New", exact: true }).click();
   expect((await createResponse).status()).toBe(201);
   await expect(page.getByRole("cell").getByText("E2E persisted changeset")).toBeVisible();
 });
@@ -89,7 +89,7 @@ test("Organization invitations can be created and displayed", async ({ page }) =
   await page.getByRole("tab", { name: /Invitations/ }).click();
   await page.getByRole("textbox", { name: "Email address" }).fill("new-member@example.test");
   await selectOption(page, page.getByRole("combobox", { name: "Role" }), "Member");
-  await page.getByRole("button", { name: "Create invitation" }).click();
+  await page.getByRole("button", { name: "New invitation" }).click();
   await expect(page.getByText("Invitation created", { exact: true })).toBeVisible();
   await expect(page.getByText("new-member@example.test")).toBeVisible();
   await expect(page.getByText("https://agentforge.example.test/invite/e2e-token")).toBeVisible();

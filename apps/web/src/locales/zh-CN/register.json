@@ -1,11 +1,11 @@
 {
-  "title": "创建账户",
+  "title": "新建账户",
   "tagline": "加入 AgentForge 开始协作",
   "email": "邮箱地址",
   "password": "密码",
   "confirmPassword": "确认密码",
   "displayName": "显示名称",
-  "createButton": "创建账户",
+  "createButton": "新建账户",
   "hasAccount": "已有账户？",
   "signInLink": "登录",
   "orDivider": "或使用以下方式注册",

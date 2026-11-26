@@ -58,7 +58,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
   await page.getByRole("option", { name: "MIT", exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath("repository-create-real.png"), fullPage: true, animations: "disabled" });
   const createdRepository = page.waitForResponse(response => new URL(response.url()).pathname === repositoryList && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Create repository", exact: true }).click();
+  await page.getByRole("button", { name: "New repository", exact: true }).click();
   const result = await createdRepository;
   expect(result.status(), await result.text()).toBe(201);
   expect(await result.json()).toMatchObject({ organization_id: orgID, slug: newSlug, default_branch: "main", visibility: "private", fork: false, description: "Verified with PostgreSQL and Git" });
@@ -69,7 +69,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
   await page.goto(`${base.origin}${newPath}`);
   await page.getByLabel("Repository name", { exact: true }).fill(newRepo);
   await expect(page.getByText(/repository name.*already taken/i)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create repository", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "New repository", exact: true })).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath("repository-create-duplicate.png"), fullPage: true, animations: "disabled" });
 
   // The registration API verifies a real default branch under the tenant's configured Git root.
@@ -175,7 +175,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
       await page.getByRole("option", { name: `${repository} · main`, exact: true }).click();
       await expect(repositoryPicker).toContainText(repository);
       const creating = apiResponse(changesetsAPI, "POST");
-      await page.getByRole("button", { name: "Create", exact: true }).click();
+      await page.getByRole("button", { name: "New", exact: true }).click();
       const response = await creating;
       expect(response.status()).toBe(201);
       const { changeset: created } = await response.json() as StoredChangeset;
@@ -275,7 +275,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
     const newIssue = page.getByRole("link", { name: "New issue", exact: true });
     const titleInput = page.getByRole("textbox", { name: "Title" });
     const descriptionInput = page.getByRole("textbox", { name: "Description" });
-    const create = page.getByRole("button", { name: /^Create issue\b/i });
+    const create = page.getByRole("button", { name: /^New issue\b/i });
     const write = page.getByRole("tab", { name: "Write", exact: true });
     const preview = page.getByRole("tab", { name: "Preview", exact: true });
 
@@ -411,7 +411,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
 
     await test.step("ISSUE-04: create more persists both issues without leaving the form between submissions", async () => {
       await newIssue.click();
-      const createMore = page.getByRole("checkbox", { name: "Create more" });
+      const createMore = page.getByRole("checkbox", { name: "New issue after saving" });
       await createMore.check();
       await titleInput.fill("First follow-up");
       await descriptionInput.fill("Draft to reset");
@@ -1560,7 +1560,7 @@ test("register a repository, commit a Changeset revision and complete an Issue t
         await expect(markdown).not.toContainText("Before reporting");
       };
       await verifyForm(page);
-      const createMore = page.getByRole("checkbox", { name: "Create more" });
+      const createMore = page.getByRole("checkbox", { name: "New issue after saving" });
       await createMore.check();
       const publishing = apiResponse(issuesAPI, "POST");
       await create.click();
@@ -1664,13 +1664,13 @@ test("ISSUE-29: only compact cross-organization links the viewer can read", asyn
       const org = new URL(tab.url()).pathname.split("/")[2];
       await tab.goto(`${origin}/orgs/${org}/repositories/new`);
       await tab.getByLabel("Repository name", { exact: true }).fill(name);
-      await tab.getByRole("button", { name: "Create repository", exact: true }).click();
+      await tab.getByRole("button", { name: "New repository", exact: true }).click();
       await expect(tab).toHaveURL(new RegExp(`/repositories/[^/]+/${name}$`));
       return { org, url: tab.url(), slug: new URL(tab.url()).pathname.split("/repositories/")[1] };
     }
     const [source, destination] = await Promise.all([createRepository(page, "source"), createRepository(target, "target")]);
     const title = (tab: Page) => tab.getByRole("textbox", { name: "Title", exact: true });
-    const create = (tab: Page) => tab.getByRole("button", { name: /^Create issue\b/i });
+    const create = (tab: Page) => tab.getByRole("button", { name: /^New issue\b/i });
     await target.goto(`${destination.url}/issues/new`);
     await title(target).fill("Private target");
     await create(target).click();

@@ -52,7 +52,7 @@ test("opens project creation as a page, cancels, and retries a duplicate name", 
   await expect(page.getByRole("radio", { name: "Table", exact: true })).toBeVisible();
   await board.check();
   await name.fill(existing.name.toUpperCase());
-  const submit = page.getByRole("button", { name: "Create project", exact: true });
+  const submit = page.getByRole("button", { name: "New project", exact: true });
   await submit.click();
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page).toHaveURL(`${index}/new`);
@@ -140,7 +140,7 @@ test("persists scoped projects from the issue composer", async ({ page }) => {
     await page.goto(`${origin}${organization}/repositories/new`);
     await page.getByLabel("Repository name", { exact: true }).fill(name);
     await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await page.getByRole("button", { name: "New repository", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/repositories/[^/]+/${name}$`));
     return page.url();
   }
@@ -156,7 +156,7 @@ test("persists scoped projects from the issue composer", async ({ page }) => {
   await page.getByRole("textbox", { name: "Project name" }).fill(orgProject);
   await page.getByRole("radio", { name: "Board", exact: true }).check();
   await selectOption(page, page.getByRole("combobox", { name: "Default repository (optional)" }), targetSlug);
-  await page.getByRole("button", { name: "Create project", exact: true }).click();
+  await page.getByRole("button", { name: "New project", exact: true }).click();
   await expect(page).toHaveURL(`${origin}${organization}/projects/1`);
   const orgProjectURL = page.url();
   await expect(page.getByRole("link", { name: "Board", exact: true })).toHaveAttribute("aria-current", "page");
@@ -200,7 +200,7 @@ test("persists scoped projects from the issue composer", async ({ page }) => {
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: "Preview" }).click();
   await expect(page.getByRole("tabpanel", { name: "Preview" })).toContainText("Project links must survive publish and refresh.");
-  await page.getByRole("button", { name: "Create issue" }).click();
+  await page.getByRole("button", { name: "New issue" }).click();
   await expect(page).toHaveURL(`${target}/issues/1`);
   await page.reload();
   await expect(page.getByText(orgProject, { exact: true })).toBeVisible();
@@ -216,7 +216,7 @@ test("persists scoped projects from the issue composer", async ({ page }) => {
   await page.getByRole("link", { name: "New view" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("textbox", { name: "View name" }).fill("All items");
-  await page.getByRole("button", { name: "Create view" }).click();
+  await page.getByRole("button", { name: "New view" }).click();
   await expect(page.getByRole("table").getByRole("link", { name: "Verify project associations" })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("link", { name: "All items", exact: true })).toHaveAttribute("aria-current", "page");
@@ -239,7 +239,7 @@ test("persists scoped projects from the issue composer", async ({ page }) => {
     await metadata.click();
     await expect(recent.getByRole("checkbox", { name: repoProject, exact: true })).toBeChecked();
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Create issue" }).click();
+    await page.getByRole("button", { name: "New issue" }).click();
     await expect(page).toHaveURL(`${target}/issues/2`);
     await page.reload();
     await expect(page.getByText(repoProject, { exact: true })).toBeVisible();
@@ -271,7 +271,7 @@ test("imports across repositories and keeps draft identity through conversion, a
     await page.goto(`${org}/repositories/new`);
     await page.getByLabel("Repository name", { exact: true }).fill(name);
     await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-    await page.getByRole("button", { name: "Create repository", exact: true }).click();
+    await page.getByRole("button", { name: "New repository", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/repositories/[^/]+/${name}$`));
     return page.url();
   };
@@ -280,7 +280,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   const sourceSlug = source.split("/repositories/")[1];
   await page.goto(`${source}/issues/new`);
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Imported work");
-  await page.getByRole("button", { name: "Create issue", exact: true }).click();
+  await page.getByRole("button", { name: "New issue", exact: true }).click();
   await expect(page).toHaveURL(`${source}/issues/1`);
   await page.goto(`${planning}/projects`);
   await page.getByRole("link", { name: "New project", exact: true }).click();
@@ -290,7 +290,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await expect(page.getByRole("combobox", { name: "Default repository (optional)" })).toContainText("project-planning");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.getByRole("button", { name: "Create project" }).click();
+  await page.getByRole("button", { name: "New project" }).click();
   const project = `${org}/projects/1`;
   await expect(page).toHaveURL(project);
   await page.getByRole("link", { name: "Add items" }).click();
@@ -328,7 +328,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   const draftDescription = page.getByRole("textbox", { name: "Description", exact: true });
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await draftDescription.fill("Initial release notes");
-  await page.getByRole("button", { name: "Create draft", exact: true }).click();
+  await page.getByRole("button", { name: "New draft", exact: true }).click();
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   const draftURL = page.url();
   await page.goto(project);
@@ -356,7 +356,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "New view", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("textbox", { name: "View name", exact: true }).fill("Release table");
-  await page.getByRole("button", { name: "Create view", exact: true }).click();
+  await page.getByRole("button", { name: "New view", exact: true }).click();
   await expect(page.getByRole("link", { name: "Release table", exact: true })).toHaveAttribute("aria-current", "page");
   // The project table must pick up custom columns even when items load first.
   await page.route("**/issue-projects/1/fields", async (route) => {
@@ -371,7 +371,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "New view", exact: true }).click();
   await page.getByRole("textbox", { name: "View name", exact: true }).fill("Release board");
   await selectOption(page, page.getByRole("combobox", { name: "Layout" }), "Board");
-  await page.getByRole("button", { name: "Create view", exact: true }).click();
+  await page.getByRole("button", { name: "New view", exact: true }).click();
   await expect(page.getByRole("link", { name: "Release board", exact: true })).toHaveAttribute("aria-current", "page");
   const inProgress = page.getByRole("region", { name: "In progress", exact: true });
   const done = page.getByRole("region", { name: "Done", exact: true });
@@ -380,7 +380,7 @@ test("imports across repositories and keeps draft identity through conversion, a
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await selectOption(page, page.getByRole("combobox", { name: "Item type" }), "Draft");
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Ready for release");
-  await page.getByRole("button", { name: "Create draft", exact: true }).click();
+  await page.getByRole("button", { name: "New draft", exact: true }).click();
   await expect(done.getByRole("link", { name: "Ready for release" })).toBeVisible();
   await importedCard.dragTo(done);
   await expect(done.getByRole("link", { name: "Imported work" })).toBeVisible();
@@ -389,9 +389,11 @@ test("imports across repositories and keeps draft identity through conversion, a
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await page.reload();
   await expect(draftDescription).toHaveValue("## Release checklist\n\n- Verify the upgrade guide");
-  await page.getByRole("button", { name: "Convert to issue" }).click();
+  await page.getByRole("button", { name: "Convert to issue", exact: true }).first().click();
   await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), sourceSlug);
-  await page.getByRole("button", { name: "Create issue from draft" }).click();
+  // Opening the toolbar action reveals a second "Convert to issue" button in
+  // the conversion form (projects.convertConfirm). Target the revealed one.
+  await page.getByRole("button", { name: "Convert to issue", exact: true }).last().click();
   await page.getByRole("link", { name: "Prepare release notes" }).click();
   await expect(page).toHaveURL(new RegExp(`[?&]item=${new URL(draftURL).searchParams.get("item")}$`));
   const convertedItemURL = page.url();
@@ -440,7 +442,7 @@ test("imports across repositories and keeps draft identity through conversion, a
 
   await page.goto(`${source}/issues/new`);
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Follow-up from source repository");
-  await page.getByRole("button", { name: "Create issue", exact: true }).click();
+  await page.getByRole("button", { name: "New issue", exact: true }).click();
   await expect(page).toHaveURL((url) => url.href.startsWith(`${source}/issues/`) && /\/issues\/\d+$/.test(url.pathname));
   await expect(page.getByRole("heading", { name: /Follow-up from source repository/ })).toBeVisible();
   await page.goto(project);

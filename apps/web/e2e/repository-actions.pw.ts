@@ -105,11 +105,11 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await expect(actionsIcon.locator("path")).toHaveAttribute("d", /^M8 0a8 8 0 1 1/);
   await capture("actions-empty");
   await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
-  const create = page.getByRole("dialog", { name: "Create pipeline" });
+  const create = page.getByRole("dialog", { name: "New pipeline" });
   await create.getByRole("radio", { name: "Check then approve" }).check();
   await create.getByLabel("Workflow name").fill("repository-ci");
   await capture("actions-template");
-  await create.getByRole("button", { name: "Create", exact: true }).click();
+  await create.getByRole("button", { name: "New", exact: true }).click();
   await expect(page).toHaveURL(/\/pipelines\/ci\/edit\?.*fromRepository=/);
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
@@ -257,7 +257,7 @@ async function openLiveRepositoryActions(page: Page) {
   await page.goto(`${origin.origin}${orgPath}/repositories/new`);
   await page.getByLabel("Repository name", { exact: true }).fill("actions-qa");
   await page.getByRole("switch", { name: /Add a README/ }).press("Space");
-  await page.getByRole("button", { name: "Create repository", exact: true }).click();
+  await page.getByRole("button", { name: "New repository", exact: true }).click();
   await expect(page).toHaveURL(/\/repositories\/[^/]+\/actions-qa$/);
   await page.getByRole("link", { name: "Actions", exact: true }).click();
 }
@@ -267,7 +267,7 @@ test("repository Actions persists a published workflow and its runs through the 
   await openLiveRepositoryActions(page);
   await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
   await page.getByLabel("Workflow name").fill("live-ci");
-  await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
   await page.getByRole("link", { name: "Back to Actions" }).click();
@@ -303,7 +303,7 @@ test("repository Actions enables and disables the live Changeset revision trigge
   const orgPath = new URL(page.url()).pathname.split("/repositories/")[0];
   await page.locator(".repo-actions-rail").getByRole("button", { name: "New workflow" }).click();
   await page.getByLabel("Workflow name").fill("revision-ci");
-  await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
   await page.getByRole("link", { name: "Back to Actions" }).click();
@@ -324,7 +324,7 @@ test("repository Actions enables and disables the live Changeset revision trigge
   await page.goto(`${orgPath}/changesets`);
   await page.getByRole("textbox", { name: "Title", exact: true }).fill("Trigger revision CI");
   await selectOption(page, page.getByRole("combobox", { name: "Repository", exact: true }), /actions-qa · main$/);
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("link", { name: "Trigger revision CI", exact: true }).click();
   await page.getByRole("navigation", { name: "Changeset sections" }).getByRole("link", { name: "Revisions" }).click();
   const revisionsURL = page.url();
@@ -392,7 +392,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
 
   const create = await createWorkflow("release-ci", "Scripts and variables");
   await capture("02-template");
-  await create.getByRole("button", { name: "Create", exact: true }).click();
+  await create.getByRole("button", { name: "New", exact: true }).click();
   const producer = page.getByRole("button", { name: "Step make-tag", exact: true });
   const shell = page.getByRole("textbox", { name: "Shell script", exact: true });
   const script = `if [ "$AF_PARAM_VERSION" = invalid ]; then\n  printf 'Release validation failed\\n'\n  exit 2\nfi\nprintf 'TAG=v%s\\n' "$AF_PARAM_VERSION" >> "$FLOW_ENV"`;
@@ -459,7 +459,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await page.getByRole("link", { name: "Back to Actions" }).click();
 
     const approval = await createWorkflow("deploy-approval", "Manual approval");
-    await approval.getByRole("button", { name: "Create", exact: true }).click();
+    await approval.getByRole("button", { name: "New", exact: true }).click();
     await publish();
     await startRun();
     const review = page.getByRole("button", { name: "Review approve" });

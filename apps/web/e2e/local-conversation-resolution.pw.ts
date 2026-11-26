@@ -77,7 +77,7 @@ test("saves conversation resolution rules and reopens an outdated inline convers
     await selectOption(page, page.getByRole("combobox", { name: "Compare branch", exact: true }), "topic");
     await expect(page.getByText("Update documentation", { exact: true })).toBeVisible();
     await page.getByLabel("Title", { exact: true }).fill("Review this documentation");
-    await page.getByRole("button", { name: "Create pull request", exact: true }).click();
+    await page.getByRole("button", { name: "New pull request", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Review this documentation", exact: true })).toBeVisible();
     const files = page.getByRole("tab", { name: /Files changed/ });
     const conversation = page.getByRole("tab", { name: /Conversation/ });

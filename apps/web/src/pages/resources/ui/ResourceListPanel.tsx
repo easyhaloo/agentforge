@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { Button, DataTable, Input, Select } from "../../../shared/ui";
 import type { PageConfig } from "../data/resourceConfigs";
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function ResourceListPanel(props: Props) {
+  const { t } = useTranslation("common");
   const { page, config, items, filtered, selected, query, tab, showCreate, newName,
     onQueryChange, onTabChange, onSelect, onShowCreate, onHideCreate, onNewNameChange, onCreate, onAction } = props;
   const statuses = ["All", ...Array.from(new Set(items.map((item) => item.status)))];
@@ -36,11 +38,11 @@ export function ResourceListPanel(props: Props) {
         onChange={(event) => onTabChange(event.target.value)}
         options={statuses.map((status) => ({ label: status === "All" ? "All statuses" : status, value: status }))}
       />
-      {config.actionMode !== "none" && <Button variant="primary" size="small" onClick={config.actionMode === "create" ? onShowCreate : onAction}><Sparkles size={14} />{config.action}</Button>}
+      {config.actionMode !== "none" && <Button variant="primary" size="small" onClick={config.actionMode === "create" ? onShowCreate : onAction}><Sparkles size={14} />{config.actionMode === "create" ? t(config.action) : config.action}</Button>}
     </div>
     {showCreate && <form className="resource-create" onSubmit={onCreate}>
       <Input autoFocus required value={newName} onChange={(event) => onNewNameChange(event.target.value)} placeholder={"Name this " + page.toLowerCase().replace(/s$/, "") + "..."} aria-label={"New " + page + " name"} />
-      <Button variant="primary" size="small" type="submit">Create</Button>
+      <Button variant="primary" size="small" type="submit">{t("actions.create")}</Button>
       <Button size="small" type="button" onClick={onHideCreate}>Cancel</Button>
     </form>}
     <div className="resource-table-wrap">

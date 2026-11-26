@@ -1,14 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installApiMocks } from "./support/api-mocks";
+import { openNavigation } from "./support/navigation";
 import { selectOption } from "./support/select-option";
 import type { Pipeline } from "../src/shared/api/pipelines";
 
 async function openCreation(page: Page) {
-  const main = page.getByRole("main", { name: "CI / CD" });
+  const main = page.getByRole("main", { name: "Pipelines", exact: true });
   await expect(main).toBeVisible();
   await expect(main.locator(".page-heading")).toHaveCount(0);
-  await main.locator(".wf-list-header").getByRole("button", { name: "Create", exact: true }).click();
-  return page.getByRole("dialog", { name: "Create pipeline" });
+  await main.locator(".wf-list-header").getByRole("button", { name: "New", exact: true }).click();
+  return page.getByRole("dialog", { name: "New pipeline" });
 }
 
 test("an owner creates, edits and publishes the saved workflow revision", async ({ page }) => {
@@ -28,7 +29,9 @@ test("an owner creates, edits and publishes the saved workflow revision", async 
     return route.fulfill({ json: pipeline });
   });
   await page.goto("/orgs/demo/pipelines");
-  await (await openCreation(page)).getByRole("button", { name: "Create", exact: true }).click();
+  const navigation = await openNavigation(page);
+  await navigation.getByRole("link", { name: "Pipelines", exact: true }).click();
+  await (await openCreation(page)).getByRole("button", { name: "New", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Revision 1" })).toBeVisible();
   await page.getByLabel("Workflow name").fill("new-release");
   await expect(page.getByRole("button", { name: "Publish version" })).toBeDisabled();
@@ -47,7 +50,7 @@ test("an owner creates, edits and publishes the saved workflow revision", async 
   const dialog = await openCreation(page);
   await expect(dialog.getByLabel("Workflow name")).toHaveValue("release");
   await dialog.getByLabel("Workflow name").fill("next");
-  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+  await dialog.getByRole("button", { name: "New", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Revision 1" })).toBeVisible();
   expect(pipeline?.id).toBe("second");
   expect(pipeline?.name).toBe("next");
@@ -92,7 +95,7 @@ test("visual authoring prevents dependency cycles and a run uses the selected pu
     return route.fulfill({ json: created });
   });
   await page.goto("/orgs/demo/pipelines");
-  await (await openCreation(page)).getByRole("button", { name: "Create", exact: true }).click();
+  await (await openCreation(page)).getByRole("button", { name: "New", exact: true }).click();
   await expect(page.getByLabel("Workflow definition (JSON)")).toHaveCount(0);
   await page.getByRole("button", { name:"Add stage" }).click();
   await expect(page.getByLabel("Stage ID")).toHaveValue("stage1");
@@ -177,9 +180,9 @@ test("a template can be configured directly on the canvas without a JSON editor"
   expect(posts).toBe(0);
   await openCreation(page);
   await dialog.getByRole("radio", { name:"Check then approve" }).check();
-  await dialog.getByRole("button", { name:"Create", exact:true }).click();
+  await dialog.getByRole("button", { name:"New", exact:true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
-  await dialog.getByRole("button", { name:"Create", exact:true }).click();
+  await dialog.getByRole("button", { name:"New", exact:true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByLabel("Workflow name")).toHaveValue("check-and-approve");
   await expect(page.getByRole("button", { name: "Edit JSON" })).toHaveCount(0);
@@ -273,10 +276,11 @@ test("脚本模板在独立画布上保存脚本和输出变量", async ({ page 
     return route.fulfill({ json: req.url().endsWith("/pipelines") && req.method() === "GET" ? { items: [] } : pipeline });
   });
   await page.goto("/orgs/demo/pipelines");
-  await page.locator(".wf-list-header").getByRole("button", { name: "创建", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "创建流水线" });
+  const main = page.getByRole("main", { name: "流水线", exact: true });
+  await main.locator(".wf-list-header").getByRole("button", { name: "新建", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "新建流水线" });
   await dialog.getByRole("radio", { name: "脚本与变量传递" }).check();
-  await dialog.getByRole("button", { name: "创建", exact: true }).click();
+  await dialog.getByRole("button", { name: "新建", exact: true }).click();
   await expect(page).toHaveURL(/\/pipelines\/script\/edit$/);
   const producer = page.getByRole("button", { name: "步骤 make-tag", exact: true });
   const script = `printf 'TAG=v%s\\n' "$AF_PARAM_VERSION" >> "$FLOW_ENV"\nprintf 'CHANNEL=stable\\n' >> "$FLOW_ENV"`;
