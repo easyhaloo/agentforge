@@ -27,7 +27,7 @@ test("the workspace Topbar spaces the menu, brand and title on desktop and mobil
     const menuBox = (await navigationToggle(page).boundingBox())!;
     const brandBox = (await brand.boundingBox())!;
     const titleBox = (await title.boundingBox())!;
-    expect(menuBox).toMatchObject({ x: 12, width: 32, height: 32 });
+    expect(menuBox).toMatchObject({ x: 16, width: 32, height: 32 });
     expect(brandBox).toMatchObject({ y: menuBox.y, width: 32, height: 32 });
     expect(brandBox.x - (menuBox.x + menuBox.width)).toBe(menuGap);
     expect(titleBox.x - (brandBox.x + brandBox.width)).toBe(titleGap);
