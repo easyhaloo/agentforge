@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { Definition, Run } from "../../shared/api/pipelines";
 import { Button } from "../../shared/ui";
-import { PipelineStatusLabel } from "./PipelineStatus";
+import { PipelineStatus } from "./PipelineStatus";
 import "./canvas.css";
 
 export type NodePath = [] | [number] | [number, number] | [number, number, number];
@@ -79,7 +79,7 @@ export function WorkflowCanvas({ definition, run, selection, onSelect, toolbar, 
       onClick={() => onSelect(path)}>{content}</Button> : content;
   }
   return <section className="wf-canvas" aria-label={t(run ? "executionCanvas" : "designCanvas")}>
-    <header><Workflow size={18}/><strong>{t(run ? "executionCanvas" : "designCanvas")}</strong><span>{definition.name}</span>{run && <PipelineStatusLabel state={run.status} />}{toolbar}</header>
+    <header><Workflow size={18}/><strong>{t(run ? "executionCanvas" : "designCanvas")}</strong><span>{definition.name}</span>{toolbar}</header>
     {!graph ? <p>{t("invalidGraph")}</p> : <div className="wf-scroll" tabIndex={0}>
       <div ref={board} className="wf-board">
         <svg aria-hidden="true"><defs><marker id={marker} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="var(--af-color-text-muted)"/></marker></defs>
@@ -87,13 +87,13 @@ export function WorkflowCanvas({ definition, run, selection, onSelect, toolbar, 
         {graph.columns.map((col, c) => <div className="wf-column" key={c}>{col.map(i => {
           const stage = definition.stages[i];
           const stateOf = (id: string) => run?.stepStatuses?.[id] ?? "queued";
-          const steps = stage.jobs.flatMap(j => j.steps);
-          const heading = <><Layers size={15}/><strong>{stage.id}</strong>{run ? <PipelineStatusLabel state={stepGroupState(steps.map(s => stateOf(s.id)))} /> : <small>{steps.length}</small>}</>;
+          const heading = <><Layers size={15}/><strong>{stage.id}</strong>{!run && <small>{stage.jobs.reduce((count, job) => count + job.steps.length, 0)}</small>}</>;
           const body = <div className="wf-body">{stage.jobs.map((job, ji) => <div key={job.id}>
-            {jobSearch ? <Link to={{ search: jobSearch(i, ji) }} aria-label={t("job", { id: job.id })}><b><GitBranch size={12}/>{job.id}</b></Link>
-              : node([i, ji], t("job", {id:job.id}), <b><GitBranch size={12}/>{job.id}</b>)}
-            {job.steps.map((step, pi) => <div key={step.id}>{node([i, ji, pi], t("step", {id:step.id}),
-              <span className="wf-step"><span>{step.id}</span>{run ? <PipelineStatusLabel state={stateOf(step.id)} /> : <small>{t(step.uses === "control/approval@v1" ? "approval" : step.uses === "container/script@v1" ? "shell" : "container")}</small>}</span>)}</div>)}
+            {jobSearch ? <Link className="wf-graph-job" to={{ search: jobSearch(i, ji) }}>
+              <PipelineStatus state={stepGroupState(job.steps.map(step => stateOf(step.id)))} />{job.id}
+            </Link> : node([i, ji], t("job", {id:job.id}), <b><GitBranch size={12}/>{job.id}</b>)}
+            {!run && job.steps.map((step, pi) => <div key={step.id}>{node([i, ji, pi], t("step", {id:step.id}),
+              <span className="wf-step"><span>{step.id}</span><small>{t(step.uses === "control/approval@v1" ? "approval" : step.uses === "container/script@v1" ? "shell" : "container")}</small></span>)}</div>)}
           </div>)}{graph.parents[i].length > 0 && <small className="wf-deps">{t("depends", {id: dependencies(definition.stages, i).join(", ")})}</small>}</div>;
           return onSelect ? <article key={stage.id} data-node={i} className="wf-card">
             {node([i], t("stage", {id:stage.id}), <span className="wf-stage-title">{heading}</span>)}{body}

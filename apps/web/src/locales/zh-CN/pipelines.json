@@ -62,7 +62,7 @@
   "version": "已发布版本",
   "runParams": "运行参数",
   "start": "开始运行",
-  "run": "运行 {{id}} · 版本 {{version}} · {{status}}",
+  "run": "运行 {{id}} · 版本 {{version}}",
   "title": "流水线",
   "workflow": "工作流",
   "discard": "放弃未保存的更改？",

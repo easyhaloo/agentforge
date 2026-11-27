@@ -48,7 +48,8 @@ apps/web/src/shared/
 ### 4.1 基础展示与反馈
 - Button：主次/危险/文字按钮、加载、禁用；
 - IconButton：图标按钮，必须提供 tooltip/aria-label；
-- Tag、Badge：状态标签；
+- Tag、Badge：分类标签及需要文字辨识的状态；
+- 状态组件：以可区分的图标和语义颜色展示执行状态，默认仅展示图标；
 - Tooltip、Popover：提示与轻量浮层；
 - Alert、Empty、Skeleton、Spin：反馈和加载；
 - Divider、Card、Typography：基础布局与文字。
@@ -94,6 +95,11 @@ apps/web/src/shared/
 - 表单字段必须有 label；必填、帮助文本、错误信息位置统一；
 - 组件支持受控模式；必要时允许 defaultValue 非受控模式；
 - 弹层支持键盘操作、焦点管理、Esc 关闭（危险流程可显式禁止）和合理的焦点返回。
+
+#### 执行状态组件
+
+- 同一处执行状态由图标表达。运行标题、任务列表、依赖图和日志步骤的图标旁省略同义状态文案，保留任务名、耗时等独立信息。
+- 每种执行状态应有可区分的图形，颜色辅助识别。组件统一提供本地化的无障碍名称和悬停提示，并遵循减少动态效果的系统偏好。页面直接传入状态，不自行拼装图标和名称。
 
 ### 5.2 Modal / Drawer
 - API 使用 `open`、`onCancel`、`onOk`，不再使用旧式 visible；
