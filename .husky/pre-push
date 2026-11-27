@@ -8,7 +8,7 @@
 # 3. Go unit/integration tests
 # 4. Frontend unit tests (Vitest)
 # 5. Frontend build check (TypeScript + Vite)
-# 6. E2E tests (Playwright) - optional via SKIP_E2E=1
+# 6. E2E tests (Playwright) - auto-installs missing browsers; optional via SKIP_E2E=1
 #
 # If any check fails, the push is rejected.
 #
@@ -124,6 +124,36 @@ else
     echo ""
     echo "🎭 Running E2E tests (Playwright)..."
     echo "   (Skip with: SKIP_E2E=1 git push)"
+
+    # Self-heal the browser dependency. Playwright pins an exact browser build,
+    # so a version bump makes the local cache stale and every E2E test fails
+    # instantly at browserType.launch. Detect it by really launching once,
+    # then install the pinned browser only when needed.
+    echo ""
+    echo "🔎 Checking Playwright browser..."
+    PW_PROBE='const { chromium } = require("playwright"); chromium.launch().then(b => b.close()).catch(() => process.exit(1))'
+    if ! node -e "$PW_PROBE" >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Playwright browser missing or not launchable; installing it now...${NC}"
+        # The installer's exit code is not the source of truth: it may fail
+        # after downloading successfully (e.g. while cleaning temp files).
+        # The launch probe below decides whether setup really succeeded.
+        if ! npx playwright install chromium 2>&1; then
+            echo -e "${YELLOW}⚠️  Installer reported an error; checking browser anyway...${NC}"
+        fi
+        # Verify the browser actually works before running the whole suite.
+        if ! node -e "$PW_PROBE" >/dev/null 2>&1; then
+            echo ""
+            echo -e "${RED}❌ Playwright browser still not launchable after install${NC}"
+            echo ""
+            echo "Run manually: cd apps/web && npx playwright install chromium"
+            echo "On Linux, system libraries may be missing: npx playwright install --with-deps chromium"
+            echo "Or skip E2E for this push: SKIP_E2E=1 git push"
+            exit 1
+        fi
+        echo -e "${GREEN}✅ Playwright browser installed and ready${NC}"
+    else
+        echo -e "${GREEN}✅ Playwright browser ready${NC}"
+    fi
 
     # Run E2E tests (already in apps/web directory)
     if ! npm run test:e2e 2>&1; then
