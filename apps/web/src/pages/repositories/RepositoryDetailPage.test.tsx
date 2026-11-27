@@ -96,7 +96,7 @@ describe("RepositoryDetailPage - Code Tab", () => {
     render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Error:.*Network error/)).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Unable to load the repository tree");
     });
   });
 
@@ -192,7 +192,7 @@ describe("RepositoryDetailPage - Code Tab", () => {
 
     await user.click(srcFolder!);
     await waitFor(() => {
-      expect(screen.queryByText("index.ts")).not.toBeInTheDocument();
+      expect(screen.getByText("index.ts")).not.toBeVisible();
     });
   });
 });
@@ -360,7 +360,7 @@ describe("RepositoryDetailPage - Pull Requests Tab", () => {
     render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Files")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Files" })).toBeInTheDocument();
     });
 
     const pullsTab = screen.getByRole("tab", { name: /Pull Requests/i });
@@ -696,7 +696,7 @@ describe("RepositoryDetailPage - Members Tab", () => {
     render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Files")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Files" })).toBeInTheDocument();
     });
 
     const membersTab = screen.getByRole("tab", { name: /Members/i });
@@ -981,7 +981,7 @@ describe("RepositoryDetailPage - Settings Tab", () => {
     render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Files")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Files" })).toBeInTheDocument();
     });
 
     const settingsTab = screen.getByRole("tab", { name: /Settings/i });

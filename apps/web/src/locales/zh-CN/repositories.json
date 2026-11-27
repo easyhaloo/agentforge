@@ -488,7 +488,20 @@
     "compareFailed": "无法比较提交",
     "sourceFailed": "无法读取源文件"
   },
+  "refPicker": {
+    "title": "切换分支或标签",
+    "search": "搜索分支和标签",
+    "branches": "分支",
+    "tags": "标签",
+    "empty": "没有匹配的分支或标签。",
+    "defaultBranch": "默认"
+  },
   "preview": {
+    "create": "创建",
+    "searchFolder": "搜索当前目录",
+    "noFilesInFolder": "当前目录没有文件。",
+    "fileTree": "仓库文件树",
+    "loadingTree": "正在加载仓库文件…",
     "ariaLabel": "代码仓库预览",
     "title": "代码仓库预览",
     "readOnly": "{{repository}} · 只读，无需克隆",

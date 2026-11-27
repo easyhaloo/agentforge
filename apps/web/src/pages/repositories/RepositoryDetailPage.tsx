@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, ChevronRight, ChevronDown, File, Folder, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
-import type { OrganizationSummary, RepositoryPreviewEntry, RepositoryPreviewBlob } from "../../shared/api/identity";
+import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
+import type { OrganizationSummary, RepositoryPreviewBlob } from "../../shared/api/identity";
 import { repositoryPreviewAPI } from "../../shared/api/identity";
 import { organizationHandle, repositoryPath } from "../../shared/routing";
 import { Button, SearchInput, Select, DataTable, Tabs } from "../../shared/ui";
 import type { DataTableColumn } from "../../shared/ui";
+import { RepositoryFileTree } from "./RepositoryFileTree";
 import { RepositorySourceViewer } from "./RepositorySourceViewer";
 import { RepositoryReadme } from "./RepositoryReadme";
 import "./RepositoryDetailPage.css";
@@ -99,55 +100,8 @@ interface CodeTabContentProps {
 function CodeTabContent({ organization, repositorySlug }: CodeTabContentProps) {
   const [selectedFile, setSelectedFile] = useState<{ path: string; size?: number } | null>(null);
   const [fileContent, setFileContent] = useState<RepositoryPreviewBlob | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [treeData, setTreeData] = useState<Map<string, RepositoryPreviewEntry[]>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [loadingFile, setLoadingFile] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const repository = `${organization.slug}/${repositorySlug}`;
-
-  useEffect(() => {
-    const loadRootTree = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await repositoryPreviewAPI.tree(organization.id, repository, "", "");
-        setTreeData(new Map([["", result.items]]));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load file tree");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void loadRootTree();
-  }, [organization.id, repository]);
-
-  const loadSubtree = async (path: string) => {
-    if (treeData.has(path)) return;
-    try {
-      const result = await repositoryPreviewAPI.tree(organization.id, repository, path, "");
-      setTreeData(new Map(treeData.set(path, result.items)));
-    } catch (err) {
-      console.error("Failed to load subtree:", err);
-    }
-  };
-
-  const toggleFolder = async (path: string) => {
-    const isExpanded = expandedFolders.has(path);
-    setExpandedFolders((prev) => {
-      const next = new Set(prev);
-      if (isExpanded) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
-    if (!isExpanded) {
-      await loadSubtree(path);
-    }
-  };
 
   const selectFile = async (path: string, size?: number) => {
     setSelectedFile({ path, size });
@@ -163,36 +117,11 @@ function CodeTabContent({ organization, repositorySlug }: CodeTabContentProps) {
     }
   };
 
-  if (loading) {
-    return <div className="code-tab-content"><p>Loading repository files...</p></div>;
-  }
-
-  if (error) {
-    return <div className="code-tab-content"><p>Error: {error}</p></div>;
-  }
-
-  const rootItems = treeData.get("") || [];
-
   return (
     <div className="code-tab-content">
-      <div className="code-tab-layout">
-        <aside className="file-tree">
-          <h3>Files</h3>
-          <div className="file-tree-content">
-            {rootItems.map((entry) => (
-              <FileTreeItem
-                key={entry.path}
-                entry={entry}
-                selectedFile={selectedFile?.path || null}
-                expandedFolders={expandedFolders}
-                treeData={treeData}
-                onSelectFile={selectFile}
-                onToggleFolder={toggleFolder}
-                level={0}
-              />
-            ))}
-          </div>
-        </aside>
+      <div className="repo-file-layout">
+        <RepositoryFileTree organizationID={organization.id} repository={repository} refName=""
+          selectedFile={selectedFile?.path} onSelectFile={selectFile}/>
         <main className="file-viewer">
           {selectedFile ? (
             <>
@@ -235,74 +164,6 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-interface FileTreeItemProps {
-  entry: RepositoryPreviewEntry;
-  selectedFile: string | null;
-  expandedFolders: Set<string>;
-  treeData: Map<string, RepositoryPreviewEntry[]>;
-  onSelectFile: (path: string, size?: number) => void;
-  onToggleFolder: (path: string) => void;
-  level: number;
-}
-
-function FileTreeItem({
-  entry,
-  selectedFile,
-  expandedFolders,
-  treeData,
-  onSelectFile,
-  onToggleFolder,
-  level,
-}: FileTreeItemProps) {
-  const isFolder = entry.kind === "tree";
-  const isExpanded = expandedFolders.has(entry.path);
-  const isSelected = selectedFile === entry.path;
-  const children = isFolder ? treeData.get(entry.path) || [] : [];
-
-  if (isFolder) {
-    return (
-      <div>
-        <div
-          className={`file-tree-item folder ${isSelected ? "active" : ""}`}
-          onClick={() => void onToggleFolder(entry.path)}
-          style={{ paddingLeft: `${level * 12}px` }}
-        >
-          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <Folder size={14} />
-          <span>{entry.name}</span>
-        </div>
-        {isExpanded && children.length > 0 && (
-          <div className="file-tree-children">
-            {children.map((child) => (
-              <FileTreeItem
-                key={child.path}
-                entry={child}
-                selectedFile={selectedFile}
-                expandedFolders={expandedFolders}
-                treeData={treeData}
-                onSelectFile={onSelectFile}
-                onToggleFolder={onToggleFolder}
-                level={level + 1}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`file-tree-item ${isSelected ? "active" : ""}`}
-      onClick={() => onSelectFile(entry.path, entry.size)}
-      style={{ paddingLeft: `${level * 12 + 16}px` }}
-    >
-      <File size={14} />
-      <span>{entry.name}</span>
-    </div>
-  );
 }
 
 interface PackageData {

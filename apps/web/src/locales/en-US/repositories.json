@@ -488,7 +488,20 @@
     "compareFailed": "Unable to compare the commits",
     "sourceFailed": "Unable to read the source file"
   },
+  "refPicker": {
+    "title": "Switch branch or tag",
+    "search": "Search branches and tags",
+    "branches": "Branches",
+    "tags": "Tags",
+    "empty": "No matching branches or tags.",
+    "defaultBranch": "Default"
+  },
   "preview": {
+    "create": "Create",
+    "searchFolder": "Search this folder",
+    "noFilesInFolder": "No files in this folder.",
+    "fileTree": "Repository file tree",
+    "loadingTree": "Loading repository files...",
     "ariaLabel": "Repository preview",
     "title": "Repository preview",
     "readOnly": "{{repository}} · read-only, no clone required",
