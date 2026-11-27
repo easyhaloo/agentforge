@@ -55,3 +55,4 @@ temp/
 # pnpm-lock.yaml exists but project uses npm per CLAUDE.md
 pnpm-lock.yaml
 yarn.lock
+.workbuddy-ai/
