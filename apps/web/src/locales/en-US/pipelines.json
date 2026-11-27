@@ -62,7 +62,7 @@
   "version": "Published version",
   "runParams": "Run parameters",
   "start": "Start run",
-  "run": "Run {{id}} · Version {{version}} · {{status}}",
+  "run": "Run {{id}} · Version {{version}}",
   "title": "Pipelines",
   "workflow": "Workflow",
   "discard": "Discard unsaved changes?",
