@@ -442,7 +442,7 @@ test("file preview shows a responsive tree for the pinned commit", async ({ page
   expect((await file.boundingBox())!.x).toBe((await rootFile.boundingBox())!.x);
   expect((await file.locator("svg").boundingBox())!.x - (await rootFile.locator("svg").boundingBox())!.x).toBe(8);
   await folder.hover();
-  await expect(folder).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await expect(folder).toHaveCSS("background-color", "rgba(129, 139, 152, 0.12)");
   const preview = page.getByRole("region", { name: "src/index.html" });
   const source = preview.locator(".repository-source");
   const pathBar = page.getByRole("navigation", { name: "Repository path" }).locator("..");
