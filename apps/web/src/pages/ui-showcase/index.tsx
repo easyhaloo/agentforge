@@ -310,11 +310,11 @@ function UIShowcaseContent() {
           onSubmit={setSubmittedFilter}
           placeholder="Filter changesets (e.g. is:open label:ui-system)..."
           ariaLabel="Showcase filter bar"
-          filterPrefix={<Button size="medium" onClick={() => setFilterQuery("is:changeset is:open")}>Filters ▾</Button>}
+          filterPrefix={<Button onClick={() => setFilterQuery("is:changeset is:open")}>Filters ▾</Button>}
           trailingControls={
             <ButtonGroup ariaLabel="Filter presets">
-              <Button size="medium" onClick={() => setFilterQuery("is:open label:ui-system")}>Labels <CounterLabel>12</CounterLabel></Button>
-              <Button size="medium" onClick={() => setFilterQuery("is:open milestone:v2.4")}>Milestones <CounterLabel>3</CounterLabel></Button>
+              <Button onClick={() => setFilterQuery("is:open label:ui-system")}>Labels <CounterLabel>12</CounterLabel></Button>
+              <Button onClick={() => setFilterQuery("is:open milestone:v2.4")}>Milestones <CounterLabel>3</CounterLabel></Button>
             </ButtonGroup>
           }
           primaryAction={<Button variant="primary" onClick={() => setSubmittedFilter(filterQuery)}>Apply</Button>}
