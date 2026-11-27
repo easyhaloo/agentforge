@@ -415,7 +415,7 @@ If either cannot be run, state explicitly and explain what remains unverified.
 
 ## UI and Design Consistency
 
-Use the [pull request frontend standard](pull-requests.md) for repository change proposal and review screens.
+Use the [GitHub Primer Design System](design-system/README.md) ([colors](design-system/colors.md), [typography](design-system/typography.md), [icons](design-system/icons.md), [states](design-system/states.md), [components](design-system/components.md), [layout](design-system/layout.md)) as the canonical UI specification for `apps/web`, and the [pull request frontend standard](pull-requests.md) for repository change proposal and review screens.
 
 - Reuse existing design tokens, spacing, typography, surfaces, interaction patterns in `styles/index.css`
 - Prefer existing Lucide icons over emoji or hand-drawn substitutes
@@ -561,6 +561,7 @@ Do not perform unrelated cleanup, dependency upgrades, formatting churn, or arch
 
 ## Further Reading
 
+- **[GitHub Primer Design System](design-system/README.md)** — Colors, typography, icons, states, components, and layout standards
 - **[Backend Development Guide](backend.md)** — Go API standards
 - **[AGENTS.md](../../AGENTS.md)** — Universal AI development standards
 - **[CLAUDE.md](../../CLAUDE.md)** — Claude Code configuration

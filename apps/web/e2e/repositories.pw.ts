@@ -98,7 +98,7 @@ test("filters, sorts, and restores a saved repository view on desktop and mobile
   await adminAccess.hover();
   await expect(adminAccess).toHaveCSS("cursor", "pointer");
   await expect(adminAccess).toHaveCSS("height", "32px");
-  await expect(adminAccess).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await expect(adminAccess).toHaveCSS("background-color", "rgba(129, 139, 152, 0.12)");
   await adminAccess.click();
   await expect(filter).toHaveValue("access:admin");
   await expect(names).toHaveCount(3);
@@ -182,9 +182,9 @@ test("filters, sorts, and restores a saved repository view on desktop and mobile
   await expect(savedRow).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const restBounds = await savedRow.boundingBox();
   await savedView.hover();
-  await expect(savedRow).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await expect(savedRow).toHaveCSS("background-color", "rgba(129, 139, 152, 0.12)");
   await removeView.hover();
-  await expect(savedRow).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await expect(savedRow).toHaveCSS("background-color", "rgba(129, 139, 152, 0.12)");
   expect(await savedRow.boundingBox()).toEqual(restBounds);
   await savedRow.screenshot({ path: testInfo.outputPath("repository-view-hover.png"), animations: "disabled" });
   await expect(removeView).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -442,7 +442,7 @@ test("file preview shows a responsive tree for the pinned commit", async ({ page
   expect((await file.boundingBox())!.x).toBe((await rootFile.boundingBox())!.x);
   expect((await file.locator("svg").boundingBox())!.x - (await rootFile.locator("svg").boundingBox())!.x).toBe(8);
   await folder.hover();
-  await expect(folder).toHaveCSS("background-color", "rgba(129, 139, 152, 0.1)");
+  await expect(folder).toHaveCSS("background-color", "rgba(129, 139, 152, 0.12)");
   const preview = page.getByRole("region", { name: "src/index.html" });
   const source = preview.locator(".repository-source");
   const pathBar = page.getByRole("navigation", { name: "Repository path" }).locator("..");

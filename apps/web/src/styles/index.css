@@ -478,8 +478,8 @@
 .webide-diff__line--same{display:block;color:var(--af-color-text-secondary)}
 
 /* The workspace header and navigation share the same baseline and surface. */
-:root, body, .focused-shell { background: var(--af-color-background); color: var(--af-color-text); }
-.topbar { height: 60px; min-height: 60px; background: var(--af-color-surface-raised); }
+:root, body, .focused-shell { background: var(--bgColor-default, var(--af-color-background)); color: var(--fgColor-default, var(--af-color-text)); }
+.topbar { height: 56px; min-height: 56px; background: var(--bgColor-inset, var(--af-color-surface-raised)); border-bottom: 1px solid var(--borderColor-default, var(--af-color-border)); }
 .login-header .brand-mark, .register-header .brand-mark { margin: 0 auto 12px; background: var(--af-color-text); color: var(--af-color-background); box-shadow: none; }
 .page-heading { align-items: center; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--af-color-border); }
 .page-heading h1 { margin: 0 0 4px; font-size: 26px; font-weight: 600; }
@@ -491,63 +491,67 @@
 
 
 /* Repository unified diff: syntax tokens decorate code without changing diff rows or line mapping. */
-.repository-diff{overflow:auto;max-height:720px;margin-top:12px;border:1px solid #29344a;border-radius:8px;background:#0c1421;color:#c5ccda;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.repository-diff__file{min-width:max-content;border-bottom:1px solid #29344a}
+.repository-diff{overflow:auto;max-height:720px;margin-top:12px;border:1px solid var(--borderColor-default);border-radius:var(--radius-md);background:var(--bgColor-default);color:var(--fgColor-default);font:12px/20px var(--font-mono)}
+.repository-diff__file{min-width:max-content;border-bottom:1px solid var(--borderColor-default)}
 .repository-diff__file:last-child{border-bottom:0}
-.repository-diff__file h4{position:sticky;left:0;margin:0;padding:8px 12px;border-bottom:1px solid #29344a;background:#111a29;color:#dce2ee;font:600 10px/1.5 ui-sans-serif,system-ui,sans-serif}
-.repository-diff__hunk{padding:4px 12px;background:#152238;color:#91a9ce;white-space:pre}
-.repository-diff__line{display:grid;grid-template-columns:48px 48px minmax(0,1fr);min-height:18px}
-.repository-diff__line>span{padding:0 8px;color:#65738b;text-align:right;user-select:none;border-right:1px solid #202a3d}
+.repository-diff__file h4{position:sticky;left:0;margin:0;padding:8px 12px;border-bottom:1px solid var(--borderColor-default);background:var(--bgColor-muted);color:var(--fgColor-default);font:600 13px/20px var(--font-sans)}
+.repository-diff__hunk{padding:4px 12px;background:var(--diff-hunk-bg);color:var(--fgColor-muted);white-space:pre}
+.repository-diff__line{display:grid;grid-template-columns:44px 44px minmax(0,1fr);min-height:20px}
+.repository-diff__line>span{padding:0 8px;color:var(--fgColor-muted);text-align:right;user-select:none;border-right:1px solid var(--borderColor-muted)}
 .repository-diff__line code{display:block;padding:0 12px;white-space:pre;font:inherit}
-.repository-diff__line--add{background:#10271f}
-.repository-diff__line--add code{color:#c5d9cc}
-.repository-diff__line--remove{background:#2a171d}
-.repository-diff__line--remove code{color:#e4c2c5}
-.repository-diff__line--meta{color:#77849a}
+.repository-diff__line--add{background:var(--diff-add-bg)}
+.repository-diff__line--add>span{background:var(--diff-add-num-bg);color:var(--fgColor-default)}
+.repository-diff__line--add code{color:var(--fgColor-default)}
+.repository-diff__line--remove{background:var(--diff-del-bg)}
+.repository-diff__line--remove>span{background:var(--diff-del-num-bg);color:var(--fgColor-default)}
+.repository-diff__line--remove code{color:var(--fgColor-default)}
+.repository-diff__line--meta{color:var(--fgColor-muted)}
 .repository-diff__file[data-highlight-engine="plain-text"] .repository-diff__line code{color:inherit}
 
-/* Workspace chrome */
+/* Workspace chrome (GitHub Primer Global Header + UnderlineNav) */
 .shell .main { margin: 0; width: 100%; min-width: 0; }
-.shell > .topbar { position: sticky; top: 0; z-index: var(--af-z-sticky); gap: 12px; padding-inline: 12px 16px; }
+.shell > .topbar { position: sticky; top: 0; z-index: var(--af-z-sticky); gap: 12px; padding-inline: 16px; background: var(--bgColor-inset); border-bottom: 1px solid var(--borderColor-default); }
 .shell > .topbar:has(+ .repo-section-nav) { border-bottom: 0; }
 .repo-section-nav {
   display: flex;
-  gap: 4px;
-  padding-inline: 12px;
+  gap: 8px;
+  padding-inline: 16px;
   overflow-x: auto;
-  background: var(--af-color-surface-raised);
-  border-bottom: 1px solid var(--af-color-border);
+  background: var(--bgColor-inset);
+  border-bottom: 1px solid var(--borderColor-default);
 }
 .repo-section-nav a {
   display: inline-flex;
   align-items: center;
   flex: none;
   gap: 8px;
-  min-height: 40px;
+  min-height: 44px;
   padding-inline: 10px;
   border-bottom: 2px solid transparent;
-  color: var(--af-color-text);
+  color: var(--fgColor-default);
   font-size: 14px;
   text-decoration: none;
   white-space: nowrap;
 }
-.repo-section-nav svg { color: var(--af-color-text-secondary); }
-.repo-section-nav a:hover { background: var(--af-color-row-hover); }
-.repo-section-nav a:focus-visible { outline: 2px solid var(--af-color-primary); outline-offset: -2px; }
-.repo-section-nav a[aria-current="page"] { border-bottom-color: var(--af-color-primary); font-weight: 600; }
+.repo-section-nav svg { color: var(--fgColor-muted); }
+.repo-section-nav a:hover { background: var(--control-bg-hover); }
+.repo-section-nav a:focus-visible { outline: 2px solid var(--focus-outlineColor); outline-offset: -2px; }
+.repo-section-nav a[aria-current="page"] { border-bottom-color: var(--underlineNav-borderColor-active); font-weight: 600; }
+.repo-section-nav a[aria-current="page"] svg { color: var(--fgColor-default); }
 .shell > .topbar .top-actions { gap: 8px; flex: none; }
-.shell > .topbar .searchbox { background: transparent; font-size: 13px; }
-.shell .content { max-width: 1600px; margin-inline: auto; }
+.shell > .topbar .searchbox { height: var(--control-md); min-height: var(--control-md); border-color: var(--borderColor-default); border-radius: var(--radius-md); background: transparent; color: var(--fgColor-muted); font-size: 13px; }
+.shell > .topbar .searchbox:hover { background: var(--control-bg-hover); color: var(--fgColor-default); }
+.shell .content { max-width: 1280px; margin-inline: auto; }
 .workspace-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .workspace-brand > a { flex: none; margin-inline-end: 4px; color: inherit; text-decoration: none; }
-.workspace-brand .brand-mark { margin: 0; flex: none; background: var(--af-color-text); color: var(--af-color-background); box-shadow: none; }
+.workspace-brand .brand-mark { margin: 0; flex: none; border-radius: var(--radius-full); background: var(--fgColor-default); color: var(--bgColor-inset); box-shadow: none; }
 .workspace-brand__page, .topbar-repository__owner, .topbar-repository__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-brand__page { font-weight: 600; }
-.workspace-icon, .workspace-brand .af-button.workspace-icon { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: none; padding: 0; border: 1px solid var(--af-color-border); border-radius: var(--af-radius-md); color: var(--af-color-text-secondary); }
-.workspace-brand > .af-button.workspace-icon { width: 32px; height: 32px; min-height: 32px; }
+.workspace-icon, .workspace-brand .af-button.workspace-icon { display: inline-grid; place-items: center; width: var(--control-md); height: var(--control-md); min-height: var(--control-md); flex: none; padding: 0; border: 1px solid var(--borderColor-default); border-radius: var(--radius-md); background: transparent; color: var(--fgColor-muted); }
+.workspace-brand > .af-button.workspace-icon { width: var(--control-md); height: var(--control-md); min-height: var(--control-md); }
 .topbar-shortcuts { display: flex; gap: 8px; }
 .topbar-shortcuts .workspace-icon { text-decoration: none; }
-.workspace-icon:hover { background: var(--af-color-surface); color: var(--af-color-text); }
+.workspace-icon:hover { background: var(--control-bg-hover); color: var(--fgColor-default); }
 .topbar-repository { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .topbar-repository__name { max-width: 28ch; color: inherit; font-weight: 600; text-decoration: none; }
 .topbar-repository__name:hover { text-decoration: underline; }

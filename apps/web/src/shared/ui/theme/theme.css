@@ -1,97 +1,291 @@
-:root {
+/* ==========================================================================
+   AgentForge GitHub Primer Design Tokens (Dark / Dark Dimmed / Light)
+   Spec: docs/development/design-system/colors.md
+   ========================================================================== */
+
+:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
-  --af-color-background: #0d1117; /* bgColor-default */
-  --af-color-surface: #151b23; /* bgColor-muted */
-  --af-color-surface-raised: #212830; /* control-bgColor-rest */
-  --af-color-row-hover: #656c7633; /* control-transparent-bgColor-hover */
-  --af-color-border: #3d444d; /* borderColor-default */
-  --af-color-text: #f0f6fc; /* fgColor-default */
-  --af-color-text-secondary: #b1bac4; /* fgColor-muted (dark, user-pinned) */
-  --af-color-text-muted: #9198a1; /* fgColor-muted */
-  --af-color-primary: #4493f8; /* fgColor-accent */
-  --af-color-primary-hover: #79c0ff; /* fgColor-accent hover (kept from prior palette) */
-  --af-color-action: #238636; /* bgColor-success-emphasis */
-  --af-color-action-hover: #29903b; /* button-primary-bgColor-hover */
-  --af-color-success: #3fb950; /* fgColor-success */
-  --af-color-merged: #ab7df8; /* fgColor-done */
-  --af-color-warning: #d29922; /* fgColor-attention */
-  --af-color-danger: #f85149; /* fgColor-danger */
-  --af-color-info: #4493f8; /* fgColor-accent */
-  --af-color-primary-subtle: #388bfd1a; /* bgColor-accent-muted */
-  --af-color-success-subtle: #2ea04326; /* bgColor-success-muted */
-  --af-color-warning-subtle: #bb800926; /* bgColor-attention-muted */
-  --af-color-danger-subtle: #f851491a; /* bgColor-danger-muted */
-  --af-color-merged-subtle: #ab7df826; /* bgColor-done-muted */
-  --af-color-overlay: #010409; /* overlay-bgColor */
-  --af-color-overlay-backdrop: #21283066; /* overlay-backdrop-bgColor */
+
+  /* 4-Layer Canvas Hierarchy */
+  --bgColor-inset: #010409;
+  --bgColor-default: #0d1117;
+  --bgColor-muted: #151b23;
+  --bgColor-overlay: #151b23;
+  --bgColor-neutral-muted: rgba(101, 108, 118, 0.2);
+
+  /* Foreground / Text */
+  --fgColor-default: #f0f6fc;
+  --fgColor-muted: #9198a1;
+  --fgColor-onEmphasis: #ffffff;
+  --fgColor-accent: #4493f8;
+  --fgColor-success: #3fb950;
+  --fgColor-done: #ab7df8;
+  --fgColor-attention: #d29922;
+  --fgColor-danger: #f85149;
+
+  /* 2-Level & Semantic Borders */
+  --borderColor-default: #3d444d;
+  --borderColor-muted: rgba(61, 68, 77, 0.7);
+  --borderColor-accent-emphasis: #1f6feb;
+  --borderColor-accent-muted: rgba(56, 139, 253, 0.4);
+  --borderColor-success-muted: rgba(46, 160, 67, 0.4);
+  --borderColor-done-muted: rgba(163, 113, 247, 0.4);
+  --borderColor-attention-muted: rgba(187, 128, 9, 0.4);
+  --borderColor-danger-muted: rgba(248, 81, 73, 0.4);
+
+  /* Semantic Backgrounds */
+  --bgColor-accent-muted: rgba(56, 139, 253, 0.12);
+  --bgColor-success-muted: rgba(46, 160, 67, 0.15);
+  --bgColor-done-muted: rgba(163, 113, 247, 0.15);
+  --bgColor-attention-muted: rgba(187, 128, 9, 0.15);
+  --bgColor-danger-muted: rgba(248, 81, 73, 0.15);
+  --bgColor-success-emphasis: #238636;
+  --bgColor-done-emphasis: #8957e5;
+  --bgColor-danger-emphasis: #da3633;
+
+  /* Controls & Signatures */
+  --button-default-bg: #212830;
+  --button-default-bg-hover: #262c36;
+  --button-default-border: #3d444d;
+  --button-primary-bg: #238636;
+  --button-primary-bg-hover: #29903b;
+  --button-primary-border: rgba(240, 246, 252, 0.1);
+  --button-danger-fg: #f85149;
+  --button-danger-bg-hover: #da3633;
+  --control-bg-hover: rgba(101, 108, 118, 0.2);
+  --underlineNav-borderColor-active: #f78166;
+  --focus-outlineColor: #1f6feb;
+  --counter-bg: rgba(101, 108, 118, 0.25);
+
+  /* Dual-Theme Diff & Contribution Heatmap */
+  --diff-add-bg: rgba(46, 160, 67, 0.16);
+  --diff-add-num-bg: rgba(63, 185, 80, 0.28);
+  --diff-del-bg: rgba(248, 81, 73, 0.16);
+  --diff-del-num-bg: rgba(248, 81, 73, 0.28);
+  --diff-hunk-bg: rgba(56, 139, 253, 0.12);
+  --contrib-0: #151b23;
+  --contrib-1: #033a16;
+  --contrib-2: #196c2e;
+  --contrib-3: #2ea043;
+  --contrib-4: #56d364;
+
+  /* Elevation */
+  --shadow-overlay: 0 8px 24px rgba(1, 4, 9, 0.65);
+  --shadow-dialog: 0 16px 48px rgba(1, 4, 9, 0.75);
+  --backdrop-bg: rgba(1, 4, 9, 0.6);
+
+  /* Geometry & Typography Metrics */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --control-sm: 28px;
+  --control-md: 32px;
+  --control-lg: 40px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Legacy --af-* Backward-Compatibility Aliases */
+  --af-color-background: var(--bgColor-default);
+  --af-color-surface: var(--bgColor-muted);
+  --af-color-surface-raised: var(--button-default-bg);
+  --af-color-row-hover: var(--control-bg-hover);
+  --af-color-border: var(--borderColor-default);
+  --af-color-text: var(--fgColor-default);
+  --af-color-text-secondary: var(--fgColor-muted);
+  --af-color-text-muted: var(--fgColor-muted);
+  --af-color-primary: var(--fgColor-accent);
+  --af-color-primary-hover: #79c0ff;
+  --af-color-action: var(--button-primary-bg);
+  --af-color-action-hover: var(--button-primary-bg-hover);
+  --af-color-success: var(--fgColor-success);
+  --af-color-merged: var(--fgColor-done);
+  --af-color-warning: var(--fgColor-attention);
+  --af-color-danger: var(--fgColor-danger);
+  --af-color-info: var(--fgColor-accent);
+  --af-color-primary-subtle: var(--bgColor-accent-muted);
+  --af-color-success-subtle: var(--bgColor-success-muted);
+  --af-color-warning-subtle: var(--bgColor-attention-muted);
+  --af-color-danger-subtle: var(--bgColor-danger-muted);
+  --af-color-overlay: var(--bgColor-overlay);
+  --af-color-overlay-backdrop: var(--backdrop-bg);
   --af-color-tooltip-bg: #3d444d; /* bgColor-emphasis */
-  --af-color-tooltip-fg: #ffffff; /* fgColor-onEmphasis */
-  --af-button-inactive-bg: #262c36; /* button-inactive-bgColor */
-  --af-button-inactive-fg: #9198a1; /* button-inactive-fgColor */
+  --af-color-tooltip-fg: var(--fgColor-onEmphasis);
+  --af-button-inactive-bg: var(--button-default-bg-hover);
+  --af-button-inactive-fg: var(--fgColor-muted);
   --af-shadow-floating-large: 0 0 0 1px #3d444d, 0 24px 48px 0 #010409; /* shadow-floating-large */
-  --af-radius-sm: 5px;
-  --af-radius-md: 7px;
-  --af-radius-lg: 10px;
-  --af-radius-xl: 12px;
-  --af-control-height-sm: 28px;
-  --af-control-height-md: 34px;
-  --af-control-height-lg: 40px;
+  --af-radius-sm: var(--radius-sm);
+  --af-radius-md: var(--radius-md);
+  --af-radius-lg: var(--radius-lg);
+  --af-radius-xl: var(--radius-lg);
+  --af-control-height-sm: var(--control-sm);
+  --af-control-height-md: var(--control-md);
+  --af-control-height-lg: var(--control-lg);
   --af-z-dropdown: 5;
   --af-z-sticky: 6;
   --af-z-overlay: 10;
   --af-z-toast: 20;
 }
 
-.af-ui-root {
-  min-height: 100vh;
-  color: var(--af-color-text);
+:root[data-theme="dark-dimmed"] {
+  color-scheme: dark;
+  --bgColor-inset: #1c2128;
+  --bgColor-default: #22272e;
+  --bgColor-muted: #2d333b;
+  --bgColor-overlay: #2d333b;
+  --bgColor-neutral-muted: rgba(99, 110, 123, 0.25);
+
+  --fgColor-default: #cdd9e5;
+  --fgColor-muted: #768390;
+  --fgColor-onEmphasis: #ffffff;
+  --fgColor-accent: #539bf5;
+  --fgColor-success: #57ab5a;
+  --fgColor-done: #986ee2;
+  --fgColor-attention: #c69026;
+  --fgColor-danger: #e5534b;
+
+  --borderColor-default: #444c56;
+  --borderColor-muted: rgba(68, 76, 86, 0.7);
+  --borderColor-accent-emphasis: #316dca;
+  --borderColor-accent-muted: rgba(65, 132, 228, 0.4);
+  --borderColor-success-muted: rgba(70, 149, 74, 0.4);
+  --borderColor-done-muted: rgba(152, 110, 226, 0.4);
+  --borderColor-attention-muted: rgba(174, 124, 20, 0.4);
+  --borderColor-danger-muted: rgba(229, 83, 75, 0.4);
+
+  --bgColor-accent-muted: rgba(65, 132, 228, 0.15);
+  --bgColor-success-muted: rgba(70, 149, 74, 0.15);
+  --bgColor-done-muted: rgba(152, 110, 226, 0.15);
+  --bgColor-attention-muted: rgba(174, 124, 20, 0.15);
+  --bgColor-danger-muted: rgba(229, 83, 75, 0.15);
+  --bgColor-success-emphasis: #347d39;
+  --bgColor-done-emphasis: #8256d0;
+  --bgColor-danger-emphasis: #c93c37;
+
+  --button-default-bg: #373e47;
+  --button-default-bg-hover: #444c56;
+  --button-default-border: rgba(205, 217, 229, 0.15);
+  --button-primary-bg: #347d39;
+  --button-primary-bg-hover: #46954a;
+  --button-primary-border: rgba(205, 217, 229, 0.1);
+  --button-danger-fg: #e5534b;
+  --button-danger-bg-hover: #c93c37;
+  --control-bg-hover: rgba(118, 131, 144, 0.2);
+  --underlineNav-borderColor-active: #ec775c;
+  --focus-outlineColor: #316dca;
+  --counter-bg: rgba(99, 110, 123, 0.35);
+
+  --diff-add-bg: rgba(70, 149, 74, 0.16);
+  --diff-add-num-bg: rgba(87, 171, 90, 0.26);
+  --diff-del-bg: rgba(229, 83, 75, 0.16);
+  --diff-del-num-bg: rgba(229, 83, 75, 0.26);
+  --diff-hunk-bg: rgba(65, 132, 228, 0.14);
+  --contrib-0: #2d333b;
+  --contrib-1: #0e4429;
+  --contrib-2: #006d32;
+  --contrib-3: #26a641;
+  --contrib-4: #39d353;
+
+  --shadow-overlay: 0 8px 24px rgba(13, 17, 23, 0.55);
+  --shadow-dialog: 0 16px 48px rgba(13, 17, 23, 0.65);
+  --backdrop-bg: rgba(28, 33, 40, 0.6);
+  --af-color-primary-hover: #6cb6ff;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --af-color-background: #ffffff; /* bgColor-default */
-  --af-color-surface: #ffffff; /* bgColor-default */
-  --af-color-surface-raised: #f6f8fa; /* bgColor-muted */
-  --af-color-row-hover: #818b981a; /* control-transparent-bgColor-hover */
-  --af-color-border: #d1d9e0; /* borderColor-default */
-  --af-color-text: #1f2328; /* fgColor-default */
-  --af-color-text-secondary: #59636e; /* fgColor-muted */
-  --af-color-text-muted: #59636e; /* fgColor-muted */
-  --af-color-primary: #0969da; /* fgColor-accent */
-  --af-color-primary-hover: #0550ae; /* fgColor-accent hover (kept from prior palette) */
-  --af-color-action: #1f883d; /* bgColor-success-emphasis */
-  --af-color-action-hover: #1c8139; /* button-primary-bgColor-hover */
-  --af-color-success: #1a7f37; /* fgColor-success */
-  --af-color-merged: #8250df; /* fgColor-done */
-  --af-color-warning: #9a6700; /* fgColor-attention */
-  --af-color-danger: #d1242f; /* fgColor-danger */
-  --af-color-info: #0969da; /* fgColor-accent */
-  --af-color-primary-subtle: #ddf4ff; /* bgColor-accent-muted */
-  --af-color-success-subtle: #dafbe1; /* bgColor-success-muted */
-  --af-color-warning-subtle: #fff8c5; /* bgColor-attention-muted */
-  --af-color-danger-subtle: #ffebe9; /* bgColor-danger-muted */
-  --af-color-merged-subtle: #fbefff; /* bgColor-done-muted */
-  --af-color-overlay: #ffffff; /* overlay-bgColor */
-  --af-color-overlay-backdrop: #c8d1da66; /* overlay-backdrop-bgColor */
+  --bgColor-inset: #f6f8fa;
+  --bgColor-default: #ffffff;
+  --bgColor-muted: #f6f8fa;
+  --bgColor-overlay: #ffffff;
+  --bgColor-neutral-muted: rgba(129, 139, 152, 0.12);
+
+  --fgColor-default: #1f2328;
+  --fgColor-muted: #59636e;
+  --fgColor-onEmphasis: #ffffff;
+  --fgColor-accent: #0969da;
+  --fgColor-success: #1a7f37;
+  --fgColor-done: #8250df;
+  --fgColor-attention: #9a6700;
+  --fgColor-danger: #d1242f;
+
+  --borderColor-default: #d1d9e0;
+  --borderColor-muted: rgba(209, 217, 224, 0.7);
+  --borderColor-accent-emphasis: #0969da;
+  --borderColor-accent-muted: rgba(84, 174, 255, 0.4);
+  --borderColor-success-muted: rgba(74, 194, 107, 0.4);
+  --borderColor-done-muted: rgba(194, 151, 255, 0.4);
+  --borderColor-attention-muted: rgba(212, 167, 44, 0.4);
+  --borderColor-danger-muted: rgba(255, 129, 130, 0.4);
+
+  --bgColor-accent-muted: #ddf4ff;
+  --bgColor-success-muted: #dafbe1;
+  --bgColor-done-muted: #fbefff;
+  --bgColor-attention-muted: #fff8c5;
+  --bgColor-danger-muted: #ffebe9;
+  --bgColor-success-emphasis: #1f883d;
+  --bgColor-done-emphasis: #8250df;
+  --bgColor-danger-emphasis: #cf222e;
+
+  --button-default-bg: #f6f8fa;
+  --button-default-bg-hover: #eff2f5;
+  --button-default-border: #d1d9e0;
+  --button-primary-bg: #1f883d;
+  --button-primary-bg-hover: #1c8139;
+  --button-primary-border: rgba(31, 35, 40, 0.15);
+  --button-danger-fg: #cf222e;
+  --button-danger-bg-hover: #a40e26;
+  --control-bg-hover: rgba(129, 139, 152, 0.12);
+  --underlineNav-borderColor-active: #fd8c73;
+  --focus-outlineColor: #0969da;
+  --counter-bg: rgba(129, 139, 152, 0.18);
+
+  --diff-add-bg: #dafbe1;
+  --diff-add-num-bg: #aceebb;
+  --diff-del-bg: #ffebe9;
+  --diff-del-num-bg: #ffcecb;
+  --diff-hunk-bg: #ddf4ff;
+  --contrib-0: #eff2f5;
+  --contrib-1: #aceebb;
+  --contrib-2: #4ac26b;
+  --contrib-3: #2da44e;
+  --contrib-4: #116329;
+
+  --shadow-overlay: 0 8px 24px rgba(140, 149, 159, 0.24);
+  --shadow-dialog: 0 16px 48px rgba(31, 35, 40, 0.22);
+  --backdrop-bg: rgba(31, 35, 40, 0.35);
+
+  --af-color-surface: #ffffff;
+  --af-color-surface-raised: #f6f8fa;
+  --af-color-primary-hover: #0550ae;
+  --af-color-overlay: var(--bgColor-overlay);
+  --af-color-overlay-backdrop: var(--backdrop-bg);
   --af-color-tooltip-bg: #25292e; /* bgColor-emphasis */
-  --af-color-tooltip-fg: #ffffff; /* fgColor-onEmphasis */
+  --af-color-tooltip-fg: var(--fgColor-onEmphasis);
   --af-button-inactive-bg: #e6eaef; /* button-inactive-bgColor */
-  --af-button-inactive-fg: #59636e; /* button-inactive-fgColor */
+  --af-button-inactive-fg: var(--fgColor-muted);
   --af-shadow-floating-large: 0 0 0 1px #d1d9e000, 0 40px 80px 0 #25292e3d; /* shadow-floating-large */
 }
 
+.af-ui-root {
+  min-height: 100vh;
+  color: var(--fgColor-default);
+  font-family: var(--font-sans);
+}
+
 .settings-layout {
-  --color-bg: var(--af-color-background);
-  --color-surface: var(--af-color-surface);
-  --color-bg-hover: var(--af-color-surface-raised);
-  --color-border: var(--af-color-border);
-  --color-text-primary: var(--af-color-text);
-  --color-text-secondary: var(--af-color-text-secondary);
-  --color-text-tertiary: var(--af-color-text-muted);
-  --color-text-inverted: #fff;
-  --color-primary: var(--af-color-primary);
-  --color-primary-bg: var(--af-color-primary-subtle);
-  --color-bg-active: var(--color-primary-bg);
-  --color-error: var(--af-color-danger);
-  --color-error-bg: var(--af-color-danger-subtle);
+  --color-bg: var(--bgColor-default);
+  --color-surface: var(--bgColor-default);
+  --color-bg-hover: var(--bgColor-muted);
+  --color-border: var(--borderColor-default);
+  --color-text-primary: var(--fgColor-default);
+  --color-text-secondary: var(--fgColor-muted);
+  --color-text-tertiary: var(--fgColor-muted);
+  --color-text-inverted: var(--fgColor-onEmphasis);
+  --color-primary: var(--fgColor-accent);
+  --color-primary-bg: var(--bgColor-accent-muted);
+  --color-bg-active: var(--bgColor-accent-muted);
+  --color-error: var(--fgColor-danger);
+  --color-error-bg: var(--bgColor-danger-muted);
 }

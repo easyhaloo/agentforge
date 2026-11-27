@@ -1,5 +1,23 @@
 export const agentForgeTokens = {
   color: {
+    /* GitHub Primer Semantic Tokens */
+    bgInset: "var(--bgColor-inset)",
+    bgDefault: "var(--bgColor-default)",
+    bgMuted: "var(--bgColor-muted)",
+    bgOverlay: "var(--bgColor-overlay)",
+    fgDefault: "var(--fgColor-default)",
+    fgMuted: "var(--fgColor-muted)",
+    fgAccent: "var(--fgColor-accent)",
+    fgSuccess: "var(--fgColor-success)",
+    fgDone: "var(--fgColor-done)",
+    fgAttention: "var(--fgColor-attention)",
+    fgDanger: "var(--fgColor-danger)",
+    borderDefault: "var(--borderColor-default)",
+    borderMuted: "var(--borderColor-muted)",
+    underlineActive: "var(--underlineNav-borderColor-active)",
+    focusOutline: "var(--focus-outlineColor)",
+
+    /* Legacy Aliases */
     primary: "var(--af-color-primary)",
     primaryHover: "var(--af-color-primary-hover)",
     success: "var(--af-color-success)",
@@ -21,9 +39,9 @@ export const agentForgeTokens = {
     buttonInactiveFg: "var(--af-button-inactive-fg)",
   },
   shadow: { floatingLarge: "var(--af-shadow-floating-large)" },
-  radius: { small: 5, medium: 7, large: 10, xlarge: 12 },
+  radius: { small: 5, medium: 7, large: 10, xlarge: 12, full: 9999 },
   spacing: { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32 },
-  controlHeight: { small: 28, medium: 34, large: 40 },
+  controlHeight: { small: 28, medium: 32, large: 40 },
   zIndex: { dropdown: 5, sticky: 6, overlay: 10, toast: 20 },
 } as const;
 
