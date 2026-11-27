@@ -1,4 +1,4 @@
-import { Archive, ArrowLeft, BarChart3, CalendarRange, Columns3, Download, Ellipsis, Info, ListFilter, Plus, Settings, SlidersHorizontal, Table2 } from "lucide-react";
+import { Archive, BarChart3, CalendarRange, Columns3, Download, Ellipsis, Info, ListFilter, Plus, Settings, SlidersHorizontal, Table2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,7 +8,7 @@ import { APIError, translateError } from "../../shared/api/errors";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { projectFieldsAPI, type ProjectField } from "../../shared/api/projectFields";
 import { projectPriorities, projectsAPI, projectStatuses, type Project, type ProjectItem, type ProjectProgress, type ProjectStatusDay, type ProjectView } from "../../shared/api/projects";
-import { issueCreatePath, organizationHandle, orgPath, projectPath } from "../../shared/routing";
+import { issueCreatePath, organizationHandle, projectPath } from "../../shared/routing";
 import { Button, DataTable, Input, Popover, Select, type DataTableColumn } from "../../shared/ui";
 import { ProjectFieldSettings } from "./ProjectCustomFields";
 import { ProjectFormPage } from "./ProjectForms";
@@ -25,7 +25,7 @@ function customFieldLabel(field: ProjectField, item: ProjectItem) {
 
 export function ProjectDetailPage({ organization, number }: { organization: OrganizationSummary; number: string }) {
   const { t } = useTranslation("repositories");
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project>();
   const [fields, setFields] = useState<ProjectField[]>();
@@ -132,10 +132,10 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
   }
 
   return <section className={`projects-page${form ? " projects-create-page" : ""}`}>
-    <Link className="projects-back" to={form || page ? viewURL : orgPath(handle, "projects")}><ArrowLeft size={16} aria-hidden /> {t(form || page ? "projects.backToProject" : "projects.back")}</Link>
     {error ? <div className="projects-message"><p role="alert">{error}</p><Button onClick={() => setAttempt(attempt + 1)}>{t("issues.composer.retry")}</Button></div> : !project ?
       <p role="status">{t("common:components.loading")}</p> : page === "fields" ? <ProjectFieldSettings orgID={orgID} projectNumber={project.number} projectVersion={project.version}
         canManage={editViews} fieldsURL={pageURL("fields")} fieldID={params.get("field") ?? undefined}
+        projectName={project.name} projectURL={viewURL}
         onProjectVersionChange={(version) => setProject((current) => current && { ...current, version })}
         onRefresh={() => setAttempt((value) => value + 1)} /> : form ? <ProjectFormPage key={`${page}/${currentView}/${itemID}`} {...{
         organization, project, views, view, page, fieldsURL: pageURL("fields"), workflowsURL: pageURL("workflows"), item: items?.find(({ id }) => id === itemID), itemArchive, items, itemError, admin, writable, viewURL,
@@ -147,7 +147,7 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
       <header className="projects-heading projects-workspace-heading">
         <div className="projects-workspace-title">
           <span className="projects-glyph"><Columns3 size={20} aria-hidden /></span>
-          <div><h1>{project.name} <span className="projects-number">#{project.number}</span></h1>
+          <div><h1>{page ? <Link to={viewURL}>{project.name}</Link> : project.name} <span className="projects-number">#{project.number}</span></h1>
             {project.description && <p>{project.description}</p>}
             {project.closed && <p>{t("projects.closedNotice")}</p>}
           </div>
@@ -209,7 +209,6 @@ export function ProjectDetailPage({ organization, number }: { organization: Orga
         </div> : <ProjectItems {...{ handle, view, visible, archived, writable, pendingItem, moveItem }} fields={fields ?? []}
           addItemsURL={(field, value) => pageURL("add", { [field]: value })}
           itemURL={(item) => pageURL("item", { item: item.id, ...(archived && { archived: "true" }) })} />)}
-        {archived && items && <Button className="projects-back" onClick={() => setParams(currentView ? { view: currentView } : {})}>{t("projects.backToProject")}</Button>}
       </>}
     </>}
   </section>;

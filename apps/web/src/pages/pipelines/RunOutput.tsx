@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { request } from "../../shared/api/identity";
 import type { Definition, Run } from "../../shared/api/pipelines";
 import { Button, Input } from "../../shared/ui";
-import { PipelineStatusLabel } from "./PipelineStatus";
+import { PipelineStatus } from "./PipelineStatus";
 
 type Output = { id: number; provenance: { name: string; step: string; attempt: number }; expiresAt: string; purgedAt?: string };
 
@@ -59,7 +59,7 @@ export function RunJobLogs({ org, run, job }: { org: string; run: Run; job: Defi
     {steps.map(({ id, lines }) => {
       const status = run.stepStatuses?.[id] ?? "queued";
       return <details key={id} open={!!query || status === "failed" || status === "timed_out"}>
-        <summary>{id}<PipelineStatusLabel state={status} /></summary>
+        <summary><PipelineStatus state={status} />{id}</summary>
         {lines.length
           ? <pre>{lines.join("\n")}</pre>
           : <p>{t(connected || failed ? "runOutput.noLogs" : "common:status.loading")}</p>}

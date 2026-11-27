@@ -12,7 +12,6 @@
 .projects-heading p, .projects-row-title p, .projects-row-title small, .projects-directory time, .projects-number,
 .projects-board li span, .projects-owner dt, .projects-layout-options small { color: var(--af-color-text-muted); }
 .projects-number { font-size: .75em; font-weight: normal; }
-.projects-back { display: inline-flex; align-items: center; gap: 8px; justify-self: start; }
 .projects-toolbar, .projects-actions, .projects-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .projects-page .af-field { grid-template-columns: minmax(0, 1fr); }
 .projects-toolbar > .af-field { min-width: min(100%, 240px); }

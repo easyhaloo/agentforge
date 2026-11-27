@@ -15,6 +15,8 @@ type ProjectFieldScope = { orgID: string; projectNumber: number; onRefresh: () =
 
 export type ProjectFieldSettingsProps = ProjectFieldScope & {
   projectVersion: number;
+  projectName: string;
+  projectURL: string;
   canManage: boolean;
   fieldsURL: string;
   fieldID?: string;
@@ -60,7 +62,7 @@ export function ProjectFieldSettings(props: ProjectFieldSettingsProps) {
 }
 
 function ProjectFieldSettingsContent({
-  orgID, projectNumber, projectVersion, canManage, fieldsURL, fieldID, onProjectVersionChange, onRefresh,
+  orgID, projectNumber, projectVersion, projectName, projectURL, canManage, fieldsURL, fieldID, onProjectVersionChange, onRefresh,
 }: ProjectFieldSettingsProps) {
   const { t } = useTranslation("projectFields");
   const headingID = useId();
@@ -126,7 +128,10 @@ function ProjectFieldSettingsContent({
 
   return <section className="projects-form" aria-labelledby={headingID}>
     <div className="projects-heading">
-      <h2 id={headingID}>{t(creating ? "newField" : fieldID ? "editField" : "title")}</h2>
+      <div>
+        <Link to={projectURL}>{projectName}</Link>
+        <h2 id={headingID}>{t(creating ? "newField" : fieldID ? "editField" : "title")}</h2>
+      </div>
       {!fieldID && canManage && <Link className={primaryLink} to={fieldURL(fieldsURL, "new")}>{t("newField")}</Link>}
     </div>
     {!definitions ? <FieldLoading failed={failed} retry={() => { setFailed(false); setAttempt((value) => value + 1); }} /> : <>

@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarRange, CircleDot, CircleX, Columns3, Plus, Search, Table2 } from "lucide-react";
+import { CalendarRange, CircleDot, CircleX, Columns3, Plus, Search, Table2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -35,13 +35,6 @@ function ProjectLoadError({ retry }: { retry: () => void }) {
     <p role="alert">{t("issues.projects.loadFailed")}</p>
     <Button onClick={retry}>{t("issues.composer.retry")}</Button>
   </div>;
-}
-
-function BackToProjects({ handle, repository }: { handle: string; repository?: string }) {
-  const { t } = useTranslation("repositories");
-  return <Link className="projects-back" to={repository ? repositoryPath(handle, repository, "projects") : orgPath(handle, "projects")}>
-    <ArrowLeft size={16} aria-hidden /> {t("projects.back")}
-  </Link>;
 }
 
 export function ProjectsPage({ organization, repository }: ProjectProps & { repository?: string }) {
@@ -186,7 +179,6 @@ export function ProjectCreatePage({ organization }: ProjectProps) {
   useEffect(() => { if (nameError && !saving) nameRef.current?.focus(); }, [nameError, saving]);
 
   return <section className="projects-page projects-create-page">
-    <BackToProjects handle={handle} repository={returnRepository} />
     <header className="projects-heading">
       <div><h1 ref={headingRef} tabIndex={-1}>{t("projects.new")}</h1><p>{t("projects.subtitle", { organization: organization.name })}</p></div>
     </header>

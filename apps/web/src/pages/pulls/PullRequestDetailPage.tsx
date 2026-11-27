@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, CircleCheck, ClipboardCheck, CornerDownLeft, FileDiff, GitCommitHorizontal, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Layers3, MessagesSquare, Pencil, TriangleAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { changesetAPI, repositoryAPI, type RepositorySettings, type PullRequestMergeMethod, type PullRequestMergeInput, type OrganizationSummary, type StoredChangeset, type PullRequestComparison, type PullRequestRequiredWorkflows, type PullBranchMethod, organizationAPI, type OrganizationMember } from "../../shared/api/identity";
 import { APIError, translateError } from "../../shared/api/errors";
-import { changesetPath, orgPath, pullRequestPath, repositoryPath, type PullRequestTab } from "../../shared/routing";
+import { changesetPath, orgPath, pullRequestPath, type PullRequestTab } from "../../shared/routing";
 import { Button, Checkbox, Input, Popover, Select, Tabs, type TabsItem, ConfirmDialog } from "../../shared/ui";
 import { parseRepositoryDiff } from "../repositories/repositoryDiff";
 import { PullRequestConversationTab } from "./PullRequestConversationTab";
@@ -322,9 +322,6 @@ export function PullRequestDetailPage({ organization, repository, handle, pullNu
   };
 
   return <section className="pull-request-detail-page">
-    <Link className="pull-back-link" to={repositoryPath(handle, repository, "pulls")}>
-      <ArrowLeft size={16} aria-hidden="true"/>{t("pulls:detail.backToList")}
-    </Link>
     <header className="pull-request-header">
       {canManage && titleDraft ? (
         <form className="pull-request-title-form" onSubmit={saveTitle} onKeyDown={event => {

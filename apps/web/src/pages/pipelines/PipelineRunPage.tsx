@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { translateError } from "../../shared/api/errors";
 import type { OrganizationSummary } from "../../shared/api/identity";
 import { useDateFormatting } from "../../shared/i18n/format";
@@ -10,7 +10,7 @@ import { organizationHandle, orgPath, pipelineEditPath, pipelineRunPath, reposit
 import { Button } from "../../shared/ui";
 import { RunActions } from "./RunActions";
 import { RunArtifacts, RunJobLogs } from "./RunOutput";
-import { PipelineStatusIcon, PipelineStatusLabel } from "./PipelineStatus";
+import { PipelineStatus } from "./PipelineStatus";
 import { stepGroupState, WorkflowCanvas } from "./WorkflowCanvas";
 
 export function PipelineRunPage({ organization, actorId, runId }: { organization: OrganizationSummary; actorId: string; runId: string }) {
@@ -77,11 +77,21 @@ export function PipelineRunPage({ organization, actorId, runId }: { organization
 
   return <main className="wf-fullscreen">
     <header className="wf-editor-heading">
-      <Link to={backToActions ?? orgPath(handle, "pipelines")}><ArrowLeft size={16} />{backToActions ? t("repositories:actions.back") : t("backToList")}</Link>
-      <div className="wf-editor-title"><h1>{run && <PipelineStatusIcon state={run.status} size={22} />}<span>{definition?.name ?? t("runDetails")}</span></h1>
-        {run && <span role="status">{t("run", { id: run.id, version: run.version, status: t(run.status) })}</span>}
+      <div className="wf-editor-title">
+        <nav className="wf-editor-breadcrumb" aria-label={t("navigation:breadcrumbs.label")}>
+          <Link to={backToActions ?? orgPath(handle, "pipelines")}>{backToActions ? t("repositories:sections.actions") : t("title")}</Link>
+          <span aria-hidden="true">/</span>
+          <h1>{run && <PipelineStatus state={run.status} size={22} />}<span>{definition?.name ?? t("runDetails")}</span></h1>
+        </nav>
+        {run && <span>{t("run", { id: run.id, version: run.version })}</span>}
       </div>
-      {run && <Link to={pipelineEditPath(handle, run.pipelineId) + returnQuery}>{t("editPipeline")}</Link>}
+      {run && <div className="wf-run-header-actions">
+        {definition && <RunActions organization={organization} actorId={actorId} run={run} definition={definition} onChanged={next => {
+          if (next) void navigate(pipelineRunPath(handle, next.id) + returnQuery);
+          else setRetry(n => n + 1);
+        }} />}
+        <Link to={pipelineEditPath(handle, run.pipelineId) + returnQuery}>{t("editPipeline")}</Link>
+      </div>}
     </header>
     {error ? <p className="org-error" role="alert">{error} <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.retry")}</Button></p> :
       !definition && <p role="status">{t("common:status.loading")}</p>}
@@ -95,16 +105,12 @@ export function PipelineRunPage({ organization, actorId, runId }: { organization
         {jobs.map(({ key, stage, job }) => {
           const state = stepGroupState(job.steps.map(step => run.stepStatuses?.[step.id] ?? "queued"));
           return <Link key={key} to={{ search: viewQuery(key) }} aria-current={selection?.key === key ? "page" : undefined}>
+            <PipelineStatus state={state} />
             <span>{job.id}<small>{stage}</small></span>
-            <PipelineStatusLabel state={state} />
           </Link>;
         })}
       </nav>
       <div className="wf-run-main">
-        <RunActions organization={organization} actorId={actorId} run={run} definition={definition} onChanged={next => {
-          if (next) void navigate(pipelineRunPath(handle, next.id) + returnQuery);
-          else setRetry(n => n + 1);
-        }} />
         {selection ? <RunJobLogs key={selection.key} org={org} run={run} job={selection.job} /> : <>
           {run.createdAt && <dl className="wf-run-metadata">
             <div><dt>{t("repositories:actions.event")}</dt><dd>{t(`repositories:actions.events.${eventKind}`)}</dd></div>

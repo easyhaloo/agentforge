@@ -82,7 +82,6 @@
     "titleTooLong": "标题不得超过 {{max}} 个字符。",
     "titleConflict": "编辑期间拉取请求已更新。请刷新获取最新版本后再保存。",
     "titleSaveFailed": "无法保存拉取请求标题。",
-    "backToList": "返回拉取请求列表",
     "openedBy": "{{author}} 提议将 {{source}} 合并到 {{base}}",
     "draft": "草稿",
     "open": "开放",

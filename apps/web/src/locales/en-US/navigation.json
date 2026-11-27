@@ -105,7 +105,7 @@
   },
   "breadcrumbs": {
     "home": "Home",
-    "back": "Back to {{page}}"
+    "label": "Breadcrumb"
   },
   "userMenu": {
     "profile": "Profile",

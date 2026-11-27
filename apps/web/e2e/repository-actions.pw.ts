@@ -114,7 +114,7 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
   await capture("actions-workflow-config");
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await expect(page).toHaveURL(`${pagePath}?workflow=ci`);
   await page.getByRole("button", { name: "Triggers" }).click();
   const triggerDialog = page.getByRole("dialog", { name: "Triggers" });
@@ -131,14 +131,18 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await expect(page).toHaveURL(/\/pipeline-runs\/ci-run\?/);
   await page.reload();
   await expect(page.getByRole("region", { name: "Run graph" })).toBeVisible();
-  const titleStatus = page.locator("h1 .pipeline-status-icon");
-  await expect(titleStatus).toHaveAttribute("data-state", "succeeded");
+  const titleStatus = page.locator("h1").getByRole("img");
+  await expect(titleStatus).toHaveAccessibleName("Succeeded");
+  await expect(page.locator(".wf-editor-title > span")).toHaveText("Run ci-run · Version 1");
+  const graphJob = page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: /checks/i });
+  await expect(graphJob.getByRole("img", { name: "Succeeded" })).toBeVisible();
+  await expect(graphJob).toHaveText("checks", { useInnerText: true });
   await capture("actions-run-summary");
   await expect(page.getByText(/old\.txt.*Expired/)).toBeVisible();
   const artifact = page.getByRole("link", { name: /build\.txt/ });
   await expect(artifact).toHaveAttribute("download", "build.txt");
   await expect(artifact).toHaveAttribute("href", /\/pipeline-runs\/ci-run\/objects\/1$/);
-  await page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: "Job checks" }).click();
+  await graphJob.click();
   const checks = page.getByRole("region", { name: "Job checks" });
   await checks.locator("summary").click();
   await expect(checks.getByText("Finished check")).toBeVisible();
@@ -148,14 +152,14 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await expect(checks.getByText("No log lines match your search.")).toBeVisible();
   await logSearch.fill("FINISHED");
   await expect(checks.getByText("Finished check")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to Actions" })).toHaveAttribute("href", `${pagePath}?workflow=ci`);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true })).toHaveAttribute("href", `${pagePath}?workflow=ci`);
   await page.screenshot({ path: testInfo.outputPath("actions-job.png"), fullPage: true });
   await page.getByRole("button", { name: "Re-run workflow" }).click();
   await page.getByRole("dialog", { name: "Re-run workflow" }).getByRole("button", { name: "Re-run workflow" }).click();
   await expect(page).toHaveURL(/\/pipeline-runs\/ci-rerun\?/);
   await page.getByRole("link", { name: "View original run" }).click();
   await expect(page).toHaveURL(/\/pipeline-runs\/ci-run\?/);
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   const result = page.locator(".repo-actions-run");
   await expect(result).toContainText("Demo Owner");
   await expect(result).toContainText("43s");
@@ -177,11 +181,11 @@ test("repository Actions creates and runs a workflow and preserves history filte
     ["Failed", "failed", "rgb(209, 36, 47)"],
     ["Running", "running", "rgb(154, 103, 0)"],
   ]) {
-    const icon = result.getByRole("img", { name: label, exact: true }).locator("svg");
+    const icon = result.getByRole("img", { name: label, exact: true });
     await expect(icon).toHaveAttribute("data-state", state);
     await expect(icon).toHaveCSS("color", color);
   }
-  await expect(result.getByRole("img", { name: "Queued", exact: true })).toBeVisible();
+  await expect(result.getByRole("img", { name: /^queued$/i })).toBeVisible();
   await capture("actions-desktop");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(result).toHaveCount(4);
@@ -192,7 +196,7 @@ test("repository Actions creates and runs a workflow and preserves history filte
   await result.filter({ has: page.getByRole("img", { name: "Running", exact: true }) }).getByRole("link").click();
   await expect(titleStatus).toHaveAttribute("data-state", "running");
   await expect(titleStatus).toHaveCSS("animation-name", "pipeline-status-spin");
-  await expect(page.getByRole("navigation", { name: "Run navigation" }).getByRole("link", { name: /checks.*Running/ })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Run navigation" }).getByRole("link", { name: /Running.*checks/ })).toBeVisible();
   const emptyArtifacts = page.getByRole("region", { name: "Artifacts" }).getByText("No artifacts are available for this run yet.");
   await expect(emptyArtifacts).toBeVisible();
   await capture("actions-in-progress");
@@ -202,21 +206,21 @@ test("repository Actions creates and runs a workflow and preserves history filte
   waitingForApproval = true;
   await expect(page.getByRole("button", { name: "Review approve" })).toBeVisible();
   await capture("actions-waiting-approval");
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await selectOption(page, page.getByRole("combobox", { name: "Status", exact: true }), "Failed");
   await expect(result).toHaveCount(1);
   await result.getByRole("link").click();
   await expect(titleStatus).toHaveAttribute("data-state", "failed");
-  await expect(page.getByRole("navigation", { name: "Run navigation" }).getByRole("link", { name: /checks.*Failed/ })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Run navigation" }).getByRole("link", { name: /Failed.*checks/ })).toBeVisible();
   await expect(emptyArtifacts).toBeVisible();
   await capture("actions-failed-summary");
-  await page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: "Job checks" }).click();
+  await graphJob.click();
   await expect(checks.locator("details")).toHaveAttribute("open", "");
   await expect(checks.locator("summary .pipeline-status-icon")).toHaveAttribute("data-state", "failed");
   await logSearch.fill("validation");
   await expect(checks.getByText("Release validation failed", { exact: true })).toBeVisible();
   await capture("actions-failed-log");
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await expect(page).toHaveURL(/status=failed/);
   await expect(result).toHaveCount(1);
 });
@@ -270,7 +274,7 @@ test("repository Actions persists a published workflow and its runs through the 
   await page.getByRole("dialog").getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
   await expect(page).toHaveURL(/\/pipeline-runs\/[^?]+\?/);
@@ -279,7 +283,7 @@ test("repository Actions persists a published workflow and its runs through the 
   await page.getByRole("button", { name: "Re-run workflow" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Re-run workflow" }).click();
   await expect(page.getByRole("link", { name: "View original run" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await page.reload();
   await expect(page.locator(".repo-actions-run")).toHaveCount(2);
   await selectOption(page, page.getByRole("combobox", { name: "Event", exact: true }), "Re-run");
@@ -306,7 +310,7 @@ test("repository Actions enables and disables the live Changeset revision trigge
   await page.getByRole("dialog").getByRole("button", { name: "New", exact: true }).click();
   await page.getByRole("button", { name: "Publish version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to Actions" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   await expect(page).toHaveURL(/[?&]workflow=/);
   const actionsURL = page.url();
 
@@ -408,7 +412,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
   const publish = async () => {
     await page.getByRole("button", { name: "Publish version" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Published version 1" })).toBeVisible();
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
   };
   await publish();
   await page.getByRole("button", { name: "Triggers" }).click();
@@ -420,7 +424,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
   await capture("04-trigger");
   await triggers.getByRole("button", { name: "Close", exact: true }).click();
 
-  const runState = (status: RegExp) => page.getByRole("status").filter({ hasText: status });
+  const runState = (name: RegExp) => page.locator("h1").getByRole("img", { name });
   async function startRun(version?: string) {
     await page.getByRole("button", { name: "Run workflow" }).click();
     if (version) await page.getByRole("textbox", { name: "VERSION", exact: true }).fill(version);
@@ -428,24 +432,28 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await expect(page.getByRole("region", { name: "Run graph" })).toBeVisible();
   }
   await startRun("2.4.0");
-  await expect(runState(/Version 1 · queued/i)).toBeVisible();
+  await expect(runState(/^queued$/i)).toBeVisible();
   await capture("05-queued");
 
   const env = { ...process.env, PIPELINE_RUNNER_TOKEN: randomBytes(32).toString("hex") };
   execFileSync(workerPath!, ["register", org.id, "container/script@v1", "control/approval@v1"], { env });
   const worker = spawn(workerPath!, [], { env, stdio: ["ignore", "ignore", "inherit"] });
   try {
-    await expect(runState(/Version 1 · Succeeded/)).toBeVisible({ timeout: 20_000 });
+    await expect(runState(/^Succeeded$/)).toBeVisible({ timeout: 20_000 });
     await capture("06-succeeded");
-    await page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: "Job publish" }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await capture("06-succeeded-mobile");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: /publish/ }).click();
     await page.getByRole("searchbox", { name: "Search logs" }).fill("Release v2.4.0");
     await expect(page.getByText("Release v2.4.0", { exact: true })).toBeVisible();
     await capture("07-success-log");
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await startRun("invalid");
-    await expect(runState(/Version 1 · Failed/)).toBeVisible({ timeout: 20_000 });
+    await expect(runState(/^Failed$/)).toBeVisible({ timeout: 20_000 });
     const failedRun = page.url();
-    await page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: "Job package" }).click();
+    await page.getByRole("region", { name: "Run graph" }).getByRole("link", { name: /package/ }).click();
     await expect(page.getByRole("region", { name: "Job package" }).locator("details")).toHaveAttribute("open", "");
     await page.getByRole("searchbox", { name: "Search logs" }).fill("validation");
     await expect(page.getByText("Release validation failed", { exact: true })).toBeVisible();
@@ -453,10 +461,10 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await page.getByRole("button", { name: "Re-run workflow" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Re-run workflow" }).click();
     await expect(page.getByRole("link", { name: "View original run" })).toHaveAttribute("href", new URL(failedRun).pathname + new URL(failedRun).search);
-    await expect(runState(/Version 1 · Failed/)).toBeVisible({ timeout: 20_000 });
+    await expect(runState(/^Failed$/)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("definition").filter({ hasText: "invalid" })).toBeVisible();
     await capture("09-rerun");
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
 
     const approval = await createWorkflow("deploy-approval", "Manual approval");
     await approval.getByRole("button", { name: "New", exact: true }).click();
@@ -464,9 +472,9 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await startRun();
     const review = page.getByRole("button", { name: "Review approve" });
     await expect(review).toBeVisible({ timeout: 20_000 });
-    await expect(runState(/Version 1 · Running/)).toBeVisible();
+    await expect(runState(/^Running$/)).toBeVisible();
     await capture("10-waiting-approval");
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await page.getByRole("link", { name: "All workflows", exact: true }).click();
     const rows = page.locator(".repo-actions-run");
     await expect(rows).toHaveCount(4);
@@ -482,7 +490,7 @@ test("repository Actions shows real runner states, workflow inputs, and step log
     await expect(rows).toHaveCount(2);
     await capture("13-filtered");
     await rows.first().getByRole("link").click();
-    await page.getByRole("link", { name: "Back to Actions" }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Actions", exact: true }).click();
     await expect(page).toHaveURL(/status=failed/);
     await expect(rows).toHaveCount(2);
     await selectOption(page, page.getByRole("combobox", { name: "Status", exact: true }), "Timed out");

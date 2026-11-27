@@ -61,7 +61,6 @@
   },
   "detail": {
     "loading": "加载变更集中…",
-    "backToList": "返回变更集列表",
     "sectionsAriaLabel": "变更集分区",
     "createdBy": "{{repository}} · 由 {{actor}} 创建",
     "currentRevision": "当前修订版本",

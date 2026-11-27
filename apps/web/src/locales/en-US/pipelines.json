@@ -62,7 +62,7 @@
   "version": "Published version",
   "runParams": "Run parameters",
   "start": "Start run",
-  "run": "Run {{id}} · Version {{version}} · {{status}}",
+  "run": "Run {{id}} · Version {{version}}",
   "title": "Pipelines",
   "workflow": "Workflow",
   "discard": "Discard unsaved changes?",
@@ -148,6 +148,5 @@
   "runDetails": "Run details",
   "editPipeline": "Edit pipeline",
   "discardToRun": "Discard unsaved changes and run",
-  "backToList": "Back to pipelines",
   "nameHint": "Start with a letter and use up to 64 letters, digits, underscores or hyphens."
 }

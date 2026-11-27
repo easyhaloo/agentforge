@@ -8,7 +8,7 @@ import { pipelines } from "../../shared/api/pipelines";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { organizationHandle, pipelineEditPath, pipelineRunPath, repositoryActionFilters, repositoryActionsContext } from "../../shared/routing";
 import { Button, ConfirmDialog, Input, Select } from "../../shared/ui";
-import { PipelineStatusIcon } from "../pipelines/PipelineStatus";
+import { PipelineStatus } from "../pipelines/PipelineStatus";
 import { CreatePipelineDialog } from "../pipelines/PipelinesPage";
 import { RunDialog } from "../pipelines/RunPanel";
 import { WorkflowTriggers } from "./WorkflowTriggers";
@@ -80,10 +80,9 @@ export function RepositoryActions({ organization, repository }: { organization: 
   const retryButton = <Button onClick={() => setRetry(n => n + 1)}>{t("common:actions.retry")}</Button>;
 
   function renderRun(run: RepositoryAction) {
-    const status = t(`pipelines:${run.status}`);
     const seconds = Math.round((Date.parse(run.completed_at ?? "") - Date.parse(run.created_at)) / 1000);
     return <li key={run.id} className="repo-actions-run">
-      <span className="repo-actions-state" title={status} aria-label={status} role="img"><PipelineStatusIcon state={run.status} /></span>
+      <span className="repo-actions-state"><PipelineStatus state={run.status} /></span>
       <div className="repo-actions-run-main">
         <Link className="repo-link" to={pipelineRunPath(handle, run.id) + context}>{run.pipeline}</Link>
         <div className="repo-actions-meta">

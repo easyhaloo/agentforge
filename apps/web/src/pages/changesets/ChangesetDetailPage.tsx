@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { changesetAPI, type OrganizationSummary, type StoredChangeset } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { changesetPath, changesetTabs, organizationHandle, orgPath, webIDEPath, type ChangesetTab } from "../../shared/routing";
+import { changesetPath, changesetTabs, organizationHandle, webIDEPath, type ChangesetTab } from "../../shared/routing";
 import { Button, Input } from "../../shared/ui";
 import { auditEntryLabel, changesetLifecycleSteps, changesetLifecycleStepLabel, changesetReviewRefusal, changesetStatusClass, changesetStatusLabel, completedLifecycleSteps, reviewStatusLabel } from "./changeset-status";
 
@@ -83,7 +83,6 @@ export function ChangesetDetailPage({ organization, accountUserID, changesetID, 
   if (loading) return <section className="changeset-detail card"><div className="org-loading">{t("changesets:detail.loading")}</div></section>;
   if (!item) return <section className="changeset-detail card">
     <div className="org-error" role="alert">{error || t("changesets:errors.detailLoadFailed")}</div>
-    <Link className="button secondary" to={orgPath(handle, "changesets")}>{t("changesets:detail.backToList")}</Link>
   </section>;
 
   const changeset = item.changeset;
