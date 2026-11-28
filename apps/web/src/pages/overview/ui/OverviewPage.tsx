@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { changesetAPI, repositoryAPI, type ChangesetPage, type OrganizationSummary, type RepositoryMetadata, type StoredChangeset } from "../../../shared/api/identity";
 import { pipelines, type Summary } from "../../../shared/api/pipelines";
-import { changesetPath, orgPath, organizationHandle, pipelineEditPath } from "../../../shared/routing";
+import { changesetPath, organizationHandle, orgPath, pipelineEditPath, repositoryDisplaySlug } from "../../../shared/routing";
 import { Alert, Button, Empty, Loading } from "../../../shared/ui";
 import "./overview.css";
 
@@ -66,7 +66,9 @@ export function OverviewPage({ organization, userId, displayName }: Props) {
         <h2>{t("workbench.repositories")}</h2>
         {sectionContent("repositories", repositories?.length, t("repositories:empty"), <ul className="workbench-list">
           {repositories?.slice(0, 6).map(repository => <li key={repository.slug}>
-            <Link to={`${repositoriesUrl}?${new URLSearchParams({ repository: repository.slug })}`}><BookMarked size={15} /><strong>{repository.slug}</strong></Link>
+            <Link to={`${repositoriesUrl}?${new URLSearchParams({ repository: repository.slug })}`} aria-label={repositoryDisplaySlug(repository.slug, organization)}>
+              <BookMarked size={15} /><strong>{repositoryDisplaySlug(repository.slug, organization)}</strong>
+            </Link>
           </li>)}
         </ul>)}
         <Link className="workbench-link" to={repositoriesUrl}>{t("workbench.allRepositories")} <ArrowRight size={13} /></Link>

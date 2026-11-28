@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { repositoryAPI, type OrganizationSummary, type RepositorySummary } from "../../shared/api/identity";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
-import { organizationHandle, repositoryChangesetsPath, repositoryPath, repositorySettingsPath, repositoryNewPath } from "../../shared/routing";
+import { organizationHandle, ownerDisplayLabel, repositoryChangesetsPath, repositoryDisplaySlug, repositoryPath, repositorySettingsPath, repositoryNewPath } from "../../shared/routing";
 import { Button, Input, Modal, Select } from "../../shared/ui";
 import { canManageRepository } from "./repositoryPermissions";
 import "./repositories.css";
@@ -91,7 +91,7 @@ export function RepositoriesPage({ organization, userID }: Props) {
     const matching = items.flatMap(item => {
       const slug = item.slug.toLowerCase();
       const name = slug.slice(slug.indexOf("/") + 1);
-      const displaySlug = item.slug.startsWith(`${organization.id}/`) ? `${organization.name.toLowerCase()}/${name}` : slug;
+      const displaySlug = repositoryDisplaySlug(item.slug, organization).toLowerCase();
       let relevance = 0;
       for (const term of terms) {
         if (term === ownRepositories) {
@@ -224,8 +224,8 @@ export function RepositoriesPage({ organization, userID }: Props) {
           <ul aria-label={t("repositories:page.title")}>
             {filtered.map(item => {
               const separator = item.slug.indexOf("/");
-              const owner = item.slug.slice(0, separator);
-              const ownerLabel = owner === organization.id ? organization.name : owner;
+              const owner = separator >= 0 ? item.slug.slice(0, separator) : "";
+              const ownerLabel = owner ? ownerDisplayLabel(owner, organization) : "";
               const name = item.slug.slice(separator + 1);
               const displaySlug = separator >= 0 ? `${ownerLabel}/${name}` : name;
               const language = item.git?.language;

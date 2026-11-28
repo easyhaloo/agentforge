@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OrganizationSummary } from "../api/identity";
-import { findOrganizationByHandle, organizationHandle } from "./organization-handle";
+import { findOrganizationByHandle, organizationHandle, ownerDisplayLabel, repositoryDisplaySlug } from "./organization-handle";
 import { CURRENT_ORGANIZATION_HANDLE } from "./paths";
 
 const org = (id: string, slug: string): OrganizationSummary => ({ id, slug, name: `Org ${id}`, role: "owner" });
@@ -20,6 +20,26 @@ describe("organizationHandle", () => {
   it("never returns the reserved current alias, so such an organization is addressed by its id", () => {
     expect(organizationHandle(org("org-demo", "current"))).toBe("org-demo");
     expect(organizationHandle(org("org-demo", "Current"))).toBe("org-demo");
+  });
+});
+
+describe("ownerDisplayLabel", () => {
+  it("shows the organization name when the owner prefix is the org id", () => {
+    expect(ownerDisplayLabel("org-1", { id: "org-1", name: "AgentForge Local's Workspace" })).toBe("AgentForge Local's Workspace");
+  });
+
+  it("shows the owner as-is when it is not the org id", () => {
+    expect(ownerDisplayLabel("other/testing", { id: "org-1", name: "Workspace" })).toBe("other/testing");
+  });
+});
+
+describe("repositoryDisplaySlug", () => {
+  it("replaces the org-id owner prefix with the display name", () => {
+    expect(repositoryDisplaySlug("org-1/testing", { id: "org-1", name: "Workspace" })).toBe("Workspace/testing");
+  });
+
+  it("keeps slugs without an owner prefix unchanged", () => {
+    expect(repositoryDisplaySlug("testing", { id: "org-1", name: "Workspace" })).toBe("testing");
   });
 });
 
