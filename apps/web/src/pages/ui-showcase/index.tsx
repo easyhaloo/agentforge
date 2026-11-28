@@ -104,6 +104,9 @@ function UIShowcaseContent() {
   const [dateRange, setDateRange] = useState({ start: "2026-11-01", end: "2026-11-17" });
   const [search, setSearch] = useState("");
   const [searchResult, setSearchResult] = useState("");
+  const [fileSearch, setFileSearch] = useState("");
+  const [qualifierSearch, setQualifierSearch] = useState("is:pr state:open");
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -360,7 +363,22 @@ function UIShowcaseContent() {
             <FormItem><DateRangePicker start={dateRange.start} end={dateRange.end} onChange={setDateRange} /></FormItem>
             <FormItem><AsyncSelect value={team} onChange={setTeam} loadOptions={loadTeamOptions} placeholder="Find a team..." /></FormItem>
           </Form>
-          <div className="af-showcase-card"><h4>Search</h4><p>Debounced search with immediate Enter submission.</p><SearchInput value={search} onChange={setSearch} onSearch={setSearchResult} placeholder="Search projects..." /><div className="af-showcase-result">Last submitted query: <b>{searchResult || "—"}</b></div></div>
+          <div className="af-showcase-card">
+            <h4>{t("common:components.submitSearch")}</h4>
+            <SearchInput value={search} onChange={setSearch} onSearch={setSearchResult} placeholder={t("navigation:topbar.searchRepositories")} />
+            <SearchInput
+              mode="trigger"
+              ariaLabel={t("navigation:commandPalette.title")}
+              triggerHint={{ prefix: t("common:components.searchHintPrefix"), suffix: t("common:components.searchHintSuffix") }}
+              shortcut={{ key: "/", placement: "inline-hint" }}
+              onTrigger={() => setSearchDialogOpen(true)}
+            />
+            <SearchInput value={fileSearch} onChange={setFileSearch} onSearch={setSearchResult} placeholder={t("common:components.goToFile")}
+              shortcut={{ key: "T", placement: "trailing", globalListen: true }} />
+            <SearchInput value={qualifierSearch} onChange={setQualifierSearch} onSearch={setSearchResult} leadingIcon={false}
+              qualifiers={{ enabled: true }} clearButtonStyle="filled" submitButton />
+            <div className="af-showcase-result">{t("common:components.lastSubmittedSearch")} <b>{searchResult || "—"}</b></div>
+          </div>
         </div>
       </section>
 
@@ -435,6 +453,10 @@ function UIShowcaseContent() {
         <div className="af-showcase-section__heading"><div><h3>Data table</h3><p>Sortable columns, row selection and server-driven pagination callbacks.</p></div><span className="af-showcase-meta">{selectedRows.length} selected · {sortMessage}</span></div>
         <DataTable columns={columns} data={rows} rowKey="id" selectedRowKeys={selectedRows} onSelectionChange={setSelectedRows} onSort={(key, direction) => setSortMessage(direction ? key + " " + direction : "No sort applied")} bulkActions={<Button size="small" variant="danger" onClick={() => setSelectedRows([])}>Clear selection</Button>} pagination={{ page: 1, pageSize: 10, total: rows.length }} />
       </section>
+
+      <Modal open={searchDialogOpen} title={t("navigation:commandPalette.title")} onCancel={() => setSearchDialogOpen(false)}>
+        <SearchInput value={search} onChange={setSearch} />
+      </Modal>
 
       <Modal open={modalOpen} title={t("repositories:workspace.create")} onCancel={() => setModalOpen(false)} onOk={async () => { await new Promise((resolve) => window.setTimeout(resolve, 350)); setModalOpen(false); }}>
         <Form><Input label="Workspace name" defaultValue="new-workspace" /><Select label="Environment" defaultValue="development" options={environmentOptions} /></Form>

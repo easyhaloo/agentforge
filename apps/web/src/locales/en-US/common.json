@@ -72,6 +72,11 @@
   "components": {
     "searchPlaceholder": "Search...",
     "searchOptionsPlaceholder": "Search options...",
+    "submitSearch": "Search",
+    "searchHintPrefix": "Type",
+    "searchHintSuffix": "to search",
+    "goToFile": "Go to file",
+    "lastSubmittedSearch": "Last submitted query",
     "clearSearch": "Clear search",
     "selectOption": "Select...",
     "selectAllRows": "Select all rows on this page",

@@ -14,8 +14,8 @@
   gap: 8px 12px;
 }
 
-.af-pr-list__toolbar .af-search { flex: 1 1 220px; min-width: 0; }
-.af-pr-list__toolbar .af-search input { font-size: 14px; }
+.af-pr-list__toolbar .af-search-group { flex: 1 1 220px; min-width: 0; }
+.af-pr-list__toolbar .af-search { font-size: 14px; }
 .af-pr-list__toolbar > a.button { text-decoration: none; }
 .af-pr-list__toolbar .button { min-height: var(--af-control-height-md); }
 

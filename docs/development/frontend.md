@@ -560,7 +560,7 @@ For every task:
 4. Make smallest coherent change (refactor adjacent code only when needed for clean boundary)
 5. **If adding/modifying user-facing text**: Add translation keys to both en-US and zh-CN locale files, use `useTranslation()` and `t()`
 6. Add or update tests for changed domain rules and user-visible behavior
-7. Run tests and production build
+7. Run tests, production build, and **mandatory Playwright E2E verification** (`npm run test:e2e`, or targeted `.pw.ts` specs covering all affected user journeys) and capture corresponding screenshots of the verified UI states for review/delivery
 8. Review diff for accidental behavior changes, dead code, duplicated state, incorrect domain terminology, **hardcoded user-facing strings**
 9. Update README or relevant docs when architecture, commands, or contributor rules materially change
 10. Use proper commit message format: `type(scope): description`

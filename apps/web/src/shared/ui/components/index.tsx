@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,7 +15,7 @@ import {
   type SelectHTMLAttributes,
   type TableHTMLAttributes,
 } from "react";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { translateError } from "../../api/errors";
 
@@ -303,64 +304,211 @@ export function DatePicker({ label, controlSize = "middle", id, className = "", 
   );
 }
 
+export type SearchMode = "input" | "trigger";
+
+export interface SearchShortcutConfig {
+  key: string;
+  placement?: "inline-hint" | "trailing";
+  globalListen?: boolean;
+  onShortcut?: () => void;
+}
+
+export interface SearchQualifierConfig {
+  enabled: boolean;
+  allowedKeys?: readonly string[];
+}
+
 export interface SearchInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSearch: (value: string) => void;
+  mode?: SearchMode;
+  value?: string;
+  onChange?: (value: string) => void;
+  onSearch?: (value: string) => void;
+  onTrigger?: () => void;
   placeholder?: string;
+  triggerHint?: { prefix?: string; suffix?: string };
+  leadingIcon?: boolean;
+  shortcut?: SearchShortcutConfig;
+  qualifiers?: SearchQualifierConfig;
+  clearable?: boolean;
+  clearButtonStyle?: "plain" | "filled";
+  submitButton?: boolean;
   debounceMs?: number;
   disabled?: boolean;
   className?: string;
+  ariaLabel?: string;
+  "aria-keyshortcuts"?: string;
 }
+
+function highlightSearchQualifiers(value: string, allowedKeys?: readonly string[]) {
+  const parts: ReactNode[] = [];
+  let end = 0;
+  for (const match of value.matchAll(/(?:^|\s)([a-zA-Z0-9_-]+):(\S+)/g)) {
+    const [, key, token] = match;
+    if (allowedKeys && !allowedKeys.includes(key)) continue;
+    const start = match.index + match[0].length - token.length;
+    parts.push(value.slice(end, start), <mark key={start} className="af-search__token">{token}</mark>);
+    end = start + token.length;
+  }
+  return [...parts, value.slice(end)];
+}
+
 export function SearchInput({
-  value,
+  mode = "input",
+  value = "",
   onChange,
   onSearch,
+  onTrigger,
   placeholder,
+  triggerHint,
+  leadingIcon = true,
+  shortcut,
+  qualifiers,
+  clearable = true,
+  clearButtonStyle = "plain",
+  submitButton = false,
   debounceMs = 300,
   disabled = false,
   className = "",
+  ariaLabel,
+  "aria-keyshortcuts": ariaKeyShortcuts = shortcut?.key,
 }: SearchInputProps) {
   const { t } = useTranslation("common");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
+  const [isComposing, setIsComposing] = useState(false);
   const onSearchRef = useRef(onSearch);
   const timerRef = useRef<number | undefined>(undefined);
   const lastSearchValue = useRef(value);
+  const highlight = Boolean(qualifiers?.enabled && value && !isComposing);
+  const { key: shortcutKey, globalListen, onShortcut } = shortcut ?? {};
 
   useEffect(() => {
     onSearchRef.current = onSearch;
   }, [onSearch]);
 
   useEffect(() => {
-    if (lastSearchValue.current === value) return;
-    timerRef.current = window.setTimeout(() => {
+    if (mode !== "input" || isComposing || disabled || !onSearchRef.current || lastSearchValue.current === value) return;
+    const timer = window.setTimeout(() => {
       lastSearchValue.current = value;
-      onSearchRef.current(value.trim());
+      onSearchRef.current?.(value.trim());
     }, debounceMs);
-    return () => window.clearTimeout(timerRef.current);
-  }, [value, debounceMs]);
+    timerRef.current = timer;
+    return () => window.clearTimeout(timer);
+  }, [value, debounceMs, mode, isComposing, disabled]);
 
-  const submitImmediately = () => {
+  useEffect(() => {
+    if (!globalListen || !shortcutKey || disabled) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.repeat ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        event.key.toLowerCase() !== shortcutKey.toLowerCase()) return;
+      const target = event.target instanceof Element ? event.target : document.activeElement;
+      if (target?.closest('input, textarea, select, [contenteditable], [role="textbox"], [role="dialog"], [aria-expanded="true"]')) return;
+      event.preventDefault();
+      if (onShortcut) onShortcut();
+      else if (mode === "trigger") onTrigger?.();
+      else inputRef.current?.focus();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [globalListen, shortcutKey, disabled, onShortcut, mode, onTrigger]);
+
+  useLayoutEffect(() => {
+    if (highlightRef.current && inputRef.current) {
+      highlightRef.current.scrollLeft = inputRef.current.scrollLeft;
+    }
+  }, [highlight, value]);
+
+  const submitImmediately = (query = value) => {
     window.clearTimeout(timerRef.current);
-    lastSearchValue.current = value;
-    onSearchRef.current(value.trim());
+    lastSearchValue.current = query;
+    onSearchRef.current?.(query.trim());
   };
 
-  return (
-    <div className={`af-search ${className}`.trim()}>
-      <span aria-hidden="true" className="af-search__icon">⌕</span>
-      <input
-        value={value}
+  const placeholderText = placeholder ?? t("components.searchPlaceholder");
+  const icon = leadingIcon && <Search size={15} className="af-search__icon" aria-hidden="true" />;
+  const keyHint = shortcutKey && <kbd className="af-search__kbd" aria-hidden="true">{shortcutKey}</kbd>;
+
+  if (mode === "trigger") {
+    const hasHint = triggerHint && shortcutKey;
+    const hintLabel = hasHint && [triggerHint.prefix, shortcutKey, triggerHint.suffix].filter(Boolean).join(" ");
+    return (
+      <button
+        type="button"
+        className={`af-search af-search--trigger ${className}`.trim()}
         disabled={disabled}
-        placeholder={placeholder ?? t("common:components.searchPlaceholder")}
-        aria-label={placeholder ?? t("common:components.searchPlaceholder")}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") submitImmediately();
-        }}
-      />
-      {value && <button type="button" aria-label={t("common:components.clearSearch")} onClick={() => { lastSearchValue.current = ""; onChange(""); window.clearTimeout(timerRef.current); onSearchRef.current(""); }}>×</button>}
+        aria-label={ariaLabel ?? (hintLabel || placeholderText)}
+        aria-haspopup="dialog"
+        aria-keyshortcuts={ariaKeyShortcuts}
+        onClick={onTrigger}
+      >
+        {icon}
+        {hasHint ? <>{triggerHint.prefix}{keyHint}{triggerHint.suffix}</> : <>{placeholderText}{keyHint}</>}
+      </button>
+    );
+  }
+
+  const input = (
+    <div className={`af-search ${submitButton ? "" : className}`.trim()}>
+      {icon}
+      <div className="af-search__field">
+        {highlight && <div ref={highlightRef} className="af-search__highlight" aria-hidden="true">
+          {highlightSearchQualifiers(value, qualifiers?.allowedKeys)}
+        </div>}
+        <input
+          ref={inputRef}
+          className={highlight ? "af-search__input--highlighted" : undefined}
+          value={value}
+          disabled={disabled}
+          placeholder={placeholderText}
+          aria-label={ariaLabel ?? placeholderText}
+          aria-keyshortcuts={ariaKeyShortcuts}
+          onChange={(event) => onChange?.(event.target.value)}
+          onCompositionStart={() => {
+            window.clearTimeout(timerRef.current);
+            setIsComposing(true);
+          }}
+          onCompositionEnd={() => setIsComposing(false)}
+          onScroll={(event) => {
+            if (highlightRef.current) highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !isComposing && !event.nativeEvent.isComposing) submitImmediately();
+          }}
+        />
+      </div>
+      {value && clearable ? (
+        <button
+          type="button"
+          className={`af-search__clear af-search__clear--${clearButtonStyle}`}
+          aria-label={t("components.clearSearch")}
+          disabled={disabled}
+          onClick={() => {
+            onChange?.("");
+            submitImmediately("");
+            inputRef.current?.focus();
+          }}
+        >
+          <X size={clearButtonStyle === "filled" ? 12 : 16} aria-hidden="true" />
+        </button>
+      ) : !value && shortcut?.placement === "trailing" ? keyHint : null}
     </div>
   );
+
+  return submitButton ? (
+    <div className={`af-search-group ${className}`.trim()}>
+      {input}
+      <button
+        type="button"
+        className="af-search__submit"
+        aria-label={t("components.submitSearch")}
+        disabled={disabled}
+        onClick={() => submitImmediately()}
+      >
+        <Search size={15} aria-hidden="true" />
+      </button>
+    </div>
+  ) : input;
 }
 
 export interface ModalProps {

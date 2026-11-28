@@ -171,6 +171,24 @@ test("searches title, description and number and displays a genuine empty state"
   await expect(issueLinks(page)).toHaveCount(0);
 });
 
+test("keeps highlighted qualifiers aligned and submits them from the search button", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(issuesPath);
+  await expect(issueLinks(page)).toHaveCount(3);
+  const search = page.getByPlaceholder("Search issues...");
+  const mirror = page.locator(".af-search__highlight");
+  const query = `${"word ".repeat(24)}state:open`;
+  await search.fill(query);
+  await search.press("End");
+  await expect(mirror.locator("mark")).toHaveText("open");
+  await expect.poll(() => search.evaluate(input => input.scrollLeft)).toBeGreaterThan(0);
+  await expect.poll(() => search.evaluate(input =>
+    input.scrollLeft - (input.previousElementSibling?.scrollLeft ?? 0),
+  )).toBe(0);
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(query);
+});
+
 for (const { label, sort, direction, matches } of [
   { label: "Newest", sort: "created", direction: "desc", matches: [redirect, authentication, performance] },
   { label: "Oldest", sort: "created", direction: "asc", matches: [performance, authentication, redirect] },
