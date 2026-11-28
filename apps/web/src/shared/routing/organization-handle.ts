@@ -10,6 +10,22 @@ export function organizationHandle(organization: Pick<OrganizationSummary, "id" 
 }
 
 /**
+ * The display label for a repository owner: the organization name when the slug prefix is the org id
+ * (personal workspaces included — their name is already "DisplayName's Workspace").
+ */
+export function ownerDisplayLabel(owner: string, organization: Pick<OrganizationSummary, "id" | "name">): string {
+  return owner === organization.id ? organization.name : owner;
+}
+
+/** The repository slug shown to users: `OwnerLabel/name`, or the whole slug when it has no owner prefix. */
+export function repositoryDisplaySlug(slug: string, organization: Pick<OrganizationSummary, "id" | "name">): string {
+  const separator = slug.indexOf("/");
+  if (separator < 0) return slug;
+  const owner = slug.slice(0, separator);
+  return `${ownerDisplayLabel(owner, organization)}/${slug.slice(separator + 1)}`;
+}
+
+/**
  * Mirrors the server: match `id` exactly first, otherwise `slug` case-insensitively.
  * `current` is a client-side alias for the selected organization and is never a stored handle.
  */

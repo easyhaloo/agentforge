@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { translateError } from "../../shared/api/errors";
 import { repositoryAPI, type RepositoryMetadata } from "../../shared/api/identity";
-import { repositoryPath, type RepositorySection } from "../../shared/routing";
+import { ownerDisplayLabel, repositoryPath, type RepositorySection } from "../../shared/routing";
 import { Input, Popover } from "../../shared/ui";
 import { TopbarIcon } from "./TopbarIcon";
 
@@ -14,7 +14,7 @@ export function RepositorySwitcher({ owner, repo, organizationName, ...context }
   const { t } = useTranslation("navigation");
   const slug = `${owner}/${repo}`;
   const title = t("topbar.switchRepository");
-  const ownerLabel = owner === context.organizationId ? organizationName : owner;
+  const ownerLabel = ownerDisplayLabel(owner, { id: context.organizationId, name: organizationName });
   return (
     <div className="topbar-repository">
       <span className="topbar-repository__owner" title={ownerLabel}>{ownerLabel}</span>
