@@ -4,7 +4,7 @@ import { PanelLeft, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { translateError } from "../../shared/api/errors";
 import { repositoryPreviewAPI, type RepositoryPreviewEntry } from "../../shared/api/identity";
-import { Button, Input, Popover } from "../../shared/ui";
+import { Button, Popover, SearchInput } from "../../shared/ui";
 import "./RepositoryFileTree.css";
 
 type FileNavigation =
@@ -61,8 +61,8 @@ function FileSearch({ dismiss, ...tree }: TreeProps & { dismiss: () => void }) {
   const [query, setQuery] = useState("");
   const path = tree.selectedFile?.split("/").slice(0, -1).join("/") ?? "";
   return <>
-    <Input type="search" aria-label={t("preview.searchFolder")} placeholder={t("preview.searchFolder")}
-      value={query} onChange={event => setQuery(event.target.value)}/>
+    <SearchInput placeholder={t("preview.searchFolder")} value={query} onChange={setQuery}
+      debounceMs={0} shortcut={{ key: "T", placement: "trailing" }} clearable />
     <div className="repo-file-nav-search-results">
       <TreeDirectory {...tree} key={path} path={path} depth={0} expanded search={{ query, dismiss }}/>
     </div>
