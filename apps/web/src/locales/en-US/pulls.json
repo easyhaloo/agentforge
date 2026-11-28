@@ -173,6 +173,18 @@
     "additions": "+{{count}}",
     "deletions": "-{{count}}",
     "noFiles": "No files changed",
+    "noMatchingFiles": "No files match the filter",
+    "fileTree": "Changed file tree",
+    "viewMode": "Diff view",
+    "unified": "Unified",
+    "split": "Split",
+    "resizeSidebar": "Resize file tree",
+    "status": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted",
+      "renamed": "Renamed"
+    },
     "filterFiles": "Filter files",
     "showFiles": "Show file tree",
     "hideFiles": "Hide file tree",

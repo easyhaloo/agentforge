@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "../../locales";
-import { APIError, changesetAPI, organizationAPI, repositoryAPI, type OrganizationSummary, type RepositorySettings, type StoredChangeset } from "../../shared/api/identity";
+import { APIError, changesetAPI, organizationAPI, repositoryAPI, type OrganizationSummary, type PullRequestComment, type RepositorySettings, type StoredChangeset } from "../../shared/api/identity";
 import { issuesAPI } from "../../shared/api/issues";
 import { projectsAPI } from "../../shared/api/projects";
 import { pullRequestPath } from "../../shared/routing";
@@ -30,16 +31,32 @@ const settings: RepositorySettings = {
 function Detail() {
   const { pathname } = useLocation();
   return <PullRequestDetailPage organization={org} repository={repo} handle={org.slug} pullNumber={pullNumber}
-    tab={pathname.endsWith("/checks") ? "checks" : "conversation"} userID="reviewer"/>;
+    tab={pathname.endsWith("/files") ? "files" : pathname.endsWith("/checks") ? "checks" : "conversation"} userID="reviewer"/>;
 }
 
-function renderDetail() {
-  return render(<MemoryRouter initialEntries={[pullRequestPath(org.slug, repo, pullNumber)]}><Detail/></MemoryRouter>);
+function renderDetail(tab?: "files") {
+  return render(<MemoryRouter initialEntries={[pullRequestPath(org.slug, repo, pullNumber, tab)]}><Detail/></MemoryRouter>);
 }
 
 const mergeButton = () => screen.getByRole("button", { name: "Merge pull request" });
+const sidebarWidthKey = "agentforge:pulls:filesSidebarWidth";
+const sidebarHiddenKey = "agentforge:pulls:filesSidebarHidden";
 
-describe("required repository workflows", () => {
+const filePatch = [
+  "diff --git a/src/feature/edit.txt b/src/feature/edit.txt", "@@ -7 +12 @@", "-old version", "+new version",
+  "diff --git a/src/added.txt b/src/added.txt", "new file mode 100644", "@@ -0,0 +1 @@", "+added line",
+  "diff --git a/deleted.txt b/deleted.txt", "deleted file mode 100644", "@@ -1 +0,0 @@", "-removed line",
+  "diff --git a/before.txt b/renamed.txt", "rename from before.txt", "rename to renamed.txt",
+].join("\n");
+
+function mockFiles() {
+  vi.mocked(changesetAPI.getComparison).mockResolvedValue({
+    repository: repo, base_sha: "base", head_sha: revision.commit_sha, patch: filePatch, commits: [], commits_truncated: false,
+  });
+  vi.spyOn(changesetAPI, "getRequiredWorkflows").mockResolvedValue({ revision_id: revision.id, checks: [] });
+}
+
+describe("PullRequestDetailPage", () => {
   beforeAll(async () => { await i18n.changeLanguage("en-US"); });
   beforeEach(() => {
     vi.spyOn(changesetAPI, "get").mockResolvedValue(changeset);
@@ -52,6 +69,156 @@ describe("required repository workflows", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    localStorage.removeItem(sidebarWidthKey);
+    localStorage.removeItem(sidebarHiddenKey);
+  });
+
+  it("groups and filters files with semantic status, totals and selection that opens a folded patch", async () => {
+    const keyboard = userEvent.setup();
+    mockFiles();
+    renderDetail("files");
+    const tree = await screen.findByRole("navigation", { name: "Changed file tree" });
+    expect(screen.getByText("4 files,")).toHaveTextContent("4 files, +2 -2");
+    const folder = within(tree).getByText("feature").closest("details");
+    const editLink = within(tree).getByRole("link", { name: "Modified edit.txt +1 -1" });
+    expect(folder).toHaveAttribute("open");
+    expect(editLink).toHaveAttribute("title", "src/feature/edit.txt");
+    for (const status of ["Added", "Deleted", "Renamed", "Modified"]) {
+      expect(within(tree).getByRole("img", { name: status })).toBeInTheDocument();
+    }
+    fireEvent.click(within(tree).getByText("feature"));
+    expect(folder).not.toHaveAttribute("open");
+    expect(editLink).not.toBeVisible();
+    fireEvent.click(within(tree).getByText("feature"));
+
+    const patchHeader = screen.getByText("src/feature/edit.txt");
+    const scroll = vi.fn();
+    Object.assign(patchHeader.closest("section")!, { scrollIntoView: scroll });
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(patchHeader.closest("details")).not.toHaveAttribute("open");
+    editLink.focus();
+    await keyboard.keyboard("{Enter}");
+    expect(editLink).toHaveAttribute("aria-current", "location");
+    expect(patchHeader.closest("details")).toHaveAttribute("open");
+    await waitFor(() => {
+      expect(scroll).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+      expect(patchHeader).toHaveFocus();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getByText("deleted.txt", { selector: "summary" }).closest("details")).toHaveAttribute("open");
+    fireEvent.click(patchHeader);
+    expect(patchHeader.closest("details")).not.toHaveAttribute("open");
+
+    const href = editLink.getAttribute("href")!;
+    const filter = screen.getByRole("textbox", { name: "Filter files" });
+    fireEvent.change(filter, { target: { value: "SRC/FEATURE" } });
+    expect(within(tree).getAllByRole("link")).toEqual([editLink]);
+    expect(editLink).toHaveAttribute("href", href);
+    expect(document.getElementById(decodeURIComponent(href.slice(1)))).toContainElement(patchHeader);
+    fireEvent.change(filter, { target: { value: "unmatched" } });
+    expect(screen.getByText("No files match the filter")).toBeVisible();
+  });
+
+  it("clamps pointer and keyboard resizing and persists width and visibility across mounts", async () => {
+    mockFiles();
+    const initial = renderDetail("files");
+    const divider = await screen.findByRole("separator", { name: "Resize file tree" });
+    expect(divider).toHaveAttribute("aria-valuenow", "280");
+    const capture = vi.fn();
+    Object.assign(divider, { setPointerCapture: capture });
+    const pointer = (type: string, clientX: number) =>
+      fireEvent(divider, Object.assign(new MouseEvent(type, { clientX, bubbles: true }), { pointerId: 1 }));
+    pointer("pointerdown", 300);
+    expect(capture).toHaveBeenCalledWith(1);
+    pointer("pointermove", 900);
+    expect(divider).toHaveAttribute("aria-valuenow", "480");
+    pointer("pointerup", 900);
+    pointer("lostpointercapture", 900);
+    expect(localStorage.getItem(sidebarWidthKey)).toBe("480");
+    fireEvent.keyDown(divider, { key: "Home" });
+    fireEvent.keyDown(divider, { key: "ArrowLeft" });
+    expect(divider).toHaveAttribute("aria-valuenow", "200");
+    fireEvent.keyDown(divider, { key: "ArrowRight" });
+    expect(divider).toHaveAttribute("aria-valuenow", "210");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide file tree" }));
+    expect(screen.queryByRole("navigation", { name: "Changed file tree" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("separator", { name: "Resize file tree" })).not.toBeInTheDocument();
+    initial.unmount();
+    renderDetail("files");
+    fireEvent.click(await screen.findByRole("button", { name: "Show file tree" }));
+    expect(screen.getByRole("separator", { name: "Resize file tree" })).toHaveAttribute("aria-valuenow", "210");
+  });
+
+  it("anchors comments to the active revision on both sides and preserves the draft and focus when the viewport narrows", async () => {
+    const keyboard = userEvent.setup();
+    mockFiles();
+    const media = Object.assign(new EventTarget(), { matches: false });
+    vi.stubGlobal("matchMedia", (query: string) => query === "(max-width: 760px)" ? media : { matches: false });
+    const comment: PullRequestComment = { id: "comment", author: "author", body: "Current inline thread", created_at: timestamp,
+      revision_id: revision.id, path: "src/feature/edit.txt", side: "left", line: 7 };
+    const withComments = (currentComment = comment): StoredChangeset => ({ ...changeset, changeset: {
+      ...changeset.changeset, pull_request: { ...changeset.changeset.pull_request!, comments: [currentComment,
+        { ...comment, id: "stale", revision_id: "earlier-revision", body: "Stale inline thread" }] },
+    } });
+    vi.mocked(changesetAPI.get).mockResolvedValue(withComments());
+    const addComment = vi.spyOn(changesetAPI, "addPullRequestComment")
+      .mockRejectedValueOnce(new APIError("Stale inline anchor", 409))
+      .mockResolvedValue(withComments());
+    const resolve = vi.spyOn(changesetAPI, "setPullRequestCommentResolution").mockResolvedValueOnce(
+      withComments({ ...comment, resolved_by: "reviewer", resolved_at: timestamp }),
+    ).mockResolvedValue(withComments());
+    const { container } = renderDetail("files");
+    const split = await screen.findByRole("button", { name: "Split" });
+    split.focus();
+    await keyboard.keyboard(" ");
+    expect(split).toHaveAttribute("aria-pressed", "true");
+    expect(container.querySelector(".repository-diff__split-row")).not.toBeNull();
+    expect(screen.getByText("Current inline thread")).toBeVisible();
+    expect(screen.queryByText("Stale inline thread")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Resolve conversation" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Reopen conversation" }));
+    expect(resolve.mock.calls).toEqual([[org.id, pullNumber, comment.id, true], [org.id, pullNumber, comment.id, false]]);
+    await screen.findByRole("button", { name: "Resolve conversation" });
+
+    const oldLine = () => screen.getByRole("button", { name: /src\/feature\/edit\.txt · Old line 7/ });
+    const newLine = () => screen.getByRole("button", { name: /src\/feature\/edit\.txt · New line 12/ });
+    const composer = () => screen.getByRole("textbox", { name: "Write a comment" });
+    oldLine().focus();
+    await keyboard.keyboard("{Enter}");
+    expect(composer()).toHaveFocus();
+    const summary = screen.getByText(comment.path!, { selector: "summary" });
+    expect(summary).toHaveAttribute("aria-disabled", "true");
+    // The browser test checks native <details> activation, which Happy DOM runs before React cancels it.
+    expect(fireEvent.click(summary)).toBe(false);
+    fireEvent.change(composer(), { target: { value: "On the old line" } });
+    fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+    expect(addComment).toHaveBeenCalledWith(org.id, pullNumber, "On the old line", revision.id, "src/feature/edit.txt", "left", 7);
+    expect(await screen.findByRole("alert")).toHaveTextContent("That conflicts with the current state.");
+    expect(composer()).toHaveValue("On the old line");
+    await keyboard.keyboard("{Escape}");
+    await waitFor(() => expect(oldLine()).toHaveFocus());
+
+    fireEvent.click(newLine());
+    fireEvent.change(composer(), { target: { value: "Draft for the new line" } });
+    act(() => { media.matches = true; media.dispatchEvent(new Event("change")); });
+    expect(split).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Unified" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("separator", { name: "Resize file tree" })).not.toBeInTheDocument();
+    expect(container.querySelector(".repository-diff__split-row")).toBeNull();
+    expect(composer()).toHaveValue("Draft for the new line");
+    expect(composer()).toHaveFocus();
+    await keyboard.keyboard("{Escape}");
+    await waitFor(() => expect(newLine()).toHaveFocus());
+
+    fireEvent.click(newLine());
+    fireEvent.change(composer(), { target: { value: "On the new line" } });
+    fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+    expect(addComment).toHaveBeenLastCalledWith(org.id, pullNumber, "On the new line", revision.id, "src/feature/edit.txt", "right", 12);
+    await waitFor(() => expect(newLine()).toHaveFocus());
+    act(() => { media.matches = false; media.dispatchEvent(new Event("change")); });
+    expect(split).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows distinct workflow statuses and enables Merge after the required rule is removed", async () => {
@@ -75,7 +242,7 @@ describe("required repository workflows", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(request).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("heading", { name: "Required repository workflows" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: /Conversation/ }));
+    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Conversation/ })); });
     expect(mergeButton()).toBeEnabled();
   });
 

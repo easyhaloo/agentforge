@@ -173,6 +173,18 @@
     "additions": "+{{count}}",
     "deletions": "-{{count}}",
     "noFiles": "无文件变更",
+    "noMatchingFiles": "没有符合筛选条件的文件",
+    "fileTree": "变更文件树",
+    "viewMode": "差异视图",
+    "unified": "统一视图",
+    "split": "并排视图",
+    "resizeSidebar": "调整文件树宽度",
+    "status": {
+      "added": "新增",
+      "modified": "修改",
+      "deleted": "删除",
+      "renamed": "重命名"
+    },
     "filterFiles": "筛选文件",
     "showFiles": "显示文件树",
     "hideFiles": "隐藏文件树",
