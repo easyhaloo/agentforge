@@ -566,7 +566,33 @@ test("the file reference picker searches branches and tags while retaining the f
   await expect(page.getByRole("heading", { name: "Hello" })).toBeVisible();
 });
 
-test("file toolbar aligns the reference, create and folder search controls", async ({ page }) => {
+test("repository home Go to file filters the file list with a T shortcut", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/orgs/demo/repositories/easyhaloo/agentforge");
+  const files = page.getByRole("region", { name: "Files", exact: true });
+  const readme = files.getByRole("link", { name: "README.md", exact: true });
+  const controls = page.locator(".repo-file-controls");
+  const searchBox = controls.locator(".af-search");
+  const search = controls.getByRole("textbox", { name: "Go to file" });
+  const sort = controls.getByRole("combobox", { name: "Sort files" });
+  await expect(readme).toBeVisible();
+  await expect(searchBox).toHaveCSS("height", "32px");
+  await expect(sort).toHaveCSS("height", "32px");
+  expect((await searchBox.boundingBox())?.y).toBe((await sort.boundingBox())?.y);
+  await expect(search).toHaveCSS("font-size", "14px");
+  await expect(controls.getByText("T", { exact: true })).toBeVisible();
+  await page.keyboard.press("t");
+  await expect(search).toBeFocused();
+  await search.fill("missing");
+  await expect(readme).toHaveCount(0);
+  await controls.getByRole("button", { name: "Clear search" }).click();
+  await expect(readme).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect((await searchBox.boundingBox())?.y).toBe((await sort.boundingBox())?.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+});
+
+test("file toolbar aligns its controls and Go to file filters the tree on desktop and mobile", async ({ page }) => {
   const repository = "easyhaloo/agentforge";
   const commit = "a".repeat(40);
   const path = `/orgs/demo/repositories/${repository}`;
@@ -587,7 +613,15 @@ test("file toolbar aligns the reference, create and folder search controls", asy
 
   const branch = page.getByRole("button", { name: "main", exact: true });
   const create = page.getByRole("button", { name: "Create", exact: true });
-  const searchTrigger = page.getByRole("button", { name: "Search this folder", exact: true });
+  const searchTrigger = page.getByRole("button", { name: "Go to file", exact: true });
+  const searchBox = page.locator(".repo-file-nav-toolbar + .repo-file-nav-search");
+  const search = searchBox.getByRole("textbox", { name: "Go to file" });
+  const shortcut = searchBox.getByText("T", { exact: true });
+  const tree = page.getByRole("navigation", { name: "Repository file tree" });
+  await expect(search).toBeVisible();
+  await expect(search).toHaveCSS("font-size", "14px");
+  await expect(searchBox.locator(".af-search")).toHaveCSS("height", "32px");
+  await expect(shortcut).toBeVisible();
   await expect(branch).toHaveCSS("font-size", "14px");
   await expect(branch).toHaveCSS("height", "32px");
   for (const action of [create, searchTrigger]) {
@@ -608,21 +642,31 @@ test("file toolbar aligns the reference, create and folder search controls", asy
 
   await page.goto(fileURL);
   await page.setViewportSize({ width: 320, height: 844 });
-  await page.getByRole("button", { name: "Files", exact: true }).click();
-  await searchTrigger.press("Enter");
-  const searchPanel = page.getByRole("dialog", { name: "Search this folder" });
-  const search = searchPanel.getByRole("searchbox");
+  await expect(search).toBeHidden();
+  await page.keyboard.press("t");
   await expect(search).toBeFocused();
-  await expect(search).toHaveCSS("font-size", "14px");
+  await expect(page.getByRole("button", { name: "Files", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await searchTrigger.press("Enter");
+  await expect(search).toBeFocused();
+  await expect(shortcut).toBeVisible();
+  await expect(tree.getByRole("link")).toHaveCount(2);
   await search.fill("missing");
-  await expect(searchPanel.getByRole("status")).toHaveText("No files match “missing”.");
+  await expect(tree.getByRole("status")).toHaveText("No files match “missing”.");
+  await expect(shortcut).toBeHidden();
+  await searchBox.getByRole("button", { name: "Clear search" }).click();
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+  await expect(shortcut).toBeVisible();
+  await expect(tree.getByRole("link")).toHaveCount(2);
   await search.fill("GUI");
-  await expect(searchPanel.getByRole("link")).toHaveCount(1);
-  const box = await searchPanel.boundingBox();
+  await expect(tree.getByRole("link")).toHaveCount(1);
+  const box = await searchBox.boundingBox();
   expect(box && box.x >= 0 && box.x + box.width <= 320).toBe(true);
-  await searchPanel.getByRole("link", { name: "guide.md" }).click();
-  await expect(searchPanel).toBeHidden();
+  const guide = tree.getByRole("link", { name: "guide.md" });
+  await guide.click();
   await expect(page).toHaveURL(`${path}?commit=${commit}&path=docs%2Fguide.md`);
+  await expect(guide).toHaveAttribute("aria-current", "true");
+  await expect(search).toBeVisible();
   await expect(page.getByRole("heading", { name: "Folder guide" })).toBeVisible();
 });
 

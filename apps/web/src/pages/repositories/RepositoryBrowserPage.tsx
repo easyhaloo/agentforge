@@ -7,7 +7,7 @@ import { notificationsAPI } from "../../shared/api/notifications";
 import { translateError } from "../../shared/api/errors";
 import { useDateFormatting } from "../../shared/i18n/format";
 import { issueDetailPath, organizationHandle, orgPath, repositorySettingsPath, webIDEPath } from "../../shared/routing";
-import { Button, Input, Popover, Select } from "../../shared/ui";
+import { Button, Popover, SearchInput, Select } from "../../shared/ui";
 import { RepositoryCloneDialog } from "./RepositoryCloneDialog";
 import { RepositoryDiffViewer } from "./RepositoryDiffViewer";
 import { RepositoryFileTree } from "./RepositoryFileTree";
@@ -368,7 +368,8 @@ function CodeBrowser({ organizationID, repository, refName, makeQuery, directory
             </span>}
           </div>
           <div className="repo-toolbar repo-file-controls">
-            <Input type="search" aria-label={t("repositories:browser.filterFiles")} placeholder={t("repositories:browser.filterFiles")} value={query} onChange={event => setQuery(event.target.value)}/>
+            <SearchInput placeholder={t("common:components.goToFile")} ariaLabel={t("common:components.goToFile")}
+              value={query} onChange={setQuery} debounceMs={0} shortcut={{ key: "T", placement: "trailing", globalListen: true }}/>
             <Select aria-label={t("repositories:browser.sortFiles")} value={sort} onChange={event => setSort(event.target.value)} options={[{ value: "name", label: t("repositories:browser.sortName") }, { value: "size", label: t("repositories:browser.sortSize") }]}/>
           </div>
         </div>

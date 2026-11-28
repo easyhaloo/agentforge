@@ -45,11 +45,11 @@
   color: var(--af-color-text-muted);
 }
 .repo-file-nav-action svg { flex: none; }
-.repo-file-nav-actions .af-popover:not(:last-child) .repo-file-nav-action {
+.repo-file-nav-actions .af-popover .repo-file-nav-action {
   border-start-end-radius: 0;
   border-end-end-radius: 0;
 }
-.repo-file-nav-actions .af-popover + .af-popover .repo-file-nav-action {
+.repo-file-nav-actions .af-popover + .repo-file-nav-action {
   margin-inline-start: -1px;
   border-start-start-radius: 0;
   border-end-start-radius: 0;
@@ -72,9 +72,8 @@
   background: var(--af-color-background);
   box-shadow: var(--af-shadow-floating-large);
 }
-.repo-file-nav-actions .af-input { height: 32px; font-size: 14px; }
+.repo-file-nav-search .af-search { height: 32px; min-height: 32px; font-size: 14px; }
 .repo-file-nav-actions .repo-file-nav-workspace { display: flex; justify-content: flex-start; }
-.repo-file-nav-search-results { max-height: min(256px, 40dvh); margin-top: 4px; overflow-y: auto; }
 .repo-file-nav .repo-file-nav-toggle { font-size: 14px; }
 
 .repo-file-nav nav {
@@ -97,7 +96,7 @@
   padding: 0 8px;
   padding-inline-start: calc(24px + var(--file-tree-indent));
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--af-radius-md);
   appearance: none;
   background: transparent;
   text-align: start;
@@ -108,12 +107,12 @@
   text-decoration: none;
 }
 
-.repo-file-nav .repo-file-nav-search-results .file-tree-item { padding-inline-start: 8px; }
-
 .repo-file-nav .file-tree-item.folder {
-  grid-template-columns: 14px 16px minmax(0, 1fr);
-  padding-inline-start: calc(2px + var(--file-tree-indent));
+  grid-template-columns: 16px 16px minmax(0, 1fr);
+  padding-inline-start: var(--file-tree-indent);
 }
+
+.repo-file-nav .file-tree-item.folder svg:first-child { justify-self: center; }
 
 .repo-file-nav .file-tree-item span {
   overflow: hidden;
