@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes } from "lucide-react";
+import { Code2, GitPullRequest, PlayCircle, Package, BookOpen, Settings, Users, AlertCircle, GitMerge, GitBranch, Clock, MessageSquare, CheckCircle2, XCircle, Loader, Timer, StopCircle, Plus, User, Tag, Bell, Webhook, Shield, Scale, Cloud, Key, Bot, FileText, Lock, Boxes, Star, GitFork, Eye } from "lucide-react";
 import type { OrganizationSummary, RepositoryPreviewBlob } from "../../shared/api/identity";
 import { repositoryPreviewAPI } from "../../shared/api/identity";
 import { organizationHandle, repositoryPath } from "../../shared/routing";
@@ -36,6 +36,12 @@ export function RepositoryDetailPage({ organization, repositorySlug }: Repositor
     { id: "members", label: "Members", icon: <Users size={16} /> },
   ];
 
+  const statistics = [
+    { label: t("catalog.stars"), count: 128, Icon: Star },
+    { label: t("catalog.forkCount"), count: 24, Icon: GitFork },
+    { label: t("catalog.watchers"), count: 12, Icon: Eye },
+  ];
+
   return (
     <div className="repository-detail-page">
       {/* Repository Header */}
@@ -51,9 +57,12 @@ export function RepositoryDetailPage({ organization, repositorySlug }: Repositor
             AgentForge API Server - Core backend services for the AgentForge platform
           </p>
           <div className="repository-meta">
-            <span>⭐ 128</span>
-            <span>🔀 24</span>
-            <span>👁️ 12</span>
+            {statistics.map(({ label, count, Icon }) => (
+              <span key={label} role="img" aria-label={`${label}: ${count}`}>
+                <Icon size={14} aria-hidden="true" />
+                {count}
+              </span>
+            ))}
           </div>
         </div>
         <div className="repository-actions">

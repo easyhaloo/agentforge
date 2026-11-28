@@ -78,6 +78,17 @@ describe("RepositoryDetailPage - Code Tab", () => {
     expect(screen.getByText("Loading repository files...")).toBeInTheDocument();
   });
 
+  it("exposes the repository statistics with their visible counts", async () => {
+    vi.mocked(repositoryPreviewAPI.tree).mockResolvedValue(mockTreeResponse);
+
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    expect(screen.getByRole("img", { name: "Stars: 128" })).toHaveTextContent(/^128$/);
+    expect(screen.getByRole("img", { name: "Forks: 24" })).toHaveTextContent(/^24$/);
+    expect(screen.getByRole("img", { name: "Watchers: 12" })).toHaveTextContent(/^12$/);
+    await screen.findByText("README.md");
+  });
+
   it("renders the file tree after loading", async () => {
     vi.mocked(repositoryPreviewAPI.tree).mockResolvedValue(mockTreeResponse);
 
