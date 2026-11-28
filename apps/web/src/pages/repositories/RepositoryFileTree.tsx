@@ -1,4 +1,5 @@
-import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import { PanelLeft, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -25,7 +26,17 @@ export function RepositoryFileTree({ referencePicker, referenceDetails, workspac
 }) {
   const { t } = useTranslation("repositories");
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const panelID = useId();
+  const searchRef = useRef<HTMLDivElement>(null);
+  const goToFile = t("common:components.goToFile");
+
+  const focusSearch = () => {
+    const input = searchRef.current?.querySelector("input");
+    // Open the responsive panel before moving focus to its input.
+    if (input && !input.getClientRects().length) flushSync(() => setOpen(true));
+    input?.focus();
+  };
 
   return <aside className="repo-file-nav">
     <Button className="repo-file-nav-toggle" variant="secondary" size="small" aria-expanded={open} aria-controls={panelID} onClick={() => setOpen(!open)}>
@@ -42,35 +53,25 @@ export function RepositoryFileTree({ referencePicker, referenceDetails, workspac
               {t("workspace.create")}
             </Link>}
           </Popover>}
-          <Popover ariaLabel={t("preview.searchFolder")} triggerClassName="af-button repo-file-nav-action"
-            trigger={<><Search size={16} aria-hidden="true"/><span className="repo-file-nav-action-label">{t("preview.searchFolder")}</span></>}>
-            {dismiss => <FileSearch {...tree} dismiss={dismiss}/>}
-          </Popover>
+          <Button className="repo-file-nav-action" variant="secondary" size="small" aria-label={goToFile} onClick={focusSearch}>
+            <Search size={16} aria-hidden="true"/>
+          </Button>
         </div>
+      </div>
+      <div className="repo-file-nav-search" ref={searchRef}>
+        <SearchInput placeholder={goToFile} ariaLabel={goToFile} value={query} onChange={setQuery} debounceMs={0}
+          shortcut={{ key: "T", placement: "trailing", globalListen: true, onShortcut: focusSearch }}/>
       </div>
       {referenceDetails}
       <nav aria-label={t("preview.fileTree")}>
-        <TreeDirectory {...tree} path="" depth={0} expanded />
+        <TreeDirectory {...tree} path="" depth={0} expanded query={query.trim()}/>
       </nav>
     </div>
   </aside>;
 }
 
-function FileSearch({ dismiss, ...tree }: TreeProps & { dismiss: () => void }) {
-  const { t } = useTranslation("repositories");
-  const [query, setQuery] = useState("");
-  const path = tree.selectedFile?.split("/").slice(0, -1).join("/") ?? "";
-  return <>
-    <SearchInput placeholder={t("preview.searchFolder")} value={query} onChange={setQuery}
-      debounceMs={0} shortcut={{ key: "T", placement: "trailing" }} clearable />
-    <div className="repo-file-nav-search-results">
-      <TreeDirectory {...tree} key={path} path={path} depth={0} expanded search={{ query, dismiss }}/>
-    </div>
-  </>;
-}
-
-function TreeDirectory({ path, depth, expanded, search, ...tree }: TreeProps & {
-  path: string; depth: number; expanded: boolean; search?: { query: string; dismiss: () => void };
+function TreeDirectory({ path, depth, expanded, query, ...tree }: TreeProps & {
+  path: string; depth: number; expanded: boolean; query: string;
 }) {
   const { t } = useTranslation("repositories");
   const { organizationID, repository, refName } = tree;
@@ -101,19 +102,18 @@ function TreeDirectory({ path, depth, expanded, search, ...tree }: TreeProps & {
   if (!entries) return <p className="repo-file-nav-status" role="status">{t("preview.loadingTree")}</p>;
   if (!entries.length) return <p className="repo-file-nav-status" role="status">{t("preview.emptyDirectory")}</p>;
 
-  const query = search?.query.trim().toLowerCase() ?? "";
-  const sortedEntries = [...entries].filter(entry => !search || (entry.kind === "file" && entry.name.toLowerCase().includes(query))).sort((left, right) =>
-    Number(right.kind === "tree") - Number(left.kind === "tree") || left.name.localeCompare(right.name));
-  if (!sortedEntries.length) return <p className="repo-file-nav-status" role="status">{
-    query ? t("preview.noMatch", { query: search?.query.trim() }) : t("preview.noFilesInFolder")
-  }</p>;
+  const searchTerm = query.toLowerCase();
+  // ponytail: filter loaded rows; repo-wide lookup would need a recursive tree or search endpoint.
+  const sortedEntries = entries.filter(entry => entry.kind === "tree" || entry.name.toLowerCase().includes(searchTerm))
+    .sort((left, right) => Number(right.kind === "tree") - Number(left.kind === "tree") || left.name.localeCompare(right.name));
+  if (expanded && !sortedEntries.length) return <p className="repo-file-nav-status" role="status">{t("preview.noMatch", { query })}</p>;
   return <ul hidden={!expanded} style={{ "--file-tree-indent": `${depth * 8}px` } as CSSProperties}>
-    {sortedEntries.map(entry => <FileTreeItem key={entry.path} entry={entry} depth={depth} onNavigate={search?.dismiss} {...tree}/>)}
+    {sortedEntries.map(entry => <FileTreeItem key={entry.path} entry={entry} depth={depth} query={query} {...tree}/>)}
   </ul>;
 }
 
-function FileTreeItem({ entry, depth, onNavigate, ...tree }: TreeProps & {
-  entry: RepositoryPreviewEntry; depth: number; onNavigate?: () => void;
+function FileTreeItem({ entry, depth, query, ...tree }: TreeProps & {
+  entry: RepositoryPreviewEntry; depth: number; query: string;
 }) {
   const [expanded, setExpanded] = useState<boolean>();
   const isOpen = expanded ?? Boolean(tree.selectedFile?.startsWith(`${entry.path}/`));
@@ -125,12 +125,12 @@ function FileTreeItem({ entry, depth, onNavigate, ...tree }: TreeProps & {
       <FileTreeIcon name={isOpen ? "file-directory-open-fill" : "file-directory-fill"} className="file-tree-folder-icon"/>
       <span>{entry.name}</span>
     </Button>
-    <TreeDirectory {...tree} path={entry.path} depth={depth + 1} expanded={isOpen}/>
+    <TreeDirectory {...tree} path={entry.path} depth={depth + 1} expanded={isOpen} query={query}/>
   </li>;
   if (entry.kind !== "file") return <li><span className="file-tree-item" aria-disabled="true">{fileLabel}</span></li>;
   return <li>{tree.fileHref
-    ? <Link className="file-tree-item" to={tree.fileHref(entry.path)} onClick={onNavigate} aria-current={current}>{fileLabel}</Link>
-    : <Button variant="ghost" className="af-action-row file-tree-item" onClick={() => { onNavigate?.(); tree.onSelectFile?.(entry.path, entry.size); }} aria-current={current}>{fileLabel}</Button>}
+    ? <Link className="file-tree-item" to={tree.fileHref(entry.path)} aria-current={current}>{fileLabel}</Link>
+    : <Button variant="ghost" className="af-action-row file-tree-item" onClick={() => tree.onSelectFile(entry.path, entry.size)} aria-current={current}>{fileLabel}</Button>}
   </li>;
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { render as renderUI, screen, waitFor } from "@testing-library/react";
+import { render as renderUI, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import type { OrganizationSummary, RepositoryPreviewTree, RepositoryPreviewBlob } from "../../shared/api/identity";
@@ -136,6 +136,30 @@ describe("RepositoryDetailPage - Code Tab", () => {
     });
 
     expect(repositoryPreviewAPI.tree).toHaveBeenCalledWith("org-test", "testorg/testrepo", "src", "");
+  });
+
+  it("filters the visible file tree as the user types and restores it when cleared", async () => {
+    vi.mocked(repositoryPreviewAPI.tree).mockImplementation(async (_orgId, _repo, path) =>
+      path === "src" ? mockSubtreeResponse : mockTreeResponse);
+    const user = userEvent.setup();
+    render(<RepositoryDetailPage organization={mockOrganization} repositorySlug="testrepo" />);
+
+    const search = screen.getByRole("textbox", { name: "Go to file" });
+    expect(search).toHaveAttribute("aria-keyshortcuts", "T");
+    const tree = within(screen.getByRole("navigation", { name: "Repository file tree" }));
+    const folder = await tree.findByRole("button", { name: "src" });
+    await user.click(folder);
+    expect(await tree.findByRole("button", { name: "index.ts" })).toBeVisible();
+    await user.type(search, "UTIL");
+    expect(tree.getByRole("button", { name: "utils.ts" })).toBeVisible();
+    expect(tree.queryByRole("button", { name: "index.ts" })).not.toBeInTheDocument();
+    expect(tree.queryByRole("button", { name: "README.md" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(search).toHaveFocus();
+    expect(folder).toHaveAttribute("aria-expanded", "true");
+    expect(tree.getByRole("button", { name: "index.ts" })).toBeVisible();
+    expect(tree.getByRole("button", { name: "README.md" })).toBeVisible();
+    expect(repositoryPreviewAPI.tree).toHaveBeenCalledTimes(2);
   });
 
   it("loads and displays file content when a file is selected", async () => {
