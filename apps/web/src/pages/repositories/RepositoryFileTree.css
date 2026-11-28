@@ -72,7 +72,7 @@
   background: var(--af-color-background);
   box-shadow: var(--af-shadow-floating-large);
 }
-.repo-file-nav-actions .af-input { height: 32px; font-size: 14px; }
+.repo-file-nav-actions .af-search { height: 32px; min-height: 32px; font-size: 14px; }
 .repo-file-nav-actions .repo-file-nav-workspace { display: flex; justify-content: flex-start; }
 .repo-file-nav-search-results { max-height: min(256px, 40dvh); margin-top: 4px; overflow-y: auto; }
 .repo-file-nav .repo-file-nav-toggle { font-size: 14px; }
