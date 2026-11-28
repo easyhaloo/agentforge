@@ -72,6 +72,11 @@
   "components": {
     "searchPlaceholder": "搜索...",
     "searchOptionsPlaceholder": "搜索选项...",
+    "submitSearch": "搜索",
+    "searchHintPrefix": "按",
+    "searchHintSuffix": "搜索",
+    "goToFile": "转到文件",
+    "lastSubmittedSearch": "上次提交的查询",
     "clearSearch": "清除搜索",
     "selectOption": "请选择...",
     "selectAllRows": "选择本页全部行",

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { act, render, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import i18n from "../../../locales";
 import {
   Button,
@@ -11,7 +12,9 @@ import {
   Input,
   Modal,
   Popover,
+  SearchInput,
   Select,
+  type SearchInputProps,
   Tabs,
   getNextEnabledTabIndex,
   getFocusTrapTargetIndex,
@@ -21,6 +24,118 @@ import { Alert, Empty, Loading, Skeleton, NotificationProvider } from "./feedbac
 
 beforeAll(async () => {
   await i18n.changeLanguage("en-US");
+});
+
+function ControlledSearch({ value: initialValue = "", ...props }: SearchInputProps) {
+  const [value, setValue] = useState(initialValue);
+  return <SearchInput {...props} value={value} onChange={next => {
+    setValue(next);
+    props.onChange?.(next);
+  }} />;
+}
+
+describe("SearchInput", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("debounces trimmed queries, submits Enter immediately and restores focus after clearing", () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const onSearch = vi.fn();
+    const screen = render(<ControlledSearch onChange={onChange} onSearch={onSearch} />);
+    const input = screen.getByRole("textbox", { name: "Search..." });
+    fireEvent.change(input, { target: { value: "  test  " } });
+    expect(onChange).toHaveBeenLastCalledWith("  test  ");
+    act(() => vi.advanceTimersByTime(299));
+    expect(onSearch).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(onSearch.mock.calls).toEqual([["test"]]);
+
+    fireEvent.change(input, { target: { value: "next" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSearch).toHaveBeenLastCalledWith("next");
+    act(() => vi.advanceTimersByTime(300));
+    expect(onSearch).toHaveBeenCalledTimes(2);
+
+    const clear = screen.getByRole("button", { name: "Clear search" });
+    clear.focus();
+    fireEvent.click(clear);
+    expect(onChange).toHaveBeenLastCalledWith("");
+    expect(onSearch).toHaveBeenLastCalledWith("");
+    expect(document.activeElement).toBe(input);
+    act(() => vi.advanceTimersByTime(300));
+    expect(onSearch).toHaveBeenCalledTimes(3);
+  });
+
+  it("opens a dialog trigger on click or slash outside editable controls", () => {
+    const onTrigger = vi.fn();
+    const screen = render(<>
+      <SearchInput mode="trigger" onTrigger={onTrigger} triggerHint={{ prefix: "Type", suffix: "to search" }}
+        shortcut={{ key: "/", placement: "inline-hint", globalListen: true }} />
+      <input aria-label="Other field" />
+    </>);
+    const trigger = screen.getByRole("button", { name: "Type / to search" });
+    expect(trigger.tagName).toBe("BUTTON");
+    expect(trigger.getAttribute("type")).toBe("button");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(trigger.getAttribute("aria-keyshortcuts")).toBe("/");
+    expect(trigger.querySelector("kbd")?.textContent).toBe("/");
+    fireEvent.click(trigger);
+    fireEvent.keyDown(trigger, { key: "/" });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "/" });
+    fireEvent.keyDown(trigger, { key: "/", ctrlKey: true });
+    fireEvent.keyDown(trigger, { key: "/", repeat: true });
+    fireEvent.keyDown(trigger, { key: "/", isComposing: true });
+    expect(onTrigger).toHaveBeenCalledTimes(2);
+  });
+
+  it("focuses the input with the trailing shortcut and swaps the key hint for clear", () => {
+    const screen = render(<ControlledSearch ariaLabel="Go to file"
+      shortcut={{ key: "T", placement: "trailing", globalListen: true }} />);
+    const input = screen.getByRole("textbox", { name: "Go to file" });
+    expect(screen.container.querySelector("kbd")?.textContent).toBe("T");
+    fireEvent.keyDown(document.body, { key: "t" });
+    expect(document.activeElement).toBe(input);
+    fireEvent.change(input, { target: { value: "src" } });
+    expect(screen.container.querySelector("kbd")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.container.querySelector("kbd")?.textContent).toBe("T");
+  });
+
+  it("highlights qualifier values, honors allowed keys and waits for IME composition", () => {
+    vi.useFakeTimers();
+    const onSearch = vi.fn();
+    const props = { value: "is:pr state:open", onSearch };
+    const screen = render(<ControlledSearch {...props} qualifiers={{ enabled: true }} />);
+    const input = screen.getByRole("textbox");
+    const tokens = () => Array.from(screen.container.querySelectorAll("mark"), mark => mark.textContent);
+    expect(tokens()).toEqual(["pr", "open"]);
+    expect(screen.container.querySelector(".af-search__highlight")?.getAttribute("aria-hidden")).toBe("true");
+    screen.rerender(<ControlledSearch {...props} qualifiers={{ enabled: true, allowedKeys: ["state"] }} />);
+    expect(tokens()).toEqual(["open"]);
+
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: "is:pr state:open 中文" } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    act(() => vi.advanceTimersByTime(300));
+    expect(tokens()).toEqual([]);
+    expect(onSearch).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input);
+    act(() => vi.advanceTimersByTime(300));
+    expect(tokens()).toEqual(["open"]);
+    expect(onSearch.mock.calls).toEqual([["is:pr state:open 中文"]]);
+  });
+
+  it("submits immediately through the attached button and supports a filled clear button", () => {
+    vi.useFakeTimers();
+    const onSearch = vi.fn();
+    const screen = render(<ControlledSearch onSearch={onSearch} submitButton clearButtonStyle="filled" />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "is:pr" } });
+    expect(screen.getByRole("button", { name: "Clear search" }).classList.contains("af-search__clear--filled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    expect(onSearch.mock.calls).toEqual([["is:pr"]]);
+    act(() => vi.advanceTimersByTime(300));
+    expect(onSearch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("shared UI primitives", () => {

@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { translateError } from "../../shared/api/errors";
 import { repositoryAPI, type RepositoryMetadata } from "../../shared/api/identity";
 import { ownerDisplayLabel, repositoryPath, type RepositorySection } from "../../shared/routing";
-import { Input, Popover } from "../../shared/ui";
+import { Popover, SearchInput } from "../../shared/ui";
 import { TopbarIcon } from "./TopbarIcon";
 
 type Props = { organizationId: string; organizationName: string; handle: string; owner: string; repo: string; section?: RepositorySection };
@@ -47,7 +47,7 @@ function RepositoryChoices({ organizationId, handle, slug, owner, section }: Omi
   const search = t("topbar.searchRepositories");
   const matches = repositories?.filter(repository => repository.slug.toLowerCase().includes(query.trim().toLowerCase()));
   return <>
-    <Input aria-label={search} placeholder={search} value={query} onChange={event => setQuery(event.target.value)} />
+    <SearchInput debounceMs={0} placeholder={search} ariaLabel={search} value={query} onChange={setQuery} />
     {error ? <div role="alert">{translateError(error, t, "repositories:feedback.loadFailed")}</div>
       : !matches ? <div role="status">{t("common:components.loading")}</div>
       : !matches.length ? <div role="status">{t("topbar.noMatchingRepositories")}</div>

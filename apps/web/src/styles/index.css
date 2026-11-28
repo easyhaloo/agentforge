@@ -264,7 +264,7 @@
   text-align: left;
   text-decoration: none;
 }
-.top-actions .af-button.searchbox {
+.top-actions .af-search--trigger.searchbox {
   height: 34px;
   min-width: 230px;
   justify-content: flex-start;
@@ -277,7 +277,7 @@
   font-size: 11px;
   font-weight: 400;
 }
-.top-actions .af-button.searchbox kbd { margin-left: auto; }
+.top-actions .af-search--trigger.searchbox kbd { margin-left: 0; }
 .top-actions .af-button.icon-button {
   position: relative;
   width: 32px;
@@ -334,7 +334,7 @@
     gap: 8px;
   }
 
-  .top-actions .af-button.searchbox {
+  .top-actions .af-search--trigger.searchbox {
     width: 34px;
     min-width: 34px;
     padding: 0;
@@ -343,7 +343,7 @@
     font-size: 0;
   }
 
-  .top-actions .af-button.searchbox kbd {
+  .top-actions .af-search--trigger.searchbox kbd {
     display: none;
   }
 }
@@ -557,7 +557,7 @@
 .page-heading h1 { margin: 0 0 4px; font-size: 26px; font-weight: 600; }
 .page-heading p { font-size: 14px; }
 @media (max-width:720px) {
-  .top-actions .af-button.searchbox { min-width: 32px; }
+  .top-actions .af-search--trigger.searchbox { min-width: 32px; }
   .page-heading { flex-wrap: wrap; }
 }
 
@@ -635,7 +635,7 @@
 .topbar-repository .af-popover__trigger { display: grid; place-items: center; padding: 0; width: 24px; height: 34px; border-color: transparent; background: transparent; }
 .topbar-repository .af-popover__trigger:is(:hover, [aria-expanded="true"]) { background: var(--af-color-row-hover); }
 .topbar-repository .af-popover__content { display: grid; width: min(310px, calc(100vw - 24px)); gap: 8px; padding: 10px; }
-.topbar-repository .af-input { width: 100%; }
+.topbar-repository .af-search { font-size: 14px; }
 .topbar-repository__list { display: grid; max-height: min(45dvh, 300px); overflow: auto; list-style: none; padding: 0; margin: 0; }
 .topbar-repository__row { display: flex; align-items: center; min-height: 32px; gap: 8px; padding: 4px 8px; overflow-wrap: anywhere; color: inherit; text-decoration: none; }
 .topbar-repository__row svg { flex: none; color: var(--af-color-text-secondary); }

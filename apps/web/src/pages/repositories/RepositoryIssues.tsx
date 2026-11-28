@@ -181,6 +181,9 @@ export function RepositoryIssues({ organization, repository, organizationHandle,
                 if (!composing.current && value === searchDraft.trim()) changeQuery(searchDraft);
               }}
               placeholder={t("issues.searchPlaceholder")}
+              qualifiers={{ enabled: true }}
+              clearButtonStyle="filled"
+              submitButton
             />
           </div>
           <section className="issues-results" aria-label={t("issues.results")} aria-busy={loading}>
