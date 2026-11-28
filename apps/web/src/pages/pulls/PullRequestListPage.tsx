@@ -68,6 +68,9 @@ export function PullRequestListPage({ organization, repository, handle }: Props)
         onChange={setQueryDraft}
         onSearch={value => applyFilters({ q: value })}
         placeholder={t("pulls:list.searchPlaceholder")}
+        qualifiers={{ enabled: true }}
+        clearButtonStyle="filled"
+        submitButton
       />
       <Link className="button primary" to={pullRequestComparePath(handle, repository)}>
         <Plus size={16} aria-hidden="true"/> {t("pulls:list.newPullRequest")}

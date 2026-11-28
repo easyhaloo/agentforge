@@ -32,7 +32,7 @@
 
 1. **审查**。Codex 对照任务单检查实现工作树的实际差异，核对需求、设计、接口兼容性、权限和异常路径、测试覆盖以及无关改动。涉及交付流程时，核验证据与评审绑定到当前 Revision，旧 Revision 的记录不能授权，审批要求当前证据通过，合并还要求当前 Revision 的评审已批准。领域规则见 [AGENTS.md](../../AGENTS.md#domain-invariants-critical)。
 2. **返工**。Codex 给出具体文件、问题和可验证的修正条件，由 Claude Code 在包含待修实现的工作树继续处理。Codex 对修正后的差异重新审查。
-3. **集成复验**。Codex 集成审查通过的变更，在集成后的版本亲自运行适用检查。前端运行 `npm test` 和 `npm run build`。后端按 [测试环境指南](../testing/setup.md) 配置测试数据库，运行 `go test ./...` 和 `go build ./cmd/server`。受影响的用户旅程按 [E2E 指南](../testing/e2e.md) 补齐并运行 `npm run test:e2e`。UI 变更还要对照设计检查浏览器中的关键状态与布局。纯文档改动检查链接、入口引用和文档差异。
+3. **集成复验**。Codex 集成审查通过的变更，在集成后的版本亲自运行适用检查。前端**必须**运行 `npm test`、`npm run build` 以及 Playwright E2E 验证（`npm run test:e2e` 或覆盖受影响页面的定向 `.pw.ts` 用例），并**保存/提供对应 UI 状态的浏览器截图**作为交付验收依据。后端按 [测试环境指南](../testing/setup.md) 配置测试数据库，运行 `go test ./...` 和 `go build ./cmd/server`。受影响的用户旅程按 [E2E 指南](../testing/e2e.md) 补齐并运行 `npm run test:e2e`。UI 变更还要对照设计检查浏览器中的关键状态与布局，并确保提供对应截图。纯文档改动检查链接、入口引用和文档差异。
 4. **交付**。Codex 汇报已实现内容、Review 结论、验证结果及遗漏的检查。适用的验收项失败或未运行时，说明原因和影响，标记为待验证或阻塞。
 
 ## 持续维护
