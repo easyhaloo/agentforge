@@ -231,6 +231,10 @@
 
 .repo-layout > .repo-toolbar { margin-bottom: 12px; }
 .repo-code-toolbar { gap: 10px; }
+.repo-file-controls { flex-wrap: nowrap; gap: 8px; max-width: 100%; }
+.repo-file-controls .af-search { width: 232px; }
+.repo-file-controls .af-search,
+.repo-file-controls .af-select-trigger { height: 32px; min-height: 32px; font-size: 14px; }
 .repo-breadcrumbs { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
 .repo-panel {
   border: 1px solid var(--af-color-border);
