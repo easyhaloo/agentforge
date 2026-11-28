@@ -12,7 +12,6 @@
   margin: 0 auto;
   padding: 32px 24px 64px;
   background: var(--af-color-surface);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--color-text-primary);
 }
 
@@ -59,7 +58,7 @@
   inset: 4px auto 4px -8px;
   width: 4px;
   border-radius: 4px;
-  background: #1f6feb;
+  background: var(--af-color-primary);
 }
 
 .settings-nav-group {
@@ -104,23 +103,12 @@
 .settings-profile-form .af-field { font-size: 14px; }
 .settings-profile-form :is(.af-field__hint, .af-field__error) { font-size: 12px; }
 .settings-profile-form .af-textarea { min-height: 76px; }
-.settings-profile-form .af-button--primary {
-  justify-self: start;
-  background: #1f883d;
-  border-color: #1b7836;
-}
-.settings-profile-form .af-button--primary:hover:enabled { background: #1a7f37; }
+.settings-profile-form .af-button--primary { justify-self: start; }
 
 .settings-profile-picture { margin: 0; }
 .settings-profile-picture figcaption { margin-bottom: 8px; font-weight: 600; }
 .settings-profile-picture :is(img, svg) { max-width: 100%; height: auto !important; aspect-ratio: 1; }
 .settings-profile-picture small { display: block; margin-top: 8px; color: var(--color-text-secondary); }
-
-[data-theme="light"] .settings-layout {
-  --af-color-surface-raised: #f6f8fa;
-  --af-color-primary: #0969da;
-  --color-bg-hover: #eff1f3;
-}
 
 .settings-page-description {
   font-size: 14px;
@@ -172,7 +160,7 @@
 }
 
 .settings-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--af-color-backdrop) 30%, transparent);
 }
 
 .settings-card-list {
@@ -195,7 +183,7 @@
 }
 
 .focused-main .topbar { padding-inline: 16px; }
-[data-theme="light"] .focused-main .topbar { background: #f6f8fa; }
+[data-theme="light"] .focused-main .topbar { background: var(--af-color-surface-raised); }
 .settings-topbar-title { display: flex; align-items: center; gap: 12px; color: var(--af-color-text); }
 .settings-topbar-title a {
   display: grid;
