@@ -8,6 +8,10 @@
 
 ---
 
+## Current Implementation Status Note
+
+`/login` and `/register` are standalone routes outside the workspace shell. Login supports email/password and the SSO providers enabled by the server (Google, GitHub, or legacy OIDC). `/register` handles local account creation. The original SSO-only proposal follows. See the [authentication architecture](../architecture/identity-and-tenancy.md).
+
 ## 0. Design Pattern Principles (CRITICAL)
 
 ### 0.1 Full-Page Pattern (GitHub/GitLab Style)

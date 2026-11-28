@@ -431,6 +431,14 @@ Use the [GitHub Primer Design System](design-system/README.md) ([colors](design-
 - Keep browser history intact. For example, the repository **Code** tab opens the repository, where **Commit history** opens the list. The browser Back command restores the previous filtered list when the user opened a commit from it.
 - Keep actions such as **Cancel**, **Previous step**, and **Retry** where they perform those tasks.
 
+### Diff and overlay theme tokens
+
+Use semantic tokens from [the shared theme](../../apps/web/src/shared/ui/theme/theme.css) in Light and Dark modes.
+
+- Diff surfaces and hunk headers use `--af-diff-surface`, `--af-diff-header-bg`, `--af-diff-hunk-bg`, and `--af-diff-hunk-text`. Additions and deletions each use their own `--af-diff-{add,del}-{bg,gutter-bg,text}` tokens for the row, line-number gutter, and text.
+- Shared drawers and modals use `--af-color-backdrop` (`rgb(31 35 40 / 32%)` in Light and `rgb(5 8 16 / 68%)` in Dark).
+- Shared inputs, search fields, select triggers, and textareas use a 2 px `--af-color-focus-ring`, derived from the active theme’s primary color at 28% opacity. Preserve visible keyboard focus in both themes.
+
 ### Data loading and recovery
 
 - Keep routine Refresh and Reload controls out of page headers, toolbars, and panels. Fetch when a view opens or its scope changes, and update the affected data after a successful write.
@@ -460,13 +468,13 @@ Use the shared left `Drawer` and compact action rows for workspace navigation. T
 | Panel | 320 px wide, capped at viewport width minus 32 px so the backdrop remains dismissible. Use a 16 px radius on the exposed edge and a theme surface. |
 | Header | Keep the brand mark and 32 px close target fixed above the scrolling body. Use a 16 px close icon and give the dialog a localized accessible name. |
 | Rows | Use 16 px outer gutters, 32 px minimum height, 8 px icon gap and side padding, 16 px Lucide icons in the secondary text color, and 14 px labels on a 20 px line at weight 400. Let long labels wrap. |
-| Groups | Use localized 12 px labels at weight 600. Separate groups with a 1 px `--af-color-border` line and 8 px on each side. Show the organization picker in the drawer at 720 px and below. |
+| Groups | Use localized 12 px labels at weight 600. Separate groups with a 1 px `--af-color-border` line and 8 px on each side. |
 | Current page | Use `aria-current="page"`, weight 600, a neutral row fill, and a 3 px primary-color marker on the leading edge. Preserve the keyboard focus outline. |
-| Backdrop and motion | Use a 15% blue-gray scrim in light mode and a 60% dark scrim in dark mode. Pair a 300 ms horizontal slide with a 300 ms opacity transition. Disable both transitions for reduced motion. |
+| Backdrop and motion | Use the shared `--af-color-backdrop` token. Pair a 300 ms horizontal slide with a 300 ms opacity transition. Disable both transitions for reduced motion. |
 
-Place the personal and selected-organization settings links in the avatar menu.
+Place the personal and selected-organization settings links in the avatar menu. **Settings** opens `/settings/profile`, where the personal `SettingsLayout` shows **Current organization** as a picker for multiple organizations and as text for a single organization. Switching organizations updates the adjacent **Organization settings** link and persists across reloads. The navigation drawer has no organization picker at any viewport width.
 
-Focus the close button on open and keep Tab traversal within the panel. Escape, the close button, and backdrop clicks dismiss it and return focus to the trigger. Close when a navigation link or organization is selected. Keep the page scroll locked while open and let the drawer body scroll independently. During exit, the drawer stops receiving focus and pointer events.
+Focus the close button on open and keep Tab traversal within the panel. Escape, the close button, and backdrop clicks dismiss it and return focus to the trigger. Close when a navigation link is selected. Keep the page scroll locked while open and let the drawer body scroll independently. During exit, the drawer stops receiving focus and pointer events.
 
 Check the desktop light and 320 px dark layouts, the visible current-page and focus states, and all dismissal paths. For motion timing, record from the click to the panel's `transform` transition end in a browser. [Drawer styles](../../apps/web/src/app/components/Sidebar.css) · [Browser checks](../../apps/web/e2e/workbench.pw.ts)
 
