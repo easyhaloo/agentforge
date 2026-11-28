@@ -12,11 +12,6 @@
 .preferences-settings button[type="submit"] {
   justify-self: start;
 }
-.preferences-settings .af-button--primary[type="submit"] {
-  background: #1f883d;
-  border-color: #1b7836;
-}
-.preferences-settings .af-button--primary[type="submit"]:enabled:hover { background: #1a7f37; }
 .preferences-settings .preference-error {
   padding: 12px;
   border-radius: 6px;

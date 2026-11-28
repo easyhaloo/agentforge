@@ -25,7 +25,7 @@ Detail                    Title                         Status
                           Conversation · Commits · Checks · Files changed
                           Timeline and merge gate       Reviewer / branch facts
                           Comment composer
-Files changed             Filter and file index        Patch and line discussions
+Files changed             Filter and file tree         Unified or Split patches and line discussions
 ```
 
 - Reuse the repository masthead, shared form controls, status treatments, compact rows, buttons and repository diff rendering. Use AgentForge theme tokens, typography, icons and focus treatments in both themes. State always has a text label. Use monospace for branch refs, SHAs and patch lines. Keep a readable measure for descriptions and discussion.
@@ -35,6 +35,12 @@ Files changed             Filter and file index        Patch and line discussion
 - A pull request is a repository view over a Changeset. Use its stable ID in links and bind checks, decisions and inline comments to a Revision. Only the author and repository managers control draft, close and reopen. An assigned reviewer decides with passing evidence for the active Revision. Merge targets the recorded base branch and the service verifies current approval, passing evidence, the evaluated target SHA and Git conflict outcomes. Comments and diff text render as untrusted data.
 
 AgentForge uses the verified Changeset merge policy and a real merge commit. GitHub's wider ecosystem also includes fork comparisons, code-owner policy, multiple review groups, suggestions, merge queues, squash/rebase methods and projects or milestones. The native workflow ships with the repository and delivery capabilities specified here.
+
+## Files changed
+
+- Group changed paths into expandable directories. Each file shows a localized icon for added, deleted, modified, or renamed status and its own `+` additions and `−` deletions. Filter by path. Selecting a file opens its patch if collapsed, scrolls to it, and focuses its header.
+- **Hide files** and **Show files** collapse and restore the sidebar. On wide screens, drag the separator or use Left/Right to resize it by 10 px and Home/End to reach the 200–480 px bounds. The sidebar starts at 280 px and remembers its width and visibility. At 760 px and below, the tree stacks above the patches and the resize handle is hidden.
+- **Unified** is the default. **Split** shows old lines on the left and new lines on the right, with side-specific line comments still bound to the active Revision. At 760 px and below, use Unified and disable the Split control. Widening the viewport restores Split if it was selected.
 
 ## Detail typography and navigation
 

@@ -109,7 +109,7 @@
   --af-color-warning-subtle: var(--bgColor-attention-muted);
   --af-color-danger-subtle: var(--bgColor-danger-muted);
   --af-color-overlay: var(--bgColor-overlay);
-  --af-color-overlay-backdrop: var(--backdrop-bg);
+  --af-color-overlay-backdrop: var(--af-color-backdrop);
   --af-color-tooltip-bg: #3d444d; /* bgColor-emphasis */
   --af-color-tooltip-fg: var(--fgColor-onEmphasis);
   --af-button-inactive-bg: var(--button-default-bg-hover);
@@ -122,6 +122,19 @@
   --af-control-height-sm: var(--control-sm);
   --af-control-height-md: var(--control-md);
   --af-control-height-lg: var(--control-lg);
+
+  --af-color-backdrop: rgb(5 8 16 / 68%);
+  --af-color-focus-ring: color-mix(in srgb, var(--af-color-primary) 28%, transparent);
+  --af-diff-surface: var(--af-color-background);
+  --af-diff-header-bg: var(--af-color-surface);
+  --af-diff-hunk-bg: #1c2d41;
+  --af-diff-hunk-text: #a5d6ff;
+  --af-diff-add-bg: #0d3a2e;
+  --af-diff-add-gutter-bg: #174737;
+  --af-diff-add-text: #3fb950;
+  --af-diff-del-bg: #3d252f;
+  --af-diff-del-gutter-bg: #4a2e39;
+  --af-diff-del-text: #f85149;
   --af-z-dropdown: 5;
   --af-z-sticky: 6;
   --af-z-overlay: 10;
@@ -191,6 +204,15 @@
   --shadow-dialog: 0 16px 48px rgba(13, 17, 23, 0.65);
   --backdrop-bg: rgba(28, 33, 40, 0.6);
   --af-color-primary-hover: #6cb6ff;
+  --af-color-backdrop: var(--backdrop-bg);
+  --af-diff-hunk-bg: var(--diff-hunk-bg);
+  --af-diff-hunk-text: var(--fgColor-default);
+  --af-diff-add-bg: var(--diff-add-bg);
+  --af-diff-add-gutter-bg: var(--diff-add-num-bg);
+  --af-diff-add-text: var(--fgColor-success);
+  --af-diff-del-bg: var(--diff-del-bg);
+  --af-diff-del-gutter-bg: var(--diff-del-num-bg);
+  --af-diff-del-text: var(--fgColor-danger);
 }
 
 :root[data-theme="light"] {
@@ -260,12 +282,22 @@
   --af-color-surface-raised: #f6f8fa;
   --af-color-primary-hover: #0550ae;
   --af-color-overlay: var(--bgColor-overlay);
-  --af-color-overlay-backdrop: var(--backdrop-bg);
+  --af-color-overlay-backdrop: var(--af-color-backdrop);
   --af-color-tooltip-bg: #25292e; /* bgColor-emphasis */
   --af-color-tooltip-fg: var(--fgColor-onEmphasis);
   --af-button-inactive-bg: #e6eaef; /* button-inactive-bgColor */
   --af-button-inactive-fg: var(--fgColor-muted);
   --af-shadow-floating-large: 0 0 0 1px #d1d9e000, 0 40px 80px 0 #25292e3d; /* shadow-floating-large */
+  --af-color-backdrop: rgb(31 35 40 / 32%);
+  --af-diff-header-bg: var(--af-color-surface-raised);
+  --af-diff-hunk-bg: #ddf4ff;
+  --af-diff-hunk-text: #0550ae;
+  --af-diff-add-bg: #dafbe1;
+  --af-diff-add-gutter-bg: #aceebb;
+  --af-diff-add-text: #116329;
+  --af-diff-del-bg: #ffebe9;
+  --af-diff-del-gutter-bg: #ffd7d5;
+  --af-diff-del-text: #cf222e;
 }
 
 .af-ui-root {

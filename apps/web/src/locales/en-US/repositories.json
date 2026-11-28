@@ -301,6 +301,8 @@
     "relevance": "Relevance",
     "lastCommit": "Last commit",
     "stars": "Stars",
+    "forkCount": "Forks",
+    "watchers": "Watchers",
     "starsUnavailable": "Star counts are unavailable.",
     "name": "Name",
     "updated": "Updated {{time}}",

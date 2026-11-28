@@ -7,6 +7,10 @@
 | Owner | Product Team |
 | Last updated | 2024-11-19 |
 
+## Current Implementation Status Note
+
+The canonical route is `/orgs/:org/repositories/:owner/:repo`. It opens the code browser, with separate URLs for Issues, Pull requests, Actions, Projects, and Settings. The legacy single-segment route `/orgs/:org/repositories/:repositorySlug` still opens `RepositoryDetailPage` and uses the shared Light and Dark theme tokens. The PRD below records the original tab-based design. See [ADR-008](../architecture/decisions.md#adr-008-scoped-url-routing).
+
 ## 1. Background & Problem
 
 AgentForge users need a comprehensive interface to browse repository contents, manage workflows, track issues and pull requests, configure settings, and collaborate with team members. Currently, users lack a unified repository detail page that provides GitHub-equivalent functionality while integrating AgentForge-specific features such as Changesets, artifact management, and agent-based workflows.
